@@ -37,7 +37,7 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-    command: sh -c "corepack enable && pnpm install && pnpm db:generate && pnpm db:push && pnpm db:seed && pnpm dev"
+    command: sh -c "corepack enable && pnpm install && pnpm db:generate && pnpm db:push --accept-data-loss && pnpm db:seed && pnpm dev"
     networks:
       - stss-network
 

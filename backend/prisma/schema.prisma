@@ -47,6 +47,11 @@ model User {
   logs                  SystemLog[]
   scoreModificationLogs ScoreModificationLog[]
 
+  // 索引优化：常用查询字段
+  @@index([status])      // 按状态筛选用户
+  @@index([realName])    // 按姓名搜索
+  @@index([createdAt])   // 按创建时间排序
+
   @@map("users")
 }
 
@@ -69,6 +74,10 @@ model Student {
   testResults TestResult[]
   scores      Score[]
   gpaRecords  GPARecord[]
+
+  // 索引优化：常用查询字段
+  @@index([majorId])  // 按专业查询学生
+  @@index([grade])    // 按年级查询学生
 
   @@map("students")
 }
@@ -93,6 +102,9 @@ model Teacher {
   testPapers      TestPaper[]
   enteredScores   Score[]          @relation("EnteredScores")
   courses         Course[]
+
+  // 索引优化：常用查询字段
+  @@index([departmentId])  // 按院系查询教师
 
   @@map("teachers")
 }
@@ -241,6 +253,12 @@ model SystemLog {
   createdAt    DateTime @default(now()) @map("created_at")
 
   user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  // 索引优化：日志查询常用字段
+  @@index([userId])        // 按用户查询日志
+  @@index([action])        // 按操作类型查询
+  @@index([createdAt])     // 按时间查询
+  @@index([userId, createdAt])  // 复合索引：用户+时间
 
   @@map("system_logs")
 }

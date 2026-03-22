@@ -1,0 +1,5 @@
+# commit-msg hook
+# 验证提交信息格式是否符合规范
+
+echo "📝 Validating commit message..."
+pnpm exec commitlint --edit $1

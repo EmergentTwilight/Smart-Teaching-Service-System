@@ -12,8 +12,54 @@ import { departmentIdSchema } from './departments.types.js'
 
 const router: RouterType = Router()
 
+// 所有路由需要认证
 router.use(authMiddleware)
 
+/**
+ * @swagger
+ * /api/v1/departments:
+ *   get:
+ *     summary: 获取院系列表
+ *     description: 获取所有院系及其专业信息
+ *     tags: [Departments]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: 成功获取院系列表
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 code:
+ *                   type: integer
+ *                   example: 200
+ *                 message:
+ *                   type: string
+ *                   example: Success
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     allOf:
+ *                       - $ref: '#/components/schemas/Department'
+ *                       - type: object
+ *                         properties:
+ *                           majors:
+ *                             type: array
+ *                             items:
+ *                               type: object
+ *                               properties:
+ *                                 id:
+ *                                   type: string
+ *                                   format: uuid
+ *                                 name:
+ *                                   type: string
+ *                                 code:
+ *                                   type: string
+ *       401:
+ *         description: 未授权
+ */
 router.get('/', async (req, res, next) => {
   try {
     const departments = await prisma.department.findMany({
@@ -27,10 +73,62 @@ router.get('/', async (req, res, next) => {
   }
 })
 
-router.get(
-  '/:id',
-  validate(departmentIdSchema, 'params'),
-  async (req, res, next) => {
+/**
+ * @swagger
+ * /api/v1/departments/{id}:
+ *   get:
+ *     summary: 获取院系详情
+ *     description: 根据ID获取院系详细信息及其专业列表
+ *     tags: [Departments]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: 院系ID
+ *     responses:
+ *       200:
+ *         description: 成功获取院系信息
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 code:
+ *                   type: integer
+ *                   example: 200
+ *                 message:
+ *                   type: string
+ *                   example: Success
+ *                 data:
+ *                   allOf:
+ *                     - $ref: '#/components/schemas/Department'
+ *                     - type: object
+ *                       properties:
+ *                         majors:
+ *                           type: array
+ *                           items:
+ *                             type: object
+ *                             properties:
+ *                               id:
+ *                                 type: string
+ *                                 format: uuid
+ *                               name:
+ *                                 type: string
+ *                               code:
+ *                                 type: string
+ *       400:
+ *         description: 无效的院系ID
+ *       401:
+ *         description: 未授权
+ *       404:
+ *         description: 院系不存在
+ */
+router.get('/:id', validate(departmentIdSchema, 'params'), async (req, res, next) => {
   try {
     const id = req.params.id
     if (!id || typeof id !== 'string') {

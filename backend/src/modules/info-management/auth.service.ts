@@ -3,7 +3,11 @@
  * 处理登录、注册、密码修改等业务逻辑
  */
 import prisma from '../../shared/prisma/client.js'
-import { hashPassword, comparePassword } from '../../shared/utils/password.js'
+import {
+  hashPassword,
+  comparePassword,
+  validatePasswordStrength,
+} from '../../shared/utils/password.js'
 import jwt from 'jsonwebtoken'
 import config from '../../config/index.js'
 import type { Gender } from '@prisma/client'
@@ -82,7 +86,20 @@ export const authService = {
    * @param data 注册数据
    * @returns 新创建的用户信息
    */
-  async register(data: { username: string; password: string; email?: string; realName: string; phone?: string; gender?: string }) {
+  async register(data: {
+    username: string
+    password: string
+    email?: string
+    realName: string
+    phone?: string
+    gender?: string
+  }) {
+    // 验证密码强度
+    const passwordValidation = validatePasswordStrength(data.password)
+    if (!passwordValidation.valid) {
+      throw new Error(`密码强度不足: ${passwordValidation.errors.join(', ')}`)
+    }
+
     // 检查用户名是否已存在
     const existingUser = await prisma.user.findUnique({
       where: { username: data.username },
@@ -144,6 +161,12 @@ export const authService = {
    * @param newPassword 新密码
    */
   async changePassword(userId: string, oldPassword: string, newPassword: string) {
+    // 验证新密码强度
+    const passwordValidation = validatePasswordStrength(newPassword)
+    if (!passwordValidation.valid) {
+      throw new Error(`密码强度不足: ${passwordValidation.errors.join(', ')}`)
+    }
+
     const user = await prisma.user.findUnique({
       where: { id: userId },
     })
@@ -155,6 +178,11 @@ export const authService = {
     const isValid = await comparePassword(oldPassword, user.passwordHash)
     if (!isValid) {
       throw new Error('旧密码错误')
+    }
+
+    // 新密码不能与旧密码相同
+    if (oldPassword === newPassword) {
+      throw new Error('新密码不能与旧密码相同')
     }
 
     const hashedPassword = await hashPassword(newPassword)

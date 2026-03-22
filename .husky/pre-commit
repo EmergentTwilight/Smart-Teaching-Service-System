@@ -1,0 +1,5 @@
+# pre-commit hook
+# 在提交前运行 lint-staged，对暂存的文件进行代码检查和格式化
+
+echo "🔍 Running lint-staged..."
+pnpm exec lint-staged

@@ -3,7 +3,7 @@
  * 配置中间件、路由和错误处理
  */
 import 'dotenv/config'
-import express from 'express'
+import express, { type Application } from 'express'
 import cors from 'cors'
 import helmet from 'helmet'
 import compression from 'compression'
@@ -15,7 +15,7 @@ import departmentsRoutes from './modules/info-management/departments.routes.js'
 import coursesRoutes from './modules/info-management/courses.routes.js'
 import config from './config/index.js'
 
-const app = express()
+const app: Application = express()
 const PORT = config.port
 
 // 中间件

@@ -2,13 +2,13 @@
  * 认证路由
  * 定义认证相关的 API 端点
  */
-import { Router } from 'express'
+import { Router, type Router as RouterType } from 'express'
 import { authController } from './auth.controller.js'
 import { authMiddleware } from '../../shared/middleware/auth.js'
 import { validate } from '../../shared/middleware/validate.js'
 import { loginSchema, registerSchema, changePasswordSchema } from './auth.types.js'
 
-const router = Router()
+const router: RouterType = Router()
 
 router.post('/login', validate(loginSchema, 'body'), authController.login)
 router.post('/register', validate(registerSchema, 'body'), authController.register)

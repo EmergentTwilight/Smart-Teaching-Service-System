@@ -2,13 +2,13 @@
  * 课程管理路由
  * 定义课程 CRUD 相关的 API 端点
  */
-import { Router } from 'express'
+import { Router, type Router as RouterType } from 'express'
 import { coursesController } from './courses.controller.js'
 import { authMiddleware, requireRoles } from '../../shared/middleware/auth.js'
 import { validate } from '../../shared/middleware/validate.js'
 import { getCoursesQuerySchema, createCourseSchema, updateCourseSchema } from './courses.types.js'
 
-const router = Router()
+const router: RouterType = Router()
 
 // 所有路由需要认证
 router.use(authMiddleware)

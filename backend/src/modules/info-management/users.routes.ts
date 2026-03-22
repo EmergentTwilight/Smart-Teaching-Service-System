@@ -2,13 +2,13 @@
  * 用户管理路由
  * 定义用户 CRUD 相关的 API 端点
  */
-import { Router } from 'express'
+import { Router, type Router as RouterType } from 'express'
 import { usersController } from './users.controller.js'
 import { authMiddleware, requireRoles } from '../../shared/middleware/auth.js'
 import { validate } from '../../shared/middleware/validate.js'
 import { getUsersQuerySchema, createUserSchema, updateUserSchema, getLogsQuerySchema } from './users.types.js'
 
-const router = Router()
+const router: RouterType = Router()
 
 // 所有路由需要认证
 router.use(authMiddleware)

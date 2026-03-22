@@ -2,7 +2,7 @@
  * 部门管理路由
  * 定义部门查询相关的 API 端点
  */
-import { Router } from 'express'
+import { Router, type Router as RouterType } from 'express'
 import { authMiddleware } from '../../shared/middleware/auth.js'
 import { validate } from '../../shared/middleware/validate.js'
 import prisma from '../../shared/prisma/client.js'
@@ -10,7 +10,7 @@ import { success } from '../../shared/utils/response.js'
 import type { AppError } from '../../shared/middleware/error.js'
 import { departmentIdSchema } from './departments.types.js'
 
-const router = Router()
+const router: RouterType = Router()
 
 router.use(authMiddleware)
 

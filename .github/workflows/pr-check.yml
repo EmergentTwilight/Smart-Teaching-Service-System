@@ -59,6 +59,11 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
+      - name: Generate Prisma Client
+        run: cd backend && npx prisma generate
+        env:
+          DATABASE_URL: postgresql://test:test@localhost:5432/stss
+
       - name: Build shared types
         run: cd shared && pnpm build
 
@@ -76,3 +81,5 @@ jobs:
 
       - name: Validate Prisma schema
         run: cd backend && npx prisma validate && npx prisma format --check
+        env:
+          DATABASE_URL: postgresql://test:test@localhost:5432/stss

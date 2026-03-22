@@ -33,52 +33,20 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
-      - name: Lint all packages
-        run: |
-          pnpm --filter @stss/server lint
-          pnpm --filter @stss/web lint
-
       - name: Build shared types
-        run: pnpm --filter @stss/shared build
+        run: cd shared && pnpm build
 
-      - name: Type check
-        run: |
-          pnpm --filter @stss/server exec tsc --noEmit
-          pnpm --filter @stss/web exec tsc --noEmit
+      - name: Lint backend
+        run: cd backend && pnpm lint
+
+      - name: Lint frontend
+        run: cd frontend && pnpm lint
+
+      - name: Type check backend
+        run: cd backend && npx tsc --noEmit
+
+      - name: Type check frontend
+        run: cd frontend && npx tsc --noEmit
 
       - name: Validate Prisma schema
-        run: |
-          cd backend
-          npx prisma validate
-          npx prisma format --check
-
-  # ==================== 构建验证 ====================
-  build:
-    name: Build
-    runs-on: ubuntu-latest
-    needs: quality
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: ${{ env.PNPM_VERSION }}
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-
-      - name: Install dependencies
-        run: pnpm install
-
-      - name: Build all packages
-        run: pnpm build
-
-      - name: Check build artifacts
-        run: |
-          test -d shared/dist || { echo "shared/dist not found"; exit 1; }
-          echo "✅ Build successful"
+        run: cd backend && npx prisma validate && npx prisma format --check

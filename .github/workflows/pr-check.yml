@@ -16,8 +16,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -28,10 +26,9 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: 'pnpm'
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: pnpm install
 
       - name: Check PR title
         uses: amannn/action-semantic-pull-request@v5
@@ -68,18 +65,17 @@ jobs:
       - name: Lint frontend
         run: pnpm --filter @stss/web lint
 
-      - name: Type check
-        run: |
-          pnpm --filter @stss/shared build
-          pnpm --filter @stss/server exec tsc --noEmit || true
-          pnpm --filter @stss/web exec tsc --noEmit || true
+      - name: Build shared
+        run: pnpm --filter @stss/shared build
 
-      - name: Check for TODOs
-        run: |
-          ! grep -r "TODO\|FIXME\|HACK" backend frontend shared --include="*.ts" --include="*.tsx" || echo "Found TODOs/FIXMEs - please resolve before merging"
+      - name: Type check backend
+        run: pnpm --filter @stss/server exec tsc --noEmit
 
-      - name: Size limit
+      - name: Type check frontend
+        run: pnpm --filter @stss/web exec tsc --noEmit
+
+      - name: Validate Prisma schema
         run: |
-          echo "Checking build sizes..."
-          pnpm build:web
-          du -sh frontend/dist
+          cd backend
+          npx prisma validate
+          npx prisma format --check

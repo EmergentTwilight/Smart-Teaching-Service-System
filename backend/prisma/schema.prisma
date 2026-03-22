@@ -9,52 +9,128 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// ==================== 用户管理模块 ====================
+// ==================== 用户管理模块 (Subsystem A) ====================
 
 model User {
-  id            String    @id @default(uuid())
-  username      String    @unique @db.VarChar(50)
-  passwordHash  String    @map("password_hash") @db.VarChar(255)
-  email         String?   @unique @db.VarChar(100)
-  phone         String?   @db.VarChar(20)
-  realName      String    @map("real_name") @db.VarChar(50)
-  avatarUrl     String?   @map("avatar_url") @db.VarChar(500)
-  gender        String?   @db.VarChar(10)
-  status        String    @default("ACTIVE") @db.VarChar(20)
-  lastLoginAt   DateTime? @map("last_login_at")
-  createdAt     DateTime  @default(now()) @map("created_at")
-  updatedAt     DateTime  @updatedAt @map("updated_at")
+  id           String     @id @default(uuid())
+  username     String     @unique @db.VarChar(50)
+  passwordHash String     @map("password_hash") @db.VarChar(255)
+  email        String?    @unique @db.VarChar(100)
+  phone        String?    @db.VarChar(20)
+  realName     String     @map("real_name") @db.VarChar(50)
+  avatarUrl    String?    @map("avatar_url") @db.VarChar(500)
+  gender       Gender?
+  status       UserStatus @default(ACTIVE)
+  lastLoginAt  DateTime?  @map("last_login_at")
+  createdAt    DateTime   @default(now()) @map("created_at")
+  updatedAt    DateTime   @updatedAt @map("updated_at")
 
-  userRoles     UserRole[]
-  logs          SystemLog[]
-  courses       Course[]  // 教师教授的课程
-  student       Student?  // 学生信息（一对一）
-  teacher       Teacher?  // 教师信息（一对一）
-  admin         Admin?    // 管理员信息（一对一）
+  student               Student?
+  teacher               Teacher?
+  admin                 Admin?
+  userRoles             UserRole[]
+  posts                 ForumPost[]
+  comments              ForumComment[]
+  logs                  SystemLog[]
+  scoreModificationLogs ScoreModificationLog[]
 
   @@map("users")
 }
 
-model Role {
-  id          String   @id @default(uuid())
-  name        String   @db.VarChar(50)
-  code        String   @unique @db.VarChar(50)
-  description String?  @db.Text
+model Student {
+  userId        String  @id @map("user_id")
+  user          User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  studentNumber String  @unique @map("student_number") @db.VarChar(20)
+  majorId       String? @map("major_id")
+  major         Major?  @relation(fields: [majorId], references: [id])
+  grade         Int
+  className     String? @map("class_name") @db.VarChar(20)
 
-  userRoles     UserRole[]
-  permissions   RolePermission[]
+  enrollments Enrollment[]
+  testResults TestResult[]
+  scores      Score[]
+  gpaRecords  GPARecord[]
+
+  @@map("students")
+}
+
+model Teacher {
+  userId         String      @id @map("user_id")
+  user           User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  teacherNumber  String      @unique @map("teacher_number") @db.VarChar(20)
+  departmentId   String?     @map("department_id")
+  department     Department? @relation(fields: [departmentId], references: [id])
+  title          String?     @db.VarChar(50)
+  officeLocation String?     @map("office_location") @db.VarChar(100)
+
+  courseOfferings CourseOffering[]
+  questionBanks   QuestionBank[]
+  testPapers      TestPaper[]
+  enteredScores   Score[]          @relation("EnteredScores")
+
+  @@map("teachers")
+}
+
+model Admin {
+  userId       String      @id @map("user_id")
+  user         User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  adminType    AdminType   @map("admin_type")
+  departmentId String?     @map("department_id")
+  department   Department? @relation(fields: [departmentId], references: [id])
+
+  modifiedScores Score[] @relation("ModifiedScores")
+
+  @@map("admins")
+}
+
+model Department {
+  id          String  @id @default(uuid())
+  name        String  @db.VarChar(100)
+  code        String? @unique @db.VarChar(20)
+  description String? @db.Text
+
+  majors   Major[]
+  teachers Teacher[]
+  admins   Admin[]
+
+  @@map("departments")
+}
+
+model Major {
+  id           String      @id @default(uuid())
+  departmentId String      @map("department_id")
+  department   Department  @relation(fields: [departmentId], references: [id])
+  name         String      @db.VarChar(100)
+  code         String?     @unique @db.VarChar(20)
+  degreeType   DegreeType? @map("degree_type")
+  totalCredits Decimal?    @map("total_credits") @db.Decimal(5, 1)
+
+  students    Student[]
+  curriculums Curriculum[]
+
+  @@map("majors")
+}
+
+model Role {
+  id          String  @id @default(uuid())
+  name        String  @unique @db.VarChar(50)
+  code        String  @unique @db.VarChar(50)
+  description String? @db.Text
+
+  userRoles   UserRole[]
+  permissions RolePermission[]
 
   @@map("roles")
 }
 
 model Permission {
-  id         String   @id @default(uuid())
-  name       String   @db.VarChar(100)
-  code       String   @unique @db.VarChar(100)
-  resource   String   @db.VarChar(50)
-  action     String   @db.VarChar(20)
+  id       String @id @default(uuid())
+  name     String @db.VarChar(100)
+  code     String @unique @db.VarChar(100)
+  resource String @db.VarChar(50)
+  action   String @db.VarChar(20)
 
-  roles      RolePermission[]
+  roles RolePermission[]
 
   @@map("permissions")
 }
@@ -64,8 +140,8 @@ model UserRole {
   roleId     String   @map("role_id")
   assignedAt DateTime @default(now()) @map("assigned_at")
 
-  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  role       Role     @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
 
   @@id([userId, roleId])
   @@map("user_roles")
@@ -75,117 +151,545 @@ model RolePermission {
   roleId       String @map("role_id")
   permissionId String @map("permission_id")
 
-  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
-  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
 
   @@id([roleId, permissionId])
   @@map("role_permissions")
 }
 
 model SystemLog {
-  id            BigInt   @id @default(autoincrement())
-  userId        String?  @map("user_id")
-  action        String   @db.VarChar(100)
-  resourceType  String?  @map("resource_type") @db.VarChar(50)
-  resourceId    String?  @map("resource_id")
-  ipAddress     String?  @map("ip_address") @db.VarChar(45)
-  userAgent     String?  @map("user_agent") @db.Text
-  details       Json?
-  createdAt     DateTime @default(now()) @map("created_at")
+  id           BigInt   @id @default(autoincrement())
+  userId       String?  @map("user_id")
+  action       String   @db.VarChar(100)
+  resourceType String?  @map("resource_type") @db.VarChar(50)
+  resourceId   String?  @map("resource_id")
+  ipAddress    String?  @map("ip_address") @db.VarChar(45)
+  userAgent    String?  @map("user_agent") @db.Text
+  details      Json?
+  createdAt    DateTime @default(now()) @map("created_at")
 
-  user          User?    @relation(fields: [userId], references: [id])
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@map("system_logs")
 }
 
-// 学生信息表（一对一关系）
-model Student {
-  userId        String   @unique @map("user_id")
-  studentNo     String   @unique @map("student_no") @db.VarChar(20)
-  majorId       String?  @map("major_id")
-  grade         String?  @db.VarChar(20) // 年级
-  classNo       String?  @map("class_no") @db.VarChar(20) // 班级
-  enrollmentDate DateTime? @map("enrollment_date") // 入学日期
+// ==================== 排课模块 (Subsystem B) ====================
 
-  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  major         Major?   @relation(fields: [majorId], references: [id])
+model Classroom {
+  id         String     @id @default(uuid())
+  building   String     @db.VarChar(50)
+  roomNumber String     @map("room_number") @db.VarChar(20)
+  campus     String     @db.VarChar(50)
+  capacity   Int
+  roomType   RoomType   @map("room_type")
+  equipment  Json?
+  status     RoomStatus @default(AVAILABLE)
 
-  @@map("students")
+  schedules Schedule[]
+
+  @@unique([building, roomNumber])
+  @@map("classrooms")
 }
 
-// 教师信息表（一对一关系）
-model Teacher {
-  userId        String   @unique @map("user_id")
-  employeeNo    String   @unique @map("employee_no") @db.VarChar(20)
-  departmentId  String?  @map("department_id")
-  title         String?  @db.VarChar(50) // 职称
-  hireDate      DateTime? @map("hire_date") // 入职日期
+model Schedule {
+  id               String  @id @default(uuid())
+  courseOfferingId String  @map("course_offering_id")
+  classroomId      String  @map("classroom_id")
+  dayOfWeek        Int     @map("day_of_week")
+  startWeek        Int     @map("start_week")
+  endWeek          Int     @map("end_week")
+  startPeriod      Int     @map("start_period")
+  endPeriod        Int     @map("end_period")
+  notes            String? @db.Text
 
-  user          User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  department    Department?  @relation(fields: [departmentId], references: [id])
+  courseOffering CourseOffering @relation(fields: [courseOfferingId], references: [id], onDelete: Cascade)
+  classroom      Classroom      @relation(fields: [classroomId], references: [id])
 
-  @@map("teachers")
+  @@index([classroomId, dayOfWeek, startWeek, endWeek, startPeriod, endPeriod])
+  @@map("schedules")
 }
 
-// 管理员信息表（一对一关系）
-model Admin {
-  userId        String   @unique @map("user_id")
-  level         String   @default("GENERAL") @db.VarChar(20) // ADMIN_LEVEL: GENERAL, SUPER
-  departmentId  String?  @map("department_id")
+// ==================== 选课模块 (Subsystem C) ====================
 
-  user          User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  department    Department?  @relation(fields: [departmentId], references: [id])
+model Semester {
+  id        String         @id @default(uuid())
+  name      String         @db.VarChar(50)
+  startDate DateTime       @map("start_date") @db.Date
+  endDate   DateTime       @map("end_date") @db.Date
+  status    SemesterStatus @default(UPCOMING)
 
-  @@map("admins")
+  courseOfferings  CourseOffering[]
+  selectionPeriods SelectionPeriod[]
+  gpaRecords       GPARecord[]
+
+  @@map("semesters")
 }
-
-// ==================== 课程管理 ====================
 
 model Course {
-  id            String    @id @default(uuid())
-  code          String    @unique @db.VarChar(20)
-  name          String    @db.VarChar(100)
-  credits       Decimal   @db.Decimal(3, 1)
-  hours         Int       // 学时
-  category      String    @db.VarChar(50) // 课程类别：必修、选修、通识等
-  description   String?   @db.Text
-  departmentId  String?   @map("department_id")
-  teacherId     String?   @map("teacher_id")
-  status        String    @default("ACTIVE") @db.VarChar(20) // ACTIVE, INACTIVE
-  createdAt     DateTime  @default(now()) @map("created_at")
-  updatedAt     DateTime  @updatedAt @map("updated_at")
+  id               String       @id @default(uuid())
+  code             String       @unique @db.VarChar(20)
+  name             String       @db.VarChar(100)
+  credits          Decimal      @db.Decimal(3, 1)
+  courseType       CourseType   @map("course_type")
+  category         String?      @db.VarChar(50)
+  description      String?      @db.Text
+  assessmentMethod String?      @map("assessment_method") @db.Text
+  status           CourseStatus @default(ACTIVE)
 
-  department    Department?  @relation(fields: [departmentId], references: [id])
-  teacher       User?        @relation(fields: [teacherId], references: [id])
+  offerings         CourseOffering[]
+  curriculumCourses CurriculumCourse[]
+  questionBanks     QuestionBank[]
+  prerequisites     CoursePrerequisite[] @relation("CoursePrerequisites")
+  requiredFor       CoursePrerequisite[] @relation("RequiredCourses")
 
   @@map("courses")
 }
 
-// ==================== 院系专业 ====================
+model CourseOffering {
+  id            String         @id @default(uuid())
+  courseId      String         @map("course_id")
+  semesterId    String         @map("semester_id")
+  teacherId     String         @map("teacher_id")
+  capacity      Int
+  enrolledCount Int            @default(0) @map("enrolled_count")
+  status        OfferingStatus @default(PLANNED)
 
-model Department {
-  id          String   @id @default(uuid())
-  name        String   @db.VarChar(100)
-  code        String?  @unique @db.VarChar(20)
-  description String?  @db.Text
+  course      Course       @relation(fields: [courseId], references: [id])
+  semester    Semester     @relation(fields: [semesterId], references: [id])
+  teacher     Teacher      @relation(fields: [teacherId], references: [userId])
+  schedules   Schedule[]
+  enrollments Enrollment[]
+  posts       ForumPost[]
+  testPapers  TestPaper[]
+  scores      Score[]
 
-  majors      Major[]
-  courses     Course[]
-  teachers    Teacher[]
-  admins      Admin[]
-
-  @@map("departments")
+  @@map("course_offerings")
 }
 
-model Major {
-  id             String        @id @default(uuid())
-  departmentId   String        @map("department_id")
-  department     Department    @relation(fields: [departmentId], references: [id])
-  name           String        @db.VarChar(100)
-  code           String?       @unique @db.VarChar(20)
-  totalCredits   Decimal?      @map("total_credits") @db.Decimal(5, 1)
+model CoursePrerequisite {
+  courseId       String @map("course_id")
+  prerequisiteId String @map("prerequisite_id")
 
-  students       Student[]
+  course       Course @relation("CoursePrerequisites", fields: [courseId], references: [id], onDelete: Cascade)
+  prerequisite Course @relation("RequiredCourses", fields: [prerequisiteId], references: [id], onDelete: Cascade)
 
-  @@map("majors")
+  @@id([courseId, prerequisiteId])
+  @@map("course_prerequisites")
+}
+
+model Curriculum {
+  id              String   @id @default(uuid())
+  majorId         String   @map("major_id")
+  name            String   @db.VarChar(100)
+  year            Int
+  totalCredits    Decimal  @map("total_credits") @db.Decimal(5, 1)
+  requiredCredits Decimal? @map("required_credits") @db.Decimal(5, 1)
+  electiveCredits Decimal? @map("elective_credits") @db.Decimal(5, 1)
+
+  major   Major              @relation(fields: [majorId], references: [id])
+  courses CurriculumCourse[]
+
+  @@map("curriculums")
+}
+
+model CurriculumCourse {
+  curriculumId       String     @map("curriculum_id")
+  courseId           String     @map("course_id")
+  courseType         CourseType @map("course_type")
+  semesterSuggestion Int?       @map("semester_suggestion")
+
+  curriculum Curriculum @relation(fields: [curriculumId], references: [id], onDelete: Cascade)
+  course     Course     @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@id([curriculumId, courseId])
+  @@map("curriculum_courses")
+}
+
+model Enrollment {
+  id               String           @id @default(uuid())
+  studentId        String           @map("student_id")
+  courseOfferingId String           @map("course_offering_id")
+  status           EnrollmentStatus @default(ENROLLED)
+  enrolledAt       DateTime         @default(now()) @map("enrolled_at")
+  droppedAt        DateTime?        @map("dropped_at")
+
+  student        Student        @relation(fields: [studentId], references: [userId])
+  courseOffering CourseOffering @relation(fields: [courseOfferingId], references: [id])
+  score          Score?
+
+  @@unique([studentId, courseOfferingId])
+  @@map("enrollments")
+}
+
+model SelectionPeriod {
+  id         String         @id @default(uuid())
+  semesterId String         @map("semester_id")
+  phase      SelectionPhase @map("phase")
+  startTime  DateTime       @map("start_time")
+  endTime    DateTime       @map("end_time")
+  maxCredits Decimal?       @map("max_credits") @db.Decimal(3, 1)
+  isActive   Boolean        @default(false) @map("is_active")
+
+  semester Semester @relation(fields: [semesterId], references: [id])
+
+  @@map("selection_periods")
+}
+
+// ==================== 论坛模块 (Subsystem D) ====================
+
+model ForumPost {
+  id               String     @id @default(uuid())
+  courseOfferingId String     @map("course_offering_id")
+  authorId         String     @map("author_id")
+  title            String     @db.VarChar(200)
+  content          String     @db.Text
+  postType         PostType   @map("post_type")
+  isPinned         Boolean    @default(false) @map("is_pinned")
+  isAnnouncement   Boolean    @default(false) @map("is_announcement")
+  viewCount        Int        @default(0) @map("view_count")
+  status           PostStatus @default(NORMAL)
+  createdAt        DateTime   @default(now()) @map("created_at")
+  updatedAt        DateTime?  @map("updated_at")
+
+  courseOffering CourseOffering    @relation(fields: [courseOfferingId], references: [id])
+  author         User              @relation(fields: [authorId], references: [id])
+  comments       ForumComment[]
+  attachments    ForumAttachment[]
+
+  @@map("forum_posts")
+}
+
+model ForumComment {
+  id        String     @id @default(uuid())
+  postId    String     @map("post_id")
+  authorId  String     @map("author_id")
+  parentId  String?    @map("parent_id")
+  content   String     @db.Text
+  depth     Int        @default(0) @map("depth")
+  status    PostStatus @default(NORMAL)
+  createdAt DateTime   @default(now()) @map("created_at")
+
+  post    ForumPost      @relation(fields: [postId], references: [id], onDelete: Cascade)
+  author  User           @relation(fields: [authorId], references: [id])
+  parent  ForumComment?  @relation("CommentReplies", fields: [parentId], references: [id])
+  replies ForumComment[] @relation("CommentReplies")
+
+  @@map("forum_comments")
+}
+
+model ForumAttachment {
+  id         String   @id @default(uuid())
+  postId     String   @map("post_id")
+  fileName   String   @map("file_name") @db.VarChar(255)
+  filePath   String   @map("file_path") @db.VarChar(500)
+  fileSize   BigInt   @map("file_size")
+  fileType   String?  @map("file_type") @db.VarChar(50)
+  uploadedAt DateTime @default(now()) @map("uploaded_at")
+
+  post ForumPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@map("forum_attachments")
+}
+
+// ==================== 在线测试模块 (Subsystem E) ====================
+
+model QuestionBank {
+  id          String     @id @default(uuid())
+  courseId    String     @map("course_id")
+  creatorId   String     @map("creator_id")
+  name        String     @db.VarChar(100)
+  description String?    @db.Text
+  status      BankStatus @default(ACTIVE)
+
+  course    Course     @relation(fields: [courseId], references: [id])
+  creator   Teacher    @relation(fields: [creatorId], references: [userId])
+  questions Question[]
+
+  @@map("question_banks")
+}
+
+model Question {
+  id             String       @id @default(uuid())
+  bankId         String       @map("bank_id")
+  questionType   QuestionType @map("question_type")
+  content        String       @db.Text
+  answer         String       @db.Text
+  explanation    String?      @db.Text
+  defaultPoints  Decimal      @map("default_points") @db.Decimal(5, 2)
+  difficulty     Difficulty?
+  knowledgePoint String?      @map("knowledge_point") @db.VarChar(100)
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime?    @map("updated_at")
+
+  bank          QuestionBank     @relation(fields: [bankId], references: [id])
+  testQuestions TestQuestion[]
+  options       QuestionOption[]
+
+  @@map("questions")
+}
+
+model QuestionOption {
+  id          String  @id @default(uuid())
+  questionId  String  @map("question_id")
+  optionText  String  @map("option_text") @db.VarChar(500)
+  optionOrder Int     @map("option_order")
+  isCorrect   Boolean @default(false) @map("is_correct")
+
+  question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@index([questionId, optionOrder])
+  @@map("question_options")
+}
+
+model TestPaper {
+  id               String      @id @default(uuid())
+  courseOfferingId String      @map("course_offering_id")
+  creatorId        String      @map("creator_id")
+  title            String      @db.VarChar(200)
+  description      String?     @db.Text
+  totalPoints      Decimal     @map("total_points") @db.Decimal(5, 2)
+  durationMinutes  Int         @map("duration_minutes")
+  startTime        DateTime?   @map("start_time")
+  endTime          DateTime?   @map("end_time")
+  isRandom         Boolean     @default(false) @map("is_random")
+  status           PaperStatus @default(DRAFT)
+
+  courseOffering CourseOffering @relation(fields: [courseOfferingId], references: [id])
+  creator        Teacher        @relation(fields: [creatorId], references: [userId])
+  questions      TestQuestion[]
+  results        TestResult[]
+
+  @@map("test_papers")
+}
+
+model TestQuestion {
+  id          String  @id @default(uuid())
+  testPaperId String  @map("test_paper_id")
+  questionId  String  @map("question_id")
+  orderNum    Int     @map("order_num")
+  points      Decimal @db.Decimal(5, 2)
+
+  testPaper TestPaper @relation(fields: [testPaperId], references: [id], onDelete: Cascade)
+  question  Question  @relation(fields: [questionId], references: [id])
+  answers   Answer[]
+
+  @@map("test_questions")
+}
+
+model TestResult {
+  id               String     @id @default(uuid())
+  testPaperId      String     @map("test_paper_id")
+  studentId        String     @map("student_id")
+  startTime        DateTime   @default(now()) @map("start_time")
+  submitTime       DateTime?  @map("submit_time")
+  totalScore       Decimal?   @map("total_score") @db.Decimal(5, 2)
+  status           TestStatus @default(IN_PROGRESS)
+  timeSpentSeconds Int?       @map("time_spent_seconds")
+
+  testPaper TestPaper @relation(fields: [testPaperId], references: [id])
+  student   Student   @relation(fields: [studentId], references: [userId])
+  answers   Answer[]
+
+  @@map("test_results")
+}
+
+model Answer {
+  id             String   @id @default(uuid())
+  testResultId   String   @map("test_result_id")
+  testQuestionId String   @map("test_question_id")
+  studentAnswer  String?  @map("student_answer") @db.Text
+  isCorrect      Boolean?
+  score          Decimal?
+
+  testResult   TestResult   @relation(fields: [testResultId], references: [id], onDelete: Cascade)
+  testQuestion TestQuestion @relation(fields: [testQuestionId], references: [id])
+
+  @@map("answers")
+}
+
+// ==================== 成绩模块 (Subsystem F) ====================
+
+model Score {
+  id                  String      @id @default(uuid())
+  enrollmentId        String      @unique @map("enrollment_id")
+  studentId           String      @map("student_id")
+  courseOfferingId    String      @map("course_offering_id")
+  usualScore          Decimal?    @map("usual_score") @db.Decimal(5, 2)
+  midtermScore        Decimal?    @map("midterm_score") @db.Decimal(5, 2)
+  finalScore          Decimal?    @map("final_score") @db.Decimal(5, 2)
+  totalScore          Decimal?    @map("total_score") @db.Decimal(5, 2)
+  gradePoint          Decimal?    @map("grade_point") @db.Decimal(3, 2)
+  gradeLetter         String?     @map("grade_letter") @db.VarChar(2)
+  enteredBy           String      @map("entered_by")
+  enteredAt           DateTime?   @map("entered_at")
+  status              ScoreStatus @default(DRAFT)
+  modificationRequest String?     @map("modification_request") @db.Text
+  modifiedAt          DateTime?   @map("modified_at")
+  modifiedBy          String?     @map("modified_by")
+
+  enrollment       Enrollment             @relation(fields: [enrollmentId], references: [id])
+  student          Student                @relation(fields: [studentId], references: [userId])
+  courseOffering   CourseOffering         @relation(fields: [courseOfferingId], references: [id])
+  enterer          Teacher                @relation("EnteredScores", fields: [enteredBy], references: [userId])
+  modifier         Admin?                 @relation("ModifiedScores", fields: [modifiedBy], references: [userId])
+  modificationLogs ScoreModificationLog[]
+
+  @@map("scores")
+}
+
+model ScoreModificationLog {
+  id         String   @id @default(uuid())
+  scoreId    String   @map("score_id")
+  modifierId String   @map("modifier_id")
+  oldValue   Json     @map("old_value")
+  newValue   Json     @map("new_value")
+  reason     String?  @db.Text
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  score    Score @relation(fields: [scoreId], references: [id])
+  modifier User  @relation(fields: [modifierId], references: [id])
+
+  @@map("score_modification_logs")
+}
+
+model GPARecord {
+  id            String   @id @default(uuid())
+  studentId     String   @map("student_id")
+  semesterId    String   @map("semester_id")
+  totalCredits  Decimal? @map("total_credits") @db.Decimal(5, 1)
+  earnedCredits Decimal? @map("earned_credits") @db.Decimal(5, 1)
+  semesterGpa   Decimal? @map("semester_gpa") @db.Decimal(3, 2)
+  cumulativeGpa Decimal? @map("cumulative_gpa") @db.Decimal(3, 2)
+  calculatedAt  DateTime @default(now()) @map("calculated_at")
+
+  student  Student  @relation(fields: [studentId], references: [userId])
+  semester Semester @relation(fields: [semesterId], references: [id])
+
+  @@unique([studentId, semesterId])
+  @@map("gpa_records")
+}
+
+// ==================== 枚举类型 ====================
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  BANNED
+}
+
+enum AdminType {
+  ACADEMIC
+  SUPER
+  SECURITY
+}
+
+enum DegreeType {
+  BACHELOR
+  MASTER
+  DOCTOR
+}
+
+enum RoomType {
+  LECTURE
+  LAB
+  COMPUTER
+  MULTIMEDIA
+}
+
+enum RoomStatus {
+  AVAILABLE
+  MAINTENANCE
+  UNAVAILABLE
+}
+
+enum SemesterStatus {
+  UPCOMING
+  CURRENT
+  ENDED
+}
+
+enum CourseType {
+  REQUIRED
+  ELECTIVE
+  GENERAL
+}
+
+enum CourseStatus {
+  ACTIVE
+  ARCHIVED
+}
+
+enum OfferingStatus {
+  PLANNED
+  OPEN
+  CLOSED
+  CANCELLED
+}
+
+enum EnrollmentStatus {
+  ENROLLED
+  DROPPED
+  WITHDRAWN
+}
+
+enum SelectionPhase {
+  FIRST_ROUND
+  SECOND_ROUND
+  ADJUSTMENT
+}
+
+enum PostType {
+  QUESTION
+  DISCUSSION
+  SHARE
+  ANNOUNCEMENT
+}
+
+enum PostStatus {
+  NORMAL
+  HIDDEN
+  DELETED
+}
+
+enum QuestionType {
+  SINGLE_CHOICE
+  MULTI_CHOICE
+  TRUE_FALSE
+}
+
+enum Difficulty {
+  EASY
+  MEDIUM
+  HARD
+}
+
+enum BankStatus {
+  ACTIVE
+  ARCHIVED
+}
+
+enum PaperStatus {
+  DRAFT
+  PUBLISHED
+  CLOSED
+}
+
+enum TestStatus {
+  IN_PROGRESS
+  SUBMITTED
+  GRADED
+  CANCELLED
+}
+
+enum ScoreStatus {
+  DRAFT
+  SUBMITTED
+  CONFIRMED
 }

@@ -92,6 +92,7 @@ model Teacher {
   questionBanks   QuestionBank[]
   testPapers      TestPaper[]
   enteredScores   Score[]          @relation("EnteredScores")
+  courses         Course[]
 
   @@map("teachers")
 }
@@ -126,6 +127,7 @@ model Department {
   majors   Major[]
   teachers Teacher[]
   admins   Admin[]
+  courses  Course[]
 
   @@map("departments")
 }
@@ -330,17 +332,29 @@ model Course {
   name             String       @db.VarChar(100)
   /// 学分
   credits          Decimal      @db.Decimal(3, 1)
+  /// 学时
+  hours            Int?
   /// 课程类型
   courseType       CourseType   @map("course_type")
   /// 课程类别
   category         String?      @db.VarChar(50)
+  /// 院系ID
+  departmentId     String?      @map("department_id")
+  /// 教师ID（课程负责人）
+  teacherId        String?      @map("teacher_id")
   /// 课程描述
   description      String?      @db.Text
   /// 考核方式
   assessmentMethod String?      @map("assessment_method") @db.Text
   /// 状态
   status           CourseStatus @default(ACTIVE)
+  /// 创建时间
+  createdAt        DateTime     @default(now()) @map("created_at")
+  /// 更新时间
+  updatedAt        DateTime     @updatedAt @map("updated_at")
 
+  department        Department?          @relation(fields: [departmentId], references: [id])
+  teacher           Teacher?             @relation(fields: [teacherId], references: [userId])
   offerings         CourseOffering[]
   curriculumCourses CurriculumCourse[]
   questionBanks     QuestionBank[]

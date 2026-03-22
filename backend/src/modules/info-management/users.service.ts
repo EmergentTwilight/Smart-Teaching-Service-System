@@ -185,6 +185,8 @@ export const usersService = {
 
     const updatePayload: Prisma.UserUpdateInput = {
       ...updateData,
+      // 转换 gender 类型
+      gender: updateData.gender as Prisma.EnumGender | undefined,
     }
 
     // 如果提供了密码，则更新密码

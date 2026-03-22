@@ -1,12 +1,13 @@
 import { Request, Response } from 'express'
 import { usersService } from './users.service.js'
 import { success, error, paginated } from '../../shared/utils/response.js'
-import type { GetUsersQuery, GetLogsQuery } from './users.types.js'
+import { getUsersQuerySchema, createUserSchema, updateUserSchema, getLogsQuerySchema } from './users.types.js'
 
 export const usersController = {
   async list(req: Request, res: Response) {
     try {
-      const result = await usersService.getUsers(req.query as GetUsersQuery)
+      const query = getUsersQuerySchema.parse(req.query)
+      const result = await usersService.getUsers(query)
       paginated(res, result.items, result.pagination)
     } catch (err) {
       const message = err instanceof Error ? err.message : '获取用户列表失败'
@@ -27,7 +28,8 @@ export const usersController = {
 
   async create(req: Request, res: Response) {
     try {
-      const user = await usersService.createUser(req.body)
+      const data = createUserSchema.parse(req.body)
+      const user = await usersService.createUser(data)
       success(res, user, '创建成功', 201)
     } catch (err) {
       const message = err instanceof Error ? err.message : '创建用户失败'
@@ -38,6 +40,7 @@ export const usersController = {
   async update(req: Request, res: Response) {
     try {
       const { id } = req.params
+      const data = updateUserSchema.parse(req.body)
       const user = await usersService.updateUser(id, req.body)
       success(res, user, '更新成功')
     } catch (err) {

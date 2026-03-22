@@ -1,6 +1,6 @@
 import React from 'react';
 import { Form, Input, Button, Card } from 'antd';
-import { UserOutlined, LockOutlined } from '@ant-design/icons';
+import { UserOutlined, LockOutlined, TrophyOutlined } from '@ant-design/icons';
 import { useAuth } from '@/shared/hooks/useAuth';
 import styles from './Login.module.css';
 
@@ -19,7 +19,15 @@ const Login: React.FC = () => {
 
   return (
     <div className={styles.container}>
-      <Card className={styles.card} title="智慧教学服务系统">
+      <Card className={styles.card}>
+        <div className={styles.logo}>
+          <TrophyOutlined className={styles.logoIcon} />
+        </div>
+        <h2 style={{ textAlign: 'center', margin: 0, fontSize: 24, fontWeight: 600, color: '#1f2937' }}>
+          智慧教学服务系统
+        </h2>
+        <p className={styles.subtitle}>Smart Teaching Service System</p>
+        
         <Form
           form={form}
           onFinish={handleSubmit}
@@ -31,7 +39,7 @@ const Login: React.FC = () => {
             rules={[{ required: true, message: '请输入用户名' }]}
           >
             <Input
-              prefix={<UserOutlined />}
+              prefix={<UserOutlined style={{ color: '#9ca3af' }} />}
               placeholder="用户名"
               autoComplete="username"
             />
@@ -42,13 +50,13 @@ const Login: React.FC = () => {
             rules={[{ required: true, message: '请输入密码' }]}
           >
             <Input.Password
-              prefix={<LockOutlined />}
+              prefix={<LockOutlined style={{ color: '#9ca3af' }} />}
               placeholder="密码"
               autoComplete="current-password"
             />
           </Form.Item>
 
-          <Form.Item>
+          <Form.Item style={{ marginBottom: 0 }}>
             <Button
               type="primary"
               htmlType="submit"
@@ -59,8 +67,9 @@ const Login: React.FC = () => {
             </Button>
           </Form.Item>
         </Form>
-        <div style={{ textAlign: 'center', color: '#999', fontSize: 12 }}>
-          测试账号: admin / admin123
+        
+        <div className={styles.footer}>
+          测试账号: <strong>admin</strong> / <strong>admin123</strong>
         </div>
       </Card>
     </div>

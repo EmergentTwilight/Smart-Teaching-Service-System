@@ -3,17 +3,132 @@
   justify-content: center;
   align-items: center;
   min-height: 100vh;
+  height: 100vh;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  overflow: hidden;
 }
 
 .card {
-  width: 400px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
-  border-radius: 8px;
+  width: 420px;
+  box-shadow: 0 25px 50px -12px rgb(0 0 0 / 0.25);
+  border-radius: 16px;
+  border: none;
+  backdrop-filter: blur(10px);
+  background: rgba(255, 255, 255, 0.95);
+  position: relative;
+  z-index: 1;
+  animation: slideUp 0.6s ease-out;
 }
 
-.card :global(.ant-card-head-title) {
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.card :global(.ant-card-body) {
+  padding: 40px;
+}
+
+/* Logo 区域 */
+.logo {
   text-align: center;
-  font-size: 20px;
+  margin-bottom: 16px;
+}
+
+.logoIcon {
+  font-size: 56px;
+  color: #6366f1;
+  margin-bottom: 16px;
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+}
+
+.subtitle {
+  color: #9ca3af;
+  font-size: 14px;
+  text-align: center;
+  margin: 8px 0 32px;
+  font-weight: 400;
+  letter-spacing: 0.5px;
+}
+
+/* 表单样式 */
+.card :global(.ant-form-item) {
+  margin-bottom: 24px;
+}
+
+.card :global(.ant-input-affix-wrapper) {
+  padding: 12px 16px;
+  border-radius: 10px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  transition: all 0.2s ease;
+}
+
+.card :global(.ant-input-affix-wrapper:hover) {
+  border-color: #cbd5e1;
+  background: white;
+}
+
+.card :global(.ant-input-affix-wrapper:focus),
+.card :global(.ant-input-affix-wrapper-focused) {
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgb(99 102 241 / 0.1);
+  background: white;
+}
+
+.card :global(.ant-input) {
+  background: transparent;
+  font-size: 15px;
+}
+
+.card :global(.ant-btn) {
+  height: 48px;
+  font-size: 16px;
   font-weight: 600;
+  border-radius: 10px;
+  margin-top: 8px;
+  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+  border: none;
+  box-shadow: 0 4px 6px -1px rgb(99 102 241 / 0.3);
+}
+
+.card :global(.ant-btn:hover) {
+  background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 10px -1px rgb(99 102 241 / 0.4);
+}
+
+/* 底部提示 */
+.footer {
+  text-align: center;
+  color: #9ca3af;
+  font-size: 13px;
+  margin-top: 24px;
+  padding-top: 24px;
+  border-top: 1px solid #f1f5f9;
+}
+
+.footer strong {
+  color: #6366f1;
+  font-weight: 500;
 }

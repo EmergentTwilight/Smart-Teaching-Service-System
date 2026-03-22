@@ -125,7 +125,7 @@ export const usersService = {
 
     // 创建用户
     const hashedPassword = await hashPassword(data.password)
-    const { roleIds, ...userData } = data
+    const { roleIds, password, ...userData } = data
 
     const user = await prisma.user.create({
       data: {

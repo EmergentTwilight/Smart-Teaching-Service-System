@@ -11,18 +11,31 @@ datasource db {
 
 // ==================== 用户管理模块 (Subsystem A) ====================
 
+/// 用户表
 model User {
+  /// 用户唯一标识
   id           String     @id @default(uuid())
+  /// 用户名
   username     String     @unique @db.VarChar(50)
+  /// 密码哈希
   passwordHash String     @map("password_hash") @db.VarChar(255)
+  /// 邮箱
   email        String?    @unique @db.VarChar(100)
+  /// 手机号
   phone        String?    @db.VarChar(20)
+  /// 真实姓名
   realName     String     @map("real_name") @db.VarChar(50)
+  /// 头像URL
   avatarUrl    String?    @map("avatar_url") @db.VarChar(500)
+  /// 性别
   gender       Gender?
+  /// 用户状态
   status       UserStatus @default(ACTIVE)
+  /// 最后登录时间
   lastLoginAt  DateTime?  @map("last_login_at")
+  /// 创建时间
   createdAt    DateTime   @default(now()) @map("created_at")
+  /// 更新时间
   updatedAt    DateTime   @updatedAt @map("updated_at")
 
   student               Student?
@@ -37,13 +50,19 @@ model User {
   @@map("users")
 }
 
+/// 学生表
 model Student {
+  /// 用户ID
   userId        String  @id @map("user_id")
   user          User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// 学号
   studentNumber String  @unique @map("student_number") @db.VarChar(20)
+  /// 专业ID
   majorId       String? @map("major_id")
   major         Major?  @relation(fields: [majorId], references: [id])
+  /// 年级
   grade         Int
+  /// 班级名称
   className     String? @map("class_name") @db.VarChar(20)
 
   enrollments Enrollment[]
@@ -54,13 +73,19 @@ model Student {
   @@map("students")
 }
 
+/// 教师表
 model Teacher {
+  /// 用户ID
   userId         String      @id @map("user_id")
   user           User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// 工号
   teacherNumber  String      @unique @map("teacher_number") @db.VarChar(20)
+  /// 院系ID
   departmentId   String?     @map("department_id")
   department     Department? @relation(fields: [departmentId], references: [id])
+  /// 职称
   title          String?     @db.VarChar(50)
+  /// 办公地点
   officeLocation String?     @map("office_location") @db.VarChar(100)
 
   courseOfferings CourseOffering[]
@@ -71,10 +96,14 @@ model Teacher {
   @@map("teachers")
 }
 
+/// 管理员表
 model Admin {
+  /// 用户ID
   userId       String      @id @map("user_id")
   user         User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// 管理员类型
   adminType    AdminType   @map("admin_type")
+  /// 院系ID
   departmentId String?     @map("department_id")
   department   Department? @relation(fields: [departmentId], references: [id])
 
@@ -83,10 +112,15 @@ model Admin {
   @@map("admins")
 }
 
+/// 院系表
 model Department {
+  /// 院系ID
   id          String  @id @default(uuid())
+  /// 院系名称
   name        String  @db.VarChar(100)
+  /// 院系代码
   code        String? @unique @db.VarChar(20)
+  /// 描述
   description String? @db.Text
 
   majors   Major[]
@@ -96,13 +130,20 @@ model Department {
   @@map("departments")
 }
 
+/// 专业表
 model Major {
+  /// 专业ID
   id           String      @id @default(uuid())
+  /// 院系ID
   departmentId String      @map("department_id")
   department   Department  @relation(fields: [departmentId], references: [id])
+  /// 专业名称
   name         String      @db.VarChar(100)
+  /// 专业代码
   code         String?     @unique @db.VarChar(20)
+  /// 学位类型
   degreeType   DegreeType? @map("degree_type")
+  /// 总学分要求
   totalCredits Decimal?    @map("total_credits") @db.Decimal(5, 1)
 
   students    Student[]
@@ -111,10 +152,15 @@ model Major {
   @@map("majors")
 }
 
+/// 角色表
 model Role {
+  /// 角色ID
   id          String  @id @default(uuid())
+  /// 角色名称
   name        String  @unique @db.VarChar(50)
+  /// 角色代码
   code        String  @unique @db.VarChar(50)
+  /// 描述
   description String? @db.Text
 
   userRoles   UserRole[]
@@ -123,11 +169,17 @@ model Role {
   @@map("roles")
 }
 
+/// 权限表
 model Permission {
+  /// 权限ID
   id       String @id @default(uuid())
+  /// 权限名称
   name     String @db.VarChar(100)
+  /// 权限代码
   code     String @unique @db.VarChar(100)
+  /// 资源
   resource String @db.VarChar(50)
+  /// 操作
   action   String @db.VarChar(20)
 
   roles RolePermission[]
@@ -135,9 +187,13 @@ model Permission {
   @@map("permissions")
 }
 
+/// 用户-角色关联表
 model UserRole {
+  /// 用户ID
   userId     String   @map("user_id")
+  /// 角色ID
   roleId     String   @map("role_id")
+  /// 分配时间
   assignedAt DateTime @default(now()) @map("assigned_at")
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -147,8 +203,11 @@ model UserRole {
   @@map("user_roles")
 }
 
+/// 角色权限关联表
 model RolePermission {
+  /// 角色ID
   roleId       String @map("role_id")
+  /// 权限ID
   permissionId String @map("permission_id")
 
   role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
@@ -158,15 +217,25 @@ model RolePermission {
   @@map("role_permissions")
 }
 
+/// 系统日志表
 model SystemLog {
+  /// 日志ID
   id           BigInt   @id @default(autoincrement())
+  /// 用户ID
   userId       String?  @map("user_id")
+  /// 操作
   action       String   @db.VarChar(100)
+  /// 资源类型
   resourceType String?  @map("resource_type") @db.VarChar(50)
+  /// 资源ID
   resourceId   String?  @map("resource_id")
+  /// IP地址
   ipAddress    String?  @map("ip_address") @db.VarChar(45)
+  /// 用户代理
   userAgent    String?  @map("user_agent") @db.Text
+  /// 详情
   details      Json?
+  /// 创建时间
   createdAt    DateTime @default(now()) @map("created_at")
 
   user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
@@ -176,14 +245,23 @@ model SystemLog {
 
 // ==================== 排课模块 (Subsystem B) ====================
 
+/// 教室表
 model Classroom {
+  /// 教室ID
   id         String     @id @default(uuid())
+  /// 教学楼
   building   String     @db.VarChar(50)
+  /// 房间号
   roomNumber String     @map("room_number") @db.VarChar(20)
+  /// 校区
   campus     String     @db.VarChar(50)
+  /// 容量
   capacity   Int
+  /// 教室类型
   roomType   RoomType   @map("room_type")
+  /// 设备
   equipment  Json?
+  /// 状态
   status     RoomStatus @default(AVAILABLE)
 
   schedules Schedule[]
@@ -192,15 +270,25 @@ model Classroom {
   @@map("classrooms")
 }
 
+/// 排课表
 model Schedule {
+  /// 排课ID
   id               String  @id @default(uuid())
+  /// 开课ID
   courseOfferingId String  @map("course_offering_id")
+  /// 教室ID
   classroomId      String  @map("classroom_id")
+  /// 星期几（1-7）
   dayOfWeek        Int     @map("day_of_week")
+  /// 开始周次
   startWeek        Int     @map("start_week")
+  /// 结束周次
   endWeek          Int     @map("end_week")
+  /// 开始节次
   startPeriod      Int     @map("start_period")
+  /// 结束节次
   endPeriod        Int     @map("end_period")
+  /// 备注
   notes            String? @db.Text
 
   courseOffering CourseOffering @relation(fields: [courseOfferingId], references: [id], onDelete: Cascade)
@@ -212,11 +300,17 @@ model Schedule {
 
 // ==================== 选课模块 (Subsystem C) ====================
 
+/// 学期表
 model Semester {
+  /// 学期ID
   id        String         @id @default(uuid())
+  /// 学期名称
   name      String         @db.VarChar(50)
+  /// 开始日期
   startDate DateTime       @map("start_date") @db.Date
+  /// 结束日期
   endDate   DateTime       @map("end_date") @db.Date
+  /// 状态
   status    SemesterStatus @default(UPCOMING)
 
   courseOfferings  CourseOffering[]
@@ -226,15 +320,25 @@ model Semester {
   @@map("semesters")
 }
 
+/// 课程表
 model Course {
+  /// 课程ID
   id               String       @id @default(uuid())
+  /// 课程代码
   code             String       @unique @db.VarChar(20)
+  /// 课程名称
   name             String       @db.VarChar(100)
+  /// 学分
   credits          Decimal      @db.Decimal(3, 1)
+  /// 课程类型
   courseType       CourseType   @map("course_type")
+  /// 课程类别
   category         String?      @db.VarChar(50)
+  /// 课程描述
   description      String?      @db.Text
+  /// 考核方式
   assessmentMethod String?      @map("assessment_method") @db.Text
+  /// 状态
   status           CourseStatus @default(ACTIVE)
 
   offerings         CourseOffering[]
@@ -246,13 +350,21 @@ model Course {
   @@map("courses")
 }
 
+/// 开课表
 model CourseOffering {
+  /// 开课ID
   id            String         @id @default(uuid())
+  /// 课程ID
   courseId      String         @map("course_id")
+  /// 学期ID
   semesterId    String         @map("semester_id")
+  /// 教师ID
   teacherId     String         @map("teacher_id")
+  /// 容量
   capacity      Int
+  /// 已选人数
   enrolledCount Int            @default(0) @map("enrolled_count")
+  /// 状态
   status        OfferingStatus @default(PLANNED)
 
   course      Course       @relation(fields: [courseId], references: [id])
@@ -267,8 +379,11 @@ model CourseOffering {
   @@map("course_offerings")
 }
 
+/// 课程先修关系表
 model CoursePrerequisite {
+  /// 课程ID
   courseId       String @map("course_id")
+  /// 先修课程ID
   prerequisiteId String @map("prerequisite_id")
 
   course       Course @relation("CoursePrerequisites", fields: [courseId], references: [id], onDelete: Cascade)
@@ -278,13 +393,21 @@ model CoursePrerequisite {
   @@map("course_prerequisites")
 }
 
+/// 培养方案表
 model Curriculum {
+  /// 培养方案ID
   id              String   @id @default(uuid())
+  /// 专业ID
   majorId         String   @map("major_id")
+  /// 培养方案名称
   name            String   @db.VarChar(100)
+  /// 年份
   year            Int
+  /// 总学分要求
   totalCredits    Decimal  @map("total_credits") @db.Decimal(5, 1)
+  /// 必修学分
   requiredCredits Decimal? @map("required_credits") @db.Decimal(5, 1)
+  /// 选修学分
   electiveCredits Decimal? @map("elective_credits") @db.Decimal(5, 1)
 
   major   Major              @relation(fields: [majorId], references: [id])
@@ -293,10 +416,15 @@ model Curriculum {
   @@map("curriculums")
 }
 
+/// 培养方案课程关联表
 model CurriculumCourse {
+  /// 培养方案ID
   curriculumId       String     @map("curriculum_id")
+  /// 课程ID
   courseId           String     @map("course_id")
+  /// 课程类型
   courseType         CourseType @map("course_type")
+  /// 学期建议
   semesterSuggestion Int?       @map("semester_suggestion")
 
   curriculum Curriculum @relation(fields: [curriculumId], references: [id], onDelete: Cascade)
@@ -306,12 +434,19 @@ model CurriculumCourse {
   @@map("curriculum_courses")
 }
 
+/// 选课记录表
 model Enrollment {
+  /// 选课ID
   id               String           @id @default(uuid())
+  /// 学生ID
   studentId        String           @map("student_id")
+  /// 开课ID
   courseOfferingId String           @map("course_offering_id")
+  /// 选课状态
   status           EnrollmentStatus @default(ENROLLED)
+  /// 选课时间
   enrolledAt       DateTime         @default(now()) @map("enrolled_at")
+  /// 退课时间
   droppedAt        DateTime?        @map("dropped_at")
 
   student        Student        @relation(fields: [studentId], references: [userId])
@@ -322,13 +457,21 @@ model Enrollment {
   @@map("enrollments")
 }
 
+/// 选课时间段表
 model SelectionPeriod {
+  /// 选课时间段ID
   id         String         @id @default(uuid())
+  /// 学期ID
   semesterId String         @map("semester_id")
+  /// 选课阶段
   phase      SelectionPhase @map("phase")
+  /// 开始时间
   startTime  DateTime       @map("start_time")
+  /// 结束时间
   endTime    DateTime       @map("end_time")
+  /// 最大学分
   maxCredits Decimal?       @map("max_credits") @db.Decimal(3, 1)
+  /// 是否激活
   isActive   Boolean        @default(false) @map("is_active")
 
   semester Semester @relation(fields: [semesterId], references: [id])
@@ -338,18 +481,31 @@ model SelectionPeriod {
 
 // ==================== 论坛模块 (Subsystem D) ====================
 
+/// 论坛帖子表
 model ForumPost {
+  /// 帖子ID
   id               String     @id @default(uuid())
+  /// 开课ID
   courseOfferingId String     @map("course_offering_id")
+  /// 作者ID
   authorId         String     @map("author_id")
+  /// 标题
   title            String     @db.VarChar(200)
+  /// 内容
   content          String     @db.Text
+  /// 帖子类型
   postType         PostType   @map("post_type")
+  /// 是否置顶
   isPinned         Boolean    @default(false) @map("is_pinned")
+  /// 是否公告
   isAnnouncement   Boolean    @default(false) @map("is_announcement")
+  /// 浏览次数
   viewCount        Int        @default(0) @map("view_count")
+  /// 状态
   status           PostStatus @default(NORMAL)
+  /// 创建时间
   createdAt        DateTime   @default(now()) @map("created_at")
+  /// 更新时间
   updatedAt        DateTime?  @map("updated_at")
 
   courseOffering CourseOffering    @relation(fields: [courseOfferingId], references: [id])
@@ -360,14 +516,23 @@ model ForumPost {
   @@map("forum_posts")
 }
 
+/// 论坛评论表
 model ForumComment {
+  /// 评论ID
   id        String     @id @default(uuid())
+  /// 帖子ID
   postId    String     @map("post_id")
+  /// 作者ID
   authorId  String     @map("author_id")
+  /// 父评论ID
   parentId  String?    @map("parent_id")
+  /// 内容
   content   String     @db.Text
+  /// 深度
   depth     Int        @default(0) @map("depth")
+  /// 状态
   status    PostStatus @default(NORMAL)
+  /// 创建时间
   createdAt DateTime   @default(now()) @map("created_at")
 
   post    ForumPost      @relation(fields: [postId], references: [id], onDelete: Cascade)
@@ -378,13 +543,21 @@ model ForumComment {
   @@map("forum_comments")
 }
 
+/// 论坛附件表
 model ForumAttachment {
+  /// 附件ID
   id         String   @id @default(uuid())
+  /// 帖子ID
   postId     String   @map("post_id")
+  /// 文件名
   fileName   String   @map("file_name") @db.VarChar(255)
+  /// 文件路径
   filePath   String   @map("file_path") @db.VarChar(500)
+  /// 文件大小
   fileSize   BigInt   @map("file_size")
+  /// 文件类型
   fileType   String?  @map("file_type") @db.VarChar(50)
+  /// 上传时间
   uploadedAt DateTime @default(now()) @map("uploaded_at")
 
   post ForumPost @relation(fields: [postId], references: [id], onDelete: Cascade)
@@ -394,12 +567,19 @@ model ForumAttachment {
 
 // ==================== 在线测试模块 (Subsystem E) ====================
 
+/// 题库表
 model QuestionBank {
+  /// 题库ID
   id          String     @id @default(uuid())
+  /// 课程ID
   courseId    String     @map("course_id")
+  /// 创建者ID
   creatorId   String     @map("creator_id")
+  /// 题库名称
   name        String     @db.VarChar(100)
+  /// 描述
   description String?    @db.Text
+  /// 状态
   status      BankStatus @default(ACTIVE)
 
   course    Course     @relation(fields: [courseId], references: [id])
@@ -409,17 +589,29 @@ model QuestionBank {
   @@map("question_banks")
 }
 
+/// 题目表
 model Question {
+  /// 题目ID
   id             String       @id @default(uuid())
+  /// 题库ID
   bankId         String       @map("bank_id")
+  /// 题目类型
   questionType   QuestionType @map("question_type")
+  /// 题目内容
   content        String       @db.Text
+  /// 答案
   answer         String       @db.Text
+  /// 解析
   explanation    String?      @db.Text
+  /// 默认分值
   defaultPoints  Decimal      @map("default_points") @db.Decimal(5, 2)
+  /// 难度
   difficulty     Difficulty?
+  /// 知识点
   knowledgePoint String?      @map("knowledge_point") @db.VarChar(100)
+  /// 创建时间
   createdAt      DateTime     @default(now()) @map("created_at")
+  /// 更新时间
   updatedAt      DateTime?    @map("updated_at")
 
   bank          QuestionBank     @relation(fields: [bankId], references: [id])
@@ -429,11 +621,17 @@ model Question {
   @@map("questions")
 }
 
+/// 题目选项表
 model QuestionOption {
+  /// 选项ID
   id          String  @id @default(uuid())
+  /// 题目ID
   questionId  String  @map("question_id")
+  /// 选项内容
   optionText  String  @map("option_text") @db.VarChar(500)
+  /// 选项顺序
   optionOrder Int     @map("option_order")
+  /// 是否正确
   isCorrect   Boolean @default(false) @map("is_correct")
 
   question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
@@ -442,17 +640,29 @@ model QuestionOption {
   @@map("question_options")
 }
 
+/// 试卷表
 model TestPaper {
+  /// 试卷ID
   id               String      @id @default(uuid())
+  /// 开课ID
   courseOfferingId String      @map("course_offering_id")
+  /// 创建者ID
   creatorId        String      @map("creator_id")
+  /// 试卷标题
   title            String      @db.VarChar(200)
+  /// 描述
   description      String?     @db.Text
+  /// 总分
   totalPoints      Decimal     @map("total_points") @db.Decimal(5, 2)
+  /// 考试时长（分钟）
   durationMinutes  Int         @map("duration_minutes")
+  /// 开始时间
   startTime        DateTime?   @map("start_time")
+  /// 结束时间
   endTime          DateTime?   @map("end_time")
+  /// 是否随机
   isRandom         Boolean     @default(false) @map("is_random")
+  /// 状态
   status           PaperStatus @default(DRAFT)
 
   courseOffering CourseOffering @relation(fields: [courseOfferingId], references: [id])
@@ -463,11 +673,17 @@ model TestPaper {
   @@map("test_papers")
 }
 
+/// 试卷题目关联表
 model TestQuestion {
+  /// 试卷题目ID
   id          String  @id @default(uuid())
+  /// 试卷ID
   testPaperId String  @map("test_paper_id")
+  /// 题目ID
   questionId  String  @map("question_id")
+  /// 题号
   orderNum    Int     @map("order_num")
+  /// 分值
   points      Decimal @db.Decimal(5, 2)
 
   testPaper TestPaper @relation(fields: [testPaperId], references: [id], onDelete: Cascade)
@@ -477,14 +693,23 @@ model TestQuestion {
   @@map("test_questions")
 }
 
+/// 测试结果表
 model TestResult {
+  /// 测试结果ID
   id               String     @id @default(uuid())
+  /// 试卷ID
   testPaperId      String     @map("test_paper_id")
+  /// 学生ID
   studentId        String     @map("student_id")
+  /// 开始时间
   startTime        DateTime   @default(now()) @map("start_time")
+  /// 提交时间
   submitTime       DateTime?  @map("submit_time")
+  /// 总分
   totalScore       Decimal?   @map("total_score") @db.Decimal(5, 2)
+  /// 状态
   status           TestStatus @default(IN_PROGRESS)
+  /// 用时（秒）
   timeSpentSeconds Int?       @map("time_spent_seconds")
 
   testPaper TestPaper @relation(fields: [testPaperId], references: [id])
@@ -494,12 +719,19 @@ model TestResult {
   @@map("test_results")
 }
 
+/// 答案表
 model Answer {
+  /// 答案ID
   id             String   @id @default(uuid())
+  /// 测试结果ID
   testResultId   String   @map("test_result_id")
+  /// 试卷题目ID
   testQuestionId String   @map("test_question_id")
+  /// 学生答案
   studentAnswer  String?  @map("student_answer") @db.Text
+  /// 是否正确
   isCorrect      Boolean?
+  /// 得分
   score          Decimal?
 
   testResult   TestResult   @relation(fields: [testResultId], references: [id], onDelete: Cascade)
@@ -510,22 +742,39 @@ model Answer {
 
 // ==================== 成绩模块 (Subsystem F) ====================
 
+/// 成绩表
 model Score {
+  /// 成绩ID
   id                  String      @id @default(uuid())
+  /// 选课ID
   enrollmentId        String      @unique @map("enrollment_id")
+  /// 学生ID
   studentId           String      @map("student_id")
+  /// 开课ID
   courseOfferingId    String      @map("course_offering_id")
+  /// 平时成绩
   usualScore          Decimal?    @map("usual_score") @db.Decimal(5, 2)
+  /// 期中成绩
   midtermScore        Decimal?    @map("midterm_score") @db.Decimal(5, 2)
+  /// 期末成绩
   finalScore          Decimal?    @map("final_score") @db.Decimal(5, 2)
+  /// 总评成绩
   totalScore          Decimal?    @map("total_score") @db.Decimal(5, 2)
+  /// 绩点
   gradePoint          Decimal?    @map("grade_point") @db.Decimal(3, 2)
+  /// 等级
   gradeLetter         String?     @map("grade_letter") @db.VarChar(2)
+  /// 录入者ID
   enteredBy           String      @map("entered_by")
+  /// 录入时间
   enteredAt           DateTime?   @map("entered_at")
+  /// 状态
   status              ScoreStatus @default(DRAFT)
+  /// 修改申请
   modificationRequest String?     @map("modification_request") @db.Text
+  /// 修改时间
   modifiedAt          DateTime?   @map("modified_at")
+  /// 修改者ID
   modifiedBy          String?     @map("modified_by")
 
   enrollment       Enrollment             @relation(fields: [enrollmentId], references: [id])
@@ -538,13 +787,21 @@ model Score {
   @@map("scores")
 }
 
+/// 成绩修改日志表
 model ScoreModificationLog {
+  /// 日志ID
   id         String   @id @default(uuid())
+  /// 成绩ID
   scoreId    String   @map("score_id")
+  /// 修改者ID
   modifierId String   @map("modifier_id")
+  /// 旧值
   oldValue   Json     @map("old_value")
+  /// 新值
   newValue   Json     @map("new_value")
+  /// 原因
   reason     String?  @db.Text
+  /// 创建时间
   createdAt  DateTime @default(now()) @map("created_at")
 
   score    Score @relation(fields: [scoreId], references: [id])
@@ -553,14 +810,23 @@ model ScoreModificationLog {
   @@map("score_modification_logs")
 }
 
+/// GPA记录表
 model GPARecord {
+  /// GPA记录ID
   id            String   @id @default(uuid())
+  /// 学生ID
   studentId     String   @map("student_id")
+  /// 学期ID
   semesterId    String   @map("semester_id")
+  /// 总学分
   totalCredits  Decimal? @map("total_credits") @db.Decimal(5, 1)
+  /// 已获学分
   earnedCredits Decimal? @map("earned_credits") @db.Decimal(5, 1)
+  /// 学期GPA
   semesterGpa   Decimal? @map("semester_gpa") @db.Decimal(3, 2)
+  /// 累计GPA
   cumulativeGpa Decimal? @map("cumulative_gpa") @db.Decimal(3, 2)
+  /// 计算时间
   calculatedAt  DateTime @default(now()) @map("calculated_at")
 
   student  Student  @relation(fields: [studentId], references: [userId])
@@ -572,30 +838,35 @@ model GPARecord {
 
 // ==================== 枚举类型 ====================
 
+/// 性别枚举
 enum Gender {
   MALE
   FEMALE
   OTHER
 }
 
+/// 用户状态枚举
 enum UserStatus {
   ACTIVE
   INACTIVE
   BANNED
 }
 
+/// 管理员类型枚举
 enum AdminType {
   ACADEMIC
   SUPER
   SECURITY
 }
 
+/// 学位类型枚举
 enum DegreeType {
   BACHELOR
   MASTER
   DOCTOR
 }
 
+/// 教室类型枚举
 enum RoomType {
   LECTURE
   LAB
@@ -603,29 +874,34 @@ enum RoomType {
   MULTIMEDIA
 }
 
+/// 教室状态枚举
 enum RoomStatus {
   AVAILABLE
   MAINTENANCE
   UNAVAILABLE
 }
 
+/// 学期状态枚举
 enum SemesterStatus {
   UPCOMING
   CURRENT
   ENDED
 }
 
+/// 课程类型枚举
 enum CourseType {
   REQUIRED
   ELECTIVE
   GENERAL
 }
 
+/// 课程状态枚举
 enum CourseStatus {
   ACTIVE
   ARCHIVED
 }
 
+/// 开课状态枚举
 enum OfferingStatus {
   PLANNED
   OPEN
@@ -633,18 +909,21 @@ enum OfferingStatus {
   CANCELLED
 }
 
+/// 选课状态枚举
 enum EnrollmentStatus {
   ENROLLED
   DROPPED
   WITHDRAWN
 }
 
+/// 选课阶段枚举
 enum SelectionPhase {
   FIRST_ROUND
   SECOND_ROUND
   ADJUSTMENT
 }
 
+/// 帖子类型枚举
 enum PostType {
   QUESTION
   DISCUSSION
@@ -652,35 +931,42 @@ enum PostType {
   ANNOUNCEMENT
 }
 
+/// 帖子状态枚举
 enum PostStatus {
   NORMAL
   HIDDEN
   DELETED
 }
 
+/// 题目类型枚举
 enum QuestionType {
   SINGLE_CHOICE
   MULTI_CHOICE
   TRUE_FALSE
 }
 
+/// 难度枚举
 enum Difficulty {
   EASY
   MEDIUM
   HARD
 }
 
+/// 题库状态枚举
 enum BankStatus {
   ACTIVE
   ARCHIVED
 }
 
+/// 试卷状态枚举
 enum PaperStatus {
   DRAFT
   PUBLISHED
   CLOSED
+  ARCHIVED
 }
 
+/// 测试状态枚举
 enum TestStatus {
   IN_PROGRESS
   SUBMITTED
@@ -688,6 +974,7 @@ enum TestStatus {
   CANCELLED
 }
 
+/// 成绩状态枚举
 enum ScoreStatus {
   DRAFT
   SUBMITTED

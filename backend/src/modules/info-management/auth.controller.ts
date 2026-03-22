@@ -1,8 +1,15 @@
+/**
+ * 认证控制器
+ * 处理认证相关的 HTTP 请求
+ */
 import { Request, Response } from 'express'
 import { authService } from './auth.service.js'
 import { success, error } from '../../shared/utils/response.js'
 
 export const authController = {
+  /**
+   * 用户登录
+   */
   async login(req: Request, res: Response) {
     try {
       const { username, password } = req.body
@@ -14,6 +21,9 @@ export const authController = {
     }
   },
 
+  /**
+   * 用户注册
+   */
   async register(req: Request, res: Response) {
     try {
       const user = await authService.register(req.body)
@@ -24,10 +34,16 @@ export const authController = {
     }
   },
 
+  /**
+   * 用户登出
+   */
   async logout(req: Request, res: Response) {
     success(res, null, '登出成功')
   },
 
+  /**
+   * 修改密码
+   */
   async changePassword(req: Request, res: Response) {
     try {
       const { oldPassword, newPassword } = req.body
@@ -40,6 +56,9 @@ export const authController = {
     }
   },
 
+  /**
+   * 获取当前用户信息
+   */
   async me(req: Request, res: Response) {
     try {
       const userId = req.user!.userId

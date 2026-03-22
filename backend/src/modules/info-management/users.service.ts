@@ -1,9 +1,18 @@
+/**
+ * 用户管理服务
+ * 处理用户 CRUD 和系统日志查询
+ */
 import prisma from '../../shared/prisma/client.js'
 import { hashPassword } from '../../shared/utils/password.js'
 import type { GetUsersQuery, CreateUserInput, UpdateUserInput, GetLogsQuery } from './users.types.js'
 import type { Prisma } from '@prisma/client'
 
 export const usersService = {
+  /**
+   * 获取用户列表（分页）
+   * @param query 查询参数
+   * @returns 用户列表和分页信息
+   */
   async getUsers(query: GetUsersQuery) {
     const { page, pageSize, keyword, status, role } = query
     const skip = (page - 1) * pageSize
@@ -75,6 +84,11 @@ export const usersService = {
     }
   },
 
+  /**
+   * 根据 ID 获取用户详情
+   * @param id 用户ID
+   * @returns 用户详情
+   */
   async getUserById(id: string) {
     const user = await prisma.user.findUnique({
       where: { id },
@@ -113,6 +127,11 @@ export const usersService = {
     }
   },
 
+  /**
+   * 创建用户
+   * @param data 用户数据
+   * @returns 新创建的用户
+   */
   async createUser(data: CreateUserInput) {
     // 检查用户名是否已存在
     const existingUser = await prisma.user.findUnique({
@@ -147,6 +166,12 @@ export const usersService = {
     return this.getUserById(user.id)
   },
 
+  /**
+   * 更新用户信息
+   * @param id 用户ID
+   * @param data 更新数据
+   * @returns 更新后的用户
+   */
   async updateUser(id: string, data: UpdateUserInput) {
     const user = await prisma.user.findUnique({
       where: { id },
@@ -194,6 +219,10 @@ export const usersService = {
     return this.getUserById(id)
   },
 
+  /**
+   * 删除用户
+   * @param id 用户ID
+   */
   async deleteUser(id: string) {
     const user = await prisma.user.findUnique({
       where: { id },
@@ -208,6 +237,11 @@ export const usersService = {
     })
   },
 
+  /**
+   * 获取系统日志（分页）
+   * @param query 查询参数
+   * @returns 日志列表和分页信息
+   */
   async getLogs(query: GetLogsQuery) {
     const { page, pageSize, userId, action, resourceType, startDate, endDate } = query
     const skip = (page - 1) * pageSize

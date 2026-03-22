@@ -1,11 +1,20 @@
+/**
+ * "即将推出" 占位组件
+ * 用于标记尚未开发的功能模块
+ */
 import React from 'react';
 import { Card, Typography } from 'antd';
 import { ToolOutlined } from '@ant-design/icons';
 
 const { Title, Text } = Typography;
 
+/**
+ * ComingSoon 组件 Props
+ */
 interface ComingSoonProps {
+  /** 功能标题 */
   title: string;
+  /** 功能描述 */
   description?: string;
 }
 

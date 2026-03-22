@@ -1,8 +1,17 @@
+/**
+ * 课程管理服务
+ * 处理课程 CRUD 业务逻辑
+ */
 import prisma from '../../shared/prisma/client.js'
 import type { GetCoursesQuery, CreateCourseInput, UpdateCourseInput } from './courses.types.js'
 import type { Prisma } from '@prisma/client'
 
 export const coursesService = {
+  /**
+   * 获取课程列表（分页）
+   * @param query 查询参数
+   * @returns 课程列表和分页信息
+   */
   async getCourses(query: GetCoursesQuery) {
     const { page, pageSize, keyword, category, departmentId, status } = query
     const skip = (page - 1) * pageSize
@@ -77,6 +86,11 @@ export const coursesService = {
     }
   },
 
+  /**
+   * 根据 ID 获取课程详情
+   * @param id 课程ID
+   * @returns 课程详情
+   */
   async getCourseById(id: string) {
     const course = await prisma.course.findUnique({
       where: { id },
@@ -113,6 +127,11 @@ export const coursesService = {
     }
   },
 
+  /**
+   * 创建课程
+   * @param data 课程数据
+   * @returns 新创建的课程
+   */
   async createCourse(data: CreateCourseInput) {
     // 检查课程代码是否已存在
     const existingCourse = await prisma.course.findUnique({
@@ -149,6 +168,12 @@ export const coursesService = {
     return this.getCourseById(course.id)
   },
 
+  /**
+   * 更新课程信息
+   * @param id 课程ID
+   * @param data 更新数据
+   * @returns 更新后的课程
+   */
   async updateCourse(id: string, data: UpdateCourseInput) {
     const course = await prisma.course.findUnique({
       where: { id },
@@ -181,6 +206,10 @@ export const coursesService = {
     return this.getCourseById(id)
   },
 
+  /**
+   * 删除课程
+   * @param id 课程ID
+   */
   async deleteCourse(id: string) {
     const course = await prisma.course.findUnique({
       where: { id },

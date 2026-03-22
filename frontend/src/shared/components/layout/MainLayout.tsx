@@ -1,3 +1,7 @@
+/**
+ * 主布局组件
+ * 包含侧边栏、顶部栏和内容区
+ */
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { Layout, Menu, Button, Dropdown, Avatar } from 'antd';
 import type { MenuProps } from 'antd';

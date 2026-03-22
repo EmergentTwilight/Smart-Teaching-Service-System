@@ -1,3 +1,7 @@
+/**
+ * 应用配置
+ * 从环境变量加载配置项
+ */
 import 'dotenv/config'
 
 export default {

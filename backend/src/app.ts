@@ -1,3 +1,7 @@
+/**
+ * Express 应用入口
+ * 配置中间件、路由和错误处理
+ */
 import 'dotenv/config'
 import express from 'express'
 import cors from 'cors'

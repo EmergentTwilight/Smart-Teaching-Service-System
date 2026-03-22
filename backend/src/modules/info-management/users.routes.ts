@@ -1,3 +1,7 @@
+/**
+ * 用户管理路由
+ * 定义用户 CRUD 相关的 API 端点
+ */
 import { Router } from 'express'
 import { usersController } from './users.controller.js'
 import { authMiddleware, requireRoles } from '../../shared/middleware/auth.js'

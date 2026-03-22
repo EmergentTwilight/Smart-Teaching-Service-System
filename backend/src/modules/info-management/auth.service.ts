@@ -1,9 +1,19 @@
+/**
+ * 认证服务
+ * 处理登录、注册、密码修改等业务逻辑
+ */
 import prisma from '../../shared/prisma/client.js'
 import { hashPassword, comparePassword } from '../../shared/utils/password.js'
 import jwt from 'jsonwebtoken'
 import config from '../../config/index.js'
 
 export const authService = {
+  /**
+   * 用户登录
+   * @param username 用户名
+   * @param password 密码
+   * @returns 登录信息（token 和用户数据）
+   */
   async login(username: string, password: string) {
     const user = await prisma.user.findUnique({
       where: { username },
@@ -66,6 +76,11 @@ export const authService = {
     }
   },
 
+  /**
+   * 用户注册
+   * @param data 注册数据
+   * @returns 新创建的用户信息
+   */
   async register(data: { username: string; password: string; email?: string; realName: string; phone?: string; gender?: string }) {
     // 检查用户名是否已存在
     const existingUser = await prisma.user.findUnique({
@@ -121,6 +136,12 @@ export const authService = {
     }
   },
 
+  /**
+   * 修改密码
+   * @param userId 用户ID
+   * @param oldPassword 旧密码
+   * @param newPassword 新密码
+   */
   async changePassword(userId: string, oldPassword: string, newPassword: string) {
     const user = await prisma.user.findUnique({
       where: { id: userId },
@@ -142,6 +163,11 @@ export const authService = {
     })
   },
 
+  /**
+   * 根据 ID 获取用户信息
+   * @param userId 用户ID
+   * @returns 用户信息
+   */
   async getUserById(userId: string) {
     const user = await prisma.user.findUnique({
       where: { id: userId },

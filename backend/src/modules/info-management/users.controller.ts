@@ -1,9 +1,16 @@
+/**
+ * 用户管理控制器
+ * 处理用户 CRUD 相关的 HTTP 请求
+ */
 import { Request, Response } from 'express'
 import { usersService } from './users.service.js'
 import { success, error, paginated } from '../../shared/utils/response.js'
 import { getUsersQuerySchema, createUserSchema, updateUserSchema, getLogsQuerySchema } from './users.types.js'
 
 export const usersController = {
+  /**
+   * 获取用户列表
+   */
   async list(req: Request, res: Response) {
     try {
       const query = getUsersQuerySchema.parse(req.query)
@@ -15,6 +22,9 @@ export const usersController = {
     }
   },
 
+  /**
+   * 获取单个用户详情
+   */
   async getById(req: Request, res: Response) {
     try {
       const { id } = req.params
@@ -26,6 +36,9 @@ export const usersController = {
     }
   },
 
+  /**
+   * 创建用户
+   */
   async create(req: Request, res: Response) {
     try {
       const data = createUserSchema.parse(req.body)
@@ -37,6 +50,9 @@ export const usersController = {
     }
   },
 
+  /**
+   * 更新用户信息
+   */
   async update(req: Request, res: Response) {
     try {
       const { id } = req.params
@@ -49,6 +65,9 @@ export const usersController = {
     }
   },
 
+  /**
+   * 删除用户
+   */
   async delete(req: Request, res: Response) {
     try {
       const { id } = req.params
@@ -60,6 +79,9 @@ export const usersController = {
     }
   },
 
+  /**
+   * 获取系统日志
+   */
   async getLogs(req: Request, res: Response) {
     try {
       const query = getLogsQuerySchema.parse(req.query)

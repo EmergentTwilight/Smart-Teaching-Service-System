@@ -1,13 +1,25 @@
+/**
+ * 用户表单组件
+ * 用于创建和编辑用户
+ */
 import React, { useState, useEffect } from 'react';
 import { Modal, Form, Input, Select, message, Radio, Space } from 'antd';
 import { UserOutlined, LockOutlined, MailOutlined, PhoneOutlined } from '@ant-design/icons';
 import type { User, UserFormData } from '@/shared/types';
 
+/**
+ * UserForm 组件 Props
+ */
 interface UserFormProps {
+  /** 是否显示 */
   open: boolean;
+  /** 编辑的用户（为空表示新建） */
   user?: User | null;
+  /** 可选角色列表 */
   roles?: { id: string; name: string; code: string }[];
+  /** 提交回调 */
   onSubmit: (values: UserFormData) => Promise<void>;
+  /** 取消回调 */
   onCancel: () => void;
 }
 

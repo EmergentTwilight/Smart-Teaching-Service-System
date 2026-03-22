@@ -170,7 +170,20 @@ make lint
 
 - `main` - 生产环境
 - `develop` - 开发环境
-- `feature/*` - 功能分支
+- `feature/<子系统>-<功能>-<日期>` - 功能分支
+
+**命名规范**：
+- 子系统: A/B/C/D/E/F（对应 6 个子系统）或 `shared`（共享功能）
+- 功能: 简短英文描述（kebab-case）
+- 日期: 开启分支的日期（MMDD格式）
+
+**示例**：
+```
+feature/A-user-crud-0322          # A组用户管理功能
+feature/B-scheduling-0320         # B组排课功能
+feature/shared-ui-style-0322      # 共享UI样式
+feature/shared-database-schema-0322  # 共享数据库Schema
+```
 
 ### Commit 规范
 

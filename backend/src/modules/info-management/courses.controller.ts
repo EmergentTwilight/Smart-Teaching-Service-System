@@ -6,7 +6,6 @@ import { Request, Response } from 'express'
 import { coursesService } from './courses.service.js'
 import { success, error, paginated } from '../../shared/utils/response.js'
 import { getCoursesQuerySchema } from './courses.types.js'
-import type { GetCoursesQuery } from './courses.types.js'
 
 export const coursesController = {
   /**

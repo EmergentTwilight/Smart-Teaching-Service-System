@@ -1,3 +1,7 @@
+/**
+ * 应用根组件
+ * 配置路由、主题和全局状态
+ */
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { ConfigProvider } from 'antd';

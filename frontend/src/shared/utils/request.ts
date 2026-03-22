@@ -1,6 +1,10 @@
+/**
+ * Axios 请求封装
+ * 配置请求/响应拦截器和认证处理
+ */
 import axios, { AxiosError, AxiosResponse } from 'axios';
 
-// 创建 axios 实例
+/** 创建 axios 实例 */
 const request = axios.create({
   baseURL: import.meta.env.VITE_API_URL || 'http://localhost:3000/api/v1',
   timeout: 10000,

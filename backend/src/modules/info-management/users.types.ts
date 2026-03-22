@@ -1,5 +1,12 @@
+/**
+ * 用户管理相关类型定义
+ * 包含用户查询、创建、更新的 schema 和类型
+ */
 import { z } from 'zod'
 
+/**
+ * 用户查询参数 schema
+ */
 export const getUsersQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
@@ -8,6 +15,9 @@ export const getUsersQuerySchema = z.object({
   role: z.string().optional(),
 })
 
+/**
+ * 创建用户 schema
+ */
 export const createUserSchema = z.object({
   username: z.string().min(3).max(50),
   password: z.string().min(6),
@@ -18,6 +28,9 @@ export const createUserSchema = z.object({
   roleIds: z.array(z.string()).optional(),
 })
 
+/**
+ * 更新用户 schema
+ */
 export const updateUserSchema = z.object({
   email: z.string().email().optional(),
   phone: z.string().optional(),
@@ -29,7 +42,9 @@ export const updateUserSchema = z.object({
   roleIds: z.array(z.string()).optional(),
 })
 
-// 系统日志查询
+/**
+ * 系统日志查询参数 schema
+ */
 export const getLogsQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
@@ -40,8 +55,12 @@ export const getLogsQuerySchema = z.object({
   endDate: z.string().optional(),
 })
 
+/** 系统日志查询参数类型 */
 export type GetLogsQuery = z.infer<typeof getLogsQuerySchema>
 
+/** 用户查询参数类型 */
 export type GetUsersQuery = z.infer<typeof getUsersQuerySchema>
+/** 创建用户输入类型 */
 export type CreateUserInput = z.infer<typeof createUserSchema>
+/** 更新用户输入类型 */
 export type UpdateUserInput = z.infer<typeof updateUserSchema>

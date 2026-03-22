@@ -1,3 +1,7 @@
+/**
+ * 认证 Hook
+ * 封装登录、登出等认证操作
+ */
 import { useMutation } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { message } from 'antd';
@@ -5,6 +9,10 @@ import { authApi } from '@/modules/info-management/api/auth';
 import { useAuthStore } from '@/shared/stores/authStore';
 import type { LoginRequest } from '@/shared/types';
 
+/**
+ * 认证 Hook
+ * 提供登录、登出和用户状态管理
+ */
 export const useAuth = () => {
   const navigate = useNavigate();
   const { token, user, isAuthenticated, setAuth, logout } = useAuthStore();

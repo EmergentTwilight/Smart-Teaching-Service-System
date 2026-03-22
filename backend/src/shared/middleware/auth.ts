@@ -1,11 +1,21 @@
+/**
+ * 认证中间件
+ * 处理 JWT token 验证和权限控制
+ */
 import { Request, Response, NextFunction } from 'express'
 import jwt from 'jsonwebtoken'
 import config from '../../config/index.js'
 import { error } from '../utils/response.js'
 
+/**
+ * JWT 载荷结构
+ */
 export interface JwtPayload {
+  /** 用户ID */
   userId: string
+  /** 用户名 */
   username: string
+  /** 用户角色列表 */
   roles: string[]
 }
 
@@ -16,6 +26,10 @@ declare module 'express' {
   }
 }
 
+/**
+ * 认证中间件
+ * 验证请求头中的 JWT token 并解析用户信息
+ */
 export const authMiddleware = (
   req: Request,
   res: Response,
@@ -37,6 +51,11 @@ export const authMiddleware = (
   }
 }
 
+/**
+ * 角色权限中间件工厂
+ * @param roles 允许访问的角色列表
+ * @returns Express 中间件函数
+ */
 export const requireRoles = (...roles: string[]) => {
   return (req: Request, res: Response, next: NextFunction) => {
     if (!req.user) {

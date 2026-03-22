@@ -1,3 +1,7 @@
+/**
+ * 仪表盘页面
+ * 显示系统概览和统计数据
+ */
 import React from 'react';
 import { Card, Row, Col, Progress, Typography, Space } from 'antd';
 import {

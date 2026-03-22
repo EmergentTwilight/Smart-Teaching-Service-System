@@ -1,3 +1,7 @@
+/**
+ * 课程管理路由
+ * 定义课程 CRUD 相关的 API 端点
+ */
 import { Router } from 'express'
 import { coursesController } from './courses.controller.js'
 import { authMiddleware, requireRoles } from '../../shared/middleware/auth.js'

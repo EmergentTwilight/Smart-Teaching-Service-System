@@ -1,9 +1,16 @@
+/**
+ * 课程管理控制器
+ * 处理课程 CRUD 相关的 HTTP 请求
+ */
 import { Request, Response } from 'express'
 import { coursesService } from './courses.service.js'
 import { success, error, paginated } from '../../shared/utils/response.js'
 import type { GetCoursesQuery } from './courses.types.js'
 
 export const coursesController = {
+  /**
+   * 获取课程列表
+   */
   async list(req: Request, res: Response) {
     try {
       const result = await coursesService.getCourses(req.query as GetCoursesQuery)
@@ -14,6 +21,9 @@ export const coursesController = {
     }
   },
 
+  /**
+   * 获取单个课程详情
+   */
   async getById(req: Request, res: Response) {
     try {
       const { id } = req.params
@@ -25,6 +35,9 @@ export const coursesController = {
     }
   },
 
+  /**
+   * 创建课程
+   */
   async create(req: Request, res: Response) {
     try {
       const course = await coursesService.createCourse(req.body)
@@ -35,6 +48,9 @@ export const coursesController = {
     }
   },
 
+  /**
+   * 更新课程信息
+   */
   async update(req: Request, res: Response) {
     try {
       const { id } = req.params
@@ -46,6 +62,9 @@ export const coursesController = {
     }
   },
 
+  /**
+   * 删除课程
+   */
   async delete(req: Request, res: Response) {
     try {
       const { id } = req.params

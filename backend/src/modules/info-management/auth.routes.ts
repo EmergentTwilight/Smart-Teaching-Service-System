@@ -1,3 +1,7 @@
+/**
+ * 认证路由
+ * 定义认证相关的 API 端点
+ */
 import { Router } from 'express'
 import { authController } from './auth.controller.js'
 import { authMiddleware } from '../../shared/middleware/auth.js'

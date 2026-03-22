@@ -5,7 +5,7 @@
 import prisma from '../../shared/prisma/client.js'
 import { hashPassword } from '../../shared/utils/password.js'
 import type { GetUsersQuery, CreateUserInput, UpdateUserInput, GetLogsQuery } from './users.types.js'
-import type { Prisma } from '@prisma/client'
+import type { Prisma, Gender } from '@prisma/client'
 
 export const usersService = {
   /**
@@ -181,12 +181,12 @@ export const usersService = {
       throw new Error('用户不存在')
     }
 
-    const { roleIds, password, ...updateData } = data
+    const { roleIds, password, gender, ...updateData } = data
 
     const updatePayload: Prisma.UserUpdateInput = {
       ...updateData,
       // 转换 gender 类型
-      gender: updateData.gender as Prisma.EnumGender | undefined,
+      gender: gender as Gender | null | undefined,
     }
 
     // 如果提供了密码，则更新密码

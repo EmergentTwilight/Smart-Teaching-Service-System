@@ -45,10 +45,13 @@ export const coursesService = {
         include: {
           department: true,
           teacher: {
-            select: {
-              id: true,
-              realName: true,
-              email: true,
+            include: {
+              user: {
+                select: {
+                  realName: true,
+                  email: true,
+                },
+              },
             },
           },
         },
@@ -69,7 +72,11 @@ export const coursesService = {
         id: course.department.id,
         name: course.department.name,
       } : null,
-      teacher: course.teacher,
+      teacher: course.teacher ? {
+        id: course.teacher.userId,
+        realName: course.teacher.user.realName,
+        email: course.teacher.user.email,
+      } : null,
       status: course.status,
       createdAt: course.createdAt,
       updatedAt: course.updatedAt,
@@ -97,11 +104,14 @@ export const coursesService = {
       include: {
         department: true,
         teacher: {
-          select: {
-            id: true,
-            realName: true,
-            email: true,
-            phone: true,
+          include: {
+            user: {
+              select: {
+                realName: true,
+                email: true,
+                phone: true,
+              },
+            },
           },
         },
       },
@@ -120,7 +130,12 @@ export const coursesService = {
       category: course.category,
       description: course.description,
       department: course.department,
-      teacher: course.teacher,
+      teacher: course.teacher ? {
+        id: course.teacher.userId,
+        realName: course.teacher.user.realName,
+        email: course.teacher.user.email,
+        phone: course.teacher.user.phone,
+      } : null,
       status: course.status,
       createdAt: course.createdAt,
       updatedAt: course.updatedAt,
@@ -148,20 +163,11 @@ export const coursesService = {
         name: data.name,
         credits: data.credits,
         hours: data.hours,
+        courseType: 'ELECTIVE', // 默认选修课
         category: data.category,
         description: data.description,
-        departmentId: data.departmentId,
-        teacherId: data.teacherId,
-      },
-      include: {
-        department: true,
-        teacher: {
-          select: {
-            id: true,
-            realName: true,
-            email: true,
-          },
-        },
+        departmentId: data.departmentId ?? null,
+        teacherId: data.teacherId ?? null,
       },
     })
 

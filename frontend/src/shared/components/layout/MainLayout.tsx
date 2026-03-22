@@ -124,15 +124,15 @@ const MainLayout: React.FC = () => {
     setOpenKeys(getInitialOpenKeys());
   }, [getInitialOpenKeys]);
 
-  const handleMenuClick: MenuProps['onClick'] = useCallback((e) => {
+  const handleMenuClick: MenuProps['onClick'] = useCallback((e: { key: string }) => {
     if (!e.key.startsWith('/')) return;
     navigate(e.key);
   }, [navigate]);
 
   const selectedKeys = useMemo(() => [location.pathname], [location.pathname]);
 
-  const handleOpenChange: MenuProps['onOpenChange'] = useCallback((keys) => {
-    const latestOpenKey = keys.find(key => !openKeys.includes(key)) as string;
+  const handleOpenChange: MenuProps['onOpenChange'] = useCallback((keys: string[]) => {
+    const latestOpenKey = keys.find((key: string) => !openKeys.includes(key)) as string;
     setOpenKeys(latestOpenKey ? [latestOpenKey] : []);
   }, [openKeys]);
 

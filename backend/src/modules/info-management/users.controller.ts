@@ -27,7 +27,10 @@ export const usersController = {
    */
   async getById(req: Request, res: Response) {
     try {
-      const { id } = req.params
+      const id = req.params.id
+      if (!id || typeof id !== 'string') {
+        throw new Error('无效的用户ID')
+      }
       const user = await usersService.getUserById(id)
       success(res, user)
     } catch (err) {
@@ -55,7 +58,10 @@ export const usersController = {
    */
   async update(req: Request, res: Response) {
     try {
-      const { id } = req.params
+      const id = req.params.id
+      if (!id || typeof id !== 'string') {
+        throw new Error('无效的用户ID')
+      }
       const data = updateUserSchema.parse(req.body)
       const user = await usersService.updateUser(id, data)
       success(res, user, '更新成功')
@@ -70,7 +76,10 @@ export const usersController = {
    */
   async delete(req: Request, res: Response) {
     try {
-      const { id } = req.params
+      const id = req.params.id
+      if (!id || typeof id !== 'string') {
+        throw new Error('无效的用户ID')
+      }
       await usersService.deleteUser(id)
       success(res, null, '删除成功')
     } catch (err) {

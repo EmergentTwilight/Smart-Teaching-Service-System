@@ -5,6 +5,7 @@
 import { Request, Response } from 'express'
 import { coursesService } from './courses.service.js'
 import { success, error, paginated } from '../../shared/utils/response.js'
+import { getCoursesQuerySchema } from './courses.types.js'
 import type { GetCoursesQuery } from './courses.types.js'
 
 export const coursesController = {
@@ -13,7 +14,9 @@ export const coursesController = {
    */
   async list(req: Request, res: Response) {
     try {
-      const result = await coursesService.getCourses(req.query as GetCoursesQuery)
+      // 使用 Zod 解析查询参数
+      const query = getCoursesQuerySchema.parse(req.query)
+      const result = await coursesService.getCourses(query)
       paginated(res, result.items, result.pagination)
     } catch (err) {
       const message = err instanceof Error ? err.message : '获取课程列表失败'
@@ -27,6 +30,9 @@ export const coursesController = {
   async getById(req: Request, res: Response) {
     try {
       const { id } = req.params
+      if (!id || typeof id !== 'string') {
+        throw new Error('无效的课程ID')
+      }
       const course = await coursesService.getCourseById(id)
       success(res, course)
     } catch (err) {
@@ -54,6 +60,9 @@ export const coursesController = {
   async update(req: Request, res: Response) {
     try {
       const { id } = req.params
+      if (!id || typeof id !== 'string') {
+        throw new Error('无效的课程ID')
+      }
       const course = await coursesService.updateCourse(id, req.body)
       success(res, course, '更新成功')
     } catch (err) {
@@ -68,6 +77,9 @@ export const coursesController = {
   async delete(req: Request, res: Response) {
     try {
       const { id } = req.params
+      if (!id || typeof id !== 'string') {
+        throw new Error('无效的课程ID')
+      }
       await coursesService.deleteCourse(id)
       success(res, null, '删除成功')
     } catch (err) {

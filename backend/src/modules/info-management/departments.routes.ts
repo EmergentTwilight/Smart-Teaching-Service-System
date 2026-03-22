@@ -32,7 +32,12 @@ router.get(
   validate(departmentIdSchema, 'params'),
   async (req, res, next) => {
   try {
-    const { id } = req.params
+    const id = req.params.id
+    if (!id || typeof id !== 'string') {
+      const error: AppError = new Error('无效的院系ID')
+      error.statusCode = 400
+      throw error
+    }
     const department = await prisma.department.findUnique({
       where: { id },
       include: {

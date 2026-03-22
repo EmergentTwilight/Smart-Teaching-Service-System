@@ -39,11 +39,14 @@ export const success = <T>(res: Response, data: T, message = 'Success', code = 2
  * @param errors 错误详情
  */
 export const error = (res: Response, message: string, code = 400, errors?: unknown) => {
-  res.status(code).json({
+  const response: ApiResponse = {
     code,
     message,
-    ...(errors && { errors }),
-  })
+  }
+  if (errors !== undefined) {
+    response.data = errors as Record<string, unknown>
+  }
+  res.status(code).json(response)
 }
 
 /**

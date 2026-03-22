@@ -6,6 +6,7 @@ import prisma from '../../shared/prisma/client.js'
 import { hashPassword, comparePassword } from '../../shared/utils/password.js'
 import jwt from 'jsonwebtoken'
 import config from '../../config/index.js'
+import type { Gender } from '@prisma/client'
 
 export const authService = {
   /**
@@ -55,7 +56,7 @@ export const authService = {
         roles,
       },
       config.jwt.secret,
-      { expiresIn: config.jwt.expiresIn }
+      { expiresIn: '7d' }
     )
 
     return {
@@ -110,7 +111,7 @@ export const authService = {
         email: data.email,
         realName: data.realName,
         phone: data.phone,
-        gender: data.gender?.toUpperCase(),
+        gender: data.gender?.toUpperCase() as Gender | undefined,
       },
     })
 

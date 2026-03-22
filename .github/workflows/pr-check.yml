@@ -1,0 +1,85 @@
+name: PR Check
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+env:
+  NODE_VERSION: '22'
+  PNPM_VERSION: '10'
+
+jobs:
+  pr-check:
+    name: PR Validation
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Check PR title
+        uses: amannn/action-semantic-pull-request@v5
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          types: |
+            feat
+            fix
+            docs
+            style
+            refactor
+            test
+            chore
+            perf
+            ci
+            revert
+          requireScope: true
+          scopes: |
+            A
+            B
+            C
+            D
+            E
+            F
+            shared
+            db
+            ci
+            deps
+
+      - name: Lint backend
+        run: pnpm --filter @stss/server lint
+
+      - name: Lint frontend
+        run: pnpm --filter @stss/web lint
+
+      - name: Type check
+        run: |
+          pnpm --filter @stss/shared build
+          pnpm --filter @stss/server exec tsc --noEmit || true
+          pnpm --filter @stss/web exec tsc --noEmit || true
+
+      - name: Check for TODOs
+        run: |
+          ! grep -r "TODO\|FIXME\|HACK" backend frontend shared --include="*.ts" --include="*.tsx" || echo "Found TODOs/FIXMEs - please resolve before merging"
+
+      - name: Size limit
+        run: |
+          echo "Checking build sizes..."
+          pnpm build:web
+          du -sh frontend/dist

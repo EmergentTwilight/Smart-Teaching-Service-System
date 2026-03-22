@@ -1,0 +1,75 @@
+services:
+  postgres:
+    image: postgres:18-alpine
+    container_name: stss-postgres
+    environment:
+      POSTGRES_USER: stss
+      POSTGRES_PASSWORD: stss_dev_2026
+      POSTGRES_DB: stss
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U stss -d stss"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - stss-network
+
+  server:
+    image: node:22-alpine
+    container_name: stss-server
+    working_dir: /app
+    environment:
+      DATABASE_URL: postgresql://stss:stss_dev_2026@postgres:5432/stss
+      JWT_SECRET: stss-super-secret-jwt-key-2026
+      JWT_EXPIRES_IN: 7d
+      PORT: 3000
+      NODE_ENV: development
+      CORS_ORIGIN: http://localhost:5173
+    volumes:
+      - ./backend:/app
+      - ./shared:/shared
+      - /app/node_modules
+      - /app/.pnpm-store
+    ports:
+      - "3000:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: sh -c "corepack enable && pnpm install && pnpm db:generate && pnpm db:push && pnpm db:seed && pnpm dev"
+    networks:
+      - stss-network
+
+  web:
+    image: node:22-alpine
+    container_name: stss-web
+    working_dir: /app
+    environment:
+      VITE_API_URL: http://localhost:3000/api/v1
+    volumes:
+      - ./frontend:/app
+      - ./shared:/shared
+      - /app/node_modules
+      - /app/.pnpm-store
+    ports:
+      - "5173:5173"
+    depends_on:
+      - server
+    command: sh -c "corepack enable && pnpm install && pnpm dev"
+    networks:
+      - stss-network
+
+  adminer:
+    image: adminer:latest
+    container_name: stss-adminer
+    ports:
+      - "8080:8080"
+    depends_on:
+      - postgres
+    networks:
+      - stss-network
+
+networks:
+  stss-network:
+    name: stss-network

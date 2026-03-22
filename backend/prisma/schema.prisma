@@ -1,0 +1,191 @@
+// This is your Prisma schema file
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ==================== 用户管理模块 ====================
+
+model User {
+  id            String    @id @default(uuid())
+  username      String    @unique @db.VarChar(50)
+  passwordHash  String    @map("password_hash") @db.VarChar(255)
+  email         String?   @unique @db.VarChar(100)
+  phone         String?   @db.VarChar(20)
+  realName      String    @map("real_name") @db.VarChar(50)
+  avatarUrl     String?   @map("avatar_url") @db.VarChar(500)
+  gender        String?   @db.VarChar(10)
+  status        String    @default("ACTIVE") @db.VarChar(20)
+  lastLoginAt   DateTime? @map("last_login_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  userRoles     UserRole[]
+  logs          SystemLog[]
+  courses       Course[]  // 教师教授的课程
+  student       Student?  // 学生信息（一对一）
+  teacher       Teacher?  // 教师信息（一对一）
+  admin         Admin?    // 管理员信息（一对一）
+
+  @@map("users")
+}
+
+model Role {
+  id          String   @id @default(uuid())
+  name        String   @db.VarChar(50)
+  code        String   @unique @db.VarChar(50)
+  description String?  @db.Text
+
+  userRoles     UserRole[]
+  permissions   RolePermission[]
+
+  @@map("roles")
+}
+
+model Permission {
+  id         String   @id @default(uuid())
+  name       String   @db.VarChar(100)
+  code       String   @unique @db.VarChar(100)
+  resource   String   @db.VarChar(50)
+  action     String   @db.VarChar(20)
+
+  roles      RolePermission[]
+
+  @@map("permissions")
+}
+
+model UserRole {
+  userId     String   @map("user_id")
+  roleId     String   @map("role_id")
+  assignedAt DateTime @default(now()) @map("assigned_at")
+
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role       Role     @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([userId, roleId])
+  @@map("user_roles")
+}
+
+model RolePermission {
+  roleId       String @map("role_id")
+  permissionId String @map("permission_id")
+
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+model SystemLog {
+  id            BigInt   @id @default(autoincrement())
+  userId        String?  @map("user_id")
+  action        String   @db.VarChar(100)
+  resourceType  String?  @map("resource_type") @db.VarChar(50)
+  resourceId    String?  @map("resource_id")
+  ipAddress     String?  @map("ip_address") @db.VarChar(45)
+  userAgent     String?  @map("user_agent") @db.Text
+  details       Json?
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  user          User?    @relation(fields: [userId], references: [id])
+
+  @@map("system_logs")
+}
+
+// 学生信息表（一对一关系）
+model Student {
+  userId        String   @unique @map("user_id")
+  studentNo     String   @unique @map("student_no") @db.VarChar(20)
+  majorId       String?  @map("major_id")
+  grade         String?  @db.VarChar(20) // 年级
+  classNo       String?  @map("class_no") @db.VarChar(20) // 班级
+  enrollmentDate DateTime? @map("enrollment_date") // 入学日期
+
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  major         Major?   @relation(fields: [majorId], references: [id])
+
+  @@map("students")
+}
+
+// 教师信息表（一对一关系）
+model Teacher {
+  userId        String   @unique @map("user_id")
+  employeeNo    String   @unique @map("employee_no") @db.VarChar(20)
+  departmentId  String?  @map("department_id")
+  title         String?  @db.VarChar(50) // 职称
+  hireDate      DateTime? @map("hire_date") // 入职日期
+
+  user          User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  department    Department?  @relation(fields: [departmentId], references: [id])
+
+  @@map("teachers")
+}
+
+// 管理员信息表（一对一关系）
+model Admin {
+  userId        String   @unique @map("user_id")
+  level         String   @default("GENERAL") @db.VarChar(20) // ADMIN_LEVEL: GENERAL, SUPER
+  departmentId  String?  @map("department_id")
+
+  user          User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  department    Department?  @relation(fields: [departmentId], references: [id])
+
+  @@map("admins")
+}
+
+// ==================== 课程管理 ====================
+
+model Course {
+  id            String    @id @default(uuid())
+  code          String    @unique @db.VarChar(20)
+  name          String    @db.VarChar(100)
+  credits       Decimal   @db.Decimal(3, 1)
+  hours         Int       // 学时
+  category      String    @db.VarChar(50) // 课程类别：必修、选修、通识等
+  description   String?   @db.Text
+  departmentId  String?   @map("department_id")
+  teacherId     String?   @map("teacher_id")
+  status        String    @default("ACTIVE") @db.VarChar(20) // ACTIVE, INACTIVE
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  department    Department?  @relation(fields: [departmentId], references: [id])
+  teacher       User?        @relation(fields: [teacherId], references: [id])
+
+  @@map("courses")
+}
+
+// ==================== 院系专业 ====================
+
+model Department {
+  id          String   @id @default(uuid())
+  name        String   @db.VarChar(100)
+  code        String?  @unique @db.VarChar(20)
+  description String?  @db.Text
+
+  majors      Major[]
+  courses     Course[]
+  teachers    Teacher[]
+  admins      Admin[]
+
+  @@map("departments")
+}
+
+model Major {
+  id             String        @id @default(uuid())
+  departmentId   String        @map("department_id")
+  department     Department    @relation(fields: [departmentId], references: [id])
+  name           String        @db.VarChar(100)
+  code           String?       @unique @db.VarChar(20)
+  totalCredits   Decimal?      @map("total_credits") @db.Decimal(5, 1)
+
+  students       Student[]
+
+  @@map("majors")
+}

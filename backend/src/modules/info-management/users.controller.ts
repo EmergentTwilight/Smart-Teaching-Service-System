@@ -41,7 +41,7 @@ export const usersController = {
     try {
       const { id } = req.params
       const data = updateUserSchema.parse(req.body)
-      const user = await usersService.updateUser(id, req.body)
+      const user = await usersService.updateUser(id, data)
       success(res, user, '更新成功')
     } catch (err) {
       const message = err instanceof Error ? err.message : '更新用户失败'
@@ -62,7 +62,8 @@ export const usersController = {
 
   async getLogs(req: Request, res: Response) {
     try {
-      const result = await usersService.getLogs(req.query as GetLogsQuery)
+      const query = getLogsQuerySchema.parse(req.query)
+      const result = await usersService.getLogs(query)
       paginated(res, result.items, result.pagination)
     } catch (err) {
       const message = err instanceof Error ? err.message : '获取系统日志失败'

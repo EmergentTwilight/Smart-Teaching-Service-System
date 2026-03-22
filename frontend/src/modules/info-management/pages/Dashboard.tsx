@@ -10,43 +10,51 @@ import {
 
 const { Title, Text } = Typography;
 
-const Dashboard: React.FC = () => {
-  // 统计数据
-  const stats = [
-    {
-      title: '用户总数',
-      value: 1234,
-      icon: <UserOutlined style={{ fontSize: 28, color: '#6366f1' }} />,
-      color: '#6366f1',
-      bgColor: '#eef2ff',
-      increase: 12,
-    },
-    {
-      title: '课程总数',
-      value: 86,
-      icon: <BookOutlined style={{ fontSize: 28, color: '#10b981' }} />,
-      color: '#10b981',
-      bgColor: '#ecfdf5',
-      increase: 8,
-    },
-    {
-      title: '班级数量',
-      value: 42,
-      icon: <TeamOutlined style={{ fontSize: 28, color: '#f59e0b' }} />,
-      color: '#f59e0b',
-      bgColor: '#fffbeb',
-      increase: 5,
-    },
-    {
-      title: '选课人数',
-      value: 856,
-      icon: <CheckCircleOutlined style={{ fontSize: 28, color: '#3b82f6' }} />,
-      color: '#3b82f6',
-      bgColor: '#eff6ff',
-      increase: 23,
-    },
-  ];
+// 统计数据（移到组件外避免重复创建）
+const STATS = [
+  {
+    title: '用户总数',
+    value: 1234,
+    icon: <UserOutlined style={{ fontSize: 28, color: '#6366f1' }} />,
+    color: '#6366f1',
+    bgColor: '#eef2ff',
+    increase: 12,
+  },
+  {
+    title: '课程总数',
+    value: 86,
+    icon: <BookOutlined style={{ fontSize: 28, color: '#10b981' }} />,
+    color: '#10b981',
+    bgColor: '#ecfdf5',
+    increase: 8,
+  },
+  {
+    title: '班级数量',
+    value: 42,
+    icon: <TeamOutlined style={{ fontSize: 28, color: '#f59e0b' }} />,
+    color: '#f59e0b',
+    bgColor: '#fffbeb',
+    increase: 5,
+  },
+  {
+    title: '选课人数',
+    value: 856,
+    icon: <CheckCircleOutlined style={{ fontSize: 28, color: '#3b82f6' }} />,
+    color: '#3b82f6',
+    bgColor: '#eff6ff',
+    increase: 23,
+  },
+] as const;
 
+// 活动数据
+const ACTIVITIES = [
+  { text: '新用户 zhangsan 完成注册', time: '2 分钟前', color: '#6366f1' },
+  { text: '课程《高等数学》已更新', time: '15 分钟前', color: '#10b981' },
+  { text: '选课系统已开启', time: '1 小时前', color: '#f59e0b' },
+  { text: '系统完成数据备份', time: '3 小时前', color: '#3b82f6' },
+] as const;
+
+const Dashboard: React.FC = () => {
   return (
     <div className="fade-in">
       {/* 页面标题 */}
@@ -59,7 +67,7 @@ const Dashboard: React.FC = () => {
 
       {/* 统计卡片 */}
       <Row gutter={[24, 24]}>
-        {stats.map((stat, index) => (
+        {STATS.map((stat, index) => (
           <Col xs={24} sm={12} lg={6} key={index}>
             <Card
               className="stat-card"
@@ -155,12 +163,7 @@ const Dashboard: React.FC = () => {
             }}
           >
             <Space direction="vertical" style={{ width: '100%' }} size="middle">
-              {[
-                { text: '新用户 zhangsan 完成注册', time: '2 分钟前', color: '#6366f1' },
-                { text: '课程《高等数学》已更新', time: '15 分钟前', color: '#10b981' },
-                { text: '选课系统已开启', time: '1 小时前', color: '#f59e0b' },
-                { text: '系统完成数据备份', time: '3 小时前', color: '#3b82f6' },
-              ].map((item, index) => (
+              {ACTIVITIES.map((item, index) => (
                 <div
                   key={index}
                   style={{

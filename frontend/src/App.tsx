@@ -19,7 +19,7 @@ const queryClient = new QueryClient({
   },
 });
 
-// 受保护的路由
+// 受保护的路由组件
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
 

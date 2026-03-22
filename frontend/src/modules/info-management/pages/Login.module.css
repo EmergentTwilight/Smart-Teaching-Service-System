@@ -2,14 +2,10 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  min-height: 100vh;
   height: 100vh;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  inset: 0;
   overflow: hidden;
 }
 
@@ -60,6 +56,14 @@
   50% {
     transform: scale(1.05);
   }
+}
+
+.title {
+  text-align: center;
+  margin: 0;
+  font-size: 24px;
+  font-weight: 600;
+  color: #1f2937;
 }
 
 .subtitle {

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { Layout, Menu, Button, Dropdown, Avatar } from 'antd';
 import type { MenuProps } from 'antd';
 import {
@@ -28,13 +28,8 @@ import { useAuthStore } from '@/shared/stores/authStore';
 
 const { Header, Sider, Content } = Layout;
 
-const MainLayout: React.FC = () => {
-  const [collapsed, setCollapsed] = useState(false);
-  const navigate = useNavigate();
-  const location = useLocation();
-  const { user, logout } = useAuthStore();
-
-  const menuItems: MenuProps['items'] = [
+// 菜单项配置（移到组件外）
+const MENU_ITEMS: MenuProps['items'] = [
     {
       key: '/',
       icon: <DashboardOutlined />,
@@ -108,40 +103,41 @@ const MainLayout: React.FC = () => {
     },
   ];
 
-  const handleMenuClick: MenuProps['onClick'] = (e) => {
-    // 只跳转叶子节点
+const MainLayout: React.FC = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { user, logout } = useAuthStore();
+  const [collapsed, setCollapsed] = useState(false);
+
+  const getInitialOpenKeys = useCallback(() => {
+    const pathParts = location.pathname.split('/').filter(Boolean);
+    return pathParts.length > 1 ? [pathParts[0]] : [];
+  }, [location.pathname]);
+
+  const [openKeys, setOpenKeys] = useState<string[]>(getInitialOpenKeys);
+
+  useEffect(() => {
+    setOpenKeys(getInitialOpenKeys());
+  }, [getInitialOpenKeys]);
+
+  const handleMenuClick: MenuProps['onClick'] = useCallback((e) => {
     if (!e.key.startsWith('/')) return;
     navigate(e.key);
-  };
+  }, [navigate]);
 
-  // 获取当前选中的菜单
-  const getSelectedKeys = () => {
-    return [location.pathname];
-  };
+  const selectedKeys = useMemo(() => [location.pathname], [location.pathname]);
 
-  // 获取当前展开的子菜单
-  const getOpenKeys = () => {
-    const pathParts = location.pathname.split('/').filter(Boolean);
-    if (pathParts.length > 1) {
-      return [pathParts[0]];
-    }
-    return [];
-  };
-
-  const [openKeys, setOpenKeys] = useState(getOpenKeys());
-
-  const handleOpenChange: MenuProps['onOpenChange'] = (keys) => {
-    // 手风琴模式：只保留最新展开的一个
+  const handleOpenChange: MenuProps['onOpenChange'] = useCallback((keys) => {
     const latestOpenKey = keys.find(key => !openKeys.includes(key)) as string;
     setOpenKeys(latestOpenKey ? [latestOpenKey] : []);
-  };
+  }, [openKeys]);
 
-  const handleLogout = () => {
+  const handleLogout = useCallback(() => {
     logout();
     navigate('/login');
-  };
+  }, [logout, navigate]);
 
-  const userMenuItems = [
+  const userMenuItems = useMemo(() => [
     {
       key: 'profile',
       icon: <UserOutlined />,
@@ -156,7 +152,7 @@ const MainLayout: React.FC = () => {
       label: '退出登录',
       onClick: handleLogout,
     },
-  ];
+  ], [handleLogout]);
 
   return (
     <Layout style={{ minHeight: '100vh' }}>
@@ -229,10 +225,10 @@ const MainLayout: React.FC = () => {
         <Menu
           theme="dark"
           mode="inline"
-          selectedKeys={getSelectedKeys()}
+          selectedKeys={selectedKeys}
           openKeys={collapsed ? [] : openKeys}
           onOpenChange={handleOpenChange}
-          items={menuItems}
+          items={MENU_ITEMS}
           onClick={handleMenuClick}
           style={{
             background: 'transparent',

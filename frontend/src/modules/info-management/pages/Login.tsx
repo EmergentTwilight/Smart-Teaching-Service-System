@@ -23,7 +23,7 @@ const Login: React.FC = () => {
         <div className={styles.logo}>
           <TrophyOutlined className={styles.logoIcon} />
         </div>
-        <h2 style={{ textAlign: 'center', margin: 0, fontSize: 24, fontWeight: 600, color: '#1f2937' }}>
+        <h2 className={styles.title}>
           智慧教学服务系统
         </h2>
         <p className={styles.subtitle}>Smart Teaching Service System</p>
@@ -52,7 +52,7 @@ const Login: React.FC = () => {
             <Input.Password
               prefix={<LockOutlined style={{ color: '#9ca3af' }} />}
               placeholder="密码"
-              autoComplete="current-password"
+              autoComplete=""
             />
           </Form.Item>
 

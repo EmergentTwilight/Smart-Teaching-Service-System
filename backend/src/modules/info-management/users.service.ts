@@ -125,12 +125,11 @@ export const usersService = {
 
     // 创建用户
     const hashedPassword = await hashPassword(data.password)
-    const { roleIds, password, ...userData } = data
+    const { roleIds, ...userData } = data
 
     const user = await prisma.user.create({
       data: {
         ...userData,
-        gender: userData.gender?.toUpperCase(),
         passwordHash: hashedPassword,
       },
     })
@@ -161,7 +160,6 @@ export const usersService = {
 
     const updatePayload: Prisma.UserUpdateInput = {
       ...updateData,
-      gender: updateData.gender,
     }
 
     // 如果提供了密码，则更新密码

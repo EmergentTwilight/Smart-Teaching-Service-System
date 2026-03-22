@@ -13,7 +13,7 @@ export const getCoursesQuerySchema = z.object({
   keyword: z.string().optional(),
   category: z.string().optional(),
   departmentId: z.string().optional(),
-  status: z.enum(['ACTIVE', 'INACTIVE']).optional(),
+  status: z.enum(['ACTIVE', 'ARCHIVED']).optional(),
 })
 
 /**
@@ -42,7 +42,7 @@ export const updateCourseSchema = z.object({
   description: z.string().optional(),
   departmentId: z.string().optional().nullable(),
   teacherId: z.string().optional().nullable(),
-  status: z.enum(['ACTIVE', 'INACTIVE']).optional(),
+  status: z.enum(['ACTIVE', 'ARCHIVED']).optional(),
 })
 
 /** 课程查询参数类型 */

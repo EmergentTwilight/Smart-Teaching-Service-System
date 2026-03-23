@@ -14,6 +14,8 @@ export interface ApiResponse<T = unknown> {
   message: string
   /** 响应数据 */
   data?: T
+  /** 请求 ID（用于追踪） */
+  requestId?: string
 }
 
 /**
@@ -22,13 +24,24 @@ export interface ApiResponse<T = unknown> {
  * @param data 响应数据
  * @param message 成功消息
  * @param code HTTP 状态码
+ * @param requestId 请求 ID
  */
-export const success = <T>(res: Response, data: T, message = 'Success', code = 200) => {
-  res.status(code).json({
+export const success = <T>(
+  res: Response,
+  data: T,
+  message = 'Success',
+  code = 200,
+  requestId?: string
+) => {
+  const response: ApiResponse<T> = {
     code,
     message,
     data,
-  })
+  }
+  if (requestId) {
+    response.requestId = requestId
+  }
+  res.status(code).json(response)
 }
 
 /**
@@ -37,14 +50,24 @@ export const success = <T>(res: Response, data: T, message = 'Success', code = 2
  * @param message 错误消息
  * @param code HTTP 状态码
  * @param errors 错误详情
+ * @param requestId 请求 ID
  */
-export const error = (res: Response, message: string, code = 400, errors?: unknown) => {
+export const error = (
+  res: Response,
+  message: string,
+  code = 400,
+  errors?: unknown,
+  requestId?: string
+) => {
   const response: ApiResponse = {
     code,
     message,
   }
   if (errors !== undefined) {
     response.data = errors as Record<string, unknown>
+  }
+  if (requestId) {
+    response.requestId = requestId
   }
   res.status(code).json(response)
 }
@@ -54,6 +77,7 @@ export const error = (res: Response, message: string, code = 400, errors?: unkno
  * @param res Express Response 对象
  * @param items 数据项列表
  * @param pagination 分页信息
+ * @param requestId 请求 ID
  */
 export const paginated = <T>(
   res: Response,
@@ -63,14 +87,19 @@ export const paginated = <T>(
     pageSize: number
     total: number
     totalPages: number
-  }
+  },
+  requestId?: string
 ) => {
-  res.json({
+  const response: ApiResponse<{ items: T[]; pagination: typeof pagination }> = {
     code: 200,
     message: 'Success',
     data: {
       items,
       pagination,
     },
-  })
+  }
+  if (requestId) {
+    response.requestId = requestId
+  }
+  res.json(response)
 }

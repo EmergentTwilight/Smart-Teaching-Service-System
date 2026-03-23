@@ -10,6 +10,7 @@ import compression from 'compression'
 import morgan from 'morgan'
 import rateLimit from 'express-rate-limit'
 import { errorHandler } from './shared/middleware/error.js'
+import { requestLogger } from './shared/middleware/requestLogger.js'
 import authRoutes from './modules/info-management/auth.routes.js'
 import usersRoutes from './modules/info-management/users.routes.js'
 import departmentsRoutes from './modules/info-management/departments.routes.js'
@@ -24,6 +25,28 @@ const PORT = config.port
 // ==================== 中间件配置 ====================
 
 // CORS 跨域配置
+//
+// 【CSRF 安全说明】
+// 当前架构使用 JWT Bearer Token 进行身份认证，Token 通过 Authorization header 传递，
+// 而非通过 Cookie 传递。因此：
+//
+// 1. CSRF 攻击原理：攻击者诱导用户在已登录状态下向目标站点发送伪造请求，
+//    浏览器会自动携带 Cookie，导致服务器误认为是合法请求。
+//
+// 2. 为什么当前架构不需要 CSRF 保护：
+//    - JWT 存储在客户端（localStorage/sessionStorage），不使用 Cookie
+//    - 每次请求需要前端主动在 Authorization header 中添加 Bearer Token
+//    - 浏览器的同源策略会阻止恶意站点读取或设置 localStorage
+//    - 攻击者无法获取 Token，因此无法构造有效的伪造请求
+//
+// 3. 如果未来改用 Cookie 存储 JWT，则需要：
+//    - 设置 httpOnly: true（防止 XSS 读取）
+//    - 设置 sameSite: 'strict' 或 'lax'（防止 CSRF）
+//    - 添加 CSRF Token 验证（双重提交 Cookie 模式）
+//
+// 参考资料：
+// - https://owasp.org/www-community/attacks/csrf
+// - https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html
 app.use(
   cors({
     origin: config.cors.origin.split(','),
@@ -38,6 +61,9 @@ app.use(helmet())
 app.use(compression())
 
 // 请求日志
+app.use(requestLogger)
+
+// HTTP 请求日志
 app.use(morgan('dev'))
 
 // JSON 解析

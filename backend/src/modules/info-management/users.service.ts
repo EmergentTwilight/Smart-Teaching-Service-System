@@ -4,6 +4,7 @@
  */
 import prisma from '../../shared/prisma/client.js'
 import { hashPassword } from '../../shared/utils/password.js'
+import { NotFoundError, ConflictError } from '../../shared/errors/AppError.js'
 import type {
   GetUsersQuery,
   CreateUserInput,
@@ -110,7 +111,7 @@ export const usersService = {
     })
 
     if (!user) {
-      throw new Error('用户不存在')
+      throw new NotFoundError('用户不存在')
     }
 
     return {
@@ -144,7 +145,7 @@ export const usersService = {
     })
 
     if (existingUser) {
-      throw new Error('用户名已存在')
+      throw new ConflictError('用户名已存在')
     }
 
     // 创建用户
@@ -185,7 +186,7 @@ export const usersService = {
     })
 
     if (!user) {
-      throw new Error('用户不存在')
+      throw new NotFoundError('用户不存在')
     }
 
     const { roleIds, password, gender, ...updateData } = data
@@ -238,7 +239,7 @@ export const usersService = {
     })
 
     if (!user) {
-      throw new Error('用户不存在')
+      throw new NotFoundError('用户不存在')
     }
 
     await prisma.user.delete({

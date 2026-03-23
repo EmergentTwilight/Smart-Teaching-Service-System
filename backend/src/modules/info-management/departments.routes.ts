@@ -7,7 +7,7 @@ import { authMiddleware } from '../../shared/middleware/auth.js'
 import { validate } from '../../shared/middleware/validate.js'
 import prisma from '../../shared/prisma/client.js'
 import { success } from '../../shared/utils/response.js'
-import type { AppError } from '../../shared/middleware/error.js'
+import { ValidationError, NotFoundError } from '../../shared/errors/AppError.js'
 import { departmentIdSchema } from './departments.types.js'
 
 const router: RouterType = Router()
@@ -132,9 +132,7 @@ router.get('/:id', validate(departmentIdSchema, 'params'), async (req, res, next
   try {
     const id = req.params.id
     if (!id || typeof id !== 'string') {
-      const error: AppError = new Error('无效的院系ID')
-      error.statusCode = 400
-      throw error
+      throw new ValidationError('无效的院系ID')
     }
     const department = await prisma.department.findUnique({
       where: { id },
@@ -143,9 +141,7 @@ router.get('/:id', validate(departmentIdSchema, 'params'), async (req, res, next
       },
     })
     if (!department) {
-      const error: AppError = new Error('院系不存在')
-      error.statusCode = 404
-      throw error
+      throw new NotFoundError('院系不存在')
     }
     success(res, department)
   } catch (err) {

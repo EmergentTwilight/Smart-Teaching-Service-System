@@ -4,7 +4,12 @@
  */
 import prisma from '../../shared/prisma/client.js'
 import { hashPassword } from '../../shared/utils/password.js'
-import type { GetUsersQuery, CreateUserInput, UpdateUserInput, GetLogsQuery } from './users.types.js'
+import type {
+  GetUsersQuery,
+  CreateUserInput,
+  UpdateUserInput,
+  GetLogsQuery,
+} from './users.types.js'
 import type { Prisma, Gender } from '@prisma/client'
 
 export const usersService = {
@@ -144,7 +149,8 @@ export const usersService = {
 
     // 创建用户
     const hashedPassword = await hashPassword(data.password)
-    const { roleIds, ...userData } = data
+    // 排除 roleIds 和 password，只保留用户字段
+    const { roleIds, password, ...userData } = data
 
     const user = await prisma.user.create({
       data: {

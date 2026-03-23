@@ -150,7 +150,8 @@ export const usersService = {
     // 创建用户
     const hashedPassword = await hashPassword(data.password)
     // 排除 roleIds 和 password，只保留用户字段
-    const { roleIds, password, ...userData } = data
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { roleIds, password: _unusedPassword, ...userData } = data
 
     const user = await prisma.user.create({
       data: {

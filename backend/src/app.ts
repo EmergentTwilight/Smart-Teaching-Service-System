@@ -1,36 +1,163 @@
+/**
+ * Express 应用入口
+ * 配置中间件、路由和错误处理
+ */
 import 'dotenv/config'
-import express from 'express'
+import express, { type Application } from 'express'
 import cors from 'cors'
 import helmet from 'helmet'
 import compression from 'compression'
 import morgan from 'morgan'
+import rateLimit from 'express-rate-limit'
 import { errorHandler } from './shared/middleware/error.js'
+import { requestLogger } from './shared/middleware/requestLogger.js'
 import authRoutes from './modules/info-management/auth.routes.js'
 import usersRoutes from './modules/info-management/users.routes.js'
 import departmentsRoutes from './modules/info-management/departments.routes.js'
 import coursesRoutes from './modules/info-management/courses.routes.js'
 import config from './config/index.js'
+import { swaggerSpec } from './config/swagger.js'
+import swaggerUi from 'swagger-ui-express'
+import prisma from './shared/prisma/client.js'
 
-const app = express()
+const app: Application = express()
 const PORT = config.port
 
-// 中间件
-app.use(cors({
-  origin: config.cors.origin.split(','),
-  credentials: true,
-}))
+// ==================== 中间件配置 ====================
+
+// CORS 跨域配置
+//
+// 【CSRF 安全说明】
+// 当前架构使用 JWT Bearer Token 进行身份认证，Token 通过 Authorization header 传递，
+// 而非通过 Cookie 传递。因此：
+//
+// 1. CSRF 攻击原理：攻击者诱导用户在已登录状态下向目标站点发送伪造请求，
+//    浏览器会自动携带 Cookie，导致服务器误认为是合法请求。
+//
+// 2. 为什么当前架构不需要 CSRF 保护：
+//    - JWT 存储在客户端（localStorage/sessionStorage），不使用 Cookie
+//    - 每次请求需要前端主动在 Authorization header 中添加 Bearer Token
+//    - 浏览器的同源策略会阻止恶意站点读取或设置 localStorage
+//    - 攻击者无法获取 Token，因此无法构造有效的伪造请求
+//
+// 3. 如果未来改用 Cookie 存储 JWT，则需要：
+//    - 设置 httpOnly: true（防止 XSS 读取）
+//    - 设置 sameSite: 'strict' 或 'lax'（防止 CSRF）
+//    - 添加 CSRF Token 验证（双重提交 Cookie 模式）
+//
+// 参考资料：
+// - https://owasp.org/www-community/attacks/csrf
+// - https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html
+app.use(
+  cors({
+    origin: config.cors.origin.split(','),
+    credentials: true,
+  })
+)
+
+// 安全头部
 app.use(helmet())
+
+// 响应压缩
 app.use(compression())
+
+// 请求日志
+app.use(requestLogger)
+
+// HTTP 请求日志
 app.use(morgan('dev'))
+
+// JSON 解析
 app.use(express.json())
 app.use(express.urlencoded({ extended: true }))
 
-// 健康检查
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() })
+// 请求速率限制 - 防止暴力攻击
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 分钟
+  max: 100, // 每个 IP 最多 100 次请求
+  message: {
+    code: 429,
+    message: '请求过于频繁，请稍后再试',
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+})
+app.use('/api/', limiter)
+
+// 认证接口单独限流 - 更严格的限制
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 分钟
+  max: 10, // 每个 IP 最多 10 次登录尝试
+  message: {
+    code: 429,
+    message: '登录尝试次数过多，请稍后再试',
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+})
+app.use('/api/v1/auth/login', authLimiter)
+app.use('/api/v1/auth/register', authLimiter)
+
+// ==================== API 文档 (Swagger) ====================
+app.use(
+  '/api-docs',
+  swaggerUi.serve,
+  swaggerUi.setup(swaggerSpec, {
+    customCss: '.swagger-ui .topbar { display: none }',
+    customSiteTitle: 'STSS API 文档',
+  })
+)
+
+// Swagger JSON 导出
+app.get('/api-docs.json', (req, res) => {
+  res.setHeader('Content-Type', 'application/json')
+  res.send(swaggerSpec)
 })
 
-// API 路由
+// ==================== 健康检查 ====================
+app.get('/api/health', async (req, res) => {
+  const startTime = Date.now()
+  const checks: Record<string, { status: string; latency?: number; error?: string }> = {}
+
+  // 检查数据库连接
+  try {
+    const dbStart = Date.now()
+    await prisma.$queryRaw`SELECT 1`
+    checks.database = {
+      status: 'connected',
+      latency: Date.now() - dbStart,
+    }
+  } catch (error) {
+    checks.database = {
+      status: 'disconnected',
+      error: error instanceof Error ? error.message : 'Unknown database error',
+    }
+  }
+
+  // 检查服务器状态
+  checks.server = {
+    status: 'running',
+  }
+
+  // 确定整体状态
+  const allHealthy = Object.values(checks).every(
+    (check) => check.status === 'connected' || check.status === 'running'
+  )
+  const status = allHealthy ? 'ok' : 'degraded'
+
+  const health = {
+    status,
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    responseTime: Date.now() - startTime,
+    checks,
+  }
+
+  // 如果状态为 degraded，返回 503 状态码
+  res.status(status === 'ok' ? 200 : 503).json(health)
+})
+
+// ==================== API 路由 ====================
 app.use('/api/v1/auth', authRoutes)
 app.use('/api/v1/users', usersRoutes)
 app.use('/api/v1/departments', departmentsRoutes)

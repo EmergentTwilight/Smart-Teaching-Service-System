@@ -1,133 +1,201 @@
-// 共享类型定义
+/**
+ * 共享类型定义
+ * 导出 Prisma 类型和自定义业务类型
+ */
 
-// ==================== 用户相关 ====================
+// ==================== Prisma 类型重导出 ====================
 
-export type UserRole = 'student' | 'teacher' | 'admin' | 'super_admin' | 'security_admin'
-export type UserStatus = 'active' | 'inactive' | 'banned'
-export type Gender = 'male' | 'female' | 'other'
+/**
+ * 重导出 Prisma 生成的所有类型
+ * 运行 `npx prisma generate` 后自动生成
+ */
 
-export interface User {
-  id: string
-  username: string
-  email: string | null
-  phone: string | null
-  realName: string
-  avatarUrl: string | null
-  gender: Gender | null
-  status: UserStatus
-  lastLoginAt: string | null
-  createdAt: string
-  updatedAt: string
-  roles: UserRole[]
-}
+// 先导入类型（用于本地引用）
+import type {
+  User as UserType,
+  Gender as GenderType,
+  UserStatus as UserStatusType,
+} from '@prisma/client'
 
-export interface Student extends User {
-  studentNumber: string
-  majorId: string | null
-  grade: number
-  className: string | null
-}
+// 导出所有 Model 类型
+export type {
+  User,
+  Student,
+  Teacher,
+  Admin,
+  Department,
+  Major,
+  Role,
+  Permission,
+  UserRole,
+  RolePermission,
+  SystemLog,
+  Classroom,
+  Schedule,
+  Semester,
+  Course,
+  CourseOffering,
+  Curriculum,
+  CurriculumCourse,
+  CoursePrerequisite,
+  Enrollment,
+  SelectionPeriod,
+  ForumPost,
+  ForumComment,
+  ForumAttachment,
+  QuestionBank,
+  Question,
+  QuestionOption,
+  TestPaper,
+  TestQuestion,
+  TestResult,
+  Answer,
+  Score,
+  ScoreModificationLog,
+  GPARecord,
+} from '@prisma/client'
 
-export interface Teacher extends User {
-  teacherNumber: string
-  departmentId: string | null
-  title: string | null
-  officeLocation: string | null
-}
+// 导出所有枚举类型
+export {
+  Gender,
+  UserStatus,
+  AdminType,
+  DegreeType,
+  RoomType,
+  RoomStatus,
+  SemesterStatus,
+  CourseType,
+  CourseStatus,
+  OfferingStatus,
+  EnrollmentStatus,
+  SelectionPhase,
+  PostType,
+  PostStatus,
+  QuestionType,
+  Difficulty,
+  BankStatus,
+  PaperStatus,
+  TestStatus,
+  ScoreStatus,
+  Prisma, // Prisma 命名空间（包含工具类型）
+} from '@prisma/client'
 
-export interface Admin extends User {
-  adminType: 'academic' | 'super' | 'security'
-  departmentId: string | null
-}
+// 导出 Prisma Client（用于类型推导）
+export { PrismaClient } from '@prisma/client'
 
 // ==================== 认证相关 ====================
 
+/** 登录请求 */
 export interface LoginRequest {
+  /** 用户名 */
   username: string
+  /** 密码 */
   password: string
 }
 
+/** 登录响应 */
 export interface LoginResponse {
+  /** 访问令牌 */
   accessToken: string
+  /** 刷新令牌 */
   refreshToken: string
+  /** 过期时间（秒） */
   expiresIn: number
-  user: User
+  /** 用户信息 */
+  user: UserType
 }
 
+/** 注册请求 */
 export interface RegisterRequest {
+  /** 用户名 */
   username: string
+  /** 密码 */
   password: string
+  /** 邮箱 */
   email?: string
+  /** 真实姓名 */
   realName: string
-  gender?: Gender
+  /** 性别 */
+  gender?: GenderType
+  /** 手机号 */
   phone?: string
 }
 
+/** 修改密码请求 */
 export interface ChangePasswordRequest {
+  /** 旧密码 */
   oldPassword: string
+  /** 新密码 */
   newPassword: string
-}
-
-// ==================== 院系专业相关 ====================
-
-export interface Department {
-  id: string
-  name: string
-  code: string | null
-  description: string | null
-}
-
-export interface Major {
-  id: string
-  departmentId: string
-  name: string
-  code: string | null
-  degreeType: 'bachelor' | 'master' | 'doctor' | null
-  totalCredits: number | null
 }
 
 // ==================== API 响应类型 ====================
 
+/** API 响应结构 */
 export interface ApiResponse<T = unknown> {
+  /** 状态码 */
   code: number
+  /** 响应消息 */
   message: string
+  /** 响应数据 */
   data: T
 }
 
+/** 分页数据结构 */
 export interface PaginatedData<T> {
+  /** 数据项列表 */
   items: T[]
+  /** 分页信息 */
   pagination: {
+    /** 当前页码 */
     page: number
+    /** 每页数量 */
     pageSize: number
+    /** 总数量 */
     total: number
+    /** 总页数 */
     totalPages: number
   }
 }
 
+/** API 错误响应 */
 export interface ApiError {
+  /** 错误码 */
   code: number
+  /** 错误消息 */
   message: string
+  /** 错误详情 */
   errors?: Array<{
+    /** 字段名 */
     field: string
+    /** 错误消息 */
     message: string
   }>
 }
 
 // ==================== 枚举常量 ====================
 
+import type { UserStatus, Gender } from '@prisma/client'
+
+/** 用户状态标签映射 */
 export const USER_STATUS_LABELS: Record<UserStatus, string> = {
-  active: '正常',
-  inactive: '停用',
-  banned: '封禁'
+  ACTIVE: '正常',
+  INACTIVE: '停用',
+  BANNED: '封禁'
 }
 
+/** 性别标签映射 */
 export const GENDER_LABELS: Record<Gender, string> = {
-  male: '男',
-  female: '女',
-  other: '其他'
+  MALE: '男',
+  FEMALE: '女',
+  OTHER: '其他'
 }
 
-export const USER_ROLE_LABELS: Record<UserRole, string> = {
+/** 用户角色类型（自定义，非 Prisma 枚举） */
+export type UserRoleType = 'student' | 'teacher' | 'admin' | 'super_admin' | 'security_admin'
+
+/** 用户角色标签映射 */
+export const USER_ROLE_LABELS: Record<UserRoleType, string> = {
   student: '学生',
   teacher: '教师',
   admin: '管理员',

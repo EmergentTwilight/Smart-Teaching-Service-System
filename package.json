@@ -1,0 +1,27 @@
+{
+  "name": "stss",
+  "version": "1.0.0",
+  "private": true,
+  "description": "智慧教学服务系统 - Smart Teaching Service System",
+  "scripts": {
+    "prepare": "[ \"$CI\" != \"true\" ] && husky || true",
+    "lint": "pnpm -r lint",
+    "lint:backend": "pnpm --filter @stss/server lint",
+    "lint:frontend": "pnpm --filter @stss/web lint",
+    "typecheck": "pnpm -r typecheck",
+    "dev:backend": "pnpm --filter @stss/server dev",
+    "dev:frontend": "pnpm --filter @stss/web dev"
+  },
+  "devDependencies": {
+    "@commitlint/cli": "^20.5.0",
+    "@commitlint/config-conventional": "^20.5.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.4.0",
+    "prettier": "^3.8.1"
+  },
+  "engines": {
+    "node": ">=22.0.0",
+    "pnpm": ">=10.0.0"
+  },
+  "packageManager": "pnpm@10.32.1"
+}

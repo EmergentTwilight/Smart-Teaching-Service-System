@@ -1,13 +1,25 @@
+/**
+ * 用户表单组件
+ * 用于创建和编辑用户
+ */
 import React, { useState, useEffect } from 'react';
 import { Modal, Form, Input, Select, message, Radio, Space } from 'antd';
 import { UserOutlined, LockOutlined, MailOutlined, PhoneOutlined } from '@ant-design/icons';
 import type { User, UserFormData } from '@/shared/types';
 
+/**
+ * UserForm 组件 Props
+ */
 interface UserFormProps {
+  /** 是否显示 */
   open: boolean;
+  /** 编辑的用户（为空表示新建） */
   user?: User | null;
+  /** 可选角色列表 */
   roles?: { id: string; name: string; code: string }[];
+  /** 提交回调 */
   onSubmit: (values: UserFormData) => Promise<void>;
+  /** 取消回调 */
   onCancel: () => void;
 }
 
@@ -160,14 +172,21 @@ const UserForm: React.FC<UserFormProps> = ({ open, user, roles, onSubmit, onCanc
         <Form.Item
           name="password"
           label={isEdit ? '密码（留空不修改）' : '密码'}
+          extra="密码至少8位，需包含大写字母、小写字母和数字"
           rules={
             isEdit
               ? [
-                  { min: 6, message: '密码至少 6 个字符' },
+                  { min: 8, message: '密码至少 8 个字符' },
+                  { pattern: /[A-Z]/, message: '密码必须包含大写字母' },
+                  { pattern: /[a-z]/, message: '密码必须包含小写字母' },
+                  { pattern: /[0-9]/, message: '密码必须包含数字' },
                 ]
               : [
                   { required: true, message: '请输入密码' },
-                  { min: 6, message: '密码至少 6 个字符' },
+                  { min: 8, message: '密码至少 8 个字符' },
+                  { pattern: /[A-Z]/, message: '密码必须包含大写字母' },
+                  { pattern: /[a-z]/, message: '密码必须包含小写字母' },
+                  { pattern: /[0-9]/, message: '密码必须包含数字' },
                 ]
           }
         >
@@ -186,7 +205,6 @@ const UserForm: React.FC<UserFormProps> = ({ open, user, roles, onSubmit, onCanc
           <Form.Item
             name="status"
             label="状态"
-            rules={[{ required: true, message: '请选择状态' }]}
             style={{ width: 260 }}
           >
             <Radio.Group>
@@ -201,11 +219,10 @@ const UserForm: React.FC<UserFormProps> = ({ open, user, roles, onSubmit, onCanc
           <Form.Item
             name="roleIds"
             label="角色"
-            rules={[{ required: true, message: '请选择角色' }]}
           >
             <Select
               mode="multiple"
-              placeholder="请选择角色"
+              placeholder="请选择角色（可选）"
               options={roles.map(role => ({
                 label: role.name,
                 value: role.id,

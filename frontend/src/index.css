@@ -1,9 +1,9 @@
 :root {
-  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
-  line-height: 1.5;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  line-height: 1.6;
   font-weight: 400;
-  color: #213547;
-  background-color: #ffffff;
+  color: #1f2937;
+  background-color: #f8fafc;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -19,4 +19,161 @@ body {
 #root {
   width: 100%;
   min-height: 100vh;
+}
+
+/* 全局滚动条美化 */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* 平滑滚动 */
+html {
+  scroll-behavior: smooth;
+}
+
+/* 选中文本样式 */
+::selection {
+  background-color: #6366f1;
+  color: white;
+}
+
+/* 链接样式 */
+a {
+  color: #6366f1;
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+a:hover {
+  color: #4f46e5;
+}
+
+/* Ant Design 组件增强 */
+
+/* Card 阴影 */
+.ant-card {
+  box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+  border: 1px solid #f1f5f9;
+  transition: box-shadow 0.3s ease, transform 0.3s ease;
+}
+
+.ant-card:hover {
+  box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+}
+
+/* Table 增强 */
+.ant-table-wrapper .ant-table-thead > tr > th {
+  font-weight: 600;
+  color: #475569;
+}
+
+.ant-table-wrapper .ant-table-tbody > tr:hover > td {
+  background: #f8fafc !important;
+}
+
+/* Button 增强 */
+.ant-btn {
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.ant-btn-primary {
+  box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+}
+
+.ant-btn-primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+}
+
+/* Input 聚焦效果 */
+.ant-input:focus,
+.ant-input-focused,
+.ant-input-affix-wrapper:focus,
+.ant-input-affix-wrapper-focused {
+  box-shadow: 0 0 0 3px rgb(99 102 241 / 0.1);
+}
+
+/* Modal 增强 */
+.ant-modal-content {
+  border-radius: 12px;
+  box-shadow: 0 25px 50px -12px rgb(0 0 0 / 0.25);
+}
+
+/* Message 增强 */
+.ant-message-notice-content {
+  border-radius: 8px;
+  box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+}
+
+/* Tag 增强 */
+.ant-tag {
+  border-radius: 6px;
+  font-weight: 500;
+}
+
+/* Page Header 通用样式 */
+.page-header {
+  margin-bottom: 24px;
+}
+
+.page-header h2 {
+  margin: 0 0 8px 0;
+  font-size: 24px;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.page-header p {
+  margin: 0;
+  color: #6b7280;
+  font-size: 14px;
+}
+
+/* 统计卡片通用样式 */
+.stat-card {
+  position: relative;
+  overflow: hidden;
+}
+
+.stat-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 100px;
+  height: 100px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.3) 0%, rgba(255, 255, 255, 0) 100%);
+  border-radius: 50%;
+  transform: translate(30%, -30%);
+}
+
+/* 加载动画 */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.fade-in {
+  animation: fadeIn 0.3s ease-out;
 }

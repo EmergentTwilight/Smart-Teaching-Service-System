@@ -1,0 +1,35 @@
+# Prettier 忽略文件
+
+# 依赖目录
+node_modules/
+.pnpm-store/
+
+# 构建输出
+dist/
+build/
+.next/
+.nuxt/
+
+# 缓存
+.cache/
+*.tsbuildinfo
+
+# Prisma 生成的客户端
+backend/prisma/generated/
+
+# 锁文件
+pnpm-lock.yaml
+package-lock.json
+yarn.lock
+
+# 日志
+*.log
+logs/
+
+# 环境配置
+.env
+.env.*
+
+# 数据库文件
+*.db
+*.db-journal

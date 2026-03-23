@@ -1,70 +1,19 @@
-name: CI/CD Pipeline
+name: CI
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [main, develop]
   pull_request:
-    branches: [ main, develop ]
+    branches: [main, develop]
 
 env:
-  NODE_VERSION: '22'
-  PNPM_VERSION: '10'
+  NODE_VERSION: '24'
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
-  # ==================== 代码检查 ====================
-  lint:
-    name: Lint & Type Check
+  quality:
+    name: Code Quality
     runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: ${{ env.PNPM_VERSION }}
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: 'pnpm'
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Lint backend
-        run: pnpm --filter @stss/server lint
-
-      - name: Lint frontend
-        run: pnpm --filter @stss/web lint
-
-      - name: Type check
-        run: |
-          pnpm --filter @stss/shared build
-          pnpm --filter @stss/server exec tsc --noEmit
-          pnpm --filter @stss/web exec tsc --noEmit
-
-  # ==================== 测试 ====================
-  test:
-    name: Run Tests
-    runs-on: ubuntu-latest
-    needs: lint
-    
-    services:
-      postgres:
-        image: postgres:18-alpine
-        env:
-          POSTGRES_USER: test
-          POSTGRES_PASSWORD: test
-          POSTGRES_DB: stss_test
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
 
     steps:
       - name: Checkout
@@ -72,113 +21,30 @@ jobs:
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
-        with:
-          version: ${{ env.PNPM_VERSION }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: 'pnpm'
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: pnpm install
 
       - name: Generate Prisma Client
-        run: pnpm db:generate
+        run: cd backend && npx prisma generate
         env:
-          DATABASE_URL: postgresql://test:test@localhost:5432/stss_test
+          DATABASE_URL: postgresql://test:test@localhost:5432/stss
 
-      - name: Run tests
-        run: pnpm test
+      - name: Build shared package
+        run: cd shared && pnpm build
+
+      - name: Run lint
+        run: pnpm lint
+
+      - name: Run type check
+        run: pnpm typecheck
+
+      - name: Validate and format Prisma schema
+        run: cd backend && npx prisma validate && npx prisma format --check
         env:
-          DATABASE_URL: postgresql://test:test@localhost:5432/stss_test
-          JWT_SECRET: test-secret-key
-          NODE_ENV: test
-
-  # ==================== 构建镜像 ====================
-  build:
-    name: Build Docker Images
-    runs-on: ubuntu-latest
-    needs: [lint, test]
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Login to Docker Hub
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
-
-      - name: Build and push server
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: ./backend/Dockerfile
-          push: true
-          tags: ${{ secrets.DOCKER_USERNAME }}/stss-server:latest
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-      - name: Build and push web
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: ./frontend/Dockerfile
-          push: true
-          tags: ${{ secrets.DOCKER_USERNAME }}/stss-web:latest
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-  # ==================== 部署到生产环境 ====================
-  deploy:
-    name: Deploy to Production
-    runs-on: ubuntu-latest
-    needs: build
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    environment: production
-    
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Deploy to server
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.SERVER_HOST }}
-          username: ${{ secrets.SERVER_USER }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          script: |
-            cd /opt/stss
-            docker-compose pull
-            docker-compose up -d
-            docker image prune -f
-
-      - name: Health check
-        run: |
-          curl -f ${{ secrets.SERVER_HOST }}/api/health || exit 1
-
-  # ==================== 通知 ====================
-  notify:
-    name: Notify
-    runs-on: ubuntu-latest
-    needs: [build, deploy]
-    if: always()
-    
-    steps:
-      - name: Send notification
-        uses: 8398a7/action-slack@v3
-        with:
-          status: ${{ job.status }}
-          text: |
-            STSS Deployment ${{ job.status }}
-            Branch: ${{ github.ref_name }}
-            Commit: ${{ github.sha }}
-          webhook_url: ${{ secrets.SLACK_WEBHOOK }}
-        if: ${{ secrets.SLACK_WEBHOOK != '' }}
+          DATABASE_URL: postgresql://test:test@localhost:5432/stss

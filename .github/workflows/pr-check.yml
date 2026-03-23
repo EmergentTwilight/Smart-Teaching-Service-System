@@ -5,33 +5,17 @@ on:
     types: [opened, synchronize, reopened]
 
 env:
-  NODE_VERSION: '22'
-  PNPM_VERSION: '10'
+  NODE_VERSION: '24'
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   pr-check:
     name: PR Validation
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: ${{ env.PNPM_VERSION }}
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: 'pnpm'
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
 
       - name: Check PR title
         uses: amannn/action-semantic-pull-request@v5
@@ -62,24 +46,39 @@ jobs:
             ci
             deps
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        # 不指定 version，自动从 package.json 的 packageManager 字段读取
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Generate Prisma Client
+        run: cd backend && npx prisma generate
+        env:
+          DATABASE_URL: postgresql://test:test@localhost:5432/stss
+
+      - name: Build shared types
+        run: cd shared && pnpm build
+
       - name: Lint backend
-        run: pnpm --filter @stss/server lint
+        run: cd backend && pnpm lint
 
       - name: Lint frontend
-        run: pnpm --filter @stss/web lint
+        run: cd frontend && pnpm lint
 
-      - name: Type check
-        run: |
-          pnpm --filter @stss/shared build
-          pnpm --filter @stss/server exec tsc --noEmit || true
-          pnpm --filter @stss/web exec tsc --noEmit || true
+      - name: Type check backend
+        run: cd backend && npx tsc --noEmit
 
-      - name: Check for TODOs
-        run: |
-          ! grep -r "TODO\|FIXME\|HACK" backend frontend shared --include="*.ts" --include="*.tsx" || echo "Found TODOs/FIXMEs - please resolve before merging"
+      - name: Type check frontend
+        run: cd frontend && npx tsc --noEmit
 
-      - name: Size limit
-        run: |
-          echo "Checking build sizes..."
-          pnpm build:web
-          du -sh frontend/dist
+      - name: Validate Prisma schema
+        run: cd backend && npx prisma validate && npx prisma format --check
+        env:
+          DATABASE_URL: postgresql://test:test@localhost:5432/stss

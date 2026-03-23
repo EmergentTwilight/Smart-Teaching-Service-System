@@ -21,7 +21,7 @@ services:
     container_name: stss-server
     working_dir: /app
     environment:
-      DATABASE_URL: postgresql://stss:stss_dev_2026@postgres:5432/stss
+      DATABASE_URL: postgresql://stss:stss_dev_2026@postgres:5432/stss?connection_limit=10&pool_timeout=30
       JWT_SECRET: stss-super-secret-jwt-key-2026
       JWT_EXPIRES_IN: 7d
       PORT: 3000

@@ -18,6 +18,7 @@ import coursesRoutes from './modules/info-management/courses.routes.js'
 import config from './config/index.js'
 import { swaggerSpec } from './config/swagger.js'
 import swaggerUi from 'swagger-ui-express'
+import prisma from './shared/prisma/client.js'
 
 const app: Application = express()
 const PORT = config.port
@@ -114,8 +115,24 @@ app.get('/api-docs.json', (req, res) => {
 })
 
 // ==================== 健康检查 ====================
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() })
+app.get('/api/health', async (req, res) => {
+  const health = {
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    database: 'unknown',
+  }
+
+  try {
+    // 检查数据库连接
+    await prisma.$queryRaw`SELECT 1`
+    health.database = 'connected'
+  } catch (error) {
+    health.status = 'degraded'
+    health.database = 'disconnected'
+  }
+
+  res.json(health)
 })
 
 // ==================== API 路由 ====================

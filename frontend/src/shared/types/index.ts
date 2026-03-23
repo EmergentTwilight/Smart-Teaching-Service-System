@@ -1,8 +1,31 @@
 /**
  * 前端共享类型定义
+ *
+ * 共享类型从 @stss/shared 导入
+ * 这里只保留前端特有的类型定义
  */
 
-/** 用户信息 */
+// ==================== 从共享包导入类型 ====================
+export type {
+  LoginRequest,
+  LoginResponse,
+  ApiResponse,
+  PaginatedData,
+  ApiError,
+} from '@stss/shared'
+
+export {
+  Gender,
+  UserStatus,
+  USER_STATUS_LABELS,
+  GENDER_LABELS,
+  type UserRoleType,
+  USER_ROLE_LABELS,
+} from '@stss/shared'
+
+// ==================== 前端特有类型 ====================
+
+/** 用户信息（前端扩展版本，包含关联信息） */
 export interface User {
   /** 用户ID */
   id: string
@@ -47,51 +70,6 @@ export interface User {
   createdAt: string
   /** 更新时间 */
   updatedAt: string
-}
-
-/** 登录请求 */
-export interface LoginRequest {
-  /** 用户名 */
-  username: string
-  /** 密码 */
-  password: string
-}
-
-/** 登录响应 */
-export interface LoginResponse {
-  /** 访问令牌 */
-  accessToken: string
-  /** 过期时间（秒） */
-  expiresIn: number
-  /** 用户信息 */
-  user: User
-}
-
-/** API 响应结构 */
-export interface ApiResponse<T = unknown> {
-  /** 状态码 */
-  code: number
-  /** 响应消息 */
-  message: string
-  /** 响应数据 */
-  data: T
-}
-
-/** 分页数据结构 */
-export interface PaginatedData<T> {
-  /** 数据项列表 */
-  items: T[]
-  /** 分页信息 */
-  pagination: {
-    /** 当前页码 */
-    page: number
-    /** 每页数量 */
-    pageSize: number
-    /** 总数量 */
-    total: number
-    /** 总页数 */
-    totalPages: number
-  }
 }
 
 /** 用户表单数据 */

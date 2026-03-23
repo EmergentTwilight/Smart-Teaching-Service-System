@@ -1,31 +1,95 @@
 /**
  * 前端共享类型定义
- *
- * 共享类型从 @stss/shared 导入
- * 这里只保留前端特有的类型定义
  */
 
-// ==================== 从共享包导入类型 ====================
-export type {
-  LoginRequest,
-  LoginResponse,
-  ApiResponse,
-  PaginatedData,
-  ApiError,
-} from '@stss/shared'
+// ==================== 枚举类型 ====================
 
-export {
-  Gender,
-  UserStatus,
-  USER_STATUS_LABELS,
-  GENDER_LABELS,
-  type UserRoleType,
-  USER_ROLE_LABELS,
-} from '@stss/shared'
+/** 性别 */
+export type Gender = 'MALE' | 'FEMALE' | 'OTHER'
 
-// ==================== 前端特有类型 ====================
+/** 用户状态 */
+export type UserStatus = 'ACTIVE' | 'INACTIVE' | 'BANNED'
 
-/** 用户信息（前端扩展版本，包含关联信息） */
+/** 用户角色类型 */
+export type UserRoleType = 'admin' | 'teacher' | 'student'
+
+/** 用户状态标签 */
+export const USER_STATUS_LABELS: Record<UserStatus, string> = {
+  ACTIVE: '启用',
+  INACTIVE: '禁用',
+  BANNED: '封禁',
+}
+
+/** 性别标签 */
+export const GENDER_LABELS: Record<Gender, string> = {
+  MALE: '男',
+  FEMALE: '女',
+  OTHER: '其他',
+}
+
+/** 用户角色标签 */
+export const USER_ROLE_LABELS: Record<UserRoleType, string> = {
+  admin: '管理员',
+  teacher: '教师',
+  student: '学生',
+}
+
+// ==================== API 类型 ====================
+
+/** 登录请求 */
+export interface LoginRequest {
+  username: string
+  password: string
+}
+
+/** 登录响应 */
+export interface LoginResponse {
+  /** 访问令牌 */
+  accessToken: string
+  /** 刷新令牌（可选） */
+  refreshToken?: string
+  /** 用户信息 */
+  user: User
+}
+
+/** API 响应 */
+export interface ApiResponse<T = unknown> {
+  code: number
+  message: string
+  data?: T
+}
+
+/** 分页数据 */
+export interface PaginatedData<T> {
+  /** 数据列表 */
+  items: T[]
+  /** 总数 */
+  total: number
+  /** 当前页 */
+  page: number
+  /** 每页数量 */
+  pageSize: number
+  /** 总页数 */
+  totalPages: number
+  /** 分页信息（兼容后端格式） */
+  pagination?: {
+    page: number
+    pageSize: number
+    total: number
+    totalPages: number
+  }
+}
+
+/** API 错误 */
+export interface ApiError {
+  code: number
+  message: string
+  errors?: unknown
+}
+
+// ==================== 用户类型 ====================
+
+/** 用户信息 */
 export interface User {
   /** 用户ID */
   id: string
@@ -40,9 +104,9 @@ export interface User {
   /** 头像URL */
   avatarUrl: string | null
   /** 性别 */
-  gender: 'MALE' | 'FEMALE' | 'OTHER' | null
+  gender: Gender | null
   /** 状态 */
-  status: 'ACTIVE' | 'INACTIVE' | 'BANNED'
+  status: UserStatus
   /** 角色列表 */
   roles: string[]
   /** 学生信息（如果用户是学生） */
@@ -85,9 +149,9 @@ export interface UserFormData {
   /** 手机号 */
   phone?: string
   /** 性别 */
-  gender?: 'MALE' | 'FEMALE' | 'OTHER'
+  gender?: Gender
   /** 状态 */
-  status?: 'ACTIVE' | 'INACTIVE' | 'BANNED'
+  status?: UserStatus
   /** 角色ID列表 */
   roleIds?: string[]
 }

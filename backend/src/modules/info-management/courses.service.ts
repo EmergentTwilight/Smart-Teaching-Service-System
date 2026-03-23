@@ -19,10 +19,7 @@ export const coursesService = {
     const where: Prisma.CourseWhereInput = {}
 
     if (keyword) {
-      where.OR = [
-        { code: { contains: keyword } },
-        { name: { contains: keyword } },
-      ]
+      where.OR = [{ code: { contains: keyword } }, { name: { contains: keyword } }]
     }
 
     if (category) {
@@ -68,15 +65,19 @@ export const coursesService = {
       hours: course.hours,
       category: course.category,
       description: course.description,
-      department: course.department ? {
-        id: course.department.id,
-        name: course.department.name,
-      } : null,
-      teacher: course.teacher ? {
-        id: course.teacher.userId,
-        realName: course.teacher.user.realName,
-        email: course.teacher.user.email,
-      } : null,
+      department: course.department
+        ? {
+            id: course.department.id,
+            name: course.department.name,
+          }
+        : null,
+      teacher: course.teacher
+        ? {
+            id: course.teacher.userId,
+            realName: course.teacher.user.realName,
+            email: course.teacher.user.email,
+          }
+        : null,
       status: course.status,
       createdAt: course.createdAt,
       updatedAt: course.updatedAt,
@@ -130,12 +131,14 @@ export const coursesService = {
       category: course.category,
       description: course.description,
       department: course.department,
-      teacher: course.teacher ? {
-        id: course.teacher.userId,
-        realName: course.teacher.user.realName,
-        email: course.teacher.user.email,
-        phone: course.teacher.user.phone,
-      } : null,
+      teacher: course.teacher
+        ? {
+            id: course.teacher.userId,
+            realName: course.teacher.user.realName,
+            email: course.teacher.user.email,
+            phone: course.teacher.user.phone,
+          }
+        : null,
       status: course.status,
       createdAt: course.createdAt,
       updatedAt: course.updatedAt,
@@ -163,7 +166,7 @@ export const coursesService = {
         name: data.name,
         credits: data.credits,
         hours: data.hours,
-        courseType: 'ELECTIVE', // 默认选修课
+        courseType: data.courseType ?? 'ELECTIVE',
         category: data.category,
         description: data.description,
         departmentId: data.departmentId ?? null,

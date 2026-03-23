@@ -17,14 +17,26 @@ export const getCoursesQuerySchema = z.object({
 })
 
 /**
+ * 课程类型枚举
+ * 与 Prisma CourseType 保持一致
+ */
+export const COURSE_TYPE_OPTIONS = [
+  { value: 'REQUIRED', label: '必修课' },
+  { value: 'ELECTIVE', label: '选修课' },
+  { value: 'GENERAL', label: '通识课' },
+] as const
+
+/**
  * 创建课程 schema
+ * 字段与 Prisma Course 模型对应
  */
 export const createCourseSchema = z.object({
-  code: z.string().min(1).max(20),
-  name: z.string().min(1).max(100),
-  credits: z.number().min(0).max(10),
-  hours: z.number().int().min(0),
-  category: z.string().min(1).max(50),
+  code: z.string().min(1, '课程代码不能为空').max(20),
+  name: z.string().min(1, '课程名称不能为空').max(100),
+  credits: z.number().min(0, '学分不能为负').max(10),
+  hours: z.number().int('学时必须为整数').min(0, '学时不能为负'),
+  courseType: z.enum(['REQUIRED', 'ELECTIVE', 'GENERAL']).default('ELECTIVE'),
+  category: z.string().min(1, '课程类别不能为空').max(50).optional(),
   description: z.string().optional(),
   departmentId: z.string().optional(),
   teacherId: z.string().optional(),

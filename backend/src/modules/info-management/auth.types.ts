@@ -14,10 +14,16 @@ export const loginSchema = z.object({
 
 /**
  * 注册请求验证 schema
+ * 密码强度要求：至少8位，包含大小写字母和数字
  */
 export const registerSchema = z.object({
   username: z.string().min(3, '用户名至少3位').max(50, '用户名最多50位'),
-  password: z.string().min(6, '密码至少6位'),
+  password: z
+    .string()
+    .min(8, '密码至少8位')
+    .regex(/[A-Z]/, '密码必须包含大写字母')
+    .regex(/[a-z]/, '密码必须包含小写字母')
+    .regex(/[0-9]/, '密码必须包含数字'),
   email: z.string().email('邮箱格式不正确').optional(),
   realName: z.string().min(1, '姓名不能为空').max(50),
   phone: z.string().optional(),

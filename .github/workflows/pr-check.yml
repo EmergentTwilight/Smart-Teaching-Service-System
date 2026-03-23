@@ -6,7 +6,6 @@ on:
 
 env:
   NODE_VERSION: '24'
-  PNPM_VERSION: '10'
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
@@ -49,8 +48,7 @@ jobs:
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
-        with:
-          version: ${{ env.PNPM_VERSION }}
+        # 不指定 version，自动从 package.json 的 packageManager 字段读取
 
       - name: Setup Node.js
         uses: actions/setup-node@v4

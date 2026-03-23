@@ -205,7 +205,6 @@ const UserForm: React.FC<UserFormProps> = ({ open, user, roles, onSubmit, onCanc
           <Form.Item
             name="status"
             label="状态"
-            rules={[{ required: true, message: '请选择状态' }]}
             style={{ width: 260 }}
           >
             <Radio.Group>
@@ -220,11 +219,10 @@ const UserForm: React.FC<UserFormProps> = ({ open, user, roles, onSubmit, onCanc
           <Form.Item
             name="roleIds"
             label="角色"
-            rules={[{ required: true, message: '请选择角色' }]}
           >
             <Select
               mode="multiple"
-              placeholder="请选择角色"
+              placeholder="请选择角色（可选）"
               options={roles.map(role => ({
                 label: role.name,
                 value: role.id,

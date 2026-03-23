@@ -3,6 +3,7 @@
  * 包含登录、注册、修改密码的 schema 和类型
  */
 import { z } from 'zod'
+import { Gender } from '@prisma/client'
 
 /**
  * 登录请求验证 schema
@@ -27,7 +28,7 @@ export const registerSchema = z.object({
   email: z.string().email('邮箱格式不正确').optional(),
   realName: z.string().min(1, '姓名不能为空').max(50),
   phone: z.string().optional(),
-  gender: z.enum(['MALE', 'FEMALE', 'OTHER']).optional(),
+  gender: z.nativeEnum(Gender).optional(),
 })
 
 /**

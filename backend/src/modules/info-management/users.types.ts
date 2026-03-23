@@ -3,6 +3,7 @@
  * 包含用户查询、创建、更新的 schema 和类型
  */
 import { z } from 'zod'
+import { Gender, UserStatus } from '@prisma/client'
 
 /**
  * 用户查询参数 schema
@@ -11,7 +12,7 @@ export const getUsersQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
   keyword: z.string().optional(),
-  status: z.enum(['ACTIVE', 'INACTIVE', 'BANNED']).optional(),
+  status: z.nativeEnum(UserStatus).optional(),
   role: z.string().optional(),
 })
 
@@ -30,7 +31,7 @@ export const createUserSchema = z.object({
   email: z.string().email('邮箱格式不正确').optional(),
   phone: z.string().optional(),
   realName: z.string().min(1, '姓名不能为空').max(50),
-  gender: z.enum(['MALE', 'FEMALE', 'OTHER']).optional(),
+  gender: z.nativeEnum(Gender).optional(),
   roleIds: z.array(z.string()).optional(),
 })
 
@@ -43,8 +44,8 @@ export const updateUserSchema = z.object({
   phone: z.string().optional(),
   realName: z.string().min(1, '姓名不能为空').max(50).optional(),
   avatarUrl: z.string().url('头像URL格式不正确').optional(),
-  gender: z.enum(['MALE', 'FEMALE', 'OTHER']).optional(),
-  status: z.enum(['ACTIVE', 'INACTIVE', 'BANNED']).optional(),
+  gender: z.nativeEnum(Gender).optional(),
+  status: z.nativeEnum(UserStatus).optional(),
   password: z
     .string()
     .min(8, '密码至少8位')

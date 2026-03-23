@@ -4,7 +4,7 @@
   "private": true,
   "description": "智慧教学服务系统 - Smart Teaching Service System",
   "scripts": {
-    "prepare": "husky",
+    "prepare": "[ \"$CI\" != \"true\" ] && husky || true",
     "lint": "pnpm -r lint",
     "lint:backend": "pnpm --filter @stss/server lint",
     "lint:frontend": "pnpm --filter @stss/web lint",

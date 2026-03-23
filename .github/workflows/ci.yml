@@ -21,7 +21,6 @@ jobs:
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
-        # 不指定 version，自动从 package.json 的 packageManager 字段读取
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -36,22 +35,16 @@ jobs:
         env:
           DATABASE_URL: postgresql://test:test@localhost:5432/stss
 
-      - name: Build shared types
+      - name: Build shared package
         run: cd shared && pnpm build
 
-      - name: Lint backend
-        run: cd backend && pnpm lint
+      - name: Run lint
+        run: pnpm lint
 
-      - name: Lint frontend
-        run: cd frontend && pnpm lint
+      - name: Run type check
+        run: pnpm typecheck
 
-      - name: Type check backend
-        run: cd backend && npx tsc --noEmit
-
-      - name: Type check frontend
-        run: cd frontend && npx tsc --noEmit
-
-      - name: Validate Prisma schema
+      - name: Validate and format Prisma schema
         run: cd backend && npx prisma validate && npx prisma format --check
         env:
           DATABASE_URL: postgresql://test:test@localhost:5432/stss

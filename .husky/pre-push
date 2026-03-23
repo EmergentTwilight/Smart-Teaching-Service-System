@@ -1,19 +1,29 @@
 # pre-push hook
 # 在推送前运行完整的 CI 检查，确保代码质量
-# 这样可以在本地发现问题，而不是等到 GitHub Actions
+# 与 GitHub Actions CI workflow 保持一致
 
-echo "🔍 Running pre-push checks..."
+echo "🔍 Running pre-push checks (same as CI)..."
 echo ""
 
 # 1. 生成 Prisma Client（TypeScript 类型检查需要）
 echo "📦 Generating Prisma Client..."
 cd backend
-DATABASE_URL="postgresql://test:test@localhost:5432/stss" npx prisma generate --no-hints 2>/dev/null
+DATABASE_URL="postgresql://test:test@localhost:5432/stss" npx prisma generate
+if [ $? -ne 0 ]; then
+  echo "❌ Prisma generate failed!"
+  cd ..
+  exit 1
+fi
 cd ..
 
 # 2. 构建 shared 包
 echo "📦 Building shared package..."
-cd shared && pnpm build 2>/dev/null
+cd shared && pnpm build
+if [ $? -ne 0 ]; then
+  echo "❌ Shared build failed!"
+  cd ..
+  exit 1
+fi
 cd ..
 
 # 3. Lint 检查
@@ -25,24 +35,28 @@ if [ $? -ne 0 ]; then
 fi
 
 # 4. TypeScript 类型检查
-echo "🔍 Running TypeScript type check..."
+echo "🔍 Running type check..."
 pnpm typecheck
 if [ $? -ne 0 ]; then
-  echo "❌ TypeScript type check failed! Please fix the errors before pushing."
+  echo "❌ Type check failed! Please fix the errors before pushing."
   exit 1
 fi
 
-# 5. Prisma 验证
+# 5. Prisma 验证和格式检查
 echo "🔍 Validating Prisma schema..."
 cd backend
-DATABASE_URL="postgresql://test:test@localhost:5432/stss" npx prisma validate 2>/dev/null
+DATABASE_URL="postgresql://test:test@localhost:5432/stss" npx prisma validate
 if [ $? -ne 0 ]; then
   echo "❌ Prisma schema validation failed!"
+  cd ..
   exit 1
 fi
-DATABASE_URL="postgresql://test:test@localhost:5432/stss" npx prisma format --check 2>/dev/null
+
+echo "🔍 Checking Prisma schema format..."
+DATABASE_URL="postgresql://test:test@localhost:5432/stss" npx prisma format --check
 if [ $? -ne 0 ]; then
-  echo "❌ Prisma schema format check failed! Run 'npx prisma format' to fix."
+  echo "❌ Prisma schema format check failed! Run 'cd backend && npx prisma format' to fix."
+  cd ..
   exit 1
 fi
 cd ..

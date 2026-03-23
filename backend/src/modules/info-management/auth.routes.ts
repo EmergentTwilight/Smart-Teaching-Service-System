@@ -6,7 +6,12 @@ import { Router, type Router as RouterType } from 'express'
 import { authController } from './auth.controller.js'
 import { authMiddleware } from '../../shared/middleware/auth.js'
 import { validate } from '../../shared/middleware/validate.js'
-import { loginSchema, registerSchema, changePasswordSchema } from './auth.types.js'
+import {
+  loginSchema,
+  registerSchema,
+  changePasswordSchema,
+  refreshTokenSchema,
+} from './auth.types.js'
 
 const router: RouterType = Router()
 
@@ -15,7 +20,7 @@ const router: RouterType = Router()
  * /api/v1/auth/login:
  *   post:
  *     summary: 用户登录
- *     description: 使用用户名和密码进行登录，返回 JWT token
+ *     description: 使用用户名和密码进行登录，返回访问令牌和刷新令牌
  *     tags: [Auth]
  *     requestBody:
  *       required: true
@@ -41,7 +46,32 @@ const router: RouterType = Router()
  *         content:
  *           application/json:
  *             schema:
- *               $ref: '#/components/schemas/LoginResponse'
+ *               type: object
+ *               properties:
+ *                 code:
+ *                   type: integer
+ *                   example: 200
+ *                 message:
+ *                   type: string
+ *                   example: 登录成功
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     accessToken:
+ *                       type: string
+ *                       description: 访问令牌（有效期15分钟）
+ *                     refreshToken:
+ *                       type: string
+ *                       description: 刷新令牌（有效期7天）
+ *                     expiresIn:
+ *                       type: integer
+ *                       description: 访问令牌有效期（秒）
+ *                       example: 900
+ *                     tokenType:
+ *                       type: string
+ *                       example: Bearer
+ *                     user:
+ *                       $ref: '#/components/schemas/User'
  *       401:
  *         description: 用户名或密码错误
  *         content:
@@ -50,6 +80,64 @@ const router: RouterType = Router()
  *               $ref: '#/components/schemas/ErrorResponse'
  */
 router.post('/login', validate(loginSchema, 'body'), authController.login)
+
+/**
+ * @swagger
+ * /api/v1/auth/refresh:
+ *   post:
+ *     summary: 刷新访问令牌
+ *     description: 使用刷新令牌获取新的访问令牌和刷新令牌（令牌轮换机制）
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - refreshToken
+ *             properties:
+ *               refreshToken:
+ *                 type: string
+ *                 description: 登录时获取的刷新令牌
+ *     responses:
+ *       200:
+ *         description: 令牌刷新成功
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 code:
+ *                   type: integer
+ *                   example: 200
+ *                 message:
+ *                   type: string
+ *                   example: 令牌刷新成功
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     accessToken:
+ *                       type: string
+ *                       description: 新的访问令牌
+ *                     refreshToken:
+ *                       type: string
+ *                       description: 新的刷新令牌（旧的刷新令牌将失效）
+ *                     expiresIn:
+ *                       type: integer
+ *                       description: 访问令牌有效期（秒）
+ *                       example: 900
+ *                     tokenType:
+ *                       type: string
+ *                       example: Bearer
+ *       401:
+ *         description: 刷新令牌无效或已过期
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
+router.post('/refresh', validate(refreshTokenSchema, 'body'), authController.refreshToken)
 
 /**
  * @swagger
@@ -133,10 +221,19 @@ router.post('/register', validate(registerSchema, 'body'), authController.regist
  * /api/v1/auth/logout:
  *   post:
  *     summary: 用户登出
- *     description: 退出登录状态
+ *     description: 退出登录状态，可选传入 refreshToken 使其失效
  *     tags: [Auth]
  *     security:
  *       - bearerAuth: []
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               refreshToken:
+ *                 type: string
+ *                 description: 可选，传入后将使该刷新令牌失效
  *     responses:
  *       200:
  *         description: 登出成功

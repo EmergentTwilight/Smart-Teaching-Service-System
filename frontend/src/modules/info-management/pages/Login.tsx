@@ -72,9 +72,7 @@ const Login: React.FC = () => {
           </Form.Item>
         </Form>
         
-        <div className={styles.footer}>
-          测试账号: <strong>admin</strong> / <strong>admin123</strong>
-        </div>
+
       </Card>
     </div>
   );

@@ -22,6 +22,20 @@ export const authController = {
   },
 
   /**
+   * 刷新访问令牌
+   */
+  async refreshToken(req: Request, res: Response) {
+    try {
+      const { refreshToken } = req.body
+      const result = await authService.refreshToken(refreshToken)
+      success(res, result, '令牌刷新成功')
+    } catch (err) {
+      const message = err instanceof Error ? err.message : '令牌刷新失败'
+      error(res, message, 401)
+    }
+  },
+
+  /**
    * 用户注册
    */
   async register(req: Request, res: Response) {
@@ -38,7 +52,17 @@ export const authController = {
    * 用户登出
    */
   async logout(req: Request, res: Response) {
-    success(res, null, '登出成功')
+    try {
+      // 如果请求体中包含 refreshToken，则撤销它
+      const { refreshToken } = req.body
+      if (refreshToken) {
+        await authService.revokeRefreshToken(refreshToken)
+      }
+      success(res, null, '登出成功')
+    } catch {
+      // 即使撤销失败也返回成功，不影响用户体验
+      success(res, null, '登出成功')
+    }
   },
 
   /**

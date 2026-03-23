@@ -46,12 +46,36 @@ model User {
   comments              ForumComment[]
   logs                  SystemLog[]
   scoreModificationLogs ScoreModificationLog[]
+  refreshTokens         RefreshToken[]
 
   // 索引优化：常用查询字段
   @@index([status]) // 按状态筛选用户
   @@index([realName]) // 按姓名搜索
   @@index([createdAt]) // 按创建时间排序
   @@map("users")
+}
+
+/// 刷新令牌表
+/// 用于实现 JWT 刷新机制，存储长期有效的刷新令牌
+model RefreshToken {
+  /// 令牌唯一标识
+  id        String   @id @default(uuid())
+  /// 用户ID
+  userId    String   @map("user_id")
+  /// 令牌哈希（存储哈希值而非明文，提高安全性）
+  tokenHash String   @unique @map("token_hash") @db.VarChar(255)
+  /// 过期时间
+  expiresAt DateTime @map("expires_at")
+  /// 是否已使用（刷新令牌只能使用一次）
+  isUsed    Boolean  @default(false) @map("is_used")
+  /// 创建时间
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId]) // 按用户查询
+  @@index([expiresAt]) // 清理过期令牌
+  @@map("refresh_tokens")
 }
 
 /// 学生表

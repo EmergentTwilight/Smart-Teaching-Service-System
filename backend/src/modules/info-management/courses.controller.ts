@@ -5,7 +5,7 @@
 import { Request, Response } from 'express'
 import { coursesService } from './courses.service.js'
 import { success, error, paginated } from '../../shared/utils/response.js'
-import { getCoursesQuerySchema } from './courses.types.js'
+import { getCoursesQuerySchema, createCourseSchema, updateCourseSchema } from './courses.types.js'
 
 export const coursesController = {
   /**
@@ -45,7 +45,9 @@ export const coursesController = {
    */
   async create(req: Request, res: Response) {
     try {
-      const course = await coursesService.createCourse(req.body)
+      // 使用 Zod 验证请求体
+      const data = createCourseSchema.parse(req.body)
+      const course = await coursesService.createCourse(data)
       success(res, course, '创建成功', 201)
     } catch (err) {
       const message = err instanceof Error ? err.message : '创建课程失败'
@@ -62,7 +64,9 @@ export const coursesController = {
       if (!id || typeof id !== 'string') {
         throw new Error('无效的课程ID')
       }
-      const course = await coursesService.updateCourse(id, req.body)
+      // 使用 Zod 验证请求体
+      const data = updateCourseSchema.parse(req.body)
+      const course = await coursesService.updateCourse(id, data)
       success(res, course, '更新成功')
     } catch (err) {
       const message = err instanceof Error ? err.message : '更新课程失败'

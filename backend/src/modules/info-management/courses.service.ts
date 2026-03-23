@@ -151,27 +151,33 @@ export const coursesService = {
    * @returns 新创建的课程
    */
   async createCourse(data: CreateCourseInput) {
-    // 检查课程代码是否已存在
-    const existingCourse = await prisma.course.findUnique({
-      where: { code: data.code },
-    })
+    // 使用事务确保数据一致性
+    const course = await prisma.$transaction(async (tx) => {
+      // 检查课程代码是否已存在
+      const existingCourse = await tx.course.findUnique({
+        where: { code: data.code },
+      })
 
-    if (existingCourse) {
-      throw new Error('课程代码已存在')
-    }
+      if (existingCourse) {
+        throw new Error('课程代码已存在')
+      }
 
-    const course = await prisma.course.create({
-      data: {
-        code: data.code,
-        name: data.name,
-        credits: data.credits,
-        hours: data.hours,
-        courseType: data.courseType ?? 'ELECTIVE',
-        category: data.category,
-        description: data.description,
-        departmentId: data.departmentId ?? null,
-        teacherId: data.teacherId ?? null,
-      },
+      // 创建课程
+      const newCourse = await tx.course.create({
+        data: {
+          code: data.code,
+          name: data.name,
+          credits: data.credits,
+          hours: data.hours,
+          courseType: data.courseType ?? 'ELECTIVE',
+          category: data.category,
+          description: data.description,
+          departmentId: data.departmentId ?? null,
+          teacherId: data.teacherId ?? null,
+        },
+      })
+
+      return newCourse
     })
 
     return this.getCourseById(course.id)

@@ -7,7 +7,7 @@ import { authMiddleware } from '../../shared/middleware/auth.js'
 import { validate } from '../../shared/middleware/validate.js'
 import prisma from '../../shared/prisma/client.js'
 import { success } from '../../shared/utils/response.js'
-import { ValidationError, NotFoundError } from '../../shared/errors/AppError.js'
+import { NotFoundError } from '../../shared/errors/AppError.js'
 import { departmentIdSchema } from './departments.types.js'
 
 const router: RouterType = Router()
@@ -130,10 +130,8 @@ router.get('/', async (req, res, next) => {
  */
 router.get('/:id', validate(departmentIdSchema, 'params'), async (req, res, next) => {
   try {
-    const id = req.params.id
-    if (!id || typeof id !== 'string') {
-      throw new ValidationError('无效的院系ID')
-    }
+    const id = req.params.id as string
+    // validate 中间件已验证 id 参数，无需重复检查
     const department = await prisma.department.findUnique({
       where: { id },
       include: {

@@ -1,0 +1,51 @@
+# pre-push hook
+# 在推送前运行完整的 CI 检查，确保代码质量
+# 这样可以在本地发现问题，而不是等到 GitHub Actions
+
+echo "🔍 Running pre-push checks..."
+echo ""
+
+# 1. 生成 Prisma Client（TypeScript 类型检查需要）
+echo "📦 Generating Prisma Client..."
+cd backend
+DATABASE_URL="postgresql://test:test@localhost:5432/stss" npx prisma generate --no-hints 2>/dev/null
+cd ..
+
+# 2. 构建 shared 包
+echo "📦 Building shared package..."
+cd shared && pnpm build 2>/dev/null
+cd ..
+
+# 3. Lint 检查
+echo "🔍 Running lint..."
+pnpm lint
+if [ $? -ne 0 ]; then
+  echo "❌ Lint failed! Please fix the errors before pushing."
+  exit 1
+fi
+
+# 4. TypeScript 类型检查
+echo "🔍 Running TypeScript type check..."
+pnpm typecheck
+if [ $? -ne 0 ]; then
+  echo "❌ TypeScript type check failed! Please fix the errors before pushing."
+  exit 1
+fi
+
+# 5. Prisma 验证
+echo "🔍 Validating Prisma schema..."
+cd backend
+DATABASE_URL="postgresql://test:test@localhost:5432/stss" npx prisma validate 2>/dev/null
+if [ $? -ne 0 ]; then
+  echo "❌ Prisma schema validation failed!"
+  exit 1
+fi
+DATABASE_URL="postgresql://test:test@localhost:5432/stss" npx prisma format --check 2>/dev/null
+if [ $? -ne 0 ]; then
+  echo "❌ Prisma schema format check failed! Run 'npx prisma format' to fix."
+  exit 1
+fi
+cd ..
+
+echo ""
+echo "✅ All checks passed! Pushing..."

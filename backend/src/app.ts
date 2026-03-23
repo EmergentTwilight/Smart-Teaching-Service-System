@@ -116,23 +116,45 @@ app.get('/api-docs.json', (req, res) => {
 
 // ==================== 健康检查 ====================
 app.get('/api/health', async (req, res) => {
+  const startTime = Date.now()
+  const checks: Record<string, { status: string; latency?: number; error?: string }> = {}
+
+  // 检查数据库连接
+  try {
+    const dbStart = Date.now()
+    await prisma.$queryRaw`SELECT 1`
+    checks.database = {
+      status: 'connected',
+      latency: Date.now() - dbStart,
+    }
+  } catch (error) {
+    checks.database = {
+      status: 'disconnected',
+      error: error instanceof Error ? error.message : 'Unknown database error',
+    }
+  }
+
+  // 检查服务器状态
+  checks.server = {
+    status: 'running',
+  }
+
+  // 确定整体状态
+  const allHealthy = Object.values(checks).every(
+    (check) => check.status === 'connected' || check.status === 'running'
+  )
+  const status = allHealthy ? 'ok' : 'degraded'
+
   const health = {
-    status: 'ok',
+    status,
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
-    database: 'unknown',
+    responseTime: Date.now() - startTime,
+    checks,
   }
 
-  try {
-    // 检查数据库连接
-    await prisma.$queryRaw`SELECT 1`
-    health.database = 'connected'
-  } catch (error) {
-    health.status = 'degraded'
-    health.database = 'disconnected'
-  }
-
-  res.json(health)
+  // 如果状态为 degraded，返回 503 状态码
+  res.status(status === 'ok' ? 200 : 503).json(health)
 })
 
 // ==================== API 路由 ====================

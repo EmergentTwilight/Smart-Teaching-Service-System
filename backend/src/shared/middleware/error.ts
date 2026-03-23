@@ -15,7 +15,7 @@ export const errorHandler = (err: Error, req: Request, res: Response, _next: Nex
 
   // 处理 Zod 验证错误
   if (err instanceof ZodError) {
-    return error(res, '验证失败', 400, err.errors, (req as any).requestId)
+    return error(res, '验证失败', 400, err.errors, req.requestId)
   }
 
   // 处理自定义 AppError
@@ -25,7 +25,7 @@ export const errorHandler = (err: Error, req: Request, res: Response, _next: Nex
       err.message,
       err.statusCode,
       err.code ? { code: err.code } : undefined,
-      (req as any).requestId
+      req.requestId
     )
   }
 
@@ -33,5 +33,5 @@ export const errorHandler = (err: Error, req: Request, res: Response, _next: Nex
   const statusCode = 500
   const message = err.message || '服务器内部错误'
 
-  return error(res, message, statusCode, undefined, (req as any).requestId)
+  return error(res, message, statusCode, undefined, req.requestId)
 }

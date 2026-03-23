@@ -5,6 +5,13 @@
 import { Request, Response, NextFunction } from 'express'
 import { v4 as uuidv4 } from 'uuid'
 
+// 扩展 Request 类型
+declare module 'express' {
+  interface Request {
+    requestId?: string
+  }
+}
+
 /**
  * 请求日志中间件
  * - 生成唯一请求 ID
@@ -13,7 +20,7 @@ import { v4 as uuidv4 } from 'uuid'
  */
 export const requestLogger = (req: Request, res: Response, next: NextFunction) => {
   // 生成请求 ID
-  ;(req as any).requestId = uuidv4()
+  req.requestId = uuidv4()
 
   // 记录请求开始时间
   const startTime = Date.now()
@@ -23,12 +30,12 @@ export const requestLogger = (req: Request, res: Response, next: NextFunction) =
     const duration = Date.now() - startTime
     console.log(
       JSON.stringify({
-        requestId: (req as any).requestId,
+        requestId: req.requestId,
         method: req.method,
         path: req.path,
         statusCode: res.statusCode,
         duration: `${duration}ms`,
-        userId: (req as any).user?.userId,
+        userId: req.user?.userId,
         ip: req.ip,
         timestamp: new Date().toISOString(),
       })
@@ -36,13 +43,4 @@ export const requestLogger = (req: Request, res: Response, next: NextFunction) =
   })
 
   next()
-}
-
-// 扩展 Request 类型
-declare global {
-  namespace Express {
-    interface Request {
-      requestId?: string
-    }
-  }
 }

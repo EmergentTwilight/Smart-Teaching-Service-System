@@ -15,7 +15,7 @@ import {
   ConflictError,
   NotFoundError,
 } from '../../shared/errors/AppError.js'
-import jwt, { type SignOptions } from 'jsonwebtoken'
+import jwt from 'jsonwebtoken'
 import crypto from 'crypto'
 import config from '../../config/index.js'
 import type { Gender } from '@prisma/client'

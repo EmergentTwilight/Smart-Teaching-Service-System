@@ -1,531 +1,687 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-/**
- * 认证服务单元测试
- * 测试 auth.service.ts 中所有功能
- */
-import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { authService } from '../../../modules/info-management/auth.service.js'
-import prisma from '../../../shared/prisma/client.js'
-import { redisClient } from '../../../config/redis.js'
-import { sendPasswordResetEmail } from '../../../config/mail.js'
+import crypto from 'crypto'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import {
+  ConflictError,
+  ForbiddenError,
+  NotFoundError,
+  TooManyRequestsError,
+  UnauthorizedError,
+  ValidationError,
+} from '../../../shared/errors/AppError.js'
 
-// Mock 依赖
-vi.mock('../../../shared/prisma/client.js', () => ({
-  default: {
-    user: {
-      findUnique: vi.fn(),
-      create: vi.fn(),
-      update: vi.fn(),
-    },
-    refreshToken: {
-      create: vi.fn(),
-      findUnique: vi.fn(),
-      update: vi.fn(),
-      updateMany: vi.fn(),
-      deleteMany: vi.fn(),
-    },
-    activationToken: {
-      findUnique: vi.fn(),
-      create: vi.fn(),
-      update: vi.fn(),
-    },
-    passwordResetToken: {
-      findUnique: vi.fn(),
-      create: vi.fn(),
-      update: vi.fn(),
-      updateMany: vi.fn(),
-      deleteMany: vi.fn(),
-    },
-    role: {
-      findUnique: vi.fn(),
-    },
-    userRole: {
-      create: vi.fn(),
-    },
-    systemLog: {
-      create: vi.fn(),
-    },
-    $transaction: vi.fn((fn) => {
-      // 支持 callback 形式的 transaction
-      if (typeof fn === 'function') {
-        return fn({
-          user: {
-            update: vi.fn().mockResolvedValue({
-              id: 'user-1',
-              username: 'testuser',
-              email: 'test@example.com',
-              realName: 'Test User',
-              status: 'ACTIVE',
-              lastLoginAt: new Date(),
-              userRoles: [{ role: { code: 'student', permissions: [] } }],
-            }),
-          },
-          refreshToken: {
-            create: vi.fn().mockResolvedValue({}),
-            deleteMany: vi.fn().mockResolvedValue({ count: 0 }),
-          },
-          systemLog: {
-            create: vi.fn().mockResolvedValue({}),
-          },
-          activationToken: {
-            create: vi.fn().mockResolvedValue({}),
-          },
-          passwordResetToken: {
-            create: vi.fn().mockResolvedValue({}),
-            update: vi.fn().mockResolvedValue({}),
-            updateMany: vi.fn().mockResolvedValue({ count: 0 }),
-            deleteMany: vi.fn().mockResolvedValue({ count: 0 }),
-          },
-        })
-      }
-      return Promise.all(fn)
-    }),
+const prismaMock = vi.hoisted(() => ({
+  user: {
+    findUnique: vi.fn(),
+    update: vi.fn(),
+    create: vi.fn(),
   },
+  refreshToken: {
+    create: vi.fn(),
+    findUnique: vi.fn(),
+    update: vi.fn(),
+    updateMany: vi.fn(),
+    deleteMany: vi.fn(),
+  },
+  systemLog: {
+    create: vi.fn(),
+  },
+  activationToken: {
+    create: vi.fn(),
+    findUnique: vi.fn(),
+    update: vi.fn(),
+  },
+  passwordResetToken: {
+    findUnique: vi.fn(),
+    create: vi.fn(),
+    deleteMany: vi.fn(),
+    update: vi.fn(),
+    updateMany: vi.fn(),
+  },
+  role: {
+    findUnique: vi.fn(),
+  },
+  userRole: {
+    create: vi.fn(),
+  },
+  $transaction: vi.fn(),
 }))
 
-vi.mock('../../../config/redis.js', () => ({
-  redisClient: {
-    get: vi.fn(),
-    set: vi.fn(),
-    incr: vi.fn(),
-    expire: vi.fn(),
-    del: vi.fn(),
-  },
+const redisMock = vi.hoisted(() => ({
+  get: vi.fn(),
+  set: vi.fn(),
+  incr: vi.fn(),
+  expire: vi.fn(),
+  del: vi.fn(),
 }))
 
-vi.mock('../../../config/mail.js', () => ({
+const passwordMock = vi.hoisted(() => ({
+  hashPassword: vi.fn(),
+  comparePassword: vi.fn(),
+  validatePasswordStrength: vi.fn(),
+}))
+
+const mailMock = vi.hoisted(() => ({
   sendPasswordResetEmail: vi.fn(),
 }))
 
-vi.mock('../../../shared/utils/password.js', () => ({
-  hashPassword: vi.fn((pwd) => `hashed_${pwd}`),
-  comparePassword: vi.fn((pwd, hash) => hash === `hashed_${pwd}`),
-  validatePasswordStrength: vi.fn((pwd) => {
-    if (pwd.length < 8) return { valid: false, errors: ['密码至少8位'] }
-    if (!/[A-Z]/.test(pwd)) return { valid: false, errors: ['密码必须包含大写字母'] }
-    if (!/[a-z]/.test(pwd)) return { valid: false, errors: ['密码必须包含小写字母'] }
-    if (!/[0-9]/.test(pwd)) return { valid: false, errors: ['密码必须包含数字'] }
-    return { valid: true, errors: [] }
-  }),
+vi.mock('../../../shared/prisma/client.js', () => ({
+  default: prismaMock,
 }))
 
-describe('AuthService', () => {
-  beforeEach(() => {
-    // 清除所有 mock 调用记录
-    vi.clearAllMocks()
-  })
+vi.mock('../../../config/redis.js', () => ({
+  redisClient: redisMock,
+}))
 
-  describe('login', () => {
-    it('应该成功登录并返回 token', async () => {
-      const mockUser = {
-        id: 'user-1',
-        username: 'testuser',
-        passwordHash: 'hashed_password123',
-        email: 'test@example.com',
-        realName: 'Test User',
-        status: 'ACTIVE',
-        lastLoginAt: null,
-        userRoles: [{ role: { code: 'student' } }],
+vi.mock('../../../shared/utils/password.js', () => ({
+  hashPassword: passwordMock.hashPassword,
+  comparePassword: passwordMock.comparePassword,
+  validatePasswordStrength: passwordMock.validatePasswordStrength,
+}))
+
+vi.mock('../../../config/mail.js', () => ({
+  sendPasswordResetEmail: mailMock.sendPasswordResetEmail,
+}))
+
+import { authService } from '../../../modules/info-management/auth.service.js'
+
+function buildUser(overrides: Record<string, unknown> = {}) {
+  return {
+    id: 'user-1',
+    username: 'alice',
+    passwordHash: 'stored-hash',
+    email: 'alice@example.com',
+    phone: '13800000000',
+    realName: 'Alice',
+    avatarUrl: 'https://example.com/avatar.png',
+    gender: 'FEMALE',
+    status: 'ACTIVE',
+    lastLoginAt: null,
+    userRoles: [
+      {
+        role: {
+          code: 'student',
+          permissions: [
+            { permission: { code: 'course:read' } },
+            { permission: { code: 'profile:update' } },
+          ],
+        },
+      },
+      {
+        role: {
+          code: 'assistant',
+          permissions: [{ permission: { code: 'course:read' } }],
+        },
+      },
+    ],
+    ...overrides,
+  }
+}
+
+function buildStoredRefreshToken(overrides: Record<string, unknown> = {}) {
+  return {
+    id: 'refresh-1',
+    userId: 'user-1',
+    isUsed: false,
+    expiresAt: new Date(Date.now() + 60_000),
+    user: buildUser(),
+    ...overrides,
+  }
+}
+
+function sha256(value: string) {
+  return crypto.createHash('sha256').update(value).digest('hex')
+}
+
+beforeEach(() => {
+  vi.resetAllMocks()
+
+  redisMock.get.mockResolvedValue(null)
+  redisMock.set.mockResolvedValue(undefined)
+  redisMock.incr.mockResolvedValue(1)
+  redisMock.expire.mockResolvedValue(undefined)
+  redisMock.del.mockResolvedValue(1)
+
+  passwordMock.hashPassword.mockImplementation(async (password: string) => `hashed:${password}`)
+  passwordMock.comparePassword.mockResolvedValue(true)
+  passwordMock.validatePasswordStrength.mockReturnValue({ valid: true, errors: [] })
+
+  mailMock.sendPasswordResetEmail.mockResolvedValue(undefined)
+
+  prismaMock.$transaction.mockImplementation(async (input: unknown) => {
+    if (typeof input === 'function') {
+      const tx = {
+        user: {
+          update: prismaMock.user.update,
+        },
+        refreshToken: {
+          create: prismaMock.refreshToken.create,
+          deleteMany: prismaMock.refreshToken.deleteMany,
+        },
+        systemLog: {
+          create: prismaMock.systemLog.create,
+        },
       }
+      return input(tx)
+    }
 
-      vi.mocked(prisma.user.findUnique).mockResolvedValue(mockUser as any)
-      vi.mocked(prisma.user.update).mockResolvedValue(mockUser as any)
-      vi.mocked(prisma.refreshToken.create).mockResolvedValue({} as any)
-      vi.mocked(prisma.refreshToken.deleteMany).mockResolvedValue({ count: 0 })
-      vi.mocked(redisClient.get).mockResolvedValue(null)
+    return Promise.all(input as Promise<unknown>[])
+  })
+})
+
+describe('AuthService', () => {
+  // 测试登录流程的成功、失败、锁定和审计行为。
+  describe('login', () => {
+    it('应该成功登录并返回 token，同时更新最后登录时间和系统日志', async () => {
+      const user = buildUser()
+      const updatedUser = buildUser({ lastLoginAt: new Date('2026-03-27T10:00:00.000Z') })
+
+      prismaMock.user.findUnique.mockResolvedValue(user)
+      prismaMock.user.update.mockResolvedValue(updatedUser)
+      prismaMock.refreshToken.create.mockResolvedValue({ id: 'refresh-1' })
+      prismaMock.refreshToken.deleteMany.mockResolvedValue({ count: 0 })
+      prismaMock.systemLog.create.mockResolvedValue({ id: 1 })
 
       const result = await authService.login({
-        username: 'testuser',
-        password: 'password123',
+        username: 'alice',
+        password: 'Password123',
         ip_address: '127.0.0.1',
-        user_agent: 'test-agent',
+        user_agent: 'vitest',
       })
 
-      expect(result).toHaveProperty('accessToken')
-      expect(result).toHaveProperty('refreshToken')
-      expect(result.user.username).toBe('testuser')
+      expect(result.accessToken).toEqual(expect.any(String))
+      expect(result.refreshToken).toEqual(expect.any(String))
+      expect(result.expiresIn).toBe(900)
+      expect(result.tokenType).toBe('Bearer')
+      expect(result.user.roles).toEqual(['student', 'assistant'])
+      expect(result.user.permissions).toEqual(['course:read', 'profile:update'])
+      expect(prismaMock.user.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'user-1' },
+          data: { lastLoginAt: expect.any(Date) },
+        })
+      )
+      expect(prismaMock.systemLog.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            action: 'auth:login',
+            userId: 'user-1',
+            ipAddress: '127.0.0.1',
+          }),
+        })
+      )
+      expect(redisMock.del).toHaveBeenCalledTimes(2)
     })
 
     it('应该拒绝不存在的用户', async () => {
-      vi.mocked(prisma.user.findUnique).mockResolvedValue(null)
-      vi.mocked(redisClient.get).mockResolvedValue(null)
+      prismaMock.user.findUnique.mockResolvedValue(null)
 
       await expect(
         authService.login({
-          username: 'nonexistent',
-          password: 'password123',
+          username: 'missing',
+          password: 'Password123',
           ip_address: '127.0.0.1',
         })
-      ).rejects.toThrow('用户名或密码错误')
+      ).rejects.toBeInstanceOf(UnauthorizedError)
+
+      expect(redisMock.incr).toHaveBeenCalledOnce()
+      expect(prismaMock.systemLog.create).not.toHaveBeenCalled()
     })
 
     it('应该拒绝错误的密码', async () => {
-      const mockUser = {
-        id: 'user-1',
-        username: 'testuser',
-        passwordHash: 'hashed_different_password',
-        status: 'ACTIVE',
-        userRoles: [],
-      }
-
-      vi.mocked(prisma.user.findUnique).mockResolvedValue(mockUser as any)
-      vi.mocked(redisClient.get).mockResolvedValue(null)
+      prismaMock.user.findUnique.mockResolvedValue(buildUser())
+      passwordMock.comparePassword.mockResolvedValue(false)
 
       await expect(
         authService.login({
-          username: 'testuser',
-          password: 'wrongpassword',
+          username: 'alice',
+          password: 'wrong-password',
           ip_address: '127.0.0.1',
         })
-      ).rejects.toThrow('用户名或密码错误')
+      ).rejects.toBeInstanceOf(UnauthorizedError)
+
+      expect(redisMock.incr).toHaveBeenCalledOnce()
     })
 
-    it('应该拒绝被禁用的账户', async () => {
-      const mockUser = {
-        id: 'user-1',
-        username: 'testuser',
-        passwordHash: 'hashed_password123',
-        status: 'BANNED',
-        userRoles: [],
-      }
-
-      vi.mocked(prisma.user.findUnique).mockResolvedValue(mockUser as any)
-      vi.mocked(redisClient.get).mockResolvedValue(null)
+    it('应该拒绝被禁用或未激活的账户', async () => {
+      prismaMock.user.findUnique
+        .mockResolvedValueOnce(buildUser({ status: 'INACTIVE' }))
+        .mockResolvedValueOnce(buildUser({ status: 'BANNED' }))
 
       await expect(
-        authService.login({
-          username: 'testuser',
-          password: 'password123',
-          ip_address: '127.0.0.1',
-        })
-      ).rejects.toThrow('账户已被禁用')
+        authService.login({ username: 'alice', password: 'Password123', ip_address: '127.0.0.1' })
+      ).rejects.toBeInstanceOf(ForbiddenError)
+
+      await expect(
+        authService.login({ username: 'alice', password: 'Password123', ip_address: '127.0.0.1' })
+      ).rejects.toBeInstanceOf(ForbiddenError)
     })
 
     it('应该在5次失败后锁定15分钟', async () => {
-      vi.mocked(prisma.user.findUnique).mockResolvedValue(null)
-      // 模拟锁定状态
-      vi.mocked(redisClient.get).mockResolvedValueOnce('locked-until-1234567890')
+      prismaMock.user.findUnique.mockResolvedValue(null)
+      redisMock.incr.mockResolvedValue(5)
 
       await expect(
         authService.login({
-          username: 'testuser',
-          password: 'wrongpassword',
-          ip_address: '127.0.0.1',
+          username: 'alice',
+          password: 'Password123',
+          ip_address: '10.0.0.8',
         })
-      ).rejects.toThrow('登录失败次数过多')
+      ).rejects.toBeInstanceOf(UnauthorizedError)
+
+      expect(redisMock.set).toHaveBeenCalledWith(
+        'auth:login_lock:alice:10.0.0.8',
+        expect.any(String),
+        { ex: 900 }
+      )
+
+      redisMock.get.mockResolvedValueOnce(new Date(Date.now() + 900_000).toISOString())
+
+      await expect(
+        authService.login({
+          username: 'alice',
+          password: 'Password123',
+          ip_address: '10.0.0.8',
+        })
+      ).rejects.toBeInstanceOf(TooManyRequestsError)
     })
   })
 
+  // 测试刷新令牌的校验、轮换和异常分支。
   describe('refreshToken', () => {
-    it('应该成功刷新 token', async () => {
-      const mockUser = {
-        id: 'user-1',
-        username: 'testuser',
-        status: 'ACTIVE',
-        userRoles: [{ role: { code: 'student', permissions: [] } }],
-      }
+    it('应该成功刷新 token，并使旧 token 失效', async () => {
+      prismaMock.refreshToken.findUnique.mockResolvedValue(buildStoredRefreshToken())
+      prismaMock.refreshToken.update.mockResolvedValue({ id: 'refresh-1', isUsed: true })
+      prismaMock.refreshToken.create.mockResolvedValue({ id: 'refresh-2' })
 
-      const mockStoredToken = {
-        id: 'token-1',
-        userId: 'user-1',
-        tokenHash: 'test-hash',
-        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-        isUsed: false,
-        user: mockUser,
-      }
+      const result = await authService.refreshToken('refresh-token-value')
 
-      vi.mocked(prisma.refreshToken.findUnique).mockResolvedValue(mockStoredToken as any)
-      vi.mocked(prisma.refreshToken.update).mockResolvedValue({} as any)
-      vi.mocked(prisma.refreshToken.create).mockResolvedValue({} as any)
-
-      const result = await authService.refreshToken('valid-refresh-token')
-
-      expect(result).toHaveProperty('accessToken')
-      expect(result).toHaveProperty('refreshToken')
-    })
-
-    it('应该拒绝无效的 refresh token', async () => {
-      vi.mocked(prisma.refreshToken.findUnique).mockResolvedValue(null)
-
-      await expect(authService.refreshToken('invalid-token')).rejects.toThrow('无效的刷新令牌')
-    })
-
-    it('应该拒绝已使用的 refresh token', async () => {
-      const mockStoredToken = {
-        id: 'token-1',
-        userId: 'user-1',
-        tokenHash: 'test-hash',
-        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-        isUsed: true,
-        user: { status: 'ACTIVE' },
-      }
-
-      vi.mocked(prisma.refreshToken.findUnique).mockResolvedValue(mockStoredToken as any)
-
-      await expect(authService.refreshToken('used-token')).rejects.toThrow('刷新令牌已使用')
-    })
-
-    it('应该拒绝过期的 refresh token', async () => {
-      const mockStoredToken = {
-        id: 'token-1',
-        userId: 'user-1',
-        tokenHash: 'test-hash',
-        expiresAt: new Date(Date.now() - 1000), // 已过期
-        isUsed: false,
-        user: { status: 'ACTIVE' },
-      }
-
-      vi.mocked(prisma.refreshToken.findUnique).mockResolvedValue(mockStoredToken as any)
-
-      await expect(authService.refreshToken('expired-token')).rejects.toThrow('刷新令牌已过期')
-    })
-  })
-
-  describe('logout', () => {
-    it('应该成功登出并使 refresh token 失效', async () => {
-      vi.mocked(prisma.refreshToken.updateMany).mockResolvedValue({ count: 1 })
-      vi.mocked(prisma.systemLog.create).mockResolvedValue({} as any)
-
-      await authService.logout({
-        user_id: 'user-1',
-        refresh_token: 'valid-token',
-        ip_address: '127.0.0.1',
-        user_agent: 'test-agent',
+      expect(result.accessToken).toEqual(expect.any(String))
+      expect(result.refreshToken).toEqual(expect.any(String))
+      expect(result.refreshToken).not.toBe('refresh-token-value')
+      expect(prismaMock.refreshToken.update).toHaveBeenCalledWith({
+        where: { id: 'refresh-1' },
+        data: { isUsed: true },
       })
-
-      expect(prisma.refreshToken.updateMany).toHaveBeenCalled()
-      expect(prisma.systemLog.create).toHaveBeenCalledWith(
+      expect(prismaMock.refreshToken.create).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({
-            action: 'auth:logout',
+            userId: 'user-1',
+            tokenHash: sha256(result.refreshToken),
           }),
         })
       )
     })
+
+    it('应该拒绝无效、已使用或过期的 refresh token', async () => {
+      prismaMock.refreshToken.findUnique
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce(buildStoredRefreshToken({ isUsed: true }))
+        .mockResolvedValueOnce(buildStoredRefreshToken({ expiresAt: new Date(Date.now() - 1_000) }))
+
+      await expect(authService.refreshToken('missing-token')).rejects.toBeInstanceOf(
+        UnauthorizedError
+      )
+      await expect(authService.refreshToken('used-token')).rejects.toBeInstanceOf(UnauthorizedError)
+      await expect(authService.refreshToken('expired-token')).rejects.toBeInstanceOf(
+        UnauthorizedError
+      )
+    })
+
+    it('应该拒绝已被禁用的账户刷新 token', async () => {
+      prismaMock.refreshToken.findUnique.mockResolvedValue(
+        buildStoredRefreshToken({
+          user: buildUser({ status: 'BANNED' }),
+        })
+      )
+
+      await expect(authService.refreshToken('refresh-token')).rejects.toBeInstanceOf(ForbiddenError)
+    })
   })
 
-  describe('register', () => {
-    it('应该成功注册新用户', async () => {
-      const mockCreatedUser = {
-        id: 'user-1',
-        username: 'newuser',
-        email: 'new@example.com',
-        realName: 'New User',
-      }
+  // 测试登出时刷新令牌失效与日志写入行为。
+  describe('logout', () => {
+    it('应该成功登出并使 refresh token 失效，同时写入系统日志', async () => {
+      prismaMock.refreshToken.updateMany.mockResolvedValue({ count: 1 })
+      prismaMock.systemLog.create.mockResolvedValue({ id: 1 })
 
-      vi.mocked(prisma.user.findUnique).mockResolvedValue(null)
-      vi.mocked(prisma.user.create).mockResolvedValue(mockCreatedUser as any)
-      vi.mocked(prisma.role.findUnique).mockResolvedValue({ id: 'role-1', code: 'student' } as any)
-      vi.mocked(prisma.userRole.create).mockResolvedValue({} as any)
-      vi.mocked(prisma.activationToken.create).mockResolvedValue({} as any)
+      await authService.logout({
+        user_id: 'user-1',
+        refresh_token: 'refresh-token',
+        ip_address: '127.0.0.1',
+        user_agent: 'vitest',
+      })
+
+      expect(prismaMock.refreshToken.updateMany).toHaveBeenCalledWith({
+        where: {
+          userId: 'user-1',
+          tokenHash: sha256('refresh-token'),
+          isUsed: false,
+        },
+        data: { isUsed: true },
+      })
+      expect(prismaMock.systemLog.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            action: 'auth:logout',
+            userId: 'user-1',
+          }),
+        })
+      )
+    })
+
+    it('应该拒绝无效的 refresh token', async () => {
+      prismaMock.refreshToken.updateMany.mockResolvedValue({ count: 0 })
+
+      await expect(
+        authService.logout({
+          user_id: 'user-1',
+          refresh_token: 'bad-token',
+        })
+      ).rejects.toBeInstanceOf(UnauthorizedError)
+    })
+  })
+
+  // 测试注册流程中的冲突校验、默认角色和激活令牌创建。
+  describe('register', () => {
+    it('应该成功注册新用户，并分配默认学生角色与激活令牌', async () => {
+      prismaMock.user.findUnique.mockResolvedValue(null)
+      prismaMock.user.create.mockResolvedValue({
+        id: 'user-1',
+        username: 'alice',
+        email: 'alice@example.com',
+        realName: 'Alice',
+      })
+      prismaMock.role.findUnique.mockResolvedValue({ id: 'role-student', code: 'student' })
+      prismaMock.userRole.create.mockResolvedValue({ id: 'user-role-1' })
+      prismaMock.activationToken.create.mockResolvedValue({ id: 'activation-1' })
 
       const result = await authService.register({
-        username: 'newuser',
+        username: 'alice',
         password: 'Password123',
-        email: 'new@example.com',
-        real_name: 'New User',
+        email: 'alice@example.com',
+        real_name: 'Alice',
+        gender: 'female',
       })
 
-      expect(result.username).toBe('newuser')
-    })
-
-    it('应该拒绝已存在的用户名', async () => {
-      vi.mocked(prisma.user.findUnique).mockResolvedValue({ id: 'existing-user' } as any)
-
-      await expect(
-        authService.register({
-          username: 'existinguser',
-          password: 'Password123',
-          real_name: 'Test',
+      expect(result).toEqual(
+        expect.objectContaining({
+          id: 'user-1',
+          username: 'alice',
+          email: 'alice@example.com',
+          realName: 'Alice',
+          activationToken: expect.any(String),
         })
-      ).rejects.toThrow('用户名已存在')
+      )
+      expect(prismaMock.user.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            status: 'INACTIVE',
+            passwordHash: 'hashed:Password123',
+            gender: 'FEMALE',
+          }),
+        })
+      )
+      expect(prismaMock.userRole.create).toHaveBeenCalledWith({
+        data: {
+          userId: 'user-1',
+          roleId: 'role-student',
+        },
+      })
+      expect(prismaMock.activationToken.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            userId: 'user-1',
+            tokenHash: sha256(result.activationToken),
+          }),
+        })
+      )
     })
 
-    it('应该拒绝弱密码', async () => {
+    it('应该拒绝弱密码、重复用户名和重复邮箱', async () => {
+      passwordMock.validatePasswordStrength.mockReturnValueOnce({
+        valid: false,
+        errors: ['密码长度至少 8 位'],
+      })
+
       await expect(
         authService.register({
-          username: 'newuser',
+          username: 'alice',
           password: 'weak',
-          real_name: 'Test',
+          real_name: 'Alice',
         })
-      ).rejects.toThrow('密码强度不足')
+      ).rejects.toBeInstanceOf(ValidationError)
+
+      passwordMock.validatePasswordStrength.mockReturnValue({ valid: true, errors: [] })
+      prismaMock.user.findUnique
+        .mockResolvedValueOnce({ id: 'user-exists' })
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce({ id: 'mail-exists' })
+
+      await expect(
+        authService.register({
+          username: 'alice',
+          password: 'Password123',
+          real_name: 'Alice',
+        })
+      ).rejects.toBeInstanceOf(ConflictError)
+
+      await expect(
+        authService.register({
+          username: 'alice',
+          password: 'Password123',
+          email: 'alice@example.com',
+          real_name: 'Alice',
+        })
+      ).rejects.toBeInstanceOf(ConflictError)
     })
   })
 
-  describe('changePassword', () => {
-    it('应该成功修改密码', async () => {
-      const mockUser = {
-        id: 'user-1',
-        passwordHash: 'hashed_oldpassword',
-      }
-
-      vi.mocked(prisma.user.findUnique).mockResolvedValue(mockUser as any)
-      vi.mocked(prisma.user.update).mockResolvedValue({} as any)
-      vi.mocked(prisma.refreshToken.updateMany).mockResolvedValue({ count: 0 })
-      vi.mocked(prisma.systemLog.create).mockResolvedValue({} as any)
-
-      await authService.changePassword('user-1', 'oldpassword', 'Newpassword123', {
-        ip_address: '127.0.0.1',
-      })
-
-      expect(prisma.user.update).toHaveBeenCalled()
-      expect(prisma.systemLog.create).toHaveBeenCalled()
-    })
-
-    it('应该拒绝错误的旧密码', async () => {
-      const mockUser = {
-        id: 'user-1',
-        passwordHash: 'hashed_different_password',
-      }
-
-      vi.mocked(prisma.user.findUnique).mockResolvedValue(mockUser as any)
-
-      await expect(
-        authService.changePassword('user-1', 'wrongpassword', 'Newpassword123')
-      ).rejects.toThrow('旧密码错误')
-    })
-
-    it('应该拒绝与旧密码相同的新密码', async () => {
-      const mockUser = {
-        id: 'user-1',
-        passwordHash: 'hashed_Oldpassword123',
-      }
-
-      vi.mocked(prisma.user.findUnique).mockResolvedValue(mockUser as any)
-
-      await expect(
-        authService.changePassword('user-1', 'Oldpassword123', 'Oldpassword123')
-      ).rejects.toThrow('新密码不能与旧密码相同')
-    })
-  })
-
+  // 测试账号激活令牌的有效与无效场景。
   describe('activateAccount', () => {
     it('应该成功激活账户', async () => {
-      const mockToken = {
-        id: 'token-1',
+      prismaMock.activationToken.findUnique.mockResolvedValue({
+        id: 'activation-1',
         userId: 'user-1',
         isUsed: false,
-        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
-        user: { id: 'user-1', status: 'INACTIVE' },
-      }
+        expiresAt: new Date(Date.now() + 3_600_000),
+        user: { id: 'user-1' },
+      })
+      prismaMock.activationToken.update.mockResolvedValue({ id: 'activation-1', isUsed: true })
+      prismaMock.user.update.mockResolvedValue({ id: 'user-1', status: 'ACTIVE' })
 
-      vi.mocked(prisma.activationToken.findUnique).mockResolvedValue(mockToken as any)
-      vi.mocked(prisma.activationToken.update).mockResolvedValue({} as any)
-      vi.mocked(prisma.user.update).mockResolvedValue({} as any)
+      await authService.activateAccount('activation-token')
 
-      await authService.activateAccount('valid-activation-token')
+      expect(prismaMock.activationToken.update).toHaveBeenCalledWith({
+        where: { id: 'activation-1' },
+        data: { isUsed: true },
+      })
+      expect(prismaMock.user.update).toHaveBeenCalledWith({
+        where: { id: 'user-1' },
+        data: { status: 'ACTIVE' },
+      })
+    })
 
-      expect(prisma.user.update).toHaveBeenCalledWith(
+    it('应该拒绝无效、已使用或过期的激活令牌', async () => {
+      prismaMock.activationToken.findUnique
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce({
+          id: 'activation-1',
+          userId: 'user-1',
+          isUsed: true,
+          expiresAt: new Date(Date.now() + 1_000),
+          user: { id: 'user-1' },
+        })
+        .mockResolvedValueOnce({
+          id: 'activation-2',
+          userId: 'user-1',
+          isUsed: false,
+          expiresAt: new Date(Date.now() - 1_000),
+          user: { id: 'user-1' },
+        })
+
+      await expect(authService.activateAccount('missing')).rejects.toBeInstanceOf(ValidationError)
+      await expect(authService.activateAccount('used')).rejects.toBeInstanceOf(ValidationError)
+      await expect(authService.activateAccount('expired')).rejects.toBeInstanceOf(ValidationError)
+    })
+  })
+
+  // 测试忘记密码流程的防枚举行为与邮件发送。
+  describe('forgotPassword', () => {
+    it('应该为存在的邮箱创建重置令牌并发送邮件', async () => {
+      prismaMock.user.findUnique.mockResolvedValue({
+        id: 'user-1',
+        username: 'alice',
+        email: 'alice@example.com',
+      })
+      prismaMock.passwordResetToken.deleteMany.mockResolvedValue({ count: 1 })
+      prismaMock.passwordResetToken.create.mockResolvedValue({ id: 'reset-1' })
+
+      await authService.forgotPassword('alice@example.com')
+
+      expect(prismaMock.passwordResetToken.deleteMany).toHaveBeenCalledWith({
+        where: { userId: 'user-1' },
+      })
+      expect(prismaMock.passwordResetToken.create).toHaveBeenCalledOnce()
+      expect(mailMock.sendPasswordResetEmail).toHaveBeenCalledWith(
         expect.objectContaining({
-          data: { status: 'ACTIVE' },
+          to: 'alice@example.com',
+          username: 'alice',
+          token: expect.any(String),
         })
       )
     })
 
-    it('应该拒绝无效的激活令牌', async () => {
-      vi.mocked(prisma.activationToken.findUnique).mockResolvedValue(null)
+    it('应该对不存在的邮箱直接返回成功，防止用户枚举', async () => {
+      prismaMock.user.findUnique.mockResolvedValue(null)
 
-      await expect(authService.activateAccount('invalid-token')).rejects.toThrow(
-        '激活令牌无效或已过期'
-      )
+      await expect(authService.forgotPassword('nobody@example.com')).resolves.toBeUndefined()
+      expect(prismaMock.passwordResetToken.create).not.toHaveBeenCalled()
+      expect(mailMock.sendPasswordResetEmail).not.toHaveBeenCalled()
     })
   })
 
-  describe('forgotPassword', () => {
-    it('应该为存在的邮箱创建重置令牌', async () => {
-      const mockUser = {
-        id: 'user-1',
-        email: 'test@example.com',
-        username: 'testuser',
-      }
-
-      vi.mocked(prisma.user.findUnique).mockResolvedValue(mockUser as any)
-      vi.mocked(prisma.passwordResetToken.deleteMany).mockResolvedValue({ count: 0 })
-      vi.mocked(prisma.passwordResetToken.create).mockResolvedValue({} as any)
-      vi.mocked(sendPasswordResetEmail).mockResolvedValue()
-
-      await authService.forgotPassword('test@example.com')
-
-      expect(sendPasswordResetEmail).toHaveBeenCalled()
-    })
-
-    it('应该对不存在的邮箱也返回成功（防止用户枚举）', async () => {
-      vi.mocked(prisma.user.findUnique).mockResolvedValue(null)
-
-      // 不应该抛出异常
-      await authService.forgotPassword('nonexistent@example.com')
-    })
-  })
-
+  // 测试密码重置流程的令牌校验、令牌失效和日志写入。
   describe('resetPassword', () => {
-    it('应该成功重置密码', async () => {
-      const mockToken = {
-        id: 'token-1',
+    it('应该成功重置密码，并使所有 refresh token 失效且写入系统日志', async () => {
+      prismaMock.passwordResetToken.findUnique.mockResolvedValue({
+        id: 'reset-1',
         userId: 'user-1',
         isUsed: false,
-        expiresAt: new Date(Date.now() + 60 * 60 * 1000),
+        expiresAt: new Date(Date.now() + 1_000),
         user: { id: 'user-1' },
-      }
+      })
+      prismaMock.passwordResetToken.update.mockResolvedValue({ id: 'reset-1', isUsed: true })
+      prismaMock.passwordResetToken.updateMany.mockResolvedValue({ count: 1 })
+      prismaMock.user.update.mockResolvedValue({ id: 'user-1' })
+      prismaMock.refreshToken.updateMany.mockResolvedValue({ count: 2 })
+      prismaMock.systemLog.create.mockResolvedValue({ id: 1 })
 
-      vi.mocked(prisma.passwordResetToken.findUnique).mockResolvedValue(mockToken as any)
-      vi.mocked(prisma.passwordResetToken.update).mockResolvedValue({} as any)
-      vi.mocked(prisma.passwordResetToken.updateMany).mockResolvedValue({ count: 0 })
-      vi.mocked(prisma.user.update).mockResolvedValue({} as any)
-      vi.mocked(prisma.refreshToken.updateMany).mockResolvedValue({ count: 0 })
-      vi.mocked(prisma.systemLog.create).mockResolvedValue({} as any)
-
-      await authService.resetPassword('valid-reset-token', 'Newpassword123', {
+      await authService.resetPassword('reset-token', 'Password123', {
         ip_address: '127.0.0.1',
+        user_agent: 'vitest',
       })
 
-      expect(prisma.user.update).toHaveBeenCalled()
-      expect(prisma.systemLog.create).toHaveBeenCalled()
+      expect(passwordMock.hashPassword).toHaveBeenCalledWith('Password123')
+      expect(prismaMock.refreshToken.updateMany).toHaveBeenCalledWith({
+        where: { userId: 'user-1' },
+        data: { isUsed: true },
+      })
+      expect(prismaMock.systemLog.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            action: 'user:password_reset',
+            userId: 'user-1',
+          }),
+        })
+      )
     })
 
-    it('应该拒绝无效的重置令牌', async () => {
-      vi.mocked(prisma.passwordResetToken.findUnique).mockResolvedValue(null)
+    it('应该拒绝无效令牌和弱密码', async () => {
+      passwordMock.validatePasswordStrength.mockReturnValueOnce({
+        valid: false,
+        errors: ['密码必须包含数字'],
+      })
 
-      await expect(authService.resetPassword('invalid-token', 'Newpassword123')).rejects.toThrow(
-        '重置令牌无效或已过期'
+      await expect(authService.resetPassword('reset-token', 'weak')).rejects.toBeInstanceOf(
+        ValidationError
       )
+
+      passwordMock.validatePasswordStrength.mockReturnValue({ valid: true, errors: [] })
+      prismaMock.passwordResetToken.findUnique.mockResolvedValue(null)
+
+      await expect(
+        authService.resetPassword('invalid-token', 'Password123')
+      ).rejects.toBeInstanceOf(ValidationError)
     })
   })
 
-  describe('getUserById', () => {
-    it('应该返回用户信息', async () => {
-      const mockUser = {
-        id: 'user-1',
-        username: 'testuser',
-        email: 'test@example.com',
-        phone: '13800138000',
-        realName: 'Test User',
-        avatarUrl: null,
-        gender: 'MALE',
-        status: 'ACTIVE',
-        lastLoginAt: new Date(),
-        userRoles: [
-          {
-            role: {
-              code: 'student',
-              permissions: [{ permission: { code: 'course:read' } }],
-            },
-          },
-        ],
-      }
+  // 测试修改密码流程的旧密码校验、同密码拦截和令牌失效。
+  describe('changePassword', () => {
+    it('应该成功修改密码，并使所有 refresh token 失效且写入系统日志', async () => {
+      prismaMock.user.findUnique.mockResolvedValue(buildUser())
+      prismaMock.user.update.mockResolvedValue({ id: 'user-1' })
+      prismaMock.refreshToken.updateMany.mockResolvedValue({ count: 2 })
+      prismaMock.systemLog.create.mockResolvedValue({ id: 1 })
 
-      vi.mocked(prisma.user.findUnique).mockResolvedValue(mockUser as any)
+      await authService.changePassword('user-1', 'OldPassword123', 'NewPassword123', {
+        ip_address: '127.0.0.1',
+        user_agent: 'vitest',
+      })
+
+      expect(passwordMock.comparePassword).toHaveBeenCalledWith('OldPassword123', 'stored-hash')
+      expect(prismaMock.user.update).toHaveBeenCalledWith({
+        where: { id: 'user-1' },
+        data: { passwordHash: 'hashed:NewPassword123' },
+      })
+      expect(prismaMock.refreshToken.updateMany).toHaveBeenCalledWith({
+        where: { userId: 'user-1' },
+        data: { isUsed: true },
+      })
+      expect(prismaMock.systemLog.create).toHaveBeenCalledOnce()
+    })
+
+    it('应该拒绝错误的旧密码、相同新密码和不存在的用户', async () => {
+      prismaMock.user.findUnique
+        .mockResolvedValueOnce(buildUser())
+        .mockResolvedValueOnce(buildUser())
+        .mockResolvedValueOnce(null)
+      passwordMock.comparePassword.mockResolvedValueOnce(false).mockResolvedValueOnce(true)
+
+      await expect(
+        authService.changePassword('user-1', 'bad-old', 'NewPassword123')
+      ).rejects.toBeInstanceOf(ValidationError)
+
+      await expect(
+        authService.changePassword('user-1', 'SamePassword123', 'SamePassword123')
+      ).rejects.toBeInstanceOf(ValidationError)
+
+      await expect(
+        authService.changePassword('missing-user', 'OldPassword123', 'NewPassword123')
+      ).rejects.toBeInstanceOf(NotFoundError)
+    })
+  })
+
+  // 测试根据用户 ID 获取用户信息的返回和异常。
+  describe('getUserById', () => {
+    it('应该返回包含角色和权限的用户信息', async () => {
+      prismaMock.user.findUnique.mockResolvedValue(buildUser())
 
       const result = await authService.getUserById('user-1')
 
-      expect(result.username).toBe('testuser')
-      expect(result.roles).toContain('student')
-      expect(result.permissions).toContain('course:read')
+      expect(result).toEqual(
+        expect.objectContaining({
+          id: 'user-1',
+          username: 'alice',
+          roles: ['student', 'assistant'],
+          permissions: ['course:read', 'profile:update'],
+        })
+      )
     })
 
     it('应该拒绝不存在的用户', async () => {
-      vi.mocked(prisma.user.findUnique).mockResolvedValue(null)
+      prismaMock.user.findUnique.mockResolvedValue(null)
 
-      await expect(authService.getUserById('nonexistent-user')).rejects.toThrow('用户不存在')
+      await expect(authService.getUserById('missing-user')).rejects.toBeInstanceOf(NotFoundError)
     })
   })
 })

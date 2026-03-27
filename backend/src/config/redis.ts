@@ -97,7 +97,6 @@ function createRedisClient(): RedisClient {
 
   if (redisUrl) {
     console.log('✅ 使用 Redis:', redisUrl.replace(/:[^:@]+@/, ':****@'))
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
     const redis = new IORedis(redisUrl)
 
     return {

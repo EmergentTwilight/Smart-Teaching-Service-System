@@ -47,6 +47,8 @@ model User {
   logs                  SystemLog[]
   scoreModificationLogs ScoreModificationLog[]
   refreshTokens         RefreshToken[]
+  activationTokens      ActivationToken[]
+  passwordResetTokens   PasswordResetToken[]
 
   // 索引优化：常用查询字段
   @@index([status]) // 按状态筛选用户
@@ -76,6 +78,52 @@ model RefreshToken {
   @@index([userId]) // 按用户查询
   @@index([expiresAt]) // 清理过期令牌
   @@map("refresh_tokens")
+}
+
+/// 账号激活令牌表
+/// 用于完成注册后的账号激活流程
+model ActivationToken {
+  /// 令牌唯一标识
+  id        String   @id @default(uuid())
+  /// 用户ID
+  userId    String   @map("user_id")
+  /// 令牌哈希
+  tokenHash String   @unique @map("token_hash") @db.VarChar(255)
+  /// 过期时间
+  expiresAt DateTime @map("expires_at")
+  /// 是否已使用
+  isUsed    Boolean  @default(false) @map("is_used")
+  /// 创建时间
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("activation_tokens")
+}
+
+/// 密码重置令牌表
+/// 用于忘记密码后的重置流程
+model PasswordResetToken {
+  /// 令牌唯一标识
+  id        String   @id @default(uuid())
+  /// 用户ID
+  userId    String   @map("user_id")
+  /// 令牌哈希
+  tokenHash String   @unique @map("token_hash") @db.VarChar(255)
+  /// 过期时间
+  expiresAt DateTime @map("expires_at")
+  /// 是否已使用
+  isUsed    Boolean  @default(false) @map("is_used")
+  /// 创建时间
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("password_reset_tokens")
 }
 
 /// 学生表

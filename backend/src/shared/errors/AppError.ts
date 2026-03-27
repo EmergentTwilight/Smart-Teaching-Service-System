@@ -63,3 +63,12 @@ export class ConflictError extends AppError {
     super(message, 409, 'CONFLICT')
   }
 }
+
+/**
+ * 429 请求过多错误
+ */
+export class TooManyRequestsError extends AppError {
+  constructor(message: string = '请求过于频繁，请稍后再试') {
+    super(message, 429, 'TOO_MANY_REQUESTS')
+  }
+}

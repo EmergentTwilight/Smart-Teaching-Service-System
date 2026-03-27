@@ -16,13 +16,27 @@ services:
     networks:
       - stss-network
 
+  redis:
+    image: redis:7-alpine
+    container_name: stss-redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - stss-network
+
   server:
     image: node:22-alpine
     container_name: stss-server
     working_dir: /app
     environment:
       DATABASE_URL: postgresql://stss:stss_dev_2026@postgres:5432/stss?connection_limit=10&pool_timeout=30
-      JWT_SECRET: stss-super-secret-jwt-key-2026
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: stss-super-secret-jwt-key-2026-dev-only
       JWT_EXPIRES_IN: 7d
       PORT: 3000
       NODE_ENV: development
@@ -36,6 +50,8 @@ services:
       - "3000:3000"
     depends_on:
       postgres:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     command: sh -c "corepack enable && pnpm install && pnpm db:generate && pnpm db:push --accept-data-loss && pnpm db:seed && pnpm dev"
     networks:
@@ -74,6 +90,9 @@ services:
     image: node:22-alpine
     container_name: stss-test-server
     working_dir: /app
+    environment:
+      NODE_ENV: test
+      REDIS_URL: redis://redis:6379
     volumes:
       - ./backend:/app
       - ./shared:/shared
@@ -82,7 +101,9 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-    command: sh -c "corepack enable && pnpm install && pnpm test:run"
+      redis:
+        condition: service_healthy
+    command: sh -c "corepack enable && pnpm install && pnpm db:generate && pnpm test:run"
     networks:
       - stss-network
 

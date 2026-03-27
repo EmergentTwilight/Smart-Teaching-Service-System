@@ -11,6 +11,12 @@ import {
   createUserSchema,
   updateUserSchema,
   getLogsQuerySchema,
+  batchCreateUsersSchema,
+  batchUpdateStatusSchema,
+  changePasswordSchema,
+  resetPasswordSchema,
+  updateStatusSchema,
+  assignRolesSchema,
 } from './users.types.js'
 
 const router: RouterType = Router()
@@ -23,44 +29,9 @@ router.use(authMiddleware)
  * /api/v1/users/logs:
  *   get:
  *     summary: 获取系统日志
- *     description: 查询系统操作日志（仅管理员可访问）
  *     tags: [Users]
  *     security:
  *       - bearerAuth: []
- *     parameters:
- *       - in: query
- *         name: page
- *         schema:
- *           type: integer
- *           default: 1
- *         description: 页码
- *       - in: query
- *         name: pageSize
- *         schema:
- *           type: integer
- *           default: 20
- *         description: 每页数量
- *       - in: query
- *         name: userId
- *         schema:
- *           type: string
- *         description: 用户ID筛选
- *       - in: query
- *         name: action
- *         schema:
- *           type: string
- *         description: 操作类型筛选
- *     responses:
- *       200:
- *         description: 成功获取日志列表
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/PaginatedResponse'
- *       401:
- *         description: 未授权
- *       403:
- *         description: 权限不足
  */
 router.get(
   '/logs',
@@ -74,50 +45,9 @@ router.get(
  * /api/v1/users:
  *   get:
  *     summary: 获取用户列表
- *     description: 分页查询用户列表（仅管理员可访问）
  *     tags: [Users]
  *     security:
  *       - bearerAuth: []
- *     parameters:
- *       - in: query
- *         name: page
- *         schema:
- *           type: integer
- *           default: 1
- *         description: 页码
- *       - in: query
- *         name: pageSize
- *         schema:
- *           type: integer
- *           default: 20
- *         description: 每页数量
- *       - in: query
- *         name: keyword
- *         schema:
- *           type: string
- *         description: 搜索关键词（用户名、姓名、邮箱）
- *       - in: query
- *         name: status
- *         schema:
- *           type: string
- *           enum: [ACTIVE, INACTIVE, BANNED]
- *         description: 用户状态筛选
- *       - in: query
- *         name: role
- *         schema:
- *           type: string
- *         description: 角色筛选
- *     responses:
- *       200:
- *         description: 成功获取用户列表
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/PaginatedResponse'
- *       401:
- *         description: 未授权
- *       403:
- *         description: 权限不足
  */
 router.get(
   '/',
@@ -131,38 +61,9 @@ router.get(
  * /api/v1/users/{id}:
  *   get:
  *     summary: 获取用户详情
- *     description: 根据ID获取用户详细信息
  *     tags: [Users]
  *     security:
  *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *           format: uuid
- *         description: 用户ID
- *     responses:
- *       200:
- *         description: 成功获取用户信息
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 code:
- *                   type: integer
- *                   example: 200
- *                 message:
- *                   type: string
- *                   example: Success
- *                 data:
- *                   $ref: '#/components/schemas/User'
- *       401:
- *         description: 未授权
- *       404:
- *         description: 用户不存在
  */
 router.get('/:id', usersController.getById)
 
@@ -171,68 +72,9 @@ router.get('/:id', usersController.getById)
  * /api/v1/users:
  *   post:
  *     summary: 创建用户
- *     description: 创建新用户（仅管理员可访问）
  *     tags: [Users]
  *     security:
  *       - bearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - username
- *               - password
- *               - realName
- *             properties:
- *               username:
- *                 type: string
- *                 minLength: 3
- *                 maxLength: 50
- *               password:
- *                 type: string
- *                 minLength: 6
- *               email:
- *                 type: string
- *                 format: email
- *               realName:
- *                 type: string
- *                 maxLength: 50
- *               phone:
- *                 type: string
- *               gender:
- *                 type: string
- *                 enum: [MALE, FEMALE, OTHER]
- *               status:
- *                 type: string
- *                 enum: [ACTIVE, INACTIVE, BANNED]
- *               roles:
- *                 type: array
- *                 items:
- *                   type: string
- *     responses:
- *       201:
- *         description: 创建成功
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 code:
- *                   type: integer
- *                   example: 201
- *                 message:
- *                   type: string
- *                   example: 创建成功
- *                 data:
- *                   $ref: '#/components/schemas/User'
- *       400:
- *         description: 参数错误
- *       401:
- *         description: 未授权
- *       403:
- *         description: 权限不足
  */
 router.post(
   '/',
@@ -246,65 +88,9 @@ router.post(
  * /api/v1/users/{id}:
  *   put:
  *     summary: 更新用户信息
- *     description: 更新指定用户的信息
  *     tags: [Users]
  *     security:
  *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *           format: uuid
- *         description: 用户ID
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               email:
- *                 type: string
- *                 format: email
- *               realName:
- *                 type: string
- *                 maxLength: 50
- *               phone:
- *                 type: string
- *               gender:
- *                 type: string
- *                 enum: [MALE, FEMALE, OTHER]
- *               status:
- *                 type: string
- *                 enum: [ACTIVE, INACTIVE, BANNED]
- *               roles:
- *                 type: array
- *                 items:
- *                   type: string
- *     responses:
- *       200:
- *         description: 更新成功
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 code:
- *                   type: integer
- *                   example: 200
- *                 message:
- *                   type: string
- *                   example: 更新成功
- *                 data:
- *                   $ref: '#/components/schemas/User'
- *       400:
- *         description: 参数错误
- *       401:
- *         description: 未授权
- *       404:
- *         description: 用户不存在
  */
 router.put('/:id', validate(updateUserSchema, 'body'), usersController.update)
 
@@ -313,32 +99,133 @@ router.put('/:id', validate(updateUserSchema, 'body'), usersController.update)
  * /api/v1/users/{id}:
  *   delete:
  *     summary: 删除用户
- *     description: 删除指定用户（仅超级管理员可访问）
  *     tags: [Users]
  *     security:
  *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *           format: uuid
- *         description: 用户ID
- *     responses:
- *       200:
- *         description: 删除成功
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ApiResponse'
- *       401:
- *         description: 未授权
- *       403:
- *         description: 权限不足
- *       404:
- *         description: 用户不存在
  */
 router.delete('/:id', requireRoles('super_admin'), usersController.delete)
+
+// ==================== 新增路由 ====================
+
+/**
+ * @swagger
+ * /api/v1/users/batch:
+ *   post:
+ *     summary: 批量创建用户
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ */
+router.post(
+  '/batch',
+  validate(batchCreateUsersSchema, 'body'),
+  requireRoles('admin', 'super_admin'),
+  usersController.batchCreate
+)
+
+/**
+ * @swagger
+ * /api/v1/users/batch/status:
+ *   patch:
+ *     summary: 批量修改用户状态
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ */
+router.patch(
+  '/batch/status',
+  validate(batchUpdateStatusSchema, 'body'),
+  requireRoles('admin', 'super_admin'),
+  usersController.batchUpdateStatus
+)
+
+/**
+ * @swagger
+ * /api/v1/users/{id}/password:
+ *   patch:
+ *     summary: 修改密码
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ */
+router.patch(
+  '/:id/password',
+  validate(changePasswordSchema, 'body'),
+  usersController.changePassword
+)
+
+/**
+ * @swagger
+ * /api/v1/users/{id}/password/reset:
+ *   post:
+ *     summary: 重置密码（管理员操作）
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ */
+router.post(
+  '/:id/password/reset',
+  validate(resetPasswordSchema, 'body'),
+  requireRoles('admin', 'super_admin'),
+  usersController.resetPassword
+)
+
+/**
+ * @swagger
+ * /api/v1/users/{id}/status:
+ *   patch:
+ *     summary: 修改用户状态
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ */
+router.patch(
+  '/:id/status',
+  validate(updateStatusSchema, 'body'),
+  requireRoles('admin', 'super_admin'),
+  usersController.updateStatus
+)
+
+/**
+ * @swagger
+ * /api/v1/users/{id}/roles:
+ *   post:
+ *     summary: 分配角色
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ */
+router.post(
+  '/:id/roles',
+  validate(assignRolesSchema, 'body'),
+  requireRoles('admin', 'super_admin'),
+  usersController.assignRoles
+)
+
+/**
+ * @swagger
+ * /api/v1/users/{id}/roles/{role_id}:
+ *   delete:
+ *     summary: 撤销角色
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ */
+router.delete(
+  '/:id/roles/:role_id',
+  requireRoles('admin', 'super_admin'),
+  usersController.revokeRole
+)
+
+/**
+ * @swagger
+ * /api/v1/users/{id}/permissions:
+ *   get:
+ *     summary: 获取用户权限列表
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ */
+router.get('/:id/permissions', requireRoles('admin', 'super_admin'), usersController.getPermissions)
 
 export default router

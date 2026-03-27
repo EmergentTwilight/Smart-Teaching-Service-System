@@ -3,21 +3,25 @@
  * 处理用户 CRUD 和系统日志查询
  */
 import prisma from '../../shared/prisma/client.js'
-import { hashPassword } from '../../shared/utils/password.js'
-import { NotFoundError, ConflictError } from '@stss/shared'
+import { hashPassword, comparePassword } from '../../shared/utils/password.js'
+import { NotFoundError, ConflictError, ValidationError } from '@stss/shared'
 import type {
   GetUsersQuery,
   CreateUserInput,
   UpdateUserInput,
   GetLogsQuery,
+  BatchCreateUsersInput,
+  BatchUpdateStatusInput,
+  ChangePasswordInput,
+  ResetPasswordInput,
+  UpdateStatusInput,
+  AssignRolesInput,
 } from './users.types.js'
-import type { Prisma, Gender } from '@prisma/client'
+import type { Prisma, Gender, UserStatus } from '@prisma/client'
 
 export const usersService = {
   /**
    * 获取用户列表（分页）
-   * @param query 查询参数
-   * @returns 用户列表和分页信息
    */
   async getUsers(query: GetUsersQuery) {
     const { page, pageSize, keyword, status, role } = query
@@ -92,8 +96,6 @@ export const usersService = {
 
   /**
    * 根据 ID 获取用户详情
-   * @param id 用户ID
-   * @returns 用户详情
    */
   async getUserById(id: string) {
     const user = await prisma.user.findUnique({
@@ -135,11 +137,8 @@ export const usersService = {
 
   /**
    * 创建用户
-   * @param data 用户数据
-   * @returns 新创建的用户
    */
   async createUser(data: CreateUserInput) {
-    // 检查用户名是否已存在
     const existingUser = await prisma.user.findUnique({
       where: { username: data.username },
     })
@@ -148,9 +147,7 @@ export const usersService = {
       throw new ConflictError('用户名已存在')
     }
 
-    // 创建用户
     const hashedPassword = await hashPassword(data.password)
-    // 排除 roleIds 和 password，只保留用户字段
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { roleIds, password: _unusedPassword, ...userData } = data
 
@@ -161,7 +158,6 @@ export const usersService = {
       },
     })
 
-    // 分配角色
     if (roleIds && roleIds.length > 0) {
       await prisma.userRole.createMany({
         data: roleIds.map((roleId) => ({
@@ -176,9 +172,6 @@ export const usersService = {
 
   /**
    * 更新用户信息
-   * @param id 用户ID
-   * @param data 更新数据
-   * @returns 更新后的用户
    */
   async updateUser(id: string, data: UpdateUserInput) {
     const user = await prisma.user.findUnique({
@@ -193,29 +186,23 @@ export const usersService = {
 
     const updatePayload: Prisma.UserUpdateInput = {
       ...updateData,
-      // 转换 gender 类型
       gender: gender as Gender | null | undefined,
     }
 
-    // 如果提供了密码，则更新密码
     if (password) {
       updatePayload.passwordHash = await hashPassword(password)
     }
 
-    // 更新用户信息
     await prisma.user.update({
       where: { id },
       data: updatePayload,
     })
 
-    // 更新角色
     if (roleIds) {
-      // 删除旧角色
       await prisma.userRole.deleteMany({
         where: { userId: id },
       })
 
-      // 添加新角色
       if (roleIds.length > 0) {
         await prisma.userRole.createMany({
           data: roleIds.map((roleId) => ({
@@ -231,7 +218,6 @@ export const usersService = {
 
   /**
    * 删除用户
-   * @param id 用户ID
    */
   async deleteUser(id: string) {
     const user = await prisma.user.findUnique({
@@ -249,8 +235,6 @@ export const usersService = {
 
   /**
    * 获取系统日志（分页）
-   * @param query 查询参数
-   * @returns 日志列表和分页信息
    */
   async getLogs(query: GetLogsQuery) {
     const { page, pageSize, userId, action, resourceType, startDate, endDate } = query
@@ -321,6 +305,276 @@ export const usersService = {
         total,
         totalPages: Math.ceil(total / pageSize),
       },
+    }
+  },
+
+  // ==================== 新增方法 ====================
+
+  /**
+   * 批量创建用户
+   */
+  async batchCreateUsers(data: BatchCreateUsersInput) {
+    const results: Array<{
+      id: string
+      username: string
+      email: string | null
+      phone: string | null
+      realName: string
+      gender: Gender | null
+      status: UserStatus
+    }> = []
+
+    await prisma.$transaction(async (tx) => {
+      for (const userData of data.users) {
+        // 检查用户名是否存在
+        const existingUser = await tx.user.findUnique({
+          where: { username: userData.username },
+        })
+        if (existingUser) {
+          throw new ConflictError(`用户名 ${userData.username} 已存在`)
+        }
+
+        // 检查邮箱是否存在
+        if (userData.email) {
+          const existingEmail = await tx.user.findUnique({
+            where: { email: userData.email },
+          })
+          if (existingEmail) {
+            throw new ConflictError(`邮箱 ${userData.email} 已被注册`)
+          }
+        }
+
+        // 创建用户
+        const hashedPassword = await hashPassword(userData.password)
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { roleIds, password, ...createData } = userData
+
+        const user = await tx.user.create({
+          data: {
+            ...createData,
+            passwordHash: hashedPassword,
+          },
+        })
+
+        // 分配角色
+        if (roleIds && roleIds.length > 0) {
+          await tx.userRole.createMany({
+            data: roleIds.map((roleId) => ({
+              userId: user.id,
+              roleId,
+            })),
+          })
+        }
+
+        results.push({
+          id: user.id,
+          username: user.username,
+          email: user.email,
+          phone: user.phone,
+          realName: user.realName,
+          gender: user.gender,
+          status: user.status,
+        })
+      }
+    })
+
+    return {
+      success: true,
+      created_count: results.length,
+      users: results,
+    }
+  },
+
+  /**
+   * 批量修改用户状态
+   */
+  async batchUpdateStatus(data: BatchUpdateStatusInput) {
+    const { userIds, status } = data
+
+    const existingUsers = await prisma.user.findMany({
+      where: { id: { in: userIds } },
+    })
+
+    if (existingUsers.length !== userIds.length) {
+      const missingIds = userIds.filter((id) => !existingUsers.some((u) => u.id === id))
+      throw new NotFoundError(`用户不存在: ${missingIds.join(', ')}`)
+    }
+
+    await prisma.user.updateMany({
+      where: { id: { in: userIds } },
+      data: { status },
+    })
+
+    return {
+      updated_count: existingUsers.length,
+      failed_count: userIds.length - existingUsers.length,
+    }
+  },
+
+  /**
+   * 修改密码（用户自己修改）
+   */
+  async changePassword(userId: string, data: ChangePasswordInput) {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+    })
+
+    if (!user) {
+      throw new NotFoundError('用户不存在')
+    }
+
+    const isValid = await comparePassword(data.oldPassword, user.passwordHash)
+    if (!isValid) {
+      throw new ValidationError('旧密码错误')
+    }
+
+    const hashedPassword = await hashPassword(data.newPassword)
+    await prisma.$transaction([
+      prisma.user.update({
+        where: { id: userId },
+        data: { passwordHash: hashedPassword },
+      }),
+      prisma.refreshToken.updateMany({
+        where: { userId },
+        data: { isUsed: true },
+      }),
+    ])
+  },
+
+  /**
+   * 重置密码（管理员操作）
+   */
+  async resetPassword(userId: string, data: ResetPasswordInput) {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+    })
+
+    if (!user) {
+      throw new NotFoundError('用户不存在')
+    }
+
+    const hashedPassword = await hashPassword(data.newPassword)
+    await prisma.$transaction([
+      prisma.user.update({
+        where: { id: userId },
+        data: { passwordHash: hashedPassword },
+      }),
+      prisma.refreshToken.updateMany({
+        where: { userId },
+        data: { isUsed: true },
+      }),
+    ])
+  },
+
+  /**
+   * 修改用户状态
+   */
+  async updateStatus(userId: string, data: UpdateStatusInput) {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+    })
+
+    if (!user) {
+      throw new NotFoundError('用户不存在')
+    }
+
+    await prisma.user.update({
+      where: { id: userId },
+      data: { status: data.status },
+    })
+
+    return this.getUserById(userId)
+  },
+
+  /**
+   * 分配角色
+   */
+  async assignRoles(userId: string, data: AssignRolesInput) {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+    })
+
+    if (!user) {
+      throw new NotFoundError('用户不存在')
+    }
+
+    const existingRoles = await prisma.role.findMany({
+      where: { id: { in: data.roleIds } },
+    })
+
+    if (existingRoles.length !== data.roleIds.length) {
+      const missingIds = data.roleIds.filter((id) => !existingRoles.some((r) => r.id === id))
+      throw new NotFoundError(`角色不存在: ${missingIds.join(', ')}`)
+    }
+
+    await prisma.userRole.createMany({
+      data: data.roleIds.map((roleId) => ({
+        userId,
+        roleId,
+      })),
+    })
+
+    return this.getUserById(userId)
+  },
+
+  /**
+   * 撤销角色
+   */
+  async revokeRole(userId: string, roleId: string) {
+    const userRole = await prisma.userRole.findUnique({
+      where: { userId_roleId: { userId, roleId } },
+    })
+
+    if (!userRole) {
+      throw new NotFoundError('用户未分配此角色')
+    }
+
+    await prisma.userRole.delete({
+      where: { userId_roleId: { userId, roleId } },
+    })
+
+    return this.getUserById(userId)
+  },
+
+  /**
+   * 获取用户权限列表
+   */
+  async getUserPermissions(userId: string) {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        userRoles: {
+          include: {
+            role: {
+              include: {
+                permissions: {
+                  include: {
+                    permission: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    })
+
+    if (!user) {
+      throw new NotFoundError('用户不存在')
+    }
+
+    const permissions = Array.from(
+      new Set(
+        user.userRoles.flatMap((userRole) =>
+          userRole.role.permissions.map((rp) => rp.permission.code)
+        )
+      )
+    )
+
+    return {
+      user_id: userId,
+      username: user.username,
+      permissions,
     }
   },
 }

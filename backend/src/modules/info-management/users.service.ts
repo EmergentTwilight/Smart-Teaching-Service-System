@@ -4,7 +4,7 @@
  */
 import prisma from '../../shared/prisma/client.js'
 import { hashPassword } from '../../shared/utils/password.js'
-import { NotFoundError, ConflictError } from '../../shared/errors/AppError.js'
+import { NotFoundError, ConflictError } from '@stss/shared'
 import type {
   GetUsersQuery,
   CreateUserInput,

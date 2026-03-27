@@ -15,7 +15,7 @@ import {
   ConflictError,
   NotFoundError,
   TooManyRequestsError,
-} from '../../shared/errors/AppError.js'
+} from '@stss/shared'
 import jwt from 'jsonwebtoken'
 import crypto from 'crypto'
 import config from '../../config/index.js'

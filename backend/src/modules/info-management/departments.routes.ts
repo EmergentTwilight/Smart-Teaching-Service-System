@@ -7,7 +7,7 @@ import { authMiddleware } from '../../shared/middleware/auth.js'
 import { validate } from '../../shared/middleware/validate.js'
 import prisma from '../../shared/prisma/client.js'
 import { success } from '../../shared/utils/response.js'
-import { NotFoundError } from '../../shared/errors/AppError.js'
+import { NotFoundError } from '@stss/shared'
 import { departmentIdSchema } from './departments.types.js'
 
 const router: RouterType = Router()

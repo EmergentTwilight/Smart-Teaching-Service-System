@@ -7,7 +7,7 @@ import {
   TooManyRequestsError,
   UnauthorizedError,
   ValidationError,
-} from '../../../shared/errors/AppError.js'
+} from '@stss/shared'
 
 const prismaMock = vi.hoisted(() => ({
   user: {

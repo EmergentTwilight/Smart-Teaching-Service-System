@@ -12,8 +12,10 @@ export interface ApiResponse<T = unknown> {
   code: number
   /** 响应消息 */
   message: string
-  /** 响应数据 */
+  /** 响应数据（成功时） */
   data?: T
+  /** 错误详情（失败时） */
+  errors?: unknown
   /** 请求 ID（用于追踪） */
   request_id?: string
 }
@@ -94,7 +96,7 @@ export const error = (
     message,
   }
   if (errors !== undefined) {
-    response.data = convertKeysToSnakeCase(errors as Record<string, unknown>)
+    response.errors = convertKeysToSnakeCase(errors as Record<string, unknown>)
   }
   if (requestId) {
     response.request_id = requestId

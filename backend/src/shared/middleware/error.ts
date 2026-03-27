@@ -3,9 +3,6 @@ import { ZodError } from 'zod'
 import { error } from '../utils/response.js'
 import { AppError } from '@stss/shared'
 
-// 重新导出 AppError 以便其他模块使用
-export { AppError } from '../errors/AppError.js'
-
 /**
  * 全局错误处理中间件
  * 捕获所有错误并返回统一格式的响应

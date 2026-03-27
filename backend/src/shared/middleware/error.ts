@@ -1,10 +1,7 @@
 import { Request, Response, NextFunction } from 'express'
 import { ZodError } from 'zod'
 import { error } from '../utils/response.js'
-import { AppError } from '../errors/AppError.js'
-
-// 重新导出 AppError 以便其他模块使用
-export { AppError } from '../errors/AppError.js'
+import { AppError } from '@stss/shared'
 
 /**
  * 全局错误处理中间件

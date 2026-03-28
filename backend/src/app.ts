@@ -134,6 +134,24 @@ app.get('/api/health', async (req, res) => {
     }
   }
 
+  // 检查 Redis 连接（使用 set + del 验证读写正常）
+  try {
+    const redisStart = Date.now()
+    const { redisClient } = await import('./config/redis.js')
+    const testKey = `health:check:${Date.now()}`
+    await redisClient.set(testKey, 'ok', { ex: 10 })
+    await redisClient.del(testKey)
+    checks.redis = {
+      status: 'connected',
+      latency: Date.now() - redisStart,
+    }
+  } catch (error) {
+    checks.redis = {
+      status: 'disconnected',
+      error: error instanceof Error ? error.message : 'Unknown redis error',
+    }
+  }
+
   // 检查服务器状态
   checks.server = {
     status: 'running',
@@ -172,6 +190,9 @@ app.use((req, res) => {
 
 // 错误处理
 app.use(errorHandler)
+
+// 确保数据库连接已建立后再接受请求
+await prisma.$connect()
 
 // 启动服务器 - 监听 0.0.0.0 以便 Docker 容器访问
 app.listen(PORT, '0.0.0.0', () => {

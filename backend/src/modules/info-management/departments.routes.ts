@@ -1,6 +1,13 @@
 /**
  * 部门管理路由
  * 定义部门查询相关的 API 端点
+ *
+ * TODO(@dev/A): 院系专业管理模块尚未完成
+ *  - 缺少 POST /departments (创建院系)
+ *  - 缺少 PATCH /departments/:id (更新院系)
+ *  - 缺少 DELETE /departments/:id (删除院系)
+ *  - 缺少专业 CRUD API
+ *  - 缺少单元测试
  */
 import { Router, type Router as RouterType } from 'express'
 import { authMiddleware } from '../../shared/middleware/auth.js'

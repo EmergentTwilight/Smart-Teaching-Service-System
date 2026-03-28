@@ -42,7 +42,15 @@ if [ $? -ne 0 ]; then
   exit 1
 fi
 
-# 5. Prisma 验证和格式检查
+# 5. 单元测试
+echo "🧪 Running unit tests..."
+pnpm -r test:run
+if [ $? -ne 0 ]; then
+  echo "❌ Unit tests failed! Please fix the errors before pushing."
+  exit 1
+fi
+
+# 6. Prisma 验证和格式检查
 echo "🔍 Validating Prisma schema..."
 cd backend
 DATABASE_URL="postgresql://test:test@localhost:5432/stss" npx prisma validate

@@ -206,6 +206,7 @@ describe('AuthService', () => {
             action: 'auth:login',
             userId: 'user-1',
             ipAddress: '127.0.0.1',
+            userAgent: 'vitest',
           }),
         })
       )
@@ -345,10 +346,10 @@ describe('AuthService', () => {
       prismaMock.systemLog.create.mockResolvedValue({ id: 1 })
 
       await authService.logout({
-        user_id: 'user-1',
-        refresh_token: 'refresh-token',
-        ip_address: '127.0.0.1',
-        user_agent: 'vitest',
+        userId: 'user-1',
+        refreshToken: 'refresh-token',
+        ipAddress: '127.0.0.1',
+        userAgent: 'vitest',
       })
 
       expect(prismaMock.refreshToken.updateMany).toHaveBeenCalledWith({
@@ -374,8 +375,8 @@ describe('AuthService', () => {
 
       await expect(
         authService.logout({
-          user_id: 'user-1',
-          refresh_token: 'bad-token',
+          userId: 'user-1',
+          refreshToken: 'bad-token',
         })
       ).rejects.toBeInstanceOf(UnauthorizedError)
     })
@@ -399,7 +400,7 @@ describe('AuthService', () => {
         username: 'alice',
         password: 'Password123',
         email: 'alice@example.com',
-        real_name: 'Alice',
+        realName: 'Alice',
         gender: 'female',
       })
 
@@ -447,7 +448,7 @@ describe('AuthService', () => {
         authService.register({
           username: 'alice',
           password: 'weak',
-          real_name: 'Alice',
+          realName: 'Alice',
         })
       ).rejects.toBeInstanceOf(ValidationError)
 
@@ -461,7 +462,7 @@ describe('AuthService', () => {
         authService.register({
           username: 'alice',
           password: 'Password123',
-          real_name: 'Alice',
+          realName: 'Alice',
         })
       ).rejects.toBeInstanceOf(ConflictError)
 
@@ -470,7 +471,7 @@ describe('AuthService', () => {
           username: 'alice',
           password: 'Password123',
           email: 'alice@example.com',
-          real_name: 'Alice',
+          realName: 'Alice',
         })
       ).rejects.toBeInstanceOf(ConflictError)
     })

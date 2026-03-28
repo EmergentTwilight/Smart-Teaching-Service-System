@@ -66,12 +66,12 @@ export const authController = {
    */
   async logout(req: Request, res: Response) {
     try {
-      const { refresh_token } = req.body
+      const { refreshToken } = req.body
       await authService.logout({
-        user_id: req.user!.userId,
-        refresh_token,
-        ip_address: req.ip,
-        user_agent: req.get('user-agent') || undefined,
+        userId: req.user!.userId,
+        refreshToken: refreshToken,
+        ipAddress: req.ip,
+        userAgent: req.get('user-agent') || undefined,
       })
       success(res, null, '登出成功')
     } catch (err) {

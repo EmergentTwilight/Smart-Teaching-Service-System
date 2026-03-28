@@ -427,15 +427,15 @@ export const authService = {
    * @param input 登出输入
    */
   async logout(input: {
-    user_id: string
-    refresh_token: string
-    ip_address?: string
-    user_agent?: string
+    userId: string
+    refreshToken: string
+    ipAddress?: string
+    userAgent?: string
   }) {
     const result = await prisma.refreshToken.updateMany({
       where: {
-        userId: input.user_id,
-        tokenHash: hashToken(input.refresh_token),
+        userId: input.userId,
+        tokenHash: hashToken(input.refreshToken),
         isUsed: false,
       },
       data: { isUsed: true },
@@ -446,12 +446,12 @@ export const authService = {
     }
 
     await createSystemLog({
-      user_id: input.user_id,
+      user_id: input.userId,
       action: 'auth:logout',
       resource_type: 'auth',
-      resource_id: input.user_id,
-      ip_address: input.ip_address,
-      user_agent: input.user_agent,
+      resource_id: input.userId,
+      ip_address: input.ipAddress,
+      user_agent: input.userAgent,
     })
   },
 
@@ -464,7 +464,7 @@ export const authService = {
     username: string
     password: string
     email?: string
-    real_name: string
+    realName: string
     phone?: string
     gender?: string
   }) {
@@ -496,7 +496,7 @@ export const authService = {
         username: data.username,
         passwordHash: hashedPassword,
         email: data.email,
-        realName: data.real_name,
+        realName: data.realName,
         phone: data.phone,
         gender: data.gender?.toUpperCase() as Gender | undefined,
         status: 'INACTIVE',

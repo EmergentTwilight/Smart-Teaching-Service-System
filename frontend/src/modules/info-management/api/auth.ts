@@ -32,7 +32,7 @@ export const authApi = {
     // 获取 refresh token 并发送登出请求
     const authStorage = localStorage.getItem('auth-storage')
     const refreshToken = authStorage ? JSON.parse(authStorage)?.state?.refreshToken : null
-    return request.post('/auth/logout', refreshToken ? { refresh_token: refreshToken } : {})
+    return request.post('/auth/logout', refreshToken ? { refreshToken } : {})
   },
 
   /**
@@ -49,8 +49,8 @@ export const authApi = {
    */
   changePassword: async (data: { oldPassword: string; newPassword: string }): Promise<void> => {
     return request.post('/auth/change-password', {
-      old_password: data.oldPassword,
-      new_password: data.newPassword,
+      oldPassword: data.oldPassword,
+      newPassword: data.newPassword,
     })
   },
 
@@ -68,7 +68,7 @@ export const authApi = {
       username: data.username,
       password: data.password,
       email: data.email,
-      real_name: data.realName,
+      realName: data.realName,
     })
   },
 
@@ -103,8 +103,8 @@ export const authApi = {
   resetPassword: async (data: { token: string; newPassword: string }): Promise<void> => {
     return request.post('/auth/password/reset/confirm', {
       token: data.token,
-      new_password: data.newPassword,
-      confirm_password: data.newPassword,
+      newPassword: data.newPassword,
+      confirmPassword: data.newPassword,
     })
   },
 
@@ -116,7 +116,7 @@ export const authApi = {
   refreshToken: async (refreshToken: string): Promise<LoginResponse> => {
     // 响应拦截器已经提取了 data 并转换为 camelCase
     return request.post('/auth/refresh', {
-      refresh_token: refreshToken,
+      refreshToken,
     }) as unknown as LoginResponse
   },
 }

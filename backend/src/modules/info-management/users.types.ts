@@ -6,6 +6,21 @@ import { z } from 'zod'
 import { Gender, UserStatus } from '@prisma/client'
 
 /**
+ * 用户 ID 参数 schema
+ */
+export const userIdParamsSchema = z.object({
+  id: z.string().min(1, '用户ID不能为空'),
+})
+
+/**
+ * 用户和角色 ID 参数 schema
+ */
+export const userRoleParamsSchema = z.object({
+  id: z.string().min(1, '用户ID不能为空'),
+  role_id: z.string().min(1, '角色ID不能为空'),
+})
+
+/**
  * 用户查询参数 schema
  */
 export const getUsersQuerySchema = z.object({

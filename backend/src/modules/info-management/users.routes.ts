@@ -17,6 +17,8 @@ import {
   resetPasswordSchema,
   updateStatusSchema,
   assignRolesSchema,
+  userIdParamsSchema,
+  userRoleParamsSchema,
 } from './users.types.js'
 
 const router: RouterType = Router()
@@ -58,17 +60,6 @@ router.get(
 
 /**
  * @swagger
- * /api/v1/users/{id}:
- *   get:
- *     summary: 获取用户详情
- *     tags: [Users]
- *     security:
- *       - bearerAuth: []
- */
-router.get('/:id', usersController.getById)
-
-/**
- * @swagger
  * /api/v1/users:
  *   post:
  *     summary: 创建用户
@@ -82,30 +73,6 @@ router.post(
   requireRoles('admin', 'super_admin'),
   usersController.create
 )
-
-/**
- * @swagger
- * /api/v1/users/{id}:
- *   put:
- *     summary: 更新用户信息
- *     tags: [Users]
- *     security:
- *       - bearerAuth: []
- */
-router.put('/:id', validate(updateUserSchema, 'body'), usersController.update)
-
-/**
- * @swagger
- * /api/v1/users/{id}:
- *   delete:
- *     summary: 删除用户
- *     tags: [Users]
- *     security:
- *       - bearerAuth: []
- */
-router.delete('/:id', requireRoles('super_admin'), usersController.delete)
-
-// ==================== 新增路由 ====================
 
 /**
  * @swagger
@@ -141,6 +108,50 @@ router.patch(
 
 /**
  * @swagger
+ * /api/v1/users/{id}:
+ *   get:
+ *     summary: 获取用户详情
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ */
+router.get('/:id', validate(userIdParamsSchema, 'params'), usersController.getById)
+
+/**
+ * @swagger
+ * /api/v1/users/{id}:
+ *   put:
+ *     summary: 更新用户信息
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ */
+router.put(
+  '/:id',
+  validate(userIdParamsSchema, 'params'),
+  requireRoles('admin', 'super_admin'),
+  validate(updateUserSchema, 'body'),
+  usersController.update
+)
+
+/**
+ * @swagger
+ * /api/v1/users/{id}:
+ *   delete:
+ *     summary: 删除用户
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ */
+router.delete(
+  '/:id',
+  validate(userIdParamsSchema, 'params'),
+  requireRoles('super_admin'),
+  usersController.delete
+)
+
+/**
+ * @swagger
  * /api/v1/users/{id}/password:
  *   patch:
  *     summary: 修改密码
@@ -150,6 +161,7 @@ router.patch(
  */
 router.patch(
   '/:id/password',
+  validate(userIdParamsSchema, 'params'),
   validate(changePasswordSchema, 'body'),
   usersController.changePassword
 )
@@ -165,6 +177,7 @@ router.patch(
  */
 router.post(
   '/:id/password/reset',
+  validate(userIdParamsSchema, 'params'),
   validate(resetPasswordSchema, 'body'),
   requireRoles('admin', 'super_admin'),
   usersController.resetPassword
@@ -181,6 +194,7 @@ router.post(
  */
 router.patch(
   '/:id/status',
+  validate(userIdParamsSchema, 'params'),
   validate(updateStatusSchema, 'body'),
   requireRoles('admin', 'super_admin'),
   usersController.updateStatus
@@ -197,6 +211,7 @@ router.patch(
  */
 router.post(
   '/:id/roles',
+  validate(userIdParamsSchema, 'params'),
   validate(assignRolesSchema, 'body'),
   requireRoles('admin', 'super_admin'),
   usersController.assignRoles
@@ -213,6 +228,7 @@ router.post(
  */
 router.delete(
   '/:id/roles/:role_id',
+  validate(userRoleParamsSchema, 'params'),
   requireRoles('admin', 'super_admin'),
   usersController.revokeRole
 )
@@ -225,7 +241,12 @@ router.delete(
  *     tags: [Users]
  *     security:
  *       - bearerAuth: []
+ *   description: 管理员可查看任意用户权限，普通用户只能查看自己的权限
  */
-router.get('/:id/permissions', requireRoles('admin', 'super_admin'), usersController.getPermissions)
+router.get(
+  '/:id/permissions',
+  validate(userIdParamsSchema, 'params'),
+  usersController.getPermissions
+)
 
 export default router

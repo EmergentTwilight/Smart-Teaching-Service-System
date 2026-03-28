@@ -122,6 +122,7 @@ beforeEach(() => {
         userRole: {
           createMany: prismaMock.userRole.createMany,
           delete: prismaMock.userRole.delete,
+          deleteMany: prismaMock.userRole.deleteMany,
         },
         refreshToken: {
           updateMany: prismaMock.refreshToken.updateMany,

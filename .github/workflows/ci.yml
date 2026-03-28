@@ -48,3 +48,110 @@ jobs:
         run: cd backend && npx prisma validate && npx prisma format --check
         env:
           DATABASE_URL: postgresql://test:test@localhost:5432/stss
+
+      - name: Run unit tests
+        run: pnpm -r test:run
+
+  e2e:
+    name: E2E Tests
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: stss
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Install Playwright browsers
+        run: cd frontend && npx playwright install --with-deps chromium
+
+      - name: Generate Prisma Client
+        run: cd backend && npx prisma generate
+        env:
+          DATABASE_URL: postgresql://test:test@localhost:5432/stss
+
+      - name: Build shared package
+        run: cd shared && pnpm build
+
+      - name: Setup database schema
+        run: cd backend && npx prisma db push
+        env:
+          DATABASE_URL: postgresql://test:test@localhost:5432/stss
+
+      - name: Seed database
+        run: cd backend && pnpm db:seed
+        env:
+          DATABASE_URL: postgresql://test:test@localhost:5432/stss
+          REDIS_URL: redis://localhost:6379
+
+      - name: Start backend server
+        run: cd backend && pnpm start &
+        env:
+          NODE_ENV: production
+          DATABASE_URL: postgresql://test:test@localhost:5432/stss
+          REDIS_URL: redis://localhost:6379
+          JWT_SECRET: e2e-test-secret-key
+          JWT_EXPIRES_IN: 1h
+          JWT_REFRESH_EXPIRES_IN: 7d
+          PORT: 3000
+          CORS_ORIGIN: http://localhost:5173
+
+      - name: Wait for backend to be ready
+        run: |
+          for i in {1..30}; do
+            if curl -s http://localhost:3000/api/health | grep -q '"status":"ok"'; then
+              echo "Backend is ready"
+              exit 0
+            fi
+            echo "Waiting for backend... ($i/30)"
+            sleep 2
+          done
+          echo "Backend failed to start"
+          exit 1
+
+      - name: Run Playwright E2E tests
+        run: cd frontend && npx playwright test
+        env:
+          VITE_API_URL: http://localhost:3000
+
+      - name: Upload Playwright report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report
+          path: frontend/playwright-report/
+          retention-days: 7

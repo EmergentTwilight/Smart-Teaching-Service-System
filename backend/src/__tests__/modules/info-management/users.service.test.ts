@@ -37,6 +37,10 @@ const prismaMock = vi.hoisted(() => ({
     updateMany: vi.fn(),
     deleteMany: vi.fn(),
   },
+  systemLog: {
+    findMany: vi.fn(),
+    count: vi.fn(),
+  },
   $transaction: vi.fn(),
 }))
 
@@ -138,6 +142,385 @@ beforeEach(() => {
 })
 
 describe('UsersService', () => {
+  // ==================== getUsers ====================
+  describe('getUsers', () => {
+    it('应该成功获取用户列表（分页）', async () => {
+      const users = [
+        {
+          ...buildUser({ id: 'user-1' }),
+          userRoles: [{ role: { code: 'student', name: '学生' } }],
+        },
+        {
+          ...buildUser({ id: 'user-2', username: 'bob', realName: 'Bob' }),
+          userRoles: [{ role: { code: 'teacher', name: '教师' } }],
+        },
+      ]
+
+      prismaMock.user.findMany.mockResolvedValue(users)
+      prismaMock.user.count.mockResolvedValue(2)
+
+      const result = await usersService.getUsers({
+        page: 1,
+        pageSize: 10,
+      })
+
+      expect(result.items).toHaveLength(2)
+      expect(result.pagination.page).toBe(1)
+      expect(result.pagination.pageSize).toBe(10)
+      expect(result.pagination.total).toBe(2)
+      expect(result.pagination.totalPages).toBe(1)
+      expect(result.items[0].roles).toContain('student')
+      expect(prismaMock.user.findMany).toHaveBeenCalledWith({
+        where: {},
+        skip: 0,
+        take: 10,
+        include: {
+          userRoles: {
+            include: {
+              role: true,
+            },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+      })
+    })
+
+    it('应该支持按关键词搜索', async () => {
+      const users = [buildUser({ id: 'user-1', username: 'alice' })]
+
+      prismaMock.user.findMany.mockResolvedValue(
+        users.map((u) => ({ ...u, userRoles: [{ role: { code: 'student', name: '学生' } }] }))
+      )
+      prismaMock.user.count.mockResolvedValue(1)
+
+      const result = await usersService.getUsers({
+        page: 1,
+        pageSize: 10,
+        keyword: 'alice',
+      })
+
+      expect(result.items).toHaveLength(1)
+      expect(prismaMock.user.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            OR: [
+              { username: { contains: 'alice' } },
+              { realName: { contains: 'alice' } },
+              { email: { contains: 'alice' } },
+            ],
+          },
+        })
+      )
+    })
+
+    it('应该支持按状态筛选', async () => {
+      const users = [buildUser({ id: 'user-1', status: 'ACTIVE' })]
+
+      prismaMock.user.findMany.mockResolvedValue(
+        users.map((u) => ({ ...u, userRoles: [{ role: { code: 'student', name: '学生' } }] }))
+      )
+      prismaMock.user.count.mockResolvedValue(1)
+
+      const result = await usersService.getUsers({
+        page: 1,
+        pageSize: 10,
+        status: 'ACTIVE',
+      })
+
+      expect(result.items).toHaveLength(1)
+      expect(prismaMock.user.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { status: 'ACTIVE' },
+        })
+      )
+    })
+
+    it('应该支持按角色筛选', async () => {
+      const users = [buildUser({ id: 'user-1' })]
+
+      prismaMock.user.findMany.mockResolvedValue(
+        users.map((u) => ({ ...u, userRoles: [{ role: { code: 'teacher', name: '教师' } }] }))
+      )
+      prismaMock.user.count.mockResolvedValue(1)
+
+      const result = await usersService.getUsers({
+        page: 1,
+        pageSize: 10,
+        role: 'teacher',
+      })
+
+      expect(result.items).toHaveLength(1)
+      expect(prismaMock.user.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            userRoles: {
+              some: {
+                role: {
+                  code: 'teacher',
+                },
+              },
+            },
+          },
+        })
+      )
+    })
+  })
+
+  // ==================== getUserById ====================
+  describe('getUserById', () => {
+    it('应该成功获取用户详情', async () => {
+      const user = buildUserWithRoles()
+
+      prismaMock.user.findUnique.mockResolvedValue(user)
+
+      const result = await usersService.getUserById('user-1')
+
+      expect(result.id).toBe('user-1')
+      expect(result.username).toBe('alice')
+      expect(result.email).toBe('alice@example.com')
+      expect(result.roles).toContain('student')
+      expect(prismaMock.user.findUnique).toHaveBeenCalledWith({
+        where: { id: 'user-1' },
+        include: {
+          userRoles: {
+            include: {
+              role: true,
+            },
+          },
+          student: true,
+          teacher: true,
+          admin: true,
+        },
+      })
+    })
+
+    it('用户不存在应该抛出 NotFoundError', async () => {
+      prismaMock.user.findUnique.mockResolvedValue(null)
+
+      await expect(usersService.getUserById('missing-user')).rejects.toBeInstanceOf(NotFoundError)
+      await expect(usersService.getUserById('missing-user')).rejects.toThrow('用户不存在')
+    })
+  })
+
+  // ==================== createUser ====================
+  describe('createUser', () => {
+    it('应该成功创建用户', async () => {
+      // createUser 内部调用顺序:
+      // 1. findUnique (username check)
+      // 2. findUnique (email check)
+      // 3. user.create
+      // 4. userRole.createMany (如果有 roleIds)
+      // 5. getUserById -> findUnique (获取创建的用户)
+      prismaMock.user.findUnique
+        .mockResolvedValueOnce(null) // username check - 不存在
+        .mockResolvedValueOnce(null) // email check - 不存在
+        .mockResolvedValueOnce(buildUserWithRoles({ id: 'new-user' })) // getUserById
+
+      prismaMock.user.create.mockResolvedValue(buildUser({ id: 'new-user' }))
+      prismaMock.userRole.createMany.mockResolvedValue({ count: 1 })
+
+      const result = await usersService.createUser({
+        username: 'newuser',
+        password: 'Password123',
+        realName: 'New User',
+        email: 'newuser@example.com',
+        roleIds: ['role-1'],
+      })
+
+      expect(result.id).toBe('new-user')
+      expect(passwordMock.hashPassword).toHaveBeenCalledWith('Password123')
+    })
+
+    it('用户名冲突时应该抛出 ConflictError', async () => {
+      prismaMock.user.findUnique.mockResolvedValue(buildUser()) // username exists
+
+      await expect(
+        usersService.createUser({
+          username: 'alice',
+          password: 'Password123',
+          realName: 'Alice',
+        })
+      ).rejects.toBeInstanceOf(ConflictError)
+    })
+
+    it('邮箱冲突时应该抛出 ConflictError', async () => {
+      // createUser 内部调用顺序:
+      // 1. findUnique (username check) - 不存在
+      // 2. findUnique (email check) - 存在，抛出 ConflictError
+      prismaMock.user.findUnique
+        .mockResolvedValueOnce(null) // username check - 不存在
+        .mockResolvedValueOnce(buildUser({ email: 'existing@example.com' })) // email check - 冲突
+
+      await expect(
+        usersService.createUser({
+          username: 'newuser',
+          password: 'Password123',
+          realName: 'New User',
+          email: 'existing@example.com',
+        })
+      ).rejects.toBeInstanceOf(ConflictError)
+    })
+  })
+
+  // ==================== updateUser ====================
+  describe('updateUser', () => {
+    it('应该成功更新用户基本信息', async () => {
+      prismaMock.user.findUnique
+        .mockResolvedValueOnce(buildUser()) // user exists check
+        .mockResolvedValueOnce(buildUserWithRoles()) // getUserById
+      prismaMock.user.update.mockResolvedValue(buildUser({ realName: 'Updated Name' }))
+      prismaMock.userRole.deleteMany.mockResolvedValue({ count: 1 })
+
+      const result = await usersService.updateUser('user-1', {
+        realName: 'Updated Name',
+      })
+
+      expect(prismaMock.user.update).toHaveBeenCalledWith({
+        where: { id: 'user-1' },
+        data: { realName: 'Updated Name', email: undefined, gender: undefined },
+      })
+      expect(result.id).toBe('user-1')
+    })
+
+    it('用户不存在应该抛出 NotFoundError', async () => {
+      prismaMock.user.findUnique.mockResolvedValue(null)
+
+      await expect(
+        usersService.updateUser('missing-user', { realName: 'Updated Name' })
+      ).rejects.toBeInstanceOf(NotFoundError)
+      await expect(
+        usersService.updateUser('missing-user', { realName: 'Updated Name' })
+      ).rejects.toThrow('用户不存在')
+    })
+
+    it('邮箱冲突时应该抛出 ConflictError', async () => {
+      // updateUser 内部调用顺序:
+      // 1. findUnique (user exists check)
+      // 2. findUnique (email conflict check)
+      prismaMock.user.findUnique
+        .mockResolvedValueOnce(buildUser({ email: 'old@example.com' })) // user exists
+        .mockResolvedValueOnce(buildUser({ email: 'existing@example.com' })) // email conflict
+
+      await expect(
+        usersService.updateUser('user-1', { email: 'existing@example.com' })
+      ).rejects.toBeInstanceOf(ConflictError)
+    })
+  })
+
+  // ==================== deleteUser ====================
+  describe('deleteUser', () => {
+    it('应该成功删除用户', async () => {
+      prismaMock.user.findUnique.mockResolvedValue(buildUser())
+      prismaMock.user.delete.mockResolvedValue(buildUser())
+
+      await usersService.deleteUser('user-1')
+
+      expect(prismaMock.user.delete).toHaveBeenCalledWith({
+        where: { id: 'user-1' },
+      })
+    })
+
+    it('用户不存在应该抛出 NotFoundError', async () => {
+      prismaMock.user.findUnique.mockResolvedValue(null)
+
+      await expect(usersService.deleteUser('missing-user')).rejects.toBeInstanceOf(NotFoundError)
+      await expect(usersService.deleteUser('missing-user')).rejects.toThrow('用户不存在')
+    })
+  })
+
+  // ==================== getLogs ====================
+  describe('getLogs', () => {
+    const buildLog = (overrides: Record<string, unknown> = {}) => ({
+      id: BigInt(1),
+      userId: 'user-1',
+      action: 'user.login',
+      resourceType: 'user',
+      resourceId: 'user-1',
+      ipAddress: '127.0.0.1',
+      userAgent: 'Mozilla/5.0',
+      details: null,
+      createdAt: new Date('2026-01-01'),
+      user: {
+        id: 'user-1',
+        username: 'alice',
+        realName: 'Alice',
+      },
+      ...overrides,
+    })
+
+    it('应该成功获取日志列表', async () => {
+      const logs = [buildLog(), buildLog({ id: BigInt(2), action: 'user.logout' })]
+
+      prismaMock.systemLog.findMany.mockResolvedValue(logs)
+      prismaMock.systemLog.count.mockResolvedValue(2)
+
+      const result = await usersService.getLogs({
+        page: 1,
+        pageSize: 10,
+      })
+
+      expect(result.items).toHaveLength(2)
+      expect(result.pagination.page).toBe(1)
+      expect(result.pagination.total).toBe(2)
+      expect(result.items[0].username).toBe('alice')
+      expect(prismaMock.systemLog.findMany).toHaveBeenCalledWith({
+        where: {},
+        skip: 0,
+        take: 10,
+        include: {
+          user: {
+            select: {
+              id: true,
+              username: true,
+              realName: true,
+            },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+      })
+    })
+
+    it('应该支持按用户筛选', async () => {
+      const logs = [buildLog()]
+
+      prismaMock.systemLog.findMany.mockResolvedValue(logs)
+      prismaMock.systemLog.count.mockResolvedValue(1)
+
+      const result = await usersService.getLogs({
+        page: 1,
+        pageSize: 10,
+        userId: 'user-1',
+      })
+
+      expect(result.items).toHaveLength(1)
+      expect(prismaMock.systemLog.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { userId: 'user-1' },
+        })
+      )
+    })
+
+    it('应该支持按操作类型筛选', async () => {
+      const logs = [buildLog({ action: 'user.login' })]
+
+      prismaMock.systemLog.findMany.mockResolvedValue(logs)
+      prismaMock.systemLog.count.mockResolvedValue(1)
+
+      const result = await usersService.getLogs({
+        page: 1,
+        pageSize: 10,
+        action: 'login',
+      })
+
+      expect(result.items).toHaveLength(1)
+      expect(prismaMock.systemLog.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { action: { contains: 'login' } },
+        })
+      )
+    })
+  })
+
   // ==================== batchCreateUsers ====================
   describe('batchCreateUsers', () => {
     it('应该成功批量创建用户', async () => {

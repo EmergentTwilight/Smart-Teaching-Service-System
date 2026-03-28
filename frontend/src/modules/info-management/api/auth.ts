@@ -21,20 +21,8 @@ export const authApi = {
    * @returns 登录响应
    */
   login: async (data: LoginRequest): Promise<LoginResponse> => {
-    // 响应拦截器已经提取了 data，直接访问即可
-    const response = (await request.post('/auth/login', data)) as unknown as {
-      access_token: string
-      refresh_token: string
-      expires_in: number
-      user: User
-    }
-    // 转换 snake_case 为 camelCase 并返回 LoginResponse 类型
-    return {
-      accessToken: response.access_token,
-      refreshToken: response.refresh_token,
-      expiresIn: response.expires_in,
-      user: response.user,
-    } as LoginResponse
+    // 响应拦截器已经提取了 data 并转换为 camelCase
+    return request.post('/auth/login', data) as unknown as LoginResponse
   },
 
   /**
@@ -126,20 +114,9 @@ export const authApi = {
    * @returns 新的登录响应
    */
   refreshToken: async (refreshToken: string): Promise<LoginResponse> => {
-    // 响应拦截器已经提取了 data，直接访问即可
-    const response = (await request.post('/auth/refresh', {
+    // 响应拦截器已经提取了 data 并转换为 camelCase
+    return request.post('/auth/refresh', {
       refresh_token: refreshToken,
-    })) as unknown as {
-      access_token: string
-      refresh_token: string
-      expires_in: number
-      user: User
-    }
-    return {
-      accessToken: response.access_token,
-      refreshToken: response.refresh_token,
-      expiresIn: response.expires_in,
-      user: response.user,
-    } as LoginResponse
+    }) as unknown as LoginResponse
   },
 }

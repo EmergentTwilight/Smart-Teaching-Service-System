@@ -30,16 +30,41 @@ request.interceptors.request.use(
   }
 )
 
+/**
+ * 将 snake_case 键转换为 camelCase
+ */
+function toCamelCase(str: string): string {
+  return str.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase())
+}
+
+/**
+ * 递归转换对象的键为 camelCase
+ */
+function convertKeysToCamelCase<T>(obj: T): T {
+  if (Array.isArray(obj)) {
+    return obj.map((item) => convertKeysToCamelCase(item)) as unknown as T
+  }
+  if (obj && typeof obj === 'object') {
+    const result: Record<string, unknown> = {}
+    for (const [key, value] of Object.entries(obj as Record<string, unknown>)) {
+      result[toCamelCase(key)] =
+        value && typeof value === 'object' ? convertKeysToCamelCase(value) : value
+    }
+    return result as T
+  }
+  return obj
+}
+
 // 响应拦截器
 request.interceptors.response.use(
   (response: AxiosResponse) => {
     // 后端返回格式: { code, message, data }
-    // 提取 data 字段返回
+    // 提取 data 字段返回，并转换 snake_case 为 camelCase
     const result = response.data
     if (result && typeof result === 'object' && 'data' in result) {
-      return result.data
+      return convertKeysToCamelCase(result.data)
     }
-    return result
+    return convertKeysToCamelCase(result)
   },
   (error: AxiosError<{ message?: string; error?: string }>) => {
     if (error.response?.status === 401) {

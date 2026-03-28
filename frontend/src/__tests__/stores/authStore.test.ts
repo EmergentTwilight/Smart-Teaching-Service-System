@@ -43,11 +43,12 @@ describe('useAuthStore', () => {
     const mockUser = createMockUser()
 
     act(() => {
-      useAuthStore.getState().setAuth('test-token', mockUser)
+      useAuthStore.getState().setAuth('test-token', 'test-refresh-token', mockUser)
     })
 
     const state = useAuthStore.getState()
     expect(state.token).toBe('test-token')
+    expect(state.refreshToken).toBe('test-refresh-token')
     expect(state.user).toEqual(mockUser)
     expect(state.isAuthenticated).toBe(true)
   })
@@ -56,12 +57,13 @@ describe('useAuthStore', () => {
     const mockUser = createMockUser()
 
     act(() => {
-      useAuthStore.getState().setAuth('test-token', mockUser)
+      useAuthStore.getState().setAuth('test-token', 'test-refresh-token', mockUser)
       useAuthStore.getState().logout()
     })
 
     const state = useAuthStore.getState()
     expect(state.token).toBeNull()
+    expect(state.refreshToken).toBeNull()
     expect(state.user).toBeNull()
     expect(state.isAuthenticated).toBe(false)
   })
@@ -70,7 +72,7 @@ describe('useAuthStore', () => {
     const mockUser = createMockUser()
 
     act(() => {
-      useAuthStore.getState().setAuth('test-token', mockUser)
+      useAuthStore.getState().setAuth('test-token', 'test-refresh-token', mockUser)
       useAuthStore.getState().updateUser({ realName: 'Updated Name' })
     })
 

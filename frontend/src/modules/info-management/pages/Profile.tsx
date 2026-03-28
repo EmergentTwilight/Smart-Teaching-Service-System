@@ -110,28 +110,25 @@ const Profile: React.FC = () => {
               <Form.Item label="用户名">
                 <Input
                   prefix={<UserOutlined style={{ color: '#9ca3af' }} />}
-                  value={user.username}
                   disabled
                 />
               </Form.Item>
 
-              <Form.Item label="真实姓名">
+              <Form.Item label="真实姓名" name="realName">
                 <Input
                   prefix={<UserOutlined style={{ color: '#9ca3af' }} />}
-                  value={user.realName}
-                  disabled
+                  placeholder="请输入真实姓名"
                 />
               </Form.Item>
 
-              <Form.Item label="邮箱">
+              <Form.Item label="邮箱" name="email">
                 <Input
                   prefix={<MailOutlined style={{ color: '#9ca3af' }} />}
-                  value={user.email || ''}
-                  disabled
+                  placeholder="请输入邮箱"
                 />
               </Form.Item>
 
-              <Form.Item label="手机号">
+              <Form.Item label="手机号" name="phone">
                 <Input
                   prefix={<PhoneOutlined style={{ color: '#9ca3af' }} />}
                   placeholder="请输入手机号"

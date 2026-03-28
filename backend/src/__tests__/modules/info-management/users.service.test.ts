@@ -35,6 +35,7 @@ const prismaMock = vi.hoisted(() => ({
   },
   refreshToken: {
     updateMany: vi.fn(),
+    deleteMany: vi.fn(),
   },
   $transaction: vi.fn(),
 }))

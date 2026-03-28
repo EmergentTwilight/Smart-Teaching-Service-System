@@ -592,6 +592,11 @@ export const usersService = {
       where: { userId_roleId: { userId, roleId } },
     })
 
+    // 角色变更后吊销所有 Refresh Token，强制重新登录以获取新权限
+    await prisma.refreshToken.deleteMany({
+      where: { userId },
+    })
+
     return this.getUserById(userId)
   },
 

@@ -4,7 +4,7 @@
  */
 import IORedis from 'ioredis'
 // ioredis 导出为 CommonJS 模块，需要用 .default 获取构造函数
-// @ts-ignore - ioredis 的类型定义与实际导出不完全匹配
+// @ts-expect-error - ioredis 的类型定义与实际导出不完全匹配
 
 type SetOptions = {
   ex?: number
@@ -97,7 +97,7 @@ function createRedisClient(): RedisClient {
 
   if (redisUrl) {
     console.log('✅ 使用 Redis:', redisUrl.replace(/:[^:@]+@/, ':****@'))
-    // @ts-ignore - ioredis 的类型定义与实际 ESM 导出不完全匹配
+    // @ts-expect-error - ioredis 的类型定义与实际 ESM 导出不完全匹配
     const redis = new IORedis(redisUrl)
 
     return {

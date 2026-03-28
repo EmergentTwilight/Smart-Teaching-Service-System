@@ -227,6 +227,8 @@ router.post(
   authController.forgotPassword
 )
 
+router.get('/password/reset/verify', authController.verifyResetToken)
+
 router.post(
   '/password/reset/confirm',
   validate(resetPasswordSchema, 'body'),

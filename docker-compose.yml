@@ -2,10 +2,12 @@ services:
   postgres:
     image: postgres:18-alpine
     container_name: stss-postgres
+    env_file:
+      - .env
     environment:
-      POSTGRES_USER: stss
-      POSTGRES_PASSWORD: stss_dev_2026
-      POSTGRES_DB: stss
+      POSTGRES_USER: ${POSTGRES_USER:-stss}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-stss_dev_2026}
+      POSTGRES_DB: ${POSTGRES_DB:-stss}
     ports:
       - "5432:5432"
     healthcheck:
@@ -33,14 +35,16 @@ services:
     image: node:22-alpine
     container_name: stss-server
     working_dir: /app
+    env_file:
+      - .env
     environment:
-      DATABASE_URL: postgresql://stss:stss_dev_2026@postgres:5432/stss?connection_limit=10&pool_timeout=30
-      REDIS_URL: redis://redis:6379
-      JWT_SECRET: stss-super-secret-jwt-key-2026-dev-only
-      JWT_EXPIRES_IN: 7d
-      PORT: 3000
-      NODE_ENV: development
-      CORS_ORIGIN: http://localhost:5173
+      DATABASE_URL: ${DATABASE_URL}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
+      PORT: ${PORT:-3000}
+      NODE_ENV: ${NODE_ENV:-development}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:5173}
     volumes:
       - ./backend:/app
       - ./shared:/shared

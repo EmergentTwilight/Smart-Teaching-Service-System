@@ -210,7 +210,8 @@ export const usersController = {
     try {
       const id = req.params.id as string
       const data = assignRolesSchema.parse(req.body)
-      const user = await usersService.assignRoles(id, data)
+      const currentUserId = req.user?.userId
+      const user = await usersService.assignRoles(id, data, currentUserId)
       success(res, user, '角色分配成功')
     } catch (err) {
       next(err)
@@ -224,7 +225,8 @@ export const usersController = {
     try {
       const id = req.params.id as string
       const role_id = req.params.role_id as string
-      const user = await usersService.revokeRole(id, role_id as string)
+      const currentUserId = req.user?.userId
+      const user = await usersService.revokeRole(id, role_id as string, currentUserId)
       success(res, user, '角色撤销成功')
     } catch (err) {
       next(err)

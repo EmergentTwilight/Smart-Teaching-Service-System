@@ -30,11 +30,7 @@ declare module 'express' {
  * 认证中间件
  * 验证请求头中的 JWT token 并解析用户信息
  */
-export const authMiddleware = (
-  req: Request,
-  res: Response,
-  next: NextFunction
-) => {
+export const authMiddleware = (req: Request, res: Response, next: NextFunction) => {
   try {
     const authHeader = req.headers.authorization
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -43,7 +39,7 @@ export const authMiddleware = (
 
     const token = authHeader.substring(7)
     const decoded = jwt.verify(token, config.jwt.secret) as JwtPayload
-    
+
     req.user = decoded
     next()
   } catch {
@@ -64,6 +60,30 @@ export const requireRoles = (...roles: string[]) => {
 
     const hasRole = req.user.roles.some((role) => roles.includes(role))
     if (!hasRole) {
+      return error(res, '权限不足', 403)
+    }
+
+    next()
+  }
+}
+
+/**
+ * 自身或管理员权限中间件
+ * 用户只能访问自己的资源，管理员可以访问所有资源
+ * @param roles 管理员角色列表
+ * @returns Express 中间件函数
+ */
+export const requireSelfOrAdmin = (...adminRoles: string[]) => {
+  return (req: Request, res: Response, next: NextFunction) => {
+    if (!req.user) {
+      return error(res, '未认证', 401)
+    }
+
+    const targetId = req.params.id
+    const isSelf = req.user.userId === targetId
+    const isAdmin = req.user.roles.some((role) => adminRoles.includes(role))
+
+    if (!isSelf && !isAdmin) {
       return error(res, '权限不足', 403)
     }
 

@@ -4,7 +4,7 @@
  */
 import { Router, type Router as RouterType } from 'express'
 import { usersController } from './users.controller.js'
-import { authMiddleware, requireRoles } from '../../shared/middleware/auth.js'
+import { authMiddleware, requireRoles, requireSelfOrAdmin } from '../../shared/middleware/auth.js'
 import { validate } from '../../shared/middleware/validate.js'
 import {
   getUsersQuerySchema,
@@ -114,8 +114,14 @@ router.patch(
  *     tags: [Users]
  *     security:
  *       - bearerAuth: []
+ *   description: 管理员可查看任意用户，普通用户只能查看自己
  */
-router.get('/:id', validate(userIdParamsSchema, 'params'), usersController.getById)
+router.get(
+  '/:id',
+  validate(userIdParamsSchema, 'params'),
+  requireSelfOrAdmin('admin', 'super_admin'),
+  usersController.getById
+)
 
 /**
  * @swagger
@@ -158,10 +164,12 @@ router.delete(
  *     tags: [Users]
  *     security:
  *       - bearerAuth: []
+ *   description: 用户只能修改自己的密码
  */
 router.patch(
   '/:id/password',
   validate(userIdParamsSchema, 'params'),
+  requireSelfOrAdmin('admin', 'super_admin'),
   validate(changePasswordSchema, 'body'),
   usersController.changePassword
 )
@@ -246,6 +254,7 @@ router.delete(
 router.get(
   '/:id/permissions',
   validate(userIdParamsSchema, 'params'),
+  requireSelfOrAdmin('admin', 'super_admin'),
   usersController.getPermissions
 )
 

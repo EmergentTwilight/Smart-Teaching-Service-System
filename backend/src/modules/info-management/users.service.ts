@@ -139,12 +139,23 @@ export const usersService = {
    * 创建用户
    */
   async createUser(data: CreateUserInput) {
+    // 检查用户名是否存在
     const existingUser = await prisma.user.findUnique({
       where: { username: data.username },
     })
 
     if (existingUser) {
       throw new ConflictError('用户名已存在')
+    }
+
+    // 检查邮箱是否存在
+    if (data.email) {
+      const existingEmail = await prisma.user.findUnique({
+        where: { email: data.email },
+      })
+      if (existingEmail) {
+        throw new ConflictError(`邮箱 ${data.email} 已被注册`)
+      }
     }
 
     const hashedPassword = await hashPassword(data.password)
@@ -314,6 +325,11 @@ export const usersService = {
    * 批量创建用户
    */
   async batchCreateUsers(data: BatchCreateUsersInput) {
+    // 数量上限检查
+    if (data.users.length > 100) {
+      throw new ValidationError('单次最多创建 100 个用户')
+    }
+
     const results: Array<{
       id: string
       username: string
@@ -325,25 +341,29 @@ export const usersService = {
     }> = []
 
     await prisma.$transaction(async (tx) => {
-      for (const userData of data.users) {
-        // 检查用户名是否存在
-        const existingUser = await tx.user.findUnique({
-          where: { username: userData.username },
+      // 批量查询已存在的用户名
+      const usernames = data.users.map((u) => u.username)
+      const existingUsers = await tx.user.findMany({
+        where: { username: { in: usernames } },
+        select: { username: true },
+      })
+      if (existingUsers.length > 0) {
+        throw new ConflictError(`用户名已存在: ${existingUsers.map((u) => u.username).join(', ')}`)
+      }
+
+      // 批量查询已存在的邮箱
+      const emails = data.users.filter((u) => u.email).map((u) => u.email as string)
+      if (emails.length > 0) {
+        const existingEmails = await tx.user.findMany({
+          where: { email: { in: emails } },
+          select: { email: true },
         })
-        if (existingUser) {
-          throw new ConflictError(`用户名 ${userData.username} 已存在`)
+        if (existingEmails.length > 0) {
+          throw new ConflictError(`邮箱已被注册: ${existingEmails.map((u) => u.email).join(', ')}`)
         }
+      }
 
-        // 检查邮箱是否存在
-        if (userData.email) {
-          const existingEmail = await tx.user.findUnique({
-            where: { email: userData.email },
-          })
-          if (existingEmail) {
-            throw new ConflictError(`邮箱 ${userData.email} 已被注册`)
-          }
-        }
-
+      for (const userData of data.users) {
         // 创建用户
         const hashedPassword = await hashPassword(userData.password)
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -390,6 +410,11 @@ export const usersService = {
    */
   async batchUpdateStatus(data: BatchUpdateStatusInput) {
     const { userIds, status } = data
+
+    // 数量上限检查
+    if (userIds.length > 100) {
+      throw new ValidationError('单次最多修改 100 个用户')
+    }
 
     const existingUsers = await prisma.user.findMany({
       where: { id: { in: userIds } },
@@ -507,6 +532,12 @@ export const usersService = {
       throw new NotFoundError(`角色不存在: ${missingIds.join(', ')}`)
     }
 
+    // 先删除已有角色，避免重复插入
+    await prisma.userRole.deleteMany({
+      where: { userId },
+    })
+
+    // 再创建新角色
     await prisma.userRole.createMany({
       data: data.roleIds.map((roleId) => ({
         userId,

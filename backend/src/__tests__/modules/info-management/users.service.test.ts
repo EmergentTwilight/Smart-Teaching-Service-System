@@ -115,6 +115,7 @@ beforeEach(() => {
       const tx = {
         user: {
           findUnique: prismaMock.user.findUnique,
+          findMany: prismaMock.user.findMany,
           create: prismaMock.user.create,
           update: prismaMock.user.update,
           updateMany: prismaMock.user.updateMany,
@@ -154,10 +155,10 @@ describe('UsersService', () => {
         },
       ]
 
-      prismaMock.user.findUnique
-        .mockResolvedValueOnce(null) // user1 username check
-        .mockResolvedValueOnce(null) // user1 email check
-        .mockResolvedValueOnce(null) // user2 username check
+      // Mock 批量查询：用户名不存在
+      prismaMock.user.findMany
+        .mockResolvedValueOnce([]) // username check
+        .mockResolvedValueOnce([]) // email check (after filter)
 
       prismaMock.user.create
         .mockResolvedValueOnce({
@@ -201,10 +202,7 @@ describe('UsersService', () => {
       ]
 
       // Mock finds existing user -> throws ConflictError
-      prismaMock.user.findUnique.mockResolvedValue({
-        id: 'existing-user',
-        username: 'existing',
-      })
+      prismaMock.user.findMany.mockResolvedValue([{ username: 'existing' }])
 
       await expect(usersService.batchCreateUsers({ users })).rejects.toBeInstanceOf(ConflictError)
     })
@@ -219,49 +217,24 @@ describe('UsersService', () => {
         },
       ]
 
-      // First call: username check passes (null)
-      // Second call: email check finds existing -> throws ConflictError
-      prismaMock.user.findUnique.mockResolvedValueOnce(null).mockResolvedValueOnce({
-        id: 'existing-user',
-        email: 'existing@example.com',
-      })
+      // username check passes (empty array), email check finds existing
+      prismaMock.user.findMany
+        .mockResolvedValueOnce([]) // username check - no conflicts
+        .mockResolvedValueOnce([{ email: 'existing@example.com' }]) // email check - conflict
 
       await expect(usersService.batchCreateUsers({ users })).rejects.toBeInstanceOf(ConflictError)
     })
 
-    it('部分失败时事务应该回滚', async () => {
-      const users = [
-        {
-          username: 'user1',
+    it('超过100个用户时应该抛出 ValidationError', async () => {
+      const users = Array(101)
+        .fill(null)
+        .map((_, i) => ({
+          username: `user${i}`,
           password: 'Password123',
-          realName: '用户一',
-        },
-        {
-          username: 'existing',
-          password: 'Password123',
-          realName: '已存在用户',
-        },
-      ]
+          realName: `用户${i}`,
+        }))
 
-      // Setup sequential mocks for findUnique and create
-      // user1: findUnique(null) -> create success -> user2: findUnique(existing)
-      prismaMock.user.findUnique
-        .mockResolvedValueOnce(null) // user1 username check - not found
-        .mockResolvedValueOnce({ id: 'existing-user', username: 'existing' }) // user2 username check - found!
-
-      // user1 create succeeds
-      prismaMock.user.create.mockResolvedValueOnce({
-        id: 'new-user-1',
-        username: 'user1',
-        email: null,
-        phone: null,
-        realName: '用户一',
-        gender: null,
-        status: 'ACTIVE',
-      })
-
-      // user2 conflicts -> throws ConflictError inside transaction
-      await expect(usersService.batchCreateUsers({ users })).rejects.toBeInstanceOf(ConflictError)
+      await expect(usersService.batchCreateUsers({ users })).rejects.toBeInstanceOf(ValidationError)
     })
   })
 
@@ -306,6 +279,17 @@ describe('UsersService', () => {
       )
       await expect(usersService.batchUpdateStatus({ userIds, status })).rejects.toThrow(
         '用户不存在: missing-user'
+      )
+    })
+
+    it('超过100个用户时应该抛出 ValidationError', async () => {
+      const userIds = Array(101)
+        .fill(null)
+        .map((_, i) => `user-${i}`)
+      const status: UserStatus = 'BANNED'
+
+      await expect(usersService.batchUpdateStatus({ userIds, status })).rejects.toBeInstanceOf(
+        ValidationError
       )
     })
   })

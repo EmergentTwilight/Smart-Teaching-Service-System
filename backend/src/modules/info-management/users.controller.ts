@@ -60,7 +60,7 @@ export const usersController = {
 
   /**
    * 更新用户信息
-   * 普通用户不能修改 status 和 roleIds 字段
+   * 普通用户不能修改 status、roleIds 和 password 字段
    */
   async update(req: Request, res: Response, next: NextFunction) {
     try {
@@ -80,6 +80,14 @@ export const usersController = {
       if (!isAdmin && data.roleIds !== undefined) {
         const error = new Error('无权修改用户角色')
         ;(error as Error & { status?: number }).status = 403
+        throw error
+      }
+
+      // 非管理员（和管理员）都不能通过此接口修改密码
+      // 密码修改必须走专门的 changePassword 或 resetPassword 接口
+      if (data.password !== undefined) {
+        const error = new Error('不允许通过此接口修改密码，请使用专门的密码修改接口')
+        ;(error as Error & { status?: number }).status = 400
         throw error
       }
 

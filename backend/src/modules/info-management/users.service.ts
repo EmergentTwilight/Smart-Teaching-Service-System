@@ -183,6 +183,7 @@ export const usersService = {
 
   /**
    * 更新用户信息
+   * 注意：此方法不允许修改密码，密码修改请使用 changePassword 或 resetPassword
    */
   async updateUser(id: string, data: UpdateUserInput) {
     const user = await prisma.user.findUnique({
@@ -193,15 +194,28 @@ export const usersService = {
       throw new NotFoundError('用户不存在')
     }
 
-    const { roleIds, password, gender, ...updateData } = data
+    const { roleIds, password, gender, email, ...updateData } = data
+
+    // 邮箱唯一性检查：只有当新邮箱与当前用户不同时才检查
+    if (email !== undefined && email !== user.email) {
+      const existingEmail = await prisma.user.findUnique({
+        where: { email },
+      })
+      if (existingEmail) {
+        throw new ConflictError(`邮箱 ${email} 已被注册`)
+      }
+    }
 
     const updatePayload: Prisma.UserUpdateInput = {
       ...updateData,
+      email: email,
       gender: gender as Gender | null | undefined,
     }
 
+    // 注意：不允许通过 updateUser 修改密码
+    // 密码修改请使用 changePassword（用户自己）或 resetPassword（管理员）
     if (password) {
-      updatePayload.passwordHash = await hashPassword(password)
+      throw new ValidationError('不允许通过此接口修改密码，请使用专门的密码修改接口')
     }
 
     await prisma.user.update({

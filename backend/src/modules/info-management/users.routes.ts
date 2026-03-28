@@ -131,11 +131,12 @@ router.get(
  *     tags: [Users]
  *     security:
  *       - bearerAuth: []
+ *   description: 用户可更新自己的基本信息，管理员可更新所有用户
  */
 router.put(
   '/:id',
   validate(userIdParamsSchema, 'params'),
-  requireRoles('admin', 'super_admin'),
+  requireSelfOrAdmin('admin', 'super_admin'),
   validate(updateUserSchema, 'body'),
   usersController.update
 )

@@ -363,9 +363,12 @@ export const usersService = {
         }
       }
 
-      for (const userData of data.users) {
-        // 创建用户
-        const hashedPassword = await hashPassword(userData.password)
+      // 并行 hash 所有密码
+      const hashedPasswords = await Promise.all(data.users.map((u) => hashPassword(u.password)))
+
+      for (let i = 0; i < data.users.length; i++) {
+        const userData = data.users[i]
+        const hashedPassword = hashedPasswords[i]
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const { roleIds, password, ...createData } = userData
 

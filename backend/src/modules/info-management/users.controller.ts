@@ -60,26 +60,25 @@ export const usersController = {
 
   /**
    * 更新用户信息
-   * 普通用户不能修改 status 字段
+   * 普通用户不能修改 status 和 roleIds 字段
    */
   async update(req: Request, res: Response, next: NextFunction) {
     try {
       const id = req.params.id as string
       const data = updateUserSchema.parse(req.body)
       const currentUser = req.user!
-      const isSelf = currentUser.userId === id
       const isAdmin = currentUser.roles.some((r) => r === 'admin' || r === 'super_admin')
 
-      // 陞管理员不能修改 status 字段
+      // 非管理员不能修改 status 字段
       if (!isAdmin && data.status !== undefined) {
         const error = new Error('无权修改用户状态')
         ;(error as Error & { status?: number }).status = 403
         throw error
       }
 
-      // 非管理员只能修改自己的信息
-      if (!isAdmin && !isSelf) {
-        const error = new Error('无权修改他人信息')
+      // 非管理员不能修改 roleIds 字段
+      if (!isAdmin && data.roleIds !== undefined) {
+        const error = new Error('无权修改用户角色')
         ;(error as Error & { status?: number }).status = 403
         throw error
       }

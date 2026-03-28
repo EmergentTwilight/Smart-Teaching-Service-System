@@ -21,7 +21,19 @@ export const authApi = {
    * @returns 登录响应
    */
   login: async (data: LoginRequest): Promise<LoginResponse> => {
-    return request.post('/auth/login', data)
+    const response = await request.post<{
+      access_token: string
+      refresh_token: string
+      expires_in: number
+      user: User
+    }>('/auth/login', data)
+    // 转换 snake_case 为 camelCase
+    return {
+      accessToken: response.access_token,
+      refreshToken: response.refresh_token,
+      expiresIn: response.expires_in,
+      user: response.user,
+    }
   },
 
   /**
@@ -113,6 +125,17 @@ export const authApi = {
    * @returns 新的登录响应
    */
   refreshToken: async (refreshToken: string): Promise<LoginResponse> => {
-    return request.post('/auth/refresh', { refresh_token: refreshToken })
+    const response = await request.post<{
+      access_token: string
+      refresh_token: string
+      expires_in: number
+      user: User
+    }>('/auth/refresh', { refresh_token: refreshToken })
+    return {
+      accessToken: response.access_token,
+      refreshToken: response.refresh_token,
+      expiresIn: response.expires_in,
+      user: response.user,
+    }
   },
 }

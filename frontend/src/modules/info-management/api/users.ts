@@ -93,7 +93,10 @@ export const usersApi = {
    * @param newPassword 新密码
    */
   changePassword: async (id: string, oldPassword: string, newPassword: string): Promise<void> => {
-    return request.patch(`/users/${id}/password`, { oldPassword, newPassword })
+    return request.patch(`/users/${id}/password`, {
+      old_password: oldPassword,
+      new_password: newPassword,
+    })
   },
 
   /**

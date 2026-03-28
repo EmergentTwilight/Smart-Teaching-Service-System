@@ -36,7 +36,7 @@ services:
     environment:
       DATABASE_URL: postgresql://stss:stss_dev_2026@postgres:5432/stss?connection_limit=10&pool_timeout=30
       REDIS_URL: redis://redis:6379
-      JWT_SECRET: stss-super-secret-jwt-key-2026-dev-only
+      JWT_SECRET: stss-dev-key-do-not-use-in-production
       JWT_EXPIRES_IN: 7d
       PORT: 3000
       NODE_ENV: development
@@ -92,7 +92,11 @@ services:
     working_dir: /app
     environment:
       NODE_ENV: test
+      DATABASE_URL: postgresql://stss:stss_dev_2026@postgres:5432/stss?connection_limit=10&pool_timeout=30
       REDIS_URL: redis://redis:6379
+      JWT_SECRET: stss-test-key
+      JWT_EXPIRES_IN: 7d
+      PORT: 3000
     volumes:
       - ./backend:/app
       - ./shared:/shared
@@ -111,6 +115,8 @@ services:
     image: node:22-alpine
     container_name: stss-test-web
     working_dir: /app
+    environment:
+      VITE_API_URL: http://localhost:3000/api/v1
     volumes:
       - ./frontend:/app
       - ./shared:/shared

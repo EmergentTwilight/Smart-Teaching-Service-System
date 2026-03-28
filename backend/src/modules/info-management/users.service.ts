@@ -4,7 +4,7 @@
  */
 import prisma from '../../shared/prisma/client.js'
 import { hashPassword, comparePassword } from '../../shared/utils/password.js'
-import { NotFoundError, ConflictError, ValidationError } from '@stss/shared'
+import { NotFoundError, ConflictError, ValidationError, ForbiddenError } from '@stss/shared'
 import type {
   GetUsersQuery,
   CreateUserInput,
@@ -537,13 +537,35 @@ export const usersService = {
   /**
    * 分配角色
    */
-  async assignRoles(userId: string, data: AssignRolesInput) {
+  async assignRoles(userId: string, data: AssignRolesInput, currentUserId?: string) {
     const user = await prisma.user.findUnique({
       where: { id: userId },
+      include: { userRoles: { include: { role: true } } },
     })
 
     if (!user) {
       throw new NotFoundError('用户不存在')
+    }
+
+    // 检查是否在修改自己的角色
+    if (currentUserId && userId === currentUserId) {
+      const targetRoleCodes = await prisma.role.findMany({
+        where: { id: { in: data.roleIds } },
+        select: { code: true },
+      })
+      const targetCodes = targetRoleCodes.map((r: { code: string }) => r.code)
+
+      // 如果目标是超级管理员或管理员，且当前要移除该角色，拒绝
+      const currentPrivilegedRoles = user.userRoles
+        .map((ur) => ur.role.code)
+        .filter((code) => ['admin', 'super_admin'].includes(code))
+      const isRemovingPrivilegedRole =
+        currentPrivilegedRoles.length > 0 &&
+        !targetCodes.some((c) => ['admin', 'super_admin'].includes(c))
+
+      if (isRemovingPrivilegedRole) {
+        throw new ForbiddenError('不能移除自己的管理员角色')
+      }
     }
 
     const existingRoles = await prisma.role.findMany({
@@ -579,7 +601,27 @@ export const usersService = {
   /**
    * 撤销角色
    */
-  async revokeRole(userId: string, roleId: string) {
+  async revokeRole(userId: string, roleId: string, currentUserId?: string) {
+    // 检查是否在撤销自己的角色
+    if (currentUserId && userId === currentUserId) {
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        include: { userRoles: { include: { role: true } } },
+      })
+      if (user) {
+        const role = await prisma.role.findUnique({ where: { id: roleId } })
+        if (role && ['admin', 'super_admin'].includes(role.code)) {
+          // 检查用户是否只有这一个特权角色
+          const privilegedRoles = user.userRoles
+            .map((ur) => ur.role.code)
+            .filter((code) => ['admin', 'super_admin'].includes(code))
+          if (privilegedRoles.length <= 1) {
+            throw new ForbiddenError('不能撤销自己的最后一个管理员角色')
+          }
+        }
+      }
+    }
+
     const userRole = await prisma.userRole.findUnique({
       where: { userId_roleId: { userId, roleId } },
     })

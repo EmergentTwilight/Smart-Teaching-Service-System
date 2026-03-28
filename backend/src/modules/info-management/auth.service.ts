@@ -598,6 +598,22 @@ export const authService = {
    * @param newPassword 新密码
    * @param meta 审计信息
    */
+  async verifyResetToken(token: string): Promise<boolean> {
+    const passwordResetToken = await prisma.passwordResetToken.findUnique({
+      where: { tokenHash: hashToken(token) },
+    })
+
+    if (
+      !passwordResetToken ||
+      passwordResetToken.isUsed ||
+      passwordResetToken.expiresAt < new Date()
+    ) {
+      return false
+    }
+
+    return true
+  },
+
   async resetPassword(token: string, newPassword: string, meta: AuditMeta = {}) {
     const passwordValidation = validatePasswordStrength(newPassword)
     if (!passwordValidation.valid) {

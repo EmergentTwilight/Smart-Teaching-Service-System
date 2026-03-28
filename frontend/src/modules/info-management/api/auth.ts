@@ -28,7 +28,10 @@ export const authApi = {
    * 用户登出
    */
   logout: async (): Promise<void> => {
-    return request.post('/auth/logout')
+    // 获取 refresh token 并发送登出请求
+    const authStorage = localStorage.getItem('auth-storage')
+    const refreshToken = authStorage ? JSON.parse(authStorage)?.state?.refreshToken : null
+    return request.post('/auth/logout', refreshToken ? { refresh_token: refreshToken } : {})
   },
 
   /**
@@ -81,7 +84,7 @@ export const authApi = {
    * @param data 邮箱参数
    */
   forgotPassword: async (data: { email: string }): Promise<void> => {
-    return request.post('/password/forgot', data)
+    return request.post('/auth/password/forgot', data)
   },
 
   /**
@@ -89,7 +92,7 @@ export const authApi = {
    * @param token 重置令牌
    */
   verifyResetToken: async (token: string): Promise<void> => {
-    return request.get('/password/reset/verify', { params: { token } })
+    return request.get('/auth/password/reset/verify', { params: { token } })
   },
 
   /**
@@ -97,7 +100,7 @@ export const authApi = {
    * @param data 重置密码参数
    */
   resetPassword: async (data: { token: string; newPassword: string }): Promise<void> => {
-    return request.post('/password/reset/confirm', {
+    return request.post('/auth/password/reset/confirm', {
       token: data.token,
       new_password: data.newPassword,
       confirm_password: data.newPassword,

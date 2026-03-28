@@ -142,6 +142,25 @@ export const authController = {
   /**
    * 确认重置密码
    */
+  async verifyResetToken(req: Request, res: Response) {
+    try {
+      const { token } = req.query
+      if (!token || typeof token !== 'string') {
+        error(res, '缺少重置令牌', 400)
+        return
+      }
+      const isValid = await authService.verifyResetToken(token)
+      if (!isValid) {
+        error(res, '重置令牌无效或已过期', 400)
+        return
+      }
+      success(res, { valid: true }, '令牌有效')
+    } catch (err) {
+      const message = err instanceof Error ? err.message : '验证失败'
+      error(res, message, getStatusCode(err, 400))
+    }
+  },
+
   async resetPassword(req: Request, res: Response) {
     try {
       const { token, new_password } = req.body

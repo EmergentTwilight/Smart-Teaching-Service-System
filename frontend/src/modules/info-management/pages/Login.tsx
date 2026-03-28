@@ -56,7 +56,7 @@ const Login: React.FC = () => {
             <Input.Password
               prefix={<LockOutlined style={{ color: '#9ca3af' }} />}
               placeholder="密码"
-              autoComplete=""
+              autoComplete="current-password"
             />
           </Form.Item>
 

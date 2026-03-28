@@ -151,6 +151,7 @@ export const usersApi = {
     pageSize?: number
     userId?: string
     action?: string
+    resourceType?: string
     startDate?: string
     endDate?: string
   }): Promise<{

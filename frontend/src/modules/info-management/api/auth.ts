@@ -44,7 +44,10 @@ export const authApi = {
    * @param data 密码修改参数
    */
   changePassword: async (data: { oldPassword: string; newPassword: string }): Promise<void> => {
-    return request.post('/auth/change-password', data)
+    return request.post('/auth/change-password', {
+      old_password: data.oldPassword,
+      new_password: data.newPassword,
+    })
   },
 
   /**
@@ -57,7 +60,12 @@ export const authApi = {
     email: string
     realName: string
   }): Promise<void> => {
-    return request.post('/auth/register', data)
+    return request.post('/auth/register', {
+      username: data.username,
+      password: data.password,
+      email: data.email,
+      real_name: data.realName,
+    })
   },
 
   /**
@@ -73,7 +81,7 @@ export const authApi = {
    * @param data 邮箱参数
    */
   forgotPassword: async (data: { email: string }): Promise<void> => {
-    return request.post('/auth/forgot-password', data)
+    return request.post('/password/forgot', data)
   },
 
   /**
@@ -81,6 +89,19 @@ export const authApi = {
    * @param data 重置密码参数
    */
   resetPassword: async (data: { token: string; newPassword: string }): Promise<void> => {
-    return request.post('/auth/reset-password', data)
+    return request.post('/password/reset/confirm', {
+      token: data.token,
+      new_password: data.newPassword,
+      confirm_password: data.newPassword,
+    })
+  },
+
+  /**
+   * 刷新 Token
+   * @param refreshToken 刷新令牌
+   * @returns 新的登录响应
+   */
+  refreshToken: async (refreshToken: string): Promise<LoginResponse> => {
+    return request.post('/auth/refresh', { refresh_token: refreshToken })
   },
 }

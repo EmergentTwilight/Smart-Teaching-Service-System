@@ -3,7 +3,6 @@
  * 配置中间件、路由和错误处理
  */
 import 'dotenv/config'
-import 'express-async-errors' // 自动捕获 async 错误并传递给 error handler
 import express, { type Application } from 'express'
 import cors from 'cors'
 import helmet from 'helmet'

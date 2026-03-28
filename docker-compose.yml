@@ -42,8 +42,7 @@ services:
       NODE_ENV: development
       CORS_ORIGIN: http://localhost:5173
     volumes:
-      - ./backend:/app
-      - ./shared:/shared
+      - .:/app
       - /app/node_modules
       - /app/.pnpm-store
     ports:
@@ -53,7 +52,7 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-    command: sh -c "corepack enable && pnpm install && pnpm db:generate && pnpm db:push --accept-data-loss && pnpm db:seed && pnpm dev"
+    command: sh -c "corepack enable && pnpm install && pnpm --filter @stss/server db:generate && pnpm --filter @stss/server db:push --accept-data-loss && pnpm --filter @stss/server db:seed && pnpm --filter @stss/server dev"
     networks:
       - stss-network
 
@@ -98,8 +97,7 @@ services:
       JWT_EXPIRES_IN: 7d
       PORT: 3000
     volumes:
-      - ./backend:/app
-      - ./shared:/shared
+      - .:/app
       - /app/node_modules
       - /app/.pnpm-store
     depends_on:
@@ -107,7 +105,7 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-    command: sh -c "corepack enable && pnpm install && pnpm db:generate && pnpm test:run"
+    command: sh -c "corepack enable && pnpm install && pnpm --filter @stss/server db:generate && pnpm --filter @stss/server test:run"
     networks:
       - stss-network
 
@@ -118,11 +116,10 @@ services:
     environment:
       VITE_API_URL: http://localhost:3000/api/v1
     volumes:
-      - ./frontend:/app
-      - ./shared:/shared
+      - .:/app
       - /app/node_modules
       - /app/.pnpm-store
-    command: sh -c "corepack enable && pnpm install && pnpm test:run"
+    command: sh -c "corepack enable && pnpm install && pnpm --filter @stss/web test:run"
     networks:
       - stss-network
 

@@ -26,7 +26,7 @@ const ForgotPassword: React.FC = () => {
       setSubmitted(true);
       message.success('重置邮件已发送');
     } catch (error: unknown) {
-      message.error(error.response?.data?.message || '发送失败，请重试');
+      message.error((error as any).response?.data?.message || '发送失败，请重试');
     } finally {
       setLoading(false);
     }
@@ -41,7 +41,7 @@ const ForgotPassword: React.FC = () => {
       await authApi.forgotPassword({ email });
       message.success('重置邮件已重新发送');
     } catch (error: unknown) {
-      message.error(error.response?.data?.message || '发送失败，请重试');
+      message.error((error as any).response?.data?.message || '发送失败，请重试');
     } finally {
       setLoading(false);
     }

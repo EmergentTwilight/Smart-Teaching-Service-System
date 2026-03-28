@@ -36,7 +36,7 @@ const Activate: React.FC = () => {
       message.success('账号激活成功！');
     } catch (error: unknown) {
       setStatus('error');
-      message.error(error.response?.data?.message || '激活失败，请重试');
+      message.error((error as any).response?.data?.message || '激活失败，请重试');
     }
   };
 

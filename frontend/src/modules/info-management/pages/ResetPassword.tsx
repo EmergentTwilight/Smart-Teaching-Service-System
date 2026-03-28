@@ -82,7 +82,7 @@ const ResetPassword: React.FC = () => {
       message.success('密码重置成功');
       navigate('/login');
     } catch (error: unknown) {
-      message.error(error.response?.data?.message || '重置失败，请重试');
+      message.error((error as any).response?.data?.message || '重置失败，请重试');
     } finally {
       setLoading(false);
     }

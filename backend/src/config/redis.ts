@@ -2,7 +2,8 @@
  * Redis 配置
  * 生产环境必须配置 REDIS_URL，否则登录限流将无法跨实例共享
  */
-import IORedis from 'ioredis'
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const IORedis = require('ioredis').default
 
 type SetOptions = {
   ex?: number

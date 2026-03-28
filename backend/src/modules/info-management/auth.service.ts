@@ -30,8 +30,8 @@ const PASSWORD_RESET_TOKEN_TTL_SECONDS = 60 * 60
 const ACTIVATION_TOKEN_TTL_SECONDS = 24 * 60 * 60
 
 type AuditMeta = {
-  ip_address?: string
-  user_agent?: string
+  ipAddress?: string
+  userAgent?: string
 }
 
 type LoginInput = AuditMeta & {
@@ -171,23 +171,23 @@ function serializeUser(
  * @param params 日志参数
  */
 async function createSystemLog(params: {
-  user_id?: string
+  userId?: string
   action: string
-  resource_type?: string
-  resource_id?: string
+  resourceType?: string
+  resourceId?: string
   details?: Prisma.InputJsonValue
-  ip_address?: string
-  user_agent?: string
+  ipAddress?: string
+  userAgent?: string
 }): Promise<void> {
   await prisma.systemLog.create({
     data: {
-      userId: params.user_id,
+      userId: params.userId,
       action: params.action,
-      resourceType: params.resource_type,
-      resourceId: params.resource_id,
+      resourceType: params.resourceType,
+      resourceId: params.resourceId,
       details: params.details,
-      ipAddress: params.ip_address,
-      userAgent: params.user_agent,
+      ipAddress: params.ipAddress,
+      userAgent: params.userAgent,
     },
   })
 }
@@ -284,7 +284,7 @@ export const authService = {
    * @returns 登录结果
    */
   async login(input: LoginInput) {
-    const ipAddress = input.ip_address || 'unknown'
+    const ipAddress = input.ipAddress || 'unknown'
     await ensureLoginNotLocked(input.username, ipAddress)
 
     const user = await prisma.user.findUnique({
@@ -345,8 +345,8 @@ export const authService = {
           action: 'auth:login',
           resourceType: 'auth',
           resourceId: user.id,
-          ipAddress: input.ip_address,
-          userAgent: input.user_agent,
+          ipAddress: input.ipAddress,
+          userAgent: input.userAgent,
           details: {
             username: user.username,
             last_login_at: lastLoginAt.toISOString(),
@@ -446,12 +446,12 @@ export const authService = {
     }
 
     await createSystemLog({
-      user_id: input.userId,
+      userId: input.userId,
       action: 'auth:logout',
-      resource_type: 'auth',
-      resource_id: input.userId,
-      ip_address: input.ipAddress,
-      user_agent: input.userAgent,
+      resourceType: 'auth',
+      resourceId: input.userId,
+      ipAddress: input.ipAddress,
+      userAgent: input.userAgent,
     })
   },
 
@@ -664,8 +664,8 @@ export const authService = {
           action: 'user:password_reset',
           resourceType: 'user',
           resourceId: passwordResetToken.userId,
-          ipAddress: meta.ip_address,
-          userAgent: meta.user_agent,
+          ipAddress: meta.ipAddress,
+          userAgent: meta.userAgent,
         },
       }),
     ])
@@ -723,8 +723,8 @@ export const authService = {
           action: 'user:password_change',
           resourceType: 'user',
           resourceId: userId,
-          ipAddress: meta.ip_address,
-          userAgent: meta.user_agent,
+          ipAddress: meta.ipAddress,
+          userAgent: meta.userAgent,
         },
       }),
     ])

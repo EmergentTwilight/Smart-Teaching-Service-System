@@ -13,10 +13,11 @@ import {
 } from '@ant-design/icons';
 import { useAuthStore } from '@/shared/stores/authStore';
 import { authApi } from '@/modules/info-management/api/auth';
+import { usersApi } from '@/modules/info-management/api/users';
 import type { User } from '@/shared/types';
 
 const Profile: React.FC = () => {
-  const { user } = useAuthStore();
+  const { user, updateUser } = useAuthStore();
   const [form] = Form.useForm();
   const [passwordForm] = Form.useForm();
   const [loading, setLoading] = useState(false);
@@ -46,19 +47,33 @@ const Profile: React.FC = () => {
    * 处理个人信息更新
    */
   const handleProfileSubmit = async (values: Partial<User>) => {
-    setLoading(true);
-    try {
-      // TODO: 实现用户信息更新 API 调用
-      // 需要 authStore 提供 updateUser 方法或使用 usersApi
-      console.log('待更新用户信息:', values);
-      message.success('信息更新成功');
-    } catch (error: unknown) {
-      const err = error as { response?: { data?: { message?: string } } };
-      message.error(err.response?.data?.message || '更新失败');
-    } finally {
-      setLoading(false);
+    if (!user?.id) {
+      message.error('用户未登录')
+      return
     }
-  };
+    setLoading(true)
+    try {
+      // 只发送允许的字段（realName, email, phone, gender）
+      const updateData: Partial<User> = {}
+      if (values.realName !== undefined) updateData.realName = values.realName
+      if (values.email !== undefined) updateData.email = values.email
+      if (values.phone !== undefined) updateData.phone = values.phone
+      if (values.gender !== undefined) updateData.gender = values.gender
+
+      await usersApi.update(user.id, updateData)
+      // 更新本地状态
+      updateUser(updateData)
+      message.success('信息更新成功')
+    } catch (error) {
+      if (error instanceof Error) {
+        message.error(error.message || '更新失败')
+      } else {
+        message.error('更新失败')
+      }
+    } finally {
+      setLoading(false)
+    }
+  }
 
   if (!user) {
     return null;
@@ -95,28 +110,25 @@ const Profile: React.FC = () => {
               <Form.Item label="用户名">
                 <Input
                   prefix={<UserOutlined style={{ color: '#9ca3af' }} />}
-                  value={user.username}
                   disabled
                 />
               </Form.Item>
 
-              <Form.Item label="真实姓名">
+              <Form.Item label="真实姓名" name="realName">
                 <Input
                   prefix={<UserOutlined style={{ color: '#9ca3af' }} />}
-                  value={user.realName}
-                  disabled
+                  placeholder="请输入真实姓名"
                 />
               </Form.Item>
 
-              <Form.Item label="邮箱">
+              <Form.Item label="邮箱" name="email">
                 <Input
                   prefix={<MailOutlined style={{ color: '#9ca3af' }} />}
-                  value={user.email || ''}
-                  disabled
+                  placeholder="请输入邮箱"
                 />
               </Form.Item>
 
-              <Form.Item label="手机号">
+              <Form.Item label="手机号" name="phone">
                 <Input
                   prefix={<PhoneOutlined style={{ color: '#9ca3af' }} />}
                   placeholder="请输入手机号"

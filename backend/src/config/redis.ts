@@ -2,9 +2,7 @@
  * Redis 配置
  * 生产环境必须配置 REDIS_URL，否则登录限流将无法跨实例共享
  */
-
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const IORedis = require('ioredis')
+import IORedis from 'ioredis'
 
 type SetOptions = {
   ex?: number
@@ -97,6 +95,7 @@ function createRedisClient(): RedisClient {
 
   if (redisUrl) {
     console.log('✅ 使用 Redis:', redisUrl.replace(/:[^:@]+@/, ':****@'))
+    // @ts-expect-error - ioredis 的类型定义与实际 ESM 导出不完全匹配
     const redis = new IORedis(redisUrl)
 
     return {

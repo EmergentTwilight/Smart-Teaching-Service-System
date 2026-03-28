@@ -183,7 +183,9 @@ export const usersService = {
 
   /**
    * 更新用户信息
-   * 注意：此方法不允许修改密码，密码修改请使用 changePassword 或 resetPassword
+   * 注意：此方法不允许修改密码和角色
+   * - 密码修改请使用 changePassword 或 resetPassword
+   * - 角色修改请使用 assignRoles
    */
   async updateUser(id: string, data: UpdateUserInput) {
     const user = await prisma.user.findUnique({
@@ -194,7 +196,7 @@ export const usersService = {
       throw new NotFoundError('用户不存在')
     }
 
-    const { roleIds, password, gender, email, ...updateData } = data
+    const { gender, email, ...restData } = data
 
     // 邮箱唯一性检查：只有当新邮箱与当前用户不同时才检查
     if (email !== undefined && email !== user.email) {
@@ -207,36 +209,15 @@ export const usersService = {
     }
 
     const updatePayload: Prisma.UserUpdateInput = {
-      ...updateData,
+      ...restData,
       email: email,
       gender: gender as Gender | null | undefined,
-    }
-
-    // 注意：不允许通过 updateUser 修改密码
-    // 密码修改请使用 changePassword（用户自己）或 resetPassword（管理员）
-    if (password) {
-      throw new ValidationError('不允许通过此接口修改密码，请使用专门的密码修改接口')
     }
 
     await prisma.user.update({
       where: { id },
       data: updatePayload,
     })
-
-    if (roleIds) {
-      await prisma.userRole.deleteMany({
-        where: { userId: id },
-      })
-
-      if (roleIds.length > 0) {
-        await prisma.userRole.createMany({
-          data: roleIds.map((roleId) => ({
-            userId: id,
-            roleId,
-          })),
-        })
-      }
-    }
 
     return this.getUserById(id)
   },
@@ -253,9 +234,17 @@ export const usersService = {
       throw new NotFoundError('用户不存在')
     }
 
-    await prisma.user.delete({
-      where: { id },
-    })
+    // 使用事务确保：先吊销 token，再删除用户（会级联删除 userRoles）
+    await prisma.$transaction([
+      // 删除该用户的所有 refresh token
+      prisma.refreshToken.deleteMany({
+        where: { userId: id },
+      }),
+      // 删除用户（会级联删除 userRoles）
+      prisma.user.delete({
+        where: { id },
+      }),
+    ])
   },
 
   /**
@@ -538,6 +527,7 @@ export const usersService = {
    * 分配角色
    */
   async assignRoles(userId: string, data: AssignRolesInput, currentUserId?: string) {
+    // 先检查用户和角色存在性（在事务外做，减少事务时间）
     const user = await prisma.user.findUnique({
       where: { id: userId },
       include: { userRoles: { include: { role: true } } },
@@ -547,15 +537,18 @@ export const usersService = {
       throw new NotFoundError('用户不存在')
     }
 
-    // 检查是否在修改自己的角色
-    if (currentUserId && userId === currentUserId) {
-      const targetRoleCodes = await prisma.role.findMany({
-        where: { id: { in: data.roleIds } },
-        select: { code: true },
-      })
-      const targetCodes = targetRoleCodes.map((r: { code: string }) => r.code)
+    const existingRoles = await prisma.role.findMany({
+      where: { id: { in: data.roleIds } },
+    })
 
-      // 如果目标是超级管理员或管理员，且当前要移除该角色，拒绝
+    if (existingRoles.length !== data.roleIds.length) {
+      const missingIds = data.roleIds.filter((id) => !existingRoles.some((r) => r.id === id))
+      throw new NotFoundError(`角色不存在: ${missingIds.join(', ')}`)
+    }
+
+    // 检查是否在修改自己的角色（在事务外做）
+    if (currentUserId && userId === currentUserId) {
+      const targetCodes = existingRoles.map((r) => r.code)
       const currentPrivilegedRoles = user.userRoles
         .map((ur) => ur.role.code)
         .filter((code) => ['admin', 'super_admin'].includes(code))
@@ -568,32 +561,24 @@ export const usersService = {
       }
     }
 
-    const existingRoles = await prisma.role.findMany({
-      where: { id: { in: data.roleIds } },
-    })
-
-    if (existingRoles.length !== data.roleIds.length) {
-      const missingIds = data.roleIds.filter((id) => !existingRoles.some((r) => r.id === id))
-      throw new NotFoundError(`角色不存在: ${missingIds.join(', ')}`)
-    }
-
-    // 先删除已有角色，避免重复插入
-    await prisma.userRole.deleteMany({
-      where: { userId },
-    })
-
-    // 再创建新角色
-    await prisma.userRole.createMany({
-      data: data.roleIds.map((roleId) => ({
-        userId,
-        roleId,
-      })),
-    })
-
-    // 角色变更后吊销所有 Refresh Token，强制重新登录以获取新权限
-    await prisma.refreshToken.deleteMany({
-      where: { userId },
-    })
+    // 使用事务保证原子性（先删角色，再创建新角色，最后吊销 token）
+    await prisma.$transaction([
+      // 先删除已有角色
+      prisma.userRole.deleteMany({
+        where: { userId },
+      }),
+      // 再创建新角色
+      prisma.userRole.createMany({
+        data: data.roleIds.map((roleId) => ({
+          userId,
+          roleId,
+        })),
+      }),
+      // 吊销所有 Refresh Token
+      prisma.refreshToken.deleteMany({
+        where: { userId },
+      }),
+    ])
 
     return this.getUserById(userId)
   },

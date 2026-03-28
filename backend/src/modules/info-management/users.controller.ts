@@ -60,37 +60,15 @@ export const usersController = {
 
   /**
    * 更新用户信息
-   * 普通用户不能修改 status、roleIds 和 password 字段
+   * 注意：status、roleIds、password 不能通过此接口修改
+   * - status 需要通过 PATCH /users/:id/status
+   * - roleIds 需要通过 POST /users/:id/roles
+   * - password 需要通过 PUT /users/:id/password
    */
   async update(req: Request, res: Response, next: NextFunction) {
     try {
       const id = req.params.id as string
       const data = updateUserSchema.parse(req.body)
-      const currentUser = req.user!
-      const isAdmin = currentUser.roles.some((r) => r === 'admin' || r === 'super_admin')
-
-      // 非管理员不能修改 status 字段
-      if (!isAdmin && data.status !== undefined) {
-        const error = new Error('无权修改用户状态')
-        ;(error as Error & { status?: number }).status = 403
-        throw error
-      }
-
-      // 非管理员不能修改 roleIds 字段
-      if (!isAdmin && data.roleIds !== undefined) {
-        const error = new Error('无权修改用户角色')
-        ;(error as Error & { status?: number }).status = 403
-        throw error
-      }
-
-      // 非管理员（和管理员）都不能通过此接口修改密码
-      // 密码修改必须走专门的 changePassword 或 resetPassword 接口
-      if (data.password !== undefined) {
-        const error = new Error('不允许通过此接口修改密码，请使用专门的密码修改接口')
-        ;(error as Error & { status?: number }).status = 400
-        throw error
-      }
-
       const user = await usersService.updateUser(id, data)
       success(res, user, '更新成功')
     } catch (err) {

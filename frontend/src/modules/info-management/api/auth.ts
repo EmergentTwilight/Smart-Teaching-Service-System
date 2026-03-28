@@ -21,7 +21,8 @@ export const authApi = {
    * @returns 登录响应
    */
   login: async (data: LoginRequest): Promise<LoginResponse> => {
-    return request.post('/auth/login', data)
+    // 响应拦截器已经提取了 data 并转换为 camelCase
+    return request.post('/auth/login', data) as unknown as LoginResponse
   },
 
   /**
@@ -113,6 +114,9 @@ export const authApi = {
    * @returns 新的登录响应
    */
   refreshToken: async (refreshToken: string): Promise<LoginResponse> => {
-    return request.post('/auth/refresh', { refresh_token: refreshToken })
+    // 响应拦截器已经提取了 data 并转换为 camelCase
+    return request.post('/auth/refresh', {
+      refresh_token: refreshToken,
+    }) as unknown as LoginResponse
   },
 }

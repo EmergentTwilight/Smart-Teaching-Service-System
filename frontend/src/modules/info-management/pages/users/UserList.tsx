@@ -60,6 +60,8 @@ const UserList: React.FC = () => {
     } else {
       await usersApi.create(values)
     }
+    // UserForm 会处理成功消息和关闭对话框
+    // 只需要刷新列表
     queryClient.invalidateQueries({ queryKey: ['users'] })
   }
 
@@ -241,7 +243,10 @@ const UserList: React.FC = () => {
         open={formOpen}
         user={currentUser}
         onSubmit={handleSubmit}
-        onCancel={() => setFormOpen(false)}
+        onCancel={() => {
+          setFormOpen(false)
+          setCurrentUser(null)
+        }}
       />
     </div>
   )

@@ -3,8 +3,6 @@
  * 生产环境必须配置 REDIS_URL，否则登录限流将无法跨实例共享
  */
 import IORedis from 'ioredis'
-// ioredis 导出为 CommonJS 模块，需要用 .default 获取构造函数
-// @ts-expect-error - ioredis 的类型定义与实际导出不完全匹配
 
 type SetOptions = {
   ex?: number

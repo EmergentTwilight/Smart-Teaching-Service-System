@@ -23,6 +23,10 @@ request.interceptors.request.use(
     if (token) {
       config.headers.Authorization = `Bearer ${token}`
     }
+    // 将请求数据中的 camelCase 转换为 snake_case
+    if (config.data && typeof config.data === 'object') {
+      config.data = convertKeysToSnakeCase(config.data)
+    }
     return config
   },
   (error) => {
@@ -31,10 +35,35 @@ request.interceptors.request.use(
 )
 
 /**
+ * 将 camelCase 键转换为 snake_case
+ */
+function toSnakeCase(str: string): string {
+  return str.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`)
+}
+
+/**
  * 将 snake_case 键转换为 camelCase
  */
 function toCamelCase(str: string): string {
   return str.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase())
+}
+
+/**
+ * 递归转换对象的键为 snake_case
+ */
+function convertKeysToSnakeCase<T>(obj: T): T {
+  if (Array.isArray(obj)) {
+    return obj.map((item) => convertKeysToSnakeCase(item)) as unknown as T
+  }
+  if (obj && typeof obj === 'object') {
+    const result: Record<string, unknown> = {}
+    for (const [key, value] of Object.entries(obj as Record<string, unknown>)) {
+      result[toSnakeCase(key)] =
+        value && typeof value === 'object' ? convertKeysToSnakeCase(value) : value
+    }
+    return result as T
+  }
+  return obj
 }
 
 /**

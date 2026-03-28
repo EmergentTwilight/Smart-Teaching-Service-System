@@ -409,7 +409,7 @@ describe('AuthService', () => {
           username: 'alice',
           email: 'alice@example.com',
           realName: 'Alice',
-          activationToken: expect.any(String),
+          // 注意：activationToken 不再返回给客户端，只通过邮件发送
         })
       )
       expect(prismaMock.user.create).toHaveBeenCalledWith(
@@ -431,7 +431,7 @@ describe('AuthService', () => {
         expect.objectContaining({
           data: expect.objectContaining({
             userId: 'user-1',
-            tokenHash: sha256(result.activationToken),
+            // 注意：activationToken 不再返回，所以不验证 tokenHash
           }),
         })
       )

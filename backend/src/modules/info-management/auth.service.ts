@@ -516,14 +516,15 @@ export const authService = {
       })
     }
 
-    const activationToken = await createActivationToken(createdUser.id)
+    // 创建激活令牌（仅通过邮件发送，不返回给客户端）
+    await createActivationToken(createdUser.id)
 
+    // 注意：activationToken 不返回给客户端，只通过邮件发送
     return {
       id: createdUser.id,
       username: createdUser.username,
       email: createdUser.email,
       realName: createdUser.realName,
-      activationToken,
     }
   },
 

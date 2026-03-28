@@ -68,7 +68,7 @@ const Register: React.FC = () => {
       });
       message.success('注册成功！请查看邮箱激活账号');
       navigate('/login');
-    } catch (error: any) {
+    } catch (error: unknown) {
       message.error(error.response?.data?.message || '注册失败，请重试');
     } finally {
       setLoading(false);

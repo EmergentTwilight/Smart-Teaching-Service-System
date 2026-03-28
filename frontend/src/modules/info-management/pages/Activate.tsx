@@ -34,7 +34,7 @@ const Activate: React.FC = () => {
       await authApi.activate({ token });
       setStatus('success');
       message.success('账号激活成功！');
-    } catch (error: any) {
+    } catch (error: unknown) {
       setStatus('error');
       message.error(error.response?.data?.message || '激活失败，请重试');
     }

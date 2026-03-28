@@ -81,7 +81,7 @@ const ResetPassword: React.FC = () => {
       await authApi.resetPassword({ token, newPassword: values.newPassword });
       message.success('密码重置成功');
       navigate('/login');
-    } catch (error: any) {
+    } catch (error: unknown) {
       message.error(error.response?.data?.message || '重置失败，请重试');
     } finally {
       setLoading(false);

@@ -35,7 +35,7 @@ const Profile: React.FC = () => {
       });
       message.success('密码修改成功');
       passwordForm.resetFields();
-    } catch (error: any) {
+    } catch (error: unknown) {
       message.error(error.response?.data?.message || '修改密码失败');
     } finally {
       setPasswordLoading(false);
@@ -180,9 +180,9 @@ const Profile: React.FC = () => {
                 dependencies={['newPassword']}
                 rules={[
                   { required: true, message: '请确认新密码' },
-                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                  ({ getFieldValue }: any) => ({
-                    validator(_: any, value: string) {
+                   
+                  ({ getFieldValue }: { getFieldValue: (name: string) => string }) => ({
+                    validator(_: unknown, value: string) {
                       if (!value || getFieldValue('newPassword') === value) {
                         return Promise.resolve();
                       }

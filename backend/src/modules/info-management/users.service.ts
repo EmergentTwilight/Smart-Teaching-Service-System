@@ -476,6 +476,9 @@ export const usersService = {
         where: { id: userId },
         data: { passwordHash: hashedPassword },
       }),
+      // 吊销所有 Refresh Token，强制重新登录
+      // 注意：isUsed 语义是"已使用/已吊销"，在此用于标记 token 失效
+      // 这是一种简化实现，避免需要额外的 revokedAt 或 isValid 字段
       prisma.refreshToken.updateMany({
         where: { userId },
         data: { isUsed: true },
@@ -501,6 +504,9 @@ export const usersService = {
         where: { id: userId },
         data: { passwordHash: hashedPassword },
       }),
+      // 吊销所有 Refresh Token，强制重新登录
+      // 注意：isUsed 语义是"已使用/已吊销"，在此用于标记 token 失效
+      // 这是一种简化实现，避免需要额外的 revokedAt 或 isValid 字段
       prisma.refreshToken.updateMany({
         where: { userId },
         data: { isUsed: true },
@@ -560,6 +566,11 @@ export const usersService = {
         userId,
         roleId,
       })),
+    })
+
+    // 角色变更后吊销所有 Refresh Token，强制重新登录以获取新权限
+    await prisma.refreshToken.deleteMany({
+      where: { userId },
     })
 
     return this.getUserById(userId)

@@ -32,7 +32,10 @@ export const authApi = {
     // 获取 refresh token 并发送登出请求
     const authStorage = localStorage.getItem('auth-storage')
     const refreshToken = authStorage ? JSON.parse(authStorage)?.state?.refreshToken : null
-    return request.post('/auth/logout', refreshToken ? { refreshToken } : {})
+    // 没有 refreshToken 时不需要调用后端（logout 主要是废 refresh token）
+    if (refreshToken) {
+      return request.post('/auth/logout', { refreshToken })
+    }
   },
 
   /**

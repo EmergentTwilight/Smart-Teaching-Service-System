@@ -85,6 +85,14 @@ export const authApi = {
   },
 
   /**
+   * 验证重置密码 Token
+   * @param token 重置令牌
+   */
+  verifyResetToken: async (token: string): Promise<void> => {
+    return request.get('/password/reset/verify', { params: { token } })
+  },
+
+  /**
    * 重置密码确认
    * @param data 重置密码参数
    */

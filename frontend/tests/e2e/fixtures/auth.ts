@@ -1,4 +1,5 @@
 import { test as base, expect } from '@playwright/test'
+import { existsSync } from 'fs'
 
 /**
  * 认证 Fixtures
@@ -15,12 +16,11 @@ export const test = base.extend({
     const username = process.env.E2E_USERNAME || 'admin'
     const password = process.env.E2E_PASSWORD || 'Admin123!'
 
-    // 检查是否已有 storageState
-    try {
-      // 尝试使用已有的 storageState
-      await page.context().storageState({ path: storageStatePath })
-    } catch {
-      // 没有 storageState，执行登录获取
+    // 检查是否已有 storageState 文件
+    const hasStorageState = existsSync(storageStatePath)
+
+    if (!hasStorageState) {
+      // 没有 storageState 文件，执行登录获取
       await page.goto('/login')
       await page.fill('input[name="username"]', username)
       await page.fill('input[name="password"]', password)

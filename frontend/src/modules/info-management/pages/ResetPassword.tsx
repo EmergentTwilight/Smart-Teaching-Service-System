@@ -24,10 +24,20 @@ const ResetPassword: React.FC = () => {
     const tokenParam = searchParams.get('token');
     if (tokenParam) {
       setToken(tokenParam);
-      // 这里可以添加 token 验证逻辑
-      setValidToken(true);
+      // 验证 token 有效性
+      authApi.verifyResetToken(tokenParam)
+        .then(() => {
+          setValidToken(true);
+        })
+        .catch(() => {
+          setValidToken(false);
+        })
+        .finally(() => {
+          setVerifying(false);
+        });
+    } else {
+      setVerifying(false);
     }
-    setVerifying(false);
   }, [searchParams]);
 
   /**

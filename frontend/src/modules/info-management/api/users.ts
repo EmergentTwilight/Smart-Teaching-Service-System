@@ -99,9 +99,8 @@ export const usersApi = {
   /**
    * 重置用户密码
    * @param id 用户ID
-   * @returns 临时密码
    */
-  resetPassword: async (id: string): Promise<{ temporaryPassword: string }> => {
+  resetPassword: async (id: string): Promise<void> => {
     return request.post(`/users/${id}/password/reset`)
   },
 

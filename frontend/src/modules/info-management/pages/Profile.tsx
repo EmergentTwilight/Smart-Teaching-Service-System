@@ -45,14 +45,16 @@ const Profile: React.FC = () => {
   /**
    * 处理个人信息更新
    */
-  const handleProfileSubmit = async (_values: Partial<User>) => {
+  const handleProfileSubmit = async (values: Partial<User>) => {
     setLoading(true);
     try {
-      // 调用更新用户信息 API
-      // updateUser(values);
+      // TODO: 实现用户信息更新 API 调用
+      // 需要 authStore 提供 updateUser 方法或使用 usersApi
+      console.log('待更新用户信息:', values);
       message.success('信息更新成功');
-    } catch (error: any) {
-      message.error(error.response?.data?.message || '更新失败');
+    } catch (error: unknown) {
+      const err = error as { response?: { data?: { message?: string } } };
+      message.error(err.response?.data?.message || '更新失败');
     } finally {
       setLoading(false);
     }
@@ -203,16 +205,15 @@ const Profile: React.FC = () => {
             </Form>
           </Card>
         </Col>
-      </Row>
 
-      {/* 账户信息 */}
-      <Col xs={24} lg={12}>
-        <Card
-          title={<span style={{ fontSize: 16, fontWeight: 600 }}>账户信息</span>}
-          style={{ borderRadius: 16, border: 'none' }}
-          styles={{ body: { padding: 24 } }}
-        >
-          <Descriptions column={1}>
+        {/* 账户信息 */}
+        <Col xs={24} lg={12}>
+          <Card
+            title={<span style={{ fontSize: 16, fontWeight: 600 }}>账户信息</span>}
+            style={{ borderRadius: 16, border: 'none' }}
+            styles={{ body: { padding: 24 } }}
+          >
+            <Descriptions column={1}>
             <Descriptions.Item label="角色">
               {user.roles?.join(', ') || '未设置'}
             </Descriptions.Item>
@@ -228,6 +229,7 @@ const Profile: React.FC = () => {
           </Descriptions>
         </Card>
       </Col>
+    </Row>
     </div>
   );
 };

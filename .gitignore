@@ -27,3 +27,7 @@ Thumbs.db
 # Docker volumes (本地)
 postgres_data/
 redis_data/
+
+# Coverage
+coverage/
+*.lcov

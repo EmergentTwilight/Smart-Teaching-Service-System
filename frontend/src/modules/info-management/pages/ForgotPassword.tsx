@@ -99,6 +99,7 @@ const ForgotPassword: React.FC = () => {
             ]}
           >
             <Input
+              name="email"
               prefix={<MailOutlined style={{ color: '#9ca3af' }} />}
               placeholder="邮箱地址"
               type="email"

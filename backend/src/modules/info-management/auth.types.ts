@@ -27,7 +27,7 @@ export const registerSchema = z.object({
     .regex(/[a-z]/, '密码必须包含小写字母')
     .regex(/[0-9]/, '密码必须包含数字'),
   email: z.string().email('邮箱格式不正确').optional(),
-  real_name: z.string().min(1, '姓名不能为空').max(50),
+  realName: z.string().min(1, '姓名不能为空').max(50),
   phone: z.string().optional(),
   gender: z.nativeEnum(Gender).optional(),
 })
@@ -37,8 +37,8 @@ export const registerSchema = z.object({
  * 新密码需满足强度要求：至少8位，包含大小写字母和数字
  */
 export const changePasswordSchema = z.object({
-  old_password: z.string().min(1, '旧密码不能为空'),
-  new_password: z
+  oldPassword: z.string().min(1, '旧密码不能为空'),
+  newPassword: z
     .string()
     .min(8, '新密码至少8位')
     .regex(/[A-Z]/, '新密码必须包含大写字母')
@@ -50,7 +50,7 @@ export const changePasswordSchema = z.object({
  * 刷新令牌请求验证 schema
  */
 export const refreshTokenSchema = z.object({
-  refresh_token: z.string().min(1, '刷新令牌不能为空'),
+  refreshToken: z.string().min(1, '刷新令牌不能为空'),
 })
 
 /**
@@ -73,17 +73,17 @@ export const forgotPasswordSchema = z.object({
 export const resetPasswordSchema = z
   .object({
     token: z.string().min(1, '重置令牌不能为空'),
-    new_password: z
+    newPassword: z
       .string()
       .min(8, '新密码至少8位')
       .regex(/[A-Z]/, '新密码必须包含大写字母')
       .regex(/[a-z]/, '新密码必须包含小写字母')
       .regex(/[0-9]/, '新密码必须包含数字'),
-    confirm_password: z.string().min(8, '确认密码至少8位'),
+    confirmPassword: z.string().min(8, '确认密码至少8位'),
   })
-  .refine((data) => data.new_password === data.confirm_password, {
+  .refine((data) => data.newPassword === data.confirmPassword, {
     message: '两次输入的新密码不一致',
-    path: ['confirm_password'],
+    path: ['confirmPassword'],
   })
 
 /** 登录输入类型 */

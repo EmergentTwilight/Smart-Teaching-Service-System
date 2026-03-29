@@ -28,9 +28,9 @@ const Login: React.FC = () => {
           <TrophyOutlined className={styles.logoIcon} />
         </div>
         <h2 className={styles.title}>
-          智慧教学服务系统
+          登录
         </h2>
-        <p className={styles.subtitle}>Smart Teaching Service System</p>
+        <p className={styles.subtitle}>智慧教学服务系统</p>
         
         <Form
           form={form}
@@ -43,6 +43,7 @@ const Login: React.FC = () => {
             rules={[{ required: true, message: '请输入用户名' }]}
           >
             <Input
+              name="username"
               prefix={<UserOutlined style={{ color: '#9ca3af' }} />}
               placeholder="用户名"
               autoComplete="username"
@@ -54,6 +55,7 @@ const Login: React.FC = () => {
             rules={[{ required: true, message: '请输入密码' }]}
           >
             <Input.Password
+              name="password"
               prefix={<LockOutlined style={{ color: '#9ca3af' }} />}
               placeholder="密码"
               autoComplete="current-password"

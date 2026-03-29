@@ -184,13 +184,13 @@ describe('AuthService', () => {
       const result = await authService.login({
         username: 'alice',
         password: 'Password123',
-        ip_address: '127.0.0.1',
-        user_agent: 'vitest',
+        ipAddress: '127.0.0.1',
+        userAgent: 'vitest',
       })
 
       expect(result.accessToken).toEqual(expect.any(String))
       expect(result.refreshToken).toEqual(expect.any(String))
-      expect(result.expiresIn).toBe(900)
+      expect(result.expiresIn).toBe(7200)
       expect(result.tokenType).toBe('Bearer')
       expect(result.user.roles).toEqual(['student', 'assistant'])
       expect(result.user.permissions).toEqual(['course:read', 'profile:update'])
@@ -206,6 +206,7 @@ describe('AuthService', () => {
             action: 'auth:login',
             userId: 'user-1',
             ipAddress: '127.0.0.1',
+            userAgent: 'vitest',
           }),
         })
       )
@@ -219,7 +220,7 @@ describe('AuthService', () => {
         authService.login({
           username: 'missing',
           password: 'Password123',
-          ip_address: '127.0.0.1',
+          ipAddress: '127.0.0.1',
         })
       ).rejects.toBeInstanceOf(UnauthorizedError)
 
@@ -235,7 +236,7 @@ describe('AuthService', () => {
         authService.login({
           username: 'alice',
           password: 'wrong-password',
-          ip_address: '127.0.0.1',
+          ipAddress: '127.0.0.1',
         })
       ).rejects.toBeInstanceOf(UnauthorizedError)
 
@@ -248,11 +249,11 @@ describe('AuthService', () => {
         .mockResolvedValueOnce(buildUser({ status: 'BANNED' }))
 
       await expect(
-        authService.login({ username: 'alice', password: 'Password123', ip_address: '127.0.0.1' })
+        authService.login({ username: 'alice', password: 'Password123', ipAddress: '127.0.0.1' })
       ).rejects.toBeInstanceOf(ForbiddenError)
 
       await expect(
-        authService.login({ username: 'alice', password: 'Password123', ip_address: '127.0.0.1' })
+        authService.login({ username: 'alice', password: 'Password123', ipAddress: '127.0.0.1' })
       ).rejects.toBeInstanceOf(ForbiddenError)
     })
 
@@ -264,7 +265,7 @@ describe('AuthService', () => {
         authService.login({
           username: 'alice',
           password: 'Password123',
-          ip_address: '10.0.0.8',
+          ipAddress: '10.0.0.8',
         })
       ).rejects.toBeInstanceOf(UnauthorizedError)
 
@@ -280,7 +281,7 @@ describe('AuthService', () => {
         authService.login({
           username: 'alice',
           password: 'Password123',
-          ip_address: '10.0.0.8',
+          ipAddress: '10.0.0.8',
         })
       ).rejects.toBeInstanceOf(TooManyRequestsError)
     })
@@ -345,10 +346,10 @@ describe('AuthService', () => {
       prismaMock.systemLog.create.mockResolvedValue({ id: 1 })
 
       await authService.logout({
-        user_id: 'user-1',
-        refresh_token: 'refresh-token',
-        ip_address: '127.0.0.1',
-        user_agent: 'vitest',
+        userId: 'user-1',
+        refreshToken: 'refresh-token',
+        ipAddress: '127.0.0.1',
+        userAgent: 'vitest',
       })
 
       expect(prismaMock.refreshToken.updateMany).toHaveBeenCalledWith({
@@ -374,8 +375,8 @@ describe('AuthService', () => {
 
       await expect(
         authService.logout({
-          user_id: 'user-1',
-          refresh_token: 'bad-token',
+          userId: 'user-1',
+          refreshToken: 'bad-token',
         })
       ).rejects.toBeInstanceOf(UnauthorizedError)
     })
@@ -399,7 +400,7 @@ describe('AuthService', () => {
         username: 'alice',
         password: 'Password123',
         email: 'alice@example.com',
-        real_name: 'Alice',
+        realName: 'Alice',
         gender: 'female',
       })
 
@@ -447,7 +448,7 @@ describe('AuthService', () => {
         authService.register({
           username: 'alice',
           password: 'weak',
-          real_name: 'Alice',
+          realName: 'Alice',
         })
       ).rejects.toBeInstanceOf(ValidationError)
 
@@ -461,7 +462,7 @@ describe('AuthService', () => {
         authService.register({
           username: 'alice',
           password: 'Password123',
-          real_name: 'Alice',
+          realName: 'Alice',
         })
       ).rejects.toBeInstanceOf(ConflictError)
 
@@ -470,7 +471,7 @@ describe('AuthService', () => {
           username: 'alice',
           password: 'Password123',
           email: 'alice@example.com',
-          real_name: 'Alice',
+          realName: 'Alice',
         })
       ).rejects.toBeInstanceOf(ConflictError)
     })
@@ -577,8 +578,8 @@ describe('AuthService', () => {
       prismaMock.systemLog.create.mockResolvedValue({ id: 1 })
 
       await authService.resetPassword('reset-token', 'Password123', {
-        ip_address: '127.0.0.1',
-        user_agent: 'vitest',
+        ipAddress: '127.0.0.1',
+        userAgent: 'vitest',
       })
 
       expect(passwordMock.hashPassword).toHaveBeenCalledWith('Password123')
@@ -624,8 +625,8 @@ describe('AuthService', () => {
       prismaMock.systemLog.create.mockResolvedValue({ id: 1 })
 
       await authService.changePassword('user-1', 'OldPassword123', 'NewPassword123', {
-        ip_address: '127.0.0.1',
-        user_agent: 'vitest',
+        ipAddress: '127.0.0.1',
+        userAgent: 'vitest',
       })
 
       expect(passwordMock.comparePassword).toHaveBeenCalledWith('OldPassword123', 'stored-hash')

@@ -2,12 +2,10 @@
  * 重置密码确认弹窗
  */
 import React, { useState } from 'react'
-import { Modal, message, Input, Typography, Space } from 'antd'
+import { Modal, message, Input, Space } from 'antd'
 import { CopyOutlined } from '@ant-design/icons'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { usersApi } from '@/modules/info-management/api/users'
-
-const { Text } = Typography
 
 interface ResetPasswordModalProps {
   open: boolean

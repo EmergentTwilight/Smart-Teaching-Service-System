@@ -43,6 +43,7 @@ import BatchStatusModal from './BatchStatusModal'
 import RoleAssignModal from './RoleAssignModal'
 import UserPermissionsDrawer from './UserPermissionsDrawer'
 import ResetPasswordModal from './ResetPasswordModal'
+import ChangePasswordModal from './ChangePasswordModal'
 
 const { Search } = Input
 
@@ -63,6 +64,7 @@ const UserList: React.FC = () => {
   const [roleAssignOpen, setRoleAssignOpen] = useState(false)
   const [permissionsOpen, setPermissionsOpen] = useState(false)
   const [resetPasswordOpen, setResetPasswordOpen] = useState(false)
+  const [changePasswordOpen, setChangePasswordOpen] = useState(false)
   const [operatingUser, setOperatingUser] = useState<User | null>(null)
 
   // 搜索和分页状态
@@ -160,6 +162,12 @@ const UserList: React.FC = () => {
   const handleOpenResetPassword = (user: User) => {
     setOperatingUser(user)
     setResetPasswordOpen(true)
+  }
+
+  // 打开修改密码
+  const handleOpenChangePassword = (user: User) => {
+    setOperatingUser(user)
+    setChangePasswordOpen(true)
   }
 
   // 搜索处理
@@ -286,6 +294,12 @@ const UserList: React.FC = () => {
                   icon: <KeyOutlined />,
                   label: '重置密码',
                   onClick: () => handleOpenResetPassword(record),
+                },
+                {
+                  key: 'changePwd',
+                  icon: <KeyOutlined />,
+                  label: '修改密码',
+                  onClick: () => handleOpenChangePassword(record),
                 },
                 { type: 'divider' },
                 {
@@ -479,6 +493,21 @@ const UserList: React.FC = () => {
         }}
         onSuccess={() => {
           setResetPasswordOpen(false)
+          setOperatingUser(null)
+        }}
+      />
+
+      {/* 修改密码 */}
+      <ChangePasswordModal
+        open={changePasswordOpen}
+        userId={operatingUser?.id || ''}
+        userName={operatingUser?.realName || operatingUser?.username || ''}
+        onCancel={() => {
+          setChangePasswordOpen(false)
+          setOperatingUser(null)
+        }}
+        onSuccess={() => {
+          setChangePasswordOpen(false)
           setOperatingUser(null)
         }}
       />

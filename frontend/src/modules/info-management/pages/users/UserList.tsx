@@ -14,7 +14,6 @@ import {
   Card,
   Row,
   Col,
-  Switch,
   Dropdown,
   Alert,
   Modal,
@@ -85,19 +84,6 @@ const UserList: React.FC = () => {
     queryFn: () => usersApi.getList(params),
   })
 
-  // 修改状态 mutation
-  const updateStatusMutation = useMutation({
-    mutationFn: ({ userId, status }: { userId: string; status: string }) =>
-      usersApi.updateStatus(userId, status),
-    onSuccess: () => {
-      message.success('状态已更新')
-      queryClient.invalidateQueries({ queryKey: ['users'] })
-    },
-    onError: () => {
-      message.error('状态更新失败')
-    },
-  })
-
   const deleteMutation = useMutation({
     mutationFn: (id: string) => usersApi.delete(id),
     onSuccess: () => {
@@ -146,14 +132,6 @@ const UserList: React.FC = () => {
   const handleOpenDeleteModal = (user: User) => {
     setUserToDelete(user)
     setDeleteModalOpen(true)
-  }
-
-  // 处理状态切换
-  const handleStatusChange = (user: User, checked: boolean) => {
-    updateStatusMutation.mutate({
-      userId: user.id,
-      status: checked ? 'ACTIVE' : 'INACTIVE',
-    })
   }
 
   // 打开角色分配
@@ -237,29 +215,35 @@ const UserList: React.FC = () => {
       dataIndex: 'roles',
       key: 'roles',
       width: 150,
-      render: (roles: string[]) => (
-        <Space size={4} wrap>
-          {roles?.map((role) => (
-            <Tag key={role} color="blue">
-              {role}
-            </Tag>
-          ))}
-        </Space>
-      ),
+      render: (roles: string[]) => {
+        if (!roles || roles.length === 0) {
+          return <span style={{ color: '#999' }}>未分配</span>
+        }
+        return (
+          <Space size={4} wrap>
+            {roles.map((role) => (
+              <Tag key={role} color="blue">
+                {role}
+              </Tag>
+            ))}
+          </Space>
+        )
+      },
     },
     {
       title: '状态',
       dataIndex: 'status',
       key: 'status',
       width: 100,
-      render: (status: string, record) => (
-        <Switch
-          checked={status === 'ACTIVE'}
-          onChange={(checked) => handleStatusChange(record, checked)}
-          checkedChildren="正常"
-          unCheckedChildren="禁用"
-        />
-      ),
+      render: (status: string) => {
+        const statusConfig: Record<string, { color: string; text: string }> = {
+          ACTIVE: { color: 'success', text: '正常' },
+          INACTIVE: { color: 'default', text: '禁用' },
+          BANNED: { color: 'error', text: '封禁' },
+        }
+        const config = statusConfig[status] || { color: 'default', text: status }
+        return <Tag color={config.color}>{config.text}</Tag>
+      },
     },
     {
       title: '创建时间',

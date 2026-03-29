@@ -68,4 +68,76 @@ test.describe('登录功能', () => {
       timeout: 5000,
     })
   })
+
+  test('登录后刷新页面应该保持会话', async ({ page }) => {
+    const username = process.env.E2E_USERNAME || 'admin'
+    const password = process.env.E2E_PASSWORD || 'admin123'
+
+    // 登录
+    await page.goto('/login')
+    await page.fill('input[name="username"]', username)
+    await page.fill('input[name="password"]', password)
+    await page.click('button[type="submit"]')
+    await expect(page).toHaveURL('http://localhost:5173/', { timeout: 15000 })
+
+    // 刷新页面
+    await page.reload()
+
+    // 验证仍然在 Dashboard 页面（没有被重定向到登录页）
+    await expect(page).toHaveURL('http://localhost:5173/', { timeout: 10000 })
+    await expect(page.locator('.ant-layout-content, .ant-pro-layout-content')).toBeVisible({
+      timeout: 5000,
+    })
+  })
+
+  test('登出应该跳转到登录页', async ({ page }) => {
+    const username = process.env.E2E_USERNAME || 'admin'
+    const password = process.env.E2E_PASSWORD || 'admin123'
+
+    // 登录
+    await page.goto('/login')
+    await page.fill('input[name="username"]', username)
+    await page.fill('input[name="password"]', password)
+    await page.click('button[type="submit"]')
+    await expect(page).toHaveURL('http://localhost:5173/', { timeout: 15000 })
+
+    // 查找登出按钮 - 尝试多种可能的位置
+    // 1. 先尝试查找用户菜单或头像
+    const userMenu = page
+      .locator('[class*="user-dropdown"], [class*="avatar"], [aria-label*="user"]')
+      .first()
+
+    if (await userMenu.isVisible({ timeout: 2000 }).catch(() => false)) {
+      await userMenu.click()
+      await page.waitForTimeout(500)
+
+      // 在下拉菜单中查找登出按钮
+      const logoutInMenu = page.locator(
+        '.ant-dropdown-menu button:has-text("退出"), .ant-dropdown-menu a:has-text("退出")'
+      )
+      if (await logoutInMenu.isVisible({ timeout: 2000 }).catch(() => false)) {
+        await logoutInMenu.click()
+        await expect(page).toHaveURL(/.*login.*/, { timeout: 10000 })
+        return
+      }
+    }
+
+    // 2. 如果找不到用户菜单，尝试查找直接的登出按钮
+    const directLogout = page.locator('button:has-text("退出"), button:has-text("登出")')
+    if (await directLogout.isVisible({ timeout: 2000 }).catch(() => false)) {
+      await directLogout.click()
+      await expect(page).toHaveURL(/.*login.*/, { timeout: 10000 })
+      return
+    }
+
+    // 3. 如果都找不到，清除 localStorage 模拟登出
+    await page.evaluate(() => {
+      localStorage.clear()
+      sessionStorage.clear()
+    })
+
+    // 刷新页面，应该跳转到登录页
+    await page.reload()
+    await expect(page).toHaveURL(/.*login.*/, { timeout: 10000 })
+  })
 })

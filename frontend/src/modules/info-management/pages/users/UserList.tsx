@@ -66,6 +66,10 @@ const UserList: React.FC = () => {
   const [resetPasswordOpen, setResetPasswordOpen] = useState(false)
   const [changePasswordOpen, setChangePasswordOpen] = useState(false)
   const [operatingUser, setOperatingUser] = useState<User | null>(null)
+  
+  // 删除确认弹窗状态
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false)
+  const [userToDelete, setUserToDelete] = useState<User | null>(null)
 
   // 搜索和分页状态
   const [params, setParams] = useState<UserQueryParams>({
@@ -86,11 +90,11 @@ const UserList: React.FC = () => {
     mutationFn: ({ userId, status }: { userId: string; status: string }) =>
       usersApi.updateStatus(userId, status),
     onSuccess: () => {
-      message.success('状态修改成功')
+      message.success('状态已更新')
       queryClient.invalidateQueries({ queryKey: ['users'] })
     },
     onError: () => {
-      message.error('状态修改失败')
+      message.error('状态更新失败')
     },
   })
 
@@ -136,6 +140,12 @@ const UserList: React.FC = () => {
       await usersApi.create(values)
     }
     queryClient.invalidateQueries({ queryKey: ['users'] })
+  }
+
+  // 打开删除确认弹窗
+  const handleOpenDeleteModal = (user: User) => {
+    setUserToDelete(user)
+    setDeleteModalOpen(true)
   }
 
   // 处理状态切换
@@ -307,16 +317,7 @@ const UserList: React.FC = () => {
                   icon: <DeleteOutlined />,
                   label: '删除用户',
                   danger: true,
-                  onClick: () => {
-                    Modal.confirm({
-                      title: '确认删除',
-                      content: `确定要删除用户 "${record.username}" 吗？`,
-                      okText: '确定',
-                      cancelText: '取消',
-                      okButtonProps: { danger: true },
-                      onOk: () => deleteMutation.mutate(record.id),
-                    })
-                  },
+                  onClick: () => handleOpenDeleteModal(record),
                 },
               ],
             }}
@@ -511,6 +512,24 @@ const UserList: React.FC = () => {
           setOperatingUser(null)
         }}
       />
+
+      {/* 删除确认弹窗 */}
+      <Modal
+        title="确认删除"
+        open={deleteModalOpen}
+        onCancel={() => setDeleteModalOpen(false)}
+        onOk={() => {
+          if (userToDelete) {
+            deleteMutation.mutate(userToDelete.id)
+            setDeleteModalOpen(false)
+          }
+        }}
+        okText="确定"
+        cancelText="取消"
+        okButtonProps={{ danger: true, loading: deleteMutation.isPending }}
+      >
+        <p>确定要删除用户 <strong>{userToDelete?.username}</strong> 吗？此操作不可恢复。</p>
+      </Modal>
     </div>
   )
 }

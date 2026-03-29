@@ -15,6 +15,7 @@ import ForgotPassword from '@/modules/info-management/pages/ForgotPassword';
 import ResetPassword from '@/modules/info-management/pages/ResetPassword';
 import Dashboard from '@/modules/info-management/pages/Dashboard';
 import UserList from '@/modules/info-management/pages/users/UserList';
+import SystemLogs from '@/modules/info-management/pages/users/SystemLogs';
 import ComingSoon from '@/shared/components/ComingSoon';
 import ErrorBoundary from '@/shared/components/ErrorBoundary';
 
@@ -95,6 +96,7 @@ const App: React.FC = () => {
                 
                 {/* 基础信息管理 */}
                 <Route path="users" element={<UserList />} />
+                <Route path="users/logs" element={<SystemLogs />} />
                 <Route path="info/roles" element={<ComingSoon title="角色权限" />} />
                 <Route path="info/courses" element={<ComingSoon title="课程信息" />} />
                 <Route path="info/classrooms" element={<ComingSoon title="教室管理" />} />

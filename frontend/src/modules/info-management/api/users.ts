@@ -102,9 +102,10 @@ export const usersApi = {
   /**
    * 重置用户密码
    * @param id 用户ID
+   * @param newPassword 新密码
    */
-  resetPassword: async (id: string): Promise<void> => {
-    return request.post(`/users/${id}/password/reset`)
+  resetPassword: async (id: string, newPassword: string): Promise<void> => {
+    return request.post(`/users/${id}/password/reset`, { newPassword })
   },
 
   /**

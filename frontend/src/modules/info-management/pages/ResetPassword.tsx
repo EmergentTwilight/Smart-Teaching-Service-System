@@ -147,6 +147,7 @@ const ResetPassword: React.FC = () => {
             ]}
           >
             <Input.Password
+              name="newPassword"
               prefix={<LockOutlined style={{ color: '#9ca3af' }} />}
               placeholder="新密码"
               onChange={(e) => {
@@ -189,6 +190,7 @@ const ResetPassword: React.FC = () => {
             ]}
           >
             <Input.Password
+              name="confirmPassword"
               prefix={<CheckCircleOutlined style={{ color: '#9ca3af' }} />}
               placeholder="确认新密码"
             />

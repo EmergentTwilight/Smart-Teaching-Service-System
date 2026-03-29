@@ -10,6 +10,9 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useAuthStore } from '@/shared/stores/authStore';
 import MainLayout from '@/shared/components/layout/MainLayout';
 import Login from '@/modules/info-management/pages/Login';
+import Register from '@/modules/info-management/pages/Register';
+import ForgotPassword from '@/modules/info-management/pages/ForgotPassword';
+import ResetPassword from '@/modules/info-management/pages/ResetPassword';
 import Dashboard from '@/modules/info-management/pages/Dashboard';
 import UserList from '@/modules/info-management/pages/users/UserList';
 import ComingSoon from '@/shared/components/ComingSoon';
@@ -76,6 +79,9 @@ const App: React.FC = () => {
           <BrowserRouter>
             <Routes>
               <Route path="/login" element={<Login />} />
+              <Route path="/register" element={<Register />} />
+              <Route path="/forgot-password" element={<ForgotPassword />} />
+              <Route path="/reset-password" element={<ResetPassword />} />
               <Route
                 path="/"
                 element={
@@ -85,9 +91,10 @@ const App: React.FC = () => {
                 }
               >
                 <Route index element={<Dashboard />} />
+                <Route path="dashboard" element={<Dashboard />} />
                 
                 {/* 基础信息管理 */}
-                <Route path="info/users" element={<UserList />} />
+                <Route path="users" element={<UserList />} />
                 <Route path="info/roles" element={<ComingSoon title="角色权限" />} />
                 <Route path="info/courses" element={<ComingSoon title="课程信息" />} />
                 <Route path="info/classrooms" element={<ComingSoon title="教室管理" />} />

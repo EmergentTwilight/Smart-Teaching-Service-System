@@ -100,6 +100,7 @@ const Register: React.FC = () => {
             ]}
           >
             <Input
+              name="username"
               prefix={<UserOutlined style={{ color: '#9ca3af' }} />}
               placeholder="用户名"
               autoComplete="username"
@@ -114,6 +115,7 @@ const Register: React.FC = () => {
             ]}
           >
             <Input
+              name="realName"
               prefix={<UserOutlined style={{ color: '#9ca3af' }} />}
               placeholder="真实姓名"
             />
@@ -127,6 +129,7 @@ const Register: React.FC = () => {
             ]}
           >
             <Input
+              name="email"
               prefix={<MailOutlined style={{ color: '#9ca3af' }} />}
               placeholder="邮箱"
               type="email"
@@ -142,6 +145,7 @@ const Register: React.FC = () => {
             ]}
           >
             <Input.Password
+              name="password"
               prefix={<LockOutlined style={{ color: '#9ca3af' }} />}
               placeholder="密码"
               onChange={(e) => {
@@ -184,6 +188,7 @@ const Register: React.FC = () => {
             ]}
           >
             <Input.Password
+              name="confirmPassword"
               prefix={<CheckCircleOutlined style={{ color: '#9ca3af' }} />}
               placeholder="确认密码"
             />

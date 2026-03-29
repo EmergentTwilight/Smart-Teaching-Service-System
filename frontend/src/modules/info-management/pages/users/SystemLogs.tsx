@@ -92,8 +92,8 @@ const SystemLogs: React.FC = () => {
     },
     {
       title: '用户',
-      dataIndex: 'userName',
-      key: 'userName',
+      dataIndex: 'username',
+      key: 'username',
       width: 120,
     },
     {
@@ -127,14 +127,14 @@ const SystemLogs: React.FC = () => {
     },
     {
       title: 'IP 地址',
-      dataIndex: 'ip',
-      key: 'ip',
+      dataIndex: 'ipAddress',
+      key: 'ipAddress',
       width: 140,
     },
   ]
 
   const logs = data?.items || []
-  const total = data?.total || 0
+  const total = data?.pagination?.total || 0
 
   return (
     <div>
@@ -147,12 +147,12 @@ const SystemLogs: React.FC = () => {
             value={params.action}
             onChange={handleActionChange}
             options={[
-              { label: '创建', value: 'CREATE' },
-              { label: '更新', value: 'UPDATE' },
-              { label: '删除', value: 'DELETE' },
-              { label: '登录', value: 'LOGIN' },
-              { label: '登出', value: 'LOGOUT' },
-              { label: '查看', value: 'VIEW' },
+              { label: '创建', value: 'create' },
+              { label: '更新', value: 'update' },
+              { label: '删除', value: 'delete' },
+              { label: '登录', value: 'login' },
+              { label: '登出', value: 'logout' },
+              { label: '查看', value: 'view' },
             ]}
           />
           <Select

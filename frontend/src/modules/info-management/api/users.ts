@@ -94,8 +94,8 @@ export const usersApi = {
    */
   changePassword: async (id: string, oldPassword: string, newPassword: string): Promise<void> => {
     return request.patch(`/users/${id}/password`, {
-      old_password: oldPassword,
-      new_password: newPassword,
+      oldPassword,
+      newPassword,
     })
   },
 
@@ -160,12 +160,22 @@ export const usersApi = {
     items: Array<{
       id: string
       userId: string
+      username: string
+      realName: string
       action: string
+      resourceType: string
+      resourceId: string
+      ipAddress: string
+      userAgent: string
       details: string
-      ip: string
       createdAt: string
     }>
-    total: number
+    pagination: {
+      page: number
+      pageSize: number
+      total: number
+      totalPages: number
+    }
   }> => {
     return request.get('/users/logs', { params })
   },

@@ -44,7 +44,7 @@ const MENU_ITEMS: MenuProps['items'] = [
       icon: <UserOutlined />,
       label: '基础信息管理',
       children: [
-        { key: '/info/users', icon: <TeamOutlined />, label: '用户管理' },
+        { key: '/users', icon: <TeamOutlined />, label: '用户管理' },
         { key: '/info/roles', icon: <SafetyOutlined />, label: '角色权限' },
         { key: '/info/courses', icon: <BookOutlined />, label: '课程信息' },
         { key: '/info/classrooms', icon: <HomeOutlined />, label: '教室管理' },

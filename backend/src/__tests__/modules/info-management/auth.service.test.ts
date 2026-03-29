@@ -190,7 +190,7 @@ describe('AuthService', () => {
 
       expect(result.accessToken).toEqual(expect.any(String))
       expect(result.refreshToken).toEqual(expect.any(String))
-      expect(result.expiresIn).toBe(900)
+      expect(result.expiresIn).toBe(7200)
       expect(result.tokenType).toBe('Bearer')
       expect(result.user.roles).toEqual(['student', 'assistant'])
       expect(result.user.permissions).toEqual(['course:read', 'profile:update'])

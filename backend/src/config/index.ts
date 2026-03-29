@@ -55,7 +55,7 @@ const config = {
     /** JWT 密钥（生产环境必须通过环境变量设置） */
     secret: process.env.JWT_SECRET || 'stss-super-secret-jwt-key-2026-dev-only',
     /** Access Token 过期时间（短时效，提高安全性） */
-    accessTokenExpiresIn: (process.env.JWT_ACCESS_EXPIRES_IN || '15m') as string,
+    accessTokenExpiresIn: (process.env.JWT_ACCESS_EXPIRES_IN || '2h') as string,
     /** Refresh Token 过期时间（长时效，用于刷新 access token） */
     refreshTokenExpiresIn: (process.env.JWT_REFRESH_EXPIRES_IN || '7d') as string,
     /** @deprecated 使用 accessTokenExpiresIn 代替 */

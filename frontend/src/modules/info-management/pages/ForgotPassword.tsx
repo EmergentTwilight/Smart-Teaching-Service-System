@@ -65,7 +65,7 @@ const ForgotPassword: React.FC = () => {
               </div>
             }
             extra={[
-              <Button key="resend" onClick={handleResend} loading={loading}>
+              <Button key="resend" type="primary" onClick={handleResend} loading={loading}>
                 重新发送
               </Button>,
               <Link to="/login" key="login">

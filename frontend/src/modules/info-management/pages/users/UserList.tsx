@@ -24,11 +24,8 @@ import {
   DeleteOutlined,
   ReloadOutlined,
   KeyOutlined,
-  SafetyOutlined,
   UserOutlined,
-  FileTextOutlined,
   UploadOutlined,
-  DownOutlined,
 } from '@ant-design/icons'
 import type { ColumnsType, TableProps } from 'antd/es/table'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -72,12 +69,6 @@ const UserList: React.FC = () => {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const loggedInUser = useAuthStore((state) => state.user)
-  
-  // 检查是否有管理员权限（用于显示系统日志按钮）
-  const canViewLogs = useMemo(() => {
-    const roles = loggedInUser?.roles || []
-    return roles.includes('admin') || roles.includes('super_admin')
-  }, [loggedInUser?.roles])
 
   // 表单状态
   const [formOpen, setFormOpen] = useState(false)
@@ -204,6 +195,11 @@ const UserList: React.FC = () => {
   // 状态筛选
   const handleFilterStatusChange = useCallback((value: string | undefined) => {
     setParams((prev) => ({ ...prev, status: value, page: 1 }))
+  }, [])
+
+  // 角色筛选
+  const handleFilterRoleChange = useCallback((value: string | undefined) => {
+    setParams((prev) => ({ ...prev, role: value, page: 1 }))
   }, [])
 
   // 分页变化
@@ -412,7 +408,7 @@ const UserList: React.FC = () => {
               <Select
                 placeholder="状态筛选"
                 allowClear
-                style={{ width: 120 }}
+                style={{ width: 120, height: 40 }}
                 value={params.status}
                 onChange={handleFilterStatusChange}
                 options={[
@@ -421,17 +417,22 @@ const UserList: React.FC = () => {
                   { label: '封禁', value: 'BANNED' },
                 ]}
               />
+              <Select
+                placeholder="角色筛选"
+                allowClear
+                style={{ width: 120, height: 40 }}
+                value={params.role}
+                onChange={handleFilterRoleChange}
+                options={[
+                  { label: '学生', value: 'student' },
+                  { label: '教师', value: 'teacher' },
+                  { label: '管理员', value: 'admin' },
+                  { label: '超级管理员', value: 'super_admin' },
+                ]}
+              />
               <Button icon={<ReloadOutlined />} onClick={handleReset}>
                 重置
               </Button>
-              {canViewLogs && (
-                <Button
-                  icon={<FileTextOutlined />}
-                  onClick={() => navigate('/users/logs')}
-                >
-                  系统日志
-                </Button>
-              )}
             </Space>
           </Col>
           <Col>

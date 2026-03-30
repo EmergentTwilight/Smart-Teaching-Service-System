@@ -2,7 +2,7 @@
  * 系统日志页面
  * 显示用户操作日志，支持筛选（用户、操作类型、时间范围)
  */
-import React, { useState, useCallback } from 'react'
+import React, { useState, useCallback, useMemo } from 'react'
 import {
   Table,
   Card,
@@ -18,6 +18,16 @@ import { usersApi } from '@/modules/info-management/api/users'
 import dayjs from 'dayjs'
 
 const { RangePicker } = DatePicker
+
+// 操作类型颜色映射提取到组件外部
+const ACTION_COLOR_MAP: Record<string, string> = {
+  CREATE: 'green',
+  UPDATE: 'blue',
+  DELETE: 'red',
+  LOGIN: 'cyan',
+  LOGOUT: 'orange',
+  VIEW: 'default',
+}
 
 const SystemLogs: React.FC = () => {
   const [params, setParams] = useState({
@@ -81,57 +91,52 @@ const SystemLogs: React.FC = () => {
   }, [])
 
   // 表格列定义
-  const columns = [
-    {
-      title: '时间',
-      dataIndex: 'createdAt',
-      key: 'createdAt',
-      width: 180,
-      render: (date: string) =>
-        date ? dayjs(date).format('YYYY-MM-DD HH:mm:ss') : '-',
-    },
-    {
-      title: '用户',
-      dataIndex: 'username',
-      key: 'username',
-      width: 120,
-    },
-    {
-      title: '操作类型',
-      dataIndex: 'action',
-      key: 'action',
-      width: 120,
-      render: (action: string) => {
-        const colorMap: Record<string, string> = {
-          CREATE: 'green',
-          UPDATE: 'blue',
-          DELETE: 'red',
-          LOGIN: 'cyan',
-          LOGOUT: 'orange',
-          VIEW: 'default',
-        }
-        return <Tag color={colorMap[action] || 'default'}>{action}</Tag>
+  const columns = useMemo(
+    () => [
+      {
+        title: '时间',
+        dataIndex: 'createdAt',
+        key: 'createdAt',
+        width: 180,
+        render: (date: string) =>
+          date ? dayjs(date).format('YYYY-MM-DD HH:mm:ss') : '-',
       },
-    },
-    {
-      title: '资源类型',
-      dataIndex: 'resourceType',
-      key: 'resourceType',
-      width: 120,
-    },
-    {
-      title: '详情',
-      dataIndex: 'details',
-      key: 'details',
-      ellipsis: true,
-    },
-    {
-      title: 'IP 地址',
-      dataIndex: 'ipAddress',
-      key: 'ipAddress',
-      width: 140,
-    },
-  ]
+      {
+        title: '用户',
+        dataIndex: 'username',
+        key: 'username',
+        width: 120,
+      },
+      {
+        title: '操作类型',
+        dataIndex: 'action',
+        key: 'action',
+        width: 120,
+        render: (action: string) => (
+          <Tag color={ACTION_COLOR_MAP[action] || 'default'}>{action}</Tag>
+        ),
+      },
+      {
+        title: '资源类型',
+        dataIndex: 'resourceType',
+        key: 'resourceType',
+        width: 120,
+      },
+      {
+        title: '详情',
+        dataIndex: 'details',
+        key: 'details',
+        ellipsis: true,
+      },
+      {
+        title: 'IP 地址',
+        dataIndex: 'ipAddress',
+        key: 'ipAddress',
+        width: 140,
+      },
+    ],
+    []
+  )
 
   const logs = data?.items || []
   const total = data?.pagination?.total || 0

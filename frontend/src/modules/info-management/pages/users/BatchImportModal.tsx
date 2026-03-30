@@ -2,7 +2,7 @@
  * 批量导入用户组件
  * 支持 Excel/CSV 文件上传和批量创建用户
  */
-import React, { useState } from 'react'
+import React, { useState, useCallback } from 'react'
 import {
   Modal,
   Upload,
@@ -76,7 +76,7 @@ const BatchImportModal: React.FC<BatchImportModalProps> = ({
   })
 
   // 解析 Excel/CSV 文件
-  const parseFile = async (file: File): Promise<ParsedUser[]> => {
+  const parseFile = useCallback(async (file: File): Promise<ParsedUser[]> => {
     return new Promise((resolve) => {
       // 文件大小限制
       const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5MB
@@ -129,28 +129,28 @@ const BatchImportModal: React.FC<BatchImportModalProps> = ({
       }
       reader.readAsText(file)
     })
-  }
+  }, [])
 
   // 处理文件上传
-  const handleUpload = async (file: File) => {
+  const handleUpload = useCallback(async (file: File) => {
     const users = await parseFile(file)
     setParsedUsers(users)
     setCurrentStep(1)
     return false // 阻止自动上传
-  }
+  }, [parseFile])
 
   // 开始导入
-  const handleImport = () => {
+  const handleImport = useCallback(() => {
     const validUsers = parsedUsers.filter((u) => u.valid)
     if (validUsers.length === 0) {
       message.warning('没有有效的用户数据可导入')
       return
     }
     batchCreate(validUsers)
-  }
+  }, [parsedUsers, batchCreate])
 
   // 下载模板
-  const handleDownloadTemplate = () => {
+  const handleDownloadTemplate = useCallback(() => {
     const template = 'username,realName,email,phone,roles\nzhangsan,张三,zhangsan@example.com,13800138000,student\nlisi,李四,lisi@example.com,,teacher'
     const blob = new Blob([template], { type: 'text/csv' })
     const url = URL.createObjectURL(blob)
@@ -159,7 +159,7 @@ const BatchImportModal: React.FC<BatchImportModalProps> = ({
     a.download = 'user_import_template.csv'
     a.click()
     URL.revokeObjectURL(url)
-  }
+  }, [])
 
   // 重置状态
   const handleReset = () => {

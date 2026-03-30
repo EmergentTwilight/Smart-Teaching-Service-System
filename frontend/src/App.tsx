@@ -38,11 +38,26 @@ const queryClient = new QueryClient({
 });
 
 // 受保护的路由组件
-const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+interface ProtectedRouteProps {
+  children: React.ReactNode;
+  requiredRoles?: string[];
+}
+
+const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requiredRoles }) => {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const user = useAuthStore((state) => state.user);
 
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
+  }
+
+  if (requiredRoles && user) {
+    const userRoles = user.roles || [];
+    const hasRole = requiredRoles.some((role) => userRoles.includes(role));
+    if (!hasRole) {
+      // 暂时跳转到首页并提示无权限
+      return <Navigate to="/" replace />;
+    }
   }
 
   return <>{children}</>;

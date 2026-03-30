@@ -1,0 +1,104 @@
+/* Toast 容器 */
+#toast-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-top: 16px;
+  pointer-events: none;
+}
+
+/* Toast 项 */
+.toast {
+  min-width: 300px;
+  max-width: 600px;
+  padding: 12px 20px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  font-size: 14px;
+  font-weight: 500;
+  margin-bottom: 8px;
+  opacity: 0;
+  transform: translateY(-20px);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  pointer-events: auto;
+}
+
+.toast-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Toast 图标 */
+.toast-icon {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: bold;
+  flex-shrink: 0;
+}
+
+/* Toast 内容 */
+.toast-content {
+  flex: 1;
+  line-height: 1.5;
+}
+
+/* 成功提示 */
+.toast-success {
+  background-color: #f0fdf4;
+  color: #166534;
+  border: 1px solid #bbf7d0;
+}
+
+.toast-success .toast-icon {
+  background-color: #22c55e;
+  color: white;
+}
+
+/* 错误提示 */
+.toast-error {
+  background-color: #fef2f2;
+  color: #991b1b;
+  border: 1px solid #fecaca;
+}
+
+.toast-error .toast-icon {
+  background-color: #ef4444;
+  color: white;
+}
+
+/* 警告提示 */
+.toast-warning {
+  background-color: #fffbeb;
+  color: #92400e;
+  border: 1px solid #fde68a;
+}
+
+.toast-warning .toast-icon {
+  background-color: #f59e0b;
+  color: white;
+}
+
+/* 信息提示 */
+.toast-info {
+  background-color: #eff6ff;
+  color: #1e40af;
+  border: 1px solid #bfdbfe;
+}
+
+.toast-info .toast-icon {
+  background-color: #3b82f6;
+  color: white;
+}

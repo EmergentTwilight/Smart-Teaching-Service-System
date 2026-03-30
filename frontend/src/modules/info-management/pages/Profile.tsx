@@ -3,7 +3,7 @@
  * 查看和修改当前用户信息
  */
 import React, { useState } from 'react';
-import { Card, Form, Input, Button, message, Descriptions, Space, Typography, Row, Col } from 'antd';
+import { Card, Form, Input, Button, Descriptions, Space, Typography, Row, Col } from 'antd';
 import {
   UserOutlined,
   MailOutlined,
@@ -15,6 +15,7 @@ import { useAuthStore } from '@/shared/stores/authStore';
 import { authApi } from '@/modules/info-management/api/auth';
 import { usersApi } from '@/modules/info-management/api/users';
 import type { User } from '@/shared/types';
+import toast from '@/shared/components/Toast/Toast';
 
 const Profile: React.FC = () => {
   const { user } = useAuthStore();
@@ -34,10 +35,10 @@ const Profile: React.FC = () => {
         oldPassword: values.oldPassword,
         newPassword: values.newPassword,
       });
-      message.success('密码修改成功');
+      toast.success('密码修改成功');
       passwordForm.resetFields();
     } catch (error: unknown) {
-      message.error((error as any).response?.data?.message || '修改密码失败');
+      toast.error((error as any).response?.data?.message || '修改密码失败');
     } finally {
       setPasswordLoading(false);
     }
@@ -48,7 +49,7 @@ const Profile: React.FC = () => {
    */
   const handleProfileSubmit = async (values: Partial<User>) => {
     if (!user?.id) {
-      message.error('用户未登录')
+      toast.error('用户未登录')
       return
     }
     setLoading(true)
@@ -61,12 +62,12 @@ const Profile: React.FC = () => {
       if (values.gender !== undefined) updateData.gender = values.gender
 
       await usersApi.update(user.id, updateData)
-      message.success('信息更新成功')
+      toast.success('信息更新成功')
     } catch (error) {
       if (error instanceof Error) {
-        message.error(error.message || '更新失败')
+        toast.error(error.message || '更新失败')
       } else {
-        message.error('更新失败')
+        toast.error('更新失败')
       }
     } finally {
       setLoading(false)

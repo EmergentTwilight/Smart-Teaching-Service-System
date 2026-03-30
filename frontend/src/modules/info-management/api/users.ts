@@ -82,8 +82,12 @@ export const usersApi = {
    * @param userIds 用户ID列表
    * @param status 新状态
    */
-  batchUpdateStatus: async (userIds: string[], status: string): Promise<void> => {
-    return request.patch('/users/batch/status', { userIds, status })
+  batchUpdateStatus: async (
+    userIds: string[],
+    status?: string,
+    roleIds?: string[]
+  ): Promise<void> => {
+    return request.patch('/users/batch/status', { userIds, status, roleIds })
   },
 
   /**

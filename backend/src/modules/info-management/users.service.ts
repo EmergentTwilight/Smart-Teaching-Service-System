@@ -443,7 +443,7 @@ export const usersService = {
    * 批量修改用户状态
    */
   async batchUpdateStatus(data: BatchUpdateStatusInput) {
-    const { userIds, status } = data
+    const { userIds, status, roleIds } = data
 
     // 数量上限检查
     if (userIds.length > 100) {
@@ -459,9 +459,31 @@ export const usersService = {
       throw new NotFoundError(`用户不存在: ${missingIds.join(', ')}`)
     }
 
-    await prisma.user.updateMany({
-      where: { id: { in: userIds } },
-      data: { status },
+    await prisma.$transaction(async (tx) => {
+      // 更新状态
+      if (status !== undefined) {
+        await tx.user.updateMany({
+          where: { id: { in: userIds } },
+          data: { status },
+        })
+      }
+
+      // 更新角色
+      if (roleIds !== undefined && roleIds.length > 0) {
+        // 先删除所有用户的现有角色
+        await tx.userRole.deleteMany({
+          where: { userId: { in: userIds } },
+        })
+
+        // 为每个用户添加新角色
+        const userRoleData = userIds.flatMap((userId) =>
+          roleIds.map((roleId) => ({
+            userId,
+            roleId,
+          }))
+        )
+        await tx.userRole.createMany({ data: userRoleData })
+      }
     })
 
     return {

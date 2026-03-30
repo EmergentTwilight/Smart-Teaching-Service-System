@@ -326,9 +326,9 @@ const UserList: React.FC = () => {
         baseColumns.push({
           title: '操作',
           key: 'action',
-          width: 150,
+          width: 180,
           fixed: 'right',
-          align: 'center',
+          align: 'left',
           render: (_, record) => (
             <Space size={16}>
               <Button
@@ -377,7 +377,7 @@ const UserList: React.FC = () => {
                   size="small"
                   onClick={() => setBatchStatusOpen(true)}
                 >
-                  批量修改状态
+                  批量修改
                 </Button>
                 <Button size="small" onClick={clearSelection}>
                   取消选择
@@ -481,7 +481,7 @@ const UserList: React.FC = () => {
         }}
       />
 
-      {/* 批量修改状态 */}
+      {/* 批量修改 */}
       <BatchStatusModal
         open={batchStatusOpen}
         userIds={selectedRowKeys as string[]}

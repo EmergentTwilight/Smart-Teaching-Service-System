@@ -125,10 +125,18 @@ export const batchCreateUsersSchema = z.object({
 /**
  * 批量修改用户状态 schema
  */
-export const batchUpdateStatusSchema = z.object({
-  userIds: z.array(z.string()).min(1, '至少需要一个用户ID').max(100, '单次最多修改100个用户'),
-  status: z.nativeEnum(UserStatus),
-})
+export const batchUpdateStatusSchema = z
+  .object({
+    userIds: z.array(z.string()).min(1, '至少需要一个用户ID').max(100, '单次最多修改100个用户'),
+    status: z.nativeEnum(UserStatus).optional(),
+    roleIds: z.array(z.string()).optional(),
+  })
+  .refine(
+    (data) => data.status !== undefined || (data.roleIds !== undefined && data.roleIds.length > 0),
+    {
+      message: '至少需要提供状态或角色之一',
+    }
+  )
 
 /**
  * 修改密码 schema

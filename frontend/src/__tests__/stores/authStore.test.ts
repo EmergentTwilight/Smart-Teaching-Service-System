@@ -1,12 +1,12 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { act } from '@testing-library/react'
 import { useAuthStore } from '@/shared/stores/authStore'
-import type { User } from '@/shared/types'
+import type { AuthUserDto } from '@/shared/types'
 
 // vitest 全局类型
 vi.stubGlobal('console', console)
 
-const createMockUser = (overrides?: Partial<User>): User => ({
+const createMockUser = (overrides?: Partial<AuthUserDto>): AuthUserDto => ({
   id: '1',
   username: 'testuser',
   email: 'test@example.com',
@@ -14,11 +14,10 @@ const createMockUser = (overrides?: Partial<User>): User => ({
   realName: 'Test User',
   avatarUrl: null,
   gender: null,
-  status: 'ACTIVE',
+  status: 'active',
   roles: ['student'],
+  permissions: [],
   lastLoginAt: null,
-  createdAt: '2026-01-01T00:00:00Z',
-  updatedAt: '2026-01-01T00:00:00Z',
   ...overrides,
 })
 

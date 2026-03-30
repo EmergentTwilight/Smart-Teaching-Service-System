@@ -27,7 +27,7 @@ import {
 import type { ColumnsType, TableProps } from 'antd/es/table'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { usersApi, type UserQueryParams } from '@/modules/info-management/api/users'
-import type { User, UserFormData } from '@/shared/types'
+import type { UserDetail, UserFormData } from '@/shared/types'
 import { USER_STATUS_CONFIG, USER_ROLE_LABELS } from '@/shared/constants/user'
 import { useAuthStore } from '@/shared/stores/authStore'
 import dayjs from 'dayjs'
@@ -66,7 +66,7 @@ const UserList: React.FC = () => {
 
   // 表单状态
   const [formOpen, setFormOpen] = useState(false)
-  const [currentUser, setCurrentUser] = useState<User | null>(null)
+  const [currentUser, setCurrentUser] = useState<UserDetail | null>(null)
 
   // 多选状态
   const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([])
@@ -78,11 +78,11 @@ const UserList: React.FC = () => {
   const [roleAssignOpen, setRoleAssignOpen] = useState(false)
   const [permissionsOpen, setPermissionsOpen] = useState(false)
   const [changePasswordOpen, setChangePasswordOpen] = useState(false)
-  const [operatingUser, setOperatingUser] = useState<User | null>(null)
+  const [operatingUser, setOperatingUser] = useState<UserDetail | null>(null)
   
   // 删除确认弹窗状态
   const [deleteModalOpen, setDeleteModalOpen] = useState(false)
-  const [userToDelete, setUserToDelete] = useState<User | null>(null)
+  const [userToDelete, setUserToDelete] = useState<UserDetail | null>(null)
 
   // 搜索和分页状态
   const [params, setParams] = useState<UserQueryParams>({
@@ -110,7 +110,7 @@ const UserList: React.FC = () => {
   })
 
   // 表格多选配置
-  const rowSelection = useMemo<TableProps<User>['rowSelection']>(
+  const rowSelection = useMemo<TableProps<UserDetail>['rowSelection']>(
     () => ({
       selectedRowKeys,
       onChange: (keys) => setSelectedRowKeys(keys),
@@ -130,7 +130,7 @@ const UserList: React.FC = () => {
   }, [])
 
   // 处理编辑
-  const handleEdit = useCallback((user: User) => {
+  const handleEdit = useCallback((user: UserDetail) => {
     setCurrentUser(user)
     setFormOpen(true)
   }, [])
@@ -146,7 +146,7 @@ const UserList: React.FC = () => {
   }
 
   // 打开删除确认弹窗
-  const handleOpenDeleteModal = useCallback((user: User) => {
+  const handleOpenDeleteModal = useCallback((user: UserDetail) => {
     setUserToDelete(user)
     setDeleteModalOpen(true)
   }, [])
@@ -201,9 +201,9 @@ const UserList: React.FC = () => {
     return roles.includes('admin') || roles.includes('super_admin')
   }, [loggedInUser?.roles])
 
-  const columns = useMemo<ColumnsType<User>>(
+  const columns = useMemo<ColumnsType<UserDetail>>(
     () => {
-      const baseColumns: ColumnsType<User> = [
+      const baseColumns: ColumnsType<UserDetail> = [
         {
           title: '用户名',
           dataIndex: 'username',

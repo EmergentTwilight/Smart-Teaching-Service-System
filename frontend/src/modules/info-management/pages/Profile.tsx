@@ -14,7 +14,7 @@ import {
 import { useAuthStore } from '@/shared/stores/authStore';
 import { authApi } from '@/modules/info-management/api/auth';
 import { usersApi } from '@/modules/info-management/api/users';
-import type { User } from '@/shared/types';
+import type { AuthUserDto, UserDetail } from '@/shared/types';
 import toast from '@/shared/components/Toast/Toast';
 
 const Profile: React.FC = () => {
@@ -47,7 +47,7 @@ const Profile: React.FC = () => {
   /**
    * 处理个人信息更新
    */
-  const handleProfileSubmit = async (values: Partial<User>) => {
+  const handleProfileSubmit = async (values: Partial<AuthUserDto>) => {
     if (!user?.id) {
       toast.error('用户未登录')
       return
@@ -55,13 +55,13 @@ const Profile: React.FC = () => {
     setLoading(true)
     try {
       // 只发送允许的字段（realName, email, phone, gender）
-      const updateData: Partial<User> = {}
+      const updateData: Partial<AuthUserDto> = {}
       if (values.realName !== undefined) updateData.realName = values.realName
       if (values.email !== undefined) updateData.email = values.email
       if (values.phone !== undefined) updateData.phone = values.phone
       if (values.gender !== undefined) updateData.gender = values.gender
 
-      await usersApi.update(user.id, updateData)
+      await usersApi.update(user.id, updateData as Partial<UserDetail>)
       // 更新本地用户数据
       updateUser(updateData)
       toast.success('信息更新成功')
@@ -235,10 +235,7 @@ const Profile: React.FC = () => {
               {user.roles?.join(', ') || '未设置'}
             </Descriptions.Item>
             <Descriptions.Item label="状态">
-              {user.status === 'ACTIVE' ? '正常' : user.status === 'INACTIVE' ? '未激活' : user.status === 'BANNED' ? '已封禁' : user.status}
-            </Descriptions.Item>
-            <Descriptions.Item label="注册时间">
-              {new Date(user.createdAt).toLocaleString('zh-CN')}
+              {user.status === 'active' ? '正常' : user.status === 'inactive' ? '未激活' : user.status === 'banned' ? '已封禁' : user.status}
             </Descriptions.Item>
             <Descriptions.Item label="最后登录">
               {user.lastLoginAt ? new Date(user.lastLoginAt).toLocaleString('zh-CN') : '从未登录'}

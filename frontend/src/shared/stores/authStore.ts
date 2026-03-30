@@ -4,7 +4,7 @@
  */
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { User } from '@/shared/types'
+import type { AuthUserDto } from '@/shared/types'
 
 /**
  * 认证状态接口
@@ -15,15 +15,15 @@ interface AuthState {
   /** 刷新令牌 */
   refreshToken: string | null
   /** 用户信息 */
-  user: User | null
+  user: AuthUserDto | null
   /** 是否已认证 */
   isAuthenticated: boolean
   /** 设置认证信息 */
-  setAuth: (token: string, refreshToken: string, user: User) => void
+  setAuth: (token: string, refreshToken: string, user: AuthUserDto) => void
   /** 登出 */
   logout: () => void
   /** 更新用户信息 */
-  updateUser: (user: Partial<User>) => void
+  updateUser: (user: Partial<AuthUserDto>) => void
 }
 
 export const useAuthStore = create<AuthState>()(

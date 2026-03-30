@@ -35,6 +35,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { usersApi, type UserQueryParams } from '@/modules/info-management/api/users'
 import type { User, UserFormData } from '@/shared/types'
+import { USER_STATUS_CONFIG } from '@/shared/constants/user'
 import dayjs from 'dayjs'
 import UserForm from './UserForm'
 import BatchImportModal from './BatchImportModal'
@@ -45,13 +46,6 @@ import ResetPasswordModal from './ResetPasswordModal'
 import ChangePasswordModal from './ChangePasswordModal'
 
 const { Search } = Input
-
-// 状态配置提取到组件外部
-const STATUS_CONFIG: Record<string, { color: string; text: string }> = {
-  ACTIVE: { color: 'success', text: '正常' },
-  INACTIVE: { color: 'default', text: '禁用' },
-  BANNED: { color: 'error', text: '封禁' },
-}
 
 const UserList: React.FC = () => {
   const navigate = useNavigate()
@@ -247,7 +241,7 @@ const UserList: React.FC = () => {
         key: 'status',
         width: 100,
         render: (status: string) => {
-          const config = STATUS_CONFIG[status] || { color: 'default', text: status }
+          const config = USER_STATUS_CONFIG[status] || { color: 'default', text: status }
           return <Tag color={config.color}>{config.text}</Tag>
         },
       },

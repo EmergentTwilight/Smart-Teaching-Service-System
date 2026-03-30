@@ -53,8 +53,9 @@ const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
     try {
       const values = await form.validateFields()
       mutate(values)
-    } catch (error) {
-      // 表单验证失败
+    } catch {
+      // 表单验证失败，无需处理
+      // Ant Design Form.validateFields 会在界面上显示验证错误
     }
   }
 

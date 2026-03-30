@@ -23,6 +23,7 @@ import {
 import type { UploadFile } from 'antd/es/upload/interface'
 import { useMutation } from '@tanstack/react-query'
 import { usersApi } from '@/modules/info-management/api/users'
+import { MAX_FILE_SIZE } from '@/shared/constants/user'
 
 const { Text } = Typography
 
@@ -79,7 +80,6 @@ const BatchImportModal: React.FC<BatchImportModalProps> = ({
   const parseFile = useCallback(async (file: File): Promise<ParsedUser[]> => {
     return new Promise((resolve) => {
       // 文件大小限制
-      const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5MB
       if (file.size > MAX_FILE_SIZE) {
         message.error('文件大小不能超过 5MB')
         resolve([])
@@ -122,8 +122,9 @@ const BatchImportModal: React.FC<BatchImportModalProps> = ({
             users.push(user)
           }
           resolve(users)
-        } catch {
-          message.error('文件解析失败')
+        } catch (error) {
+          console.debug('CSV 解析失败:', error)
+          message.error('文件解析失败，请检查文件格式')
           resolve([])
         }
       }

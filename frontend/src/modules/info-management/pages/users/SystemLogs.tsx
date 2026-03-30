@@ -15,24 +15,15 @@ import {
 import { ReloadOutlined } from '@ant-design/icons'
 import { useQuery } from '@tanstack/react-query'
 import { usersApi } from '@/modules/info-management/api/users'
+import { ACTION_COLOR_MAP, DEFAULT_LOG_PAGE_SIZE } from '@/shared/constants/user'
 import dayjs from 'dayjs'
 
 const { RangePicker } = DatePicker
 
-// 操作类型颜色映射提取到组件外部
-const ACTION_COLOR_MAP: Record<string, string> = {
-  CREATE: 'green',
-  UPDATE: 'blue',
-  DELETE: 'red',
-  LOGIN: 'cyan',
-  LOGOUT: 'orange',
-  VIEW: 'default',
-}
-
 const SystemLogs: React.FC = () => {
   const [params, setParams] = useState({
     page: 1,
-    pageSize: 20,
+    pageSize: DEFAULT_LOG_PAGE_SIZE,
     userId: undefined as string | undefined,
     action: undefined as string | undefined,
     resourceType: undefined as string | undefined,

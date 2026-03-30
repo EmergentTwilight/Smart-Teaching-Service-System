@@ -3,9 +3,10 @@
  * 用于创建和编辑用户
  */
 import React, { useState, useEffect } from 'react';
-import { Modal, Form, Input, Select, message, Radio, Space } from 'antd';
+import { Modal, Form, Input, Select, Radio, Space } from 'antd';
 import { UserOutlined, LockOutlined, MailOutlined, PhoneOutlined } from '@ant-design/icons';
 import type { User, UserFormData } from '@/shared/types';
+import toast from '@/shared/components/Toast/Toast';
 
 /**
  * UserForm 组件 Props
@@ -87,7 +88,7 @@ const UserForm: React.FC<UserFormProps> = ({ open, user, roles, onSubmit, onCanc
       }
 
       await onSubmit(submitData);
-      message.success(isEdit ? '更新成功' : '创建成功');
+      toast.success(isEdit ? '更新成功' : '创建成功');
       form.resetFields();
       onCancel();
     } catch (error: unknown) {
@@ -95,7 +96,7 @@ const UserForm: React.FC<UserFormProps> = ({ open, user, roles, onSubmit, onCanc
         // 表单验证失败
         return;
       }
-      message.error(error instanceof Error ? error.message : (isEdit ? '更新失败' : '创建失败'));
+      toast.error(error instanceof Error ? error.message : (isEdit ? '更新失败' : '创建失败'));
     } finally {
       setLoading(false);
     }
@@ -175,22 +176,29 @@ const UserForm: React.FC<UserFormProps> = ({ open, user, roles, onSubmit, onCanc
           </Form.Item>
         </Space>
 
-        {!isEdit && (
-          <Form.Item
-            name="password"
-            label="密码"
-            extra="密码至少8位，需包含大写字母、小写字母和数字"
-            rules={[
-              { required: true, message: '请输入密码' },
-              { min: 8, message: '密码至少 8 个字符' },
-              { pattern: /[A-Z]/, message: '密码必须包含大写字母' },
-              { pattern: /[a-z]/, message: '密码必须包含小写字母' },
-              { pattern: /[0-9]/, message: '密码必须包含数字' },
-            ]}
-          >
-            <Input.Password prefix={<LockOutlined />} placeholder="请输入密码" />
-          </Form.Item>
-        )}
+        <Form.Item
+          name="password"
+          label={isEdit ? '新密码（留空不修改）' : '密码'}
+          extra="密码至少8位，需包含大写字母、小写字母和数字"
+          rules={
+            isEdit
+              ? [
+                  { min: 8, message: '密码至少 8 个字符' },
+                  { pattern: /[A-Z]/, message: '密码必须包含大写字母' },
+                  { pattern: /[a-z]/, message: '密码必须包含小写字母' },
+                  { pattern: /[0-9]/, message: '密码必须包含数字' },
+                ]
+              : [
+                  { required: true, message: '请输入密码' },
+                  { min: 8, message: '密码至少 8 个字符' },
+                  { pattern: /[A-Z]/, message: '密码必须包含大写字母' },
+                  { pattern: /[a-z]/, message: '密码必须包含小写字母' },
+                  { pattern: /[0-9]/, message: '密码必须包含数字' },
+                ]
+          }
+        >
+          <Input.Password prefix={<LockOutlined />} placeholder={isEdit ? '留空则不修改密码' : '请输入密码'} />
+        </Form.Item>
 
         <Space style={{ width: '100%' }} size="large">
           <Form.Item

@@ -32,7 +32,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { usersApi, type UserQueryParams } from '@/modules/info-management/api/users'
 import type { User, UserFormData } from '@/shared/types'
-import { USER_STATUS_CONFIG } from '@/shared/constants/user'
+import { USER_STATUS_CONFIG, USER_ROLE_LABELS } from '@/shared/constants/user'
 import { useAuthStore } from '@/shared/stores/authStore'
 import dayjs from 'dayjs'
 import UserForm from './UserForm'
@@ -286,7 +286,7 @@ const UserList: React.FC = () => {
               <Space size={4} wrap>
                 {roles.map((role) => (
                   <Tag key={role} color="blue">
-                    {role}
+                    {USER_ROLE_LABELS[role] || role}
                   </Tag>
                 ))}
               </Space>
@@ -326,10 +326,10 @@ const UserList: React.FC = () => {
         baseColumns.push({
           title: '操作',
           key: 'action',
-          width: 180,
+          width: 120,
           fixed: 'right',
           render: (_, record) => (
-            <Space size={4}>
+            <Space size={8}>
               <Button
                 type="link"
                 size="small"
@@ -337,14 +337,6 @@ const UserList: React.FC = () => {
                 onClick={() => handleEdit(record)}
               >
                 编辑
-              </Button>
-              <Button
-                type="link"
-                size="small"
-                icon={<KeyOutlined />}
-                onClick={() => handleOpenResetPassword(record)}
-              >
-                重置
               </Button>
               <Button
                 type="link"

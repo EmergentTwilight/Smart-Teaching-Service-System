@@ -11,6 +11,14 @@ export const USER_STATUS_CONFIG: Record<string, { color: string; text: string }>
   BANNED: { color: 'error', text: '封禁' },
 } as const
 
+/** 用户角色标签映射 */
+export const USER_ROLE_LABELS: Record<string, string> = {
+  admin: '管理员',
+  teacher: '教师',
+  student: '学生',
+  super_admin: '超级管理员',
+} as const
+
 // ==================== 日志配置 ====================
 
 /** 操作类型颜色映射 */

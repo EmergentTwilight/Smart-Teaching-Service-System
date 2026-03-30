@@ -62,8 +62,13 @@ export const updateUserSchema = z.object({
   gender: z.nativeEnum(Gender).optional(),
   status: z.nativeEnum(UserStatus).optional(),
   roleIds: z.array(z.string()).optional(),
-  // 注意：不包含 password，需要通过专用接口修改
-  // 修改密码：PUT /users/:id/password
+  password: z
+    .string()
+    .min(8, '密码至少 8 个字符')
+    .regex(/[A-Z]/, '密码必须包含大写字母')
+    .regex(/[a-z]/, '密码必须包含小写字母')
+    .regex(/[0-9]/, '密码必须包含数字')
+    .optional(),
 })
 
 /**

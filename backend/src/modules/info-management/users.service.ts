@@ -196,7 +196,7 @@ export const usersService = {
       throw new NotFoundError('用户不存在')
     }
 
-    const { gender, email, roleIds, status, ...restData } = data
+    const { gender, email, roleIds, status, password, ...restData } = data
 
     // 邮箱唯一性检查：只有当新邮箱与当前用户不同时才检查
     if (email !== undefined && email !== user.email) {
@@ -213,6 +213,11 @@ export const usersService = {
       email: email,
       gender: gender as Gender | null | undefined,
       status: status as UserStatus | undefined,
+    }
+
+    // 如果提供了新密码，则哈希并更新
+    if (password) {
+      updatePayload.passwordHash = await hashPassword(password)
     }
 
     // 使用事务更新用户信息和角色

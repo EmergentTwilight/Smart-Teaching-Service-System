@@ -95,6 +95,16 @@ export const usersService = {
   },
 
   /**
+   * 获取用户统计
+   */
+  async getUserStats() {
+    const totalCount = await prisma.user.count()
+    return {
+      totalCount,
+    }
+  },
+
+  /**
    * 根据 ID 获取用户详情
    */
   async getUserById(id: string) {

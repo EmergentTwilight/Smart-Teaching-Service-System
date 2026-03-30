@@ -32,6 +32,14 @@ export const usersController = {
   },
 
   /**
+   * 获取用户统计
+   */
+  async getStats(req: Request, res: Response) {
+    const stats = await usersService.getUserStats()
+    success(res, stats)
+  },
+
+  /**
    * 获取单个用户详情
    */
   async getById(req: Request, res: Response) {

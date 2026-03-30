@@ -33,6 +33,14 @@ export const usersApi = {
   },
 
   /**
+   * 获取用户统计
+   * @returns 用户统计数据
+   */
+  getStats: async (): Promise<{ totalCount: number }> => {
+    return request.get('/users/stats')
+  },
+
+  /**
    * 获取单个用户详情
    * @param id 用户ID
    * @returns 用户信息

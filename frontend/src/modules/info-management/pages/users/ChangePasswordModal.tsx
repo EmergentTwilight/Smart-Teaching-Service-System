@@ -6,7 +6,9 @@ import React from 'react'
 import { Modal, Form, Input, message } from 'antd'
 import { LockOutlined, CheckCircleOutlined } from '@ant-design/icons'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import type { AxiosError } from 'axios'
 import { usersApi } from '@/modules/info-management/api/users'
+import type { ApiErrorResponse } from '@/shared/types'
 
 interface ChangePasswordModalProps {
   open: boolean
@@ -42,7 +44,7 @@ const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
       onSuccess()
     },
     onError: (error: unknown) => {
-      const errorMessage = (error as any)?.response?.data?.message || '密码修改失败'
+      const errorMessage = (error as AxiosError<ApiErrorResponse>)?.response?.data?.message || '密码修改失败'
       message.error(errorMessage)
     },
   })

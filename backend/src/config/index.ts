@@ -65,7 +65,9 @@ const config = {
   /** CORS 配置 */
   cors: {
     /** 允许的来源（逗号分隔） */
-    origin: process.env.CORS_ORIGIN || 'http://localhost:5173',
+    origin:
+      process.env.CORS_ORIGIN ||
+      'http://localhost:5173,http://localhost:5174,http://localhost:5175',
   },
 
   /** 密码安全配置 */

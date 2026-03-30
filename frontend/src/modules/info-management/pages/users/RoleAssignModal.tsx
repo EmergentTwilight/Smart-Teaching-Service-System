@@ -46,9 +46,9 @@ const RoleAssignModal: React.FC<RoleAssignModalProps> = ({
       if (toAdd.length > 0) {
         await usersApi.assignRoles(userId, toAdd)
       }
-      // 再删除旧角色
-      for (const roleId of toRemove) {
-        await usersApi.revokeRole(userId, roleId)
+      // 并行删除旧角色
+      if (toRemove.length > 0) {
+        await Promise.all(toRemove.map(roleId => usersApi.revokeRole(userId, roleId)))
       }
     },
     onSuccess: () => {

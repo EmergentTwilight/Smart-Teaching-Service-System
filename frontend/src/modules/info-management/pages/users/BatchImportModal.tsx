@@ -78,6 +78,14 @@ const BatchImportModal: React.FC<BatchImportModalProps> = ({
   // 解析 Excel/CSV 文件
   const parseFile = async (file: File): Promise<ParsedUser[]> => {
     return new Promise((resolve) => {
+      // 文件大小限制
+      const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5MB
+      if (file.size > MAX_FILE_SIZE) {
+        message.error('文件大小不能超过 5MB')
+        resolve([])
+        return
+      }
+
       const reader = new FileReader()
       reader.onload = (e) => {
         try {

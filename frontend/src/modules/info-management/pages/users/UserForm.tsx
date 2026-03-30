@@ -3,7 +3,7 @@
  * 用于创建和编辑用户
  */
 import React, { useState, useEffect } from 'react';
-import { Modal, Form, Input, Select, Radio, Space } from 'antd';
+import { Modal, Form, Input, Select, Radio, Space, Row, Col } from 'antd';
 import { UserOutlined, LockOutlined, MailOutlined, PhoneOutlined } from '@ant-design/icons';
 import type { User, UserFormData } from '@/shared/types';
 import toast from '@/shared/components/Toast/Toast';
@@ -155,26 +155,27 @@ const UserForm: React.FC<UserFormProps> = ({ open, user, roles, onSubmit, onCanc
           <Input placeholder="请输入真实姓名" />
         </Form.Item>
 
-        <Space style={{ width: '100%' }} size="large">
-          <Form.Item
-            name="email"
-            label="邮箱"
-            rules={[
-              { type: 'email', message: '请输入有效的邮箱地址' },
-            ]}
-            style={{ width: 280 }}
-          >
-            <Input prefix={<MailOutlined />} placeholder="请输入邮箱" />
-          </Form.Item>
-
-          <Form.Item
-            name="phone"
-            label="手机号"
-            style={{ width: 260 }}
-          >
-            <Input prefix={<PhoneOutlined />} placeholder="请输入手机号" />
-          </Form.Item>
-        </Space>
+        <Row gutter={16}>
+          <Col span={12}>
+            <Form.Item
+              name="email"
+              label="邮箱"
+              rules={[
+                { type: 'email', message: '请输入有效的邮箱地址' },
+              ]}
+            >
+              <Input prefix={<MailOutlined />} placeholder="请输入邮箱" />
+            </Form.Item>
+          </Col>
+          <Col span={12}>
+            <Form.Item
+              name="phone"
+              label="手机号"
+            >
+              <Input prefix={<PhoneOutlined />} placeholder="请输入手机号" />
+            </Form.Item>
+          </Col>
+        </Row>
 
         <Form.Item
           name="password"
@@ -197,7 +198,11 @@ const UserForm: React.FC<UserFormProps> = ({ open, user, roles, onSubmit, onCanc
                 ]
           }
         >
-          <Input.Password prefix={<LockOutlined />} placeholder={isEdit ? '留空则不修改密码' : '请输入密码'} />
+          <Input.Password 
+            prefix={<LockOutlined />} 
+            placeholder={isEdit ? '留空则不修改密码' : '请输入密码'}
+            autoComplete="new-password"
+          />
         </Form.Item>
 
         <Space style={{ width: '100%' }} size="large">

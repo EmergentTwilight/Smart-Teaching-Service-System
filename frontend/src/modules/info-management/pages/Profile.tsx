@@ -18,7 +18,7 @@ import type { User } from '@/shared/types';
 import toast from '@/shared/components/Toast/Toast';
 
 const Profile: React.FC = () => {
-  const { user } = useAuthStore();
+  const { user, updateUser } = useAuthStore();
   const [form] = Form.useForm();
   const [passwordForm] = Form.useForm();
   const [loading, setLoading] = useState(false);
@@ -62,6 +62,8 @@ const Profile: React.FC = () => {
       if (values.gender !== undefined) updateData.gender = values.gender
 
       await usersApi.update(user.id, updateData)
+      // 更新本地用户数据
+      updateUser(updateData)
       toast.success('信息更新成功')
     } catch (error) {
       if (error instanceof Error) {
@@ -174,9 +176,13 @@ const Profile: React.FC = () => {
               <Form.Item
                 label="新密码"
                 name="newPassword"
+                extra="密码至少8位，需包含大写字母、小写字母和数字"
                 rules={[
                   { required: true, message: '请输入新密码' },
                   { min: 8, message: '密码至少8个字符' },
+                  { pattern: /[A-Z]/, message: '密码必须包含大写字母' },
+                  { pattern: /[a-z]/, message: '密码必须包含小写字母' },
+                  { pattern: /[0-9]/, message: '密码必须包含数字' },
                 ]}
               >
                 <Input.Password

@@ -326,10 +326,11 @@ const UserList: React.FC = () => {
         baseColumns.push({
           title: '操作',
           key: 'action',
-          width: 100,
+          width: 150,
           fixed: 'right',
+          align: 'center',
           render: (_, record) => (
-            <Space size={4}>
+            <Space size={16}>
               <Button
                 type="link"
                 size="small"

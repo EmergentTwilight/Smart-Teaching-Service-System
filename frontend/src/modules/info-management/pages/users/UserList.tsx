@@ -48,7 +48,7 @@ import ChangePasswordModal from './ChangePasswordModal'
 const { Search } = Input
 
 /** 简单防抖函数 */
-function debounce<T extends (...args: any[]) => any>(
+function debounce<T extends (...args: never[]) => void>(
   func: T,
   wait: number
 ): (...args: Parameters<T>) => void {
@@ -332,7 +332,7 @@ const UserList: React.FC = () => {
         ),
       },
     ],
-    []
+    [handleEdit, handleOpenRoleAssign, handleOpenPermissions, handleOpenResetPassword, handleOpenChangePassword, handleOpenDeleteModal]
   )
 
   const users = data?.items || []

@@ -36,6 +36,7 @@ import { useNavigate } from 'react-router-dom'
 import { usersApi, type UserQueryParams } from '@/modules/info-management/api/users'
 import type { User, UserFormData } from '@/shared/types'
 import { USER_STATUS_CONFIG } from '@/shared/constants/user'
+import { useAuthStore } from '@/shared/stores/authStore'
 import dayjs from 'dayjs'
 import UserForm from './UserForm'
 import BatchImportModal from './BatchImportModal'
@@ -46,6 +47,14 @@ import ResetPasswordModal from './ResetPasswordModal'
 import ChangePasswordModal from './ChangePasswordModal'
 
 const { Search } = Input
+
+// 可用角色列表
+const AVAILABLE_ROLES = [
+  { id: 'admin', name: '管理员', code: 'admin' },
+  { id: 'teacher', name: '教师', code: 'teacher' },
+  { id: 'student', name: '学生', code: 'student' },
+  { id: 'super_admin', name: '超级管理员', code: 'super_admin' },
+]
 
 /** 简单防抖函数 */
 function debounce<T extends (...args: never[]) => void>(
@@ -62,6 +71,13 @@ function debounce<T extends (...args: never[]) => void>(
 const UserList: React.FC = () => {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const loggedInUser = useAuthStore((state) => state.user)
+  
+  // 检查是否有管理员权限（用于显示系统日志按钮）
+  const canViewLogs = useMemo(() => {
+    const roles = loggedInUser?.roles || []
+    return roles.includes('admin') || roles.includes('super_admin')
+  }, [loggedInUser?.roles])
 
   // 表单状态
   const [formOpen, setFormOpen] = useState(false)
@@ -213,126 +229,145 @@ const UserList: React.FC = () => {
     })
   }, [])
 
+  // 检查是否有管理员权限（用于显示操作列）
+  const isAdmin = useMemo(() => {
+    const roles = loggedInUser?.roles || []
+    return roles.includes('admin') || roles.includes('super_admin')
+  }, [loggedInUser?.roles])
+
   const columns = useMemo<ColumnsType<User>>(
-    () => [
-      {
-        title: '用户名',
-        dataIndex: 'username',
-        key: 'username',
-        width: 120,
-      },
-      {
-        title: '姓名',
-        dataIndex: 'realName',
-        key: 'realName',
-        width: 100,
-      },
-      {
-        title: '邮箱',
-        dataIndex: 'email',
-        key: 'email',
-        width: 180,
-      },
-      {
-        title: '角色',
-        dataIndex: 'roles',
-        key: 'roles',
-        width: 150,
-        render: (roles: string[]) => {
-          if (!roles || roles.length === 0) {
-            return <span style={{ color: '#999' }}>未分配</span>
-          }
-          return (
-            <Space size={4} wrap>
-              {roles.map((role) => (
-                <Tag key={role} color="blue">
-                  {role}
-                </Tag>
-              ))}
-            </Space>
-          )
+    () => {
+      const baseColumns: ColumnsType<User> = [
+        {
+          title: '用户名',
+          dataIndex: 'username',
+          key: 'username',
+          width: 120,
         },
-      },
-      {
-        title: '状态',
-        dataIndex: 'status',
-        key: 'status',
-        width: 100,
-        render: (status: string) => {
-          const config = USER_STATUS_CONFIG[status] || { color: 'default', text: status }
-          return <Tag color={config.color}>{config.text}</Tag>
+        {
+          title: '姓名',
+          dataIndex: 'realName',
+          key: 'realName',
+          width: 100,
         },
-      },
-      {
-        title: '创建时间',
-        dataIndex: 'createdAt',
-        key: 'createdAt',
-        width: 160,
-        render: (date: string) =>
-          date ? dayjs(date).format('YYYY-MM-DD HH:mm') : '-',
-      },
-      {
-        title: '操作',
-        key: 'action',
-        width: 200,
-        fixed: 'right',
-        render: (_, record) => (
-          <Space size={0}>
-            <Button
-              type="link"
-              size="small"
-              icon={<EditOutlined />}
-              onClick={() => handleEdit(record)}
-            >
-              编辑
-            </Button>
-            <Dropdown
-              menu={{
-                items: [
-                  {
-                    key: 'roles',
-                    icon: <UserOutlined />,
-                    label: '分配角色',
-                    onClick: () => handleOpenRoleAssign(record),
-                  },
-                  {
-                    key: 'permissions',
-                    icon: <SafetyOutlined />,
-                    label: '查看权限',
-                    onClick: () => handleOpenPermissions(record),
-                  },
-                  {
-                    key: 'resetPwd',
-                    icon: <KeyOutlined />,
-                    label: '重置密码',
-                    onClick: () => handleOpenResetPassword(record),
-                  },
-                  {
-                    key: 'changePwd',
-                    icon: <KeyOutlined />,
-                    label: '修改密码',
-                    onClick: () => handleOpenChangePassword(record),
-                  },
-                  { type: 'divider' },
-                  {
-                    key: 'delete',
-                    icon: <DeleteOutlined />,
-                    label: '删除用户',
-                    danger: true,
-                    onClick: () => handleOpenDeleteModal(record),
-                  },
-                ],
-              }}
-            >
-              <Button type="link" size="small">
-                更多 <DownOutlined />
+        {
+          title: '邮箱',
+          dataIndex: 'email',
+          key: 'email',
+          width: 200,
+        },
+        {
+          title: '手机号',
+          dataIndex: 'phone',
+          key: 'phone',
+          width: 130,
+          render: (phone: string) => phone || '-',
+        },
+        {
+          title: '性别',
+          dataIndex: 'gender',
+          key: 'gender',
+          width: 80,
+          render: (gender: string) => {
+            if (!gender) return '-'
+            const genderMap: Record<string, string> = {
+              MALE: '男',
+              FEMALE: '女',
+              OTHER: '其他',
+            }
+            return genderMap[gender] || gender
+          },
+        },
+        {
+          title: '角色',
+          dataIndex: 'roles',
+          key: 'roles',
+          width: 150,
+          render: (roles: string[]) => {
+            if (!roles || roles.length === 0) {
+              return <span style={{ color: '#999' }}>未分配</span>
+            }
+            return (
+              <Space size={4} wrap>
+                {roles.map((role) => (
+                  <Tag key={role} color="blue">
+                    {role}
+                  </Tag>
+                ))}
+              </Space>
+            )
+          },
+        },
+        {
+          title: '状态',
+          dataIndex: 'status',
+          key: 'status',
+          width: 90,
+          render: (status: string) => {
+            const config = USER_STATUS_CONFIG[status] || { color: 'default', text: status }
+            return <Tag color={config.color}>{config.text}</Tag>
+          },
+        },
+        {
+          title: '最后登录',
+          dataIndex: 'lastLoginAt',
+          key: 'lastLoginAt',
+          width: 150,
+          render: (date: string) =>
+            date ? dayjs(date).format('YYYY-MM-DD HH:mm') : '从未登录',
+        },
+        {
+          title: '创建时间',
+          dataIndex: 'createdAt',
+          key: 'createdAt',
+          width: 150,
+          render: (date: string) =>
+            date ? dayjs(date).format('YYYY-MM-DD HH:mm') : '-',
+        },
+      ]
+
+      // 只有管理员才显示操作列
+      if (isAdmin) {
+        baseColumns.push({
+          title: '操作',
+          key: 'action',
+          width: 220,
+          fixed: 'right',
+          render: (_, record) => (
+            <Space size={0}>
+              <Button
+                type="link"
+                size="small"
+                icon={<EditOutlined />}
+                onClick={() => handleEdit(record)}
+              >
+                编辑
               </Button>
-            </Dropdown>
-          </Space>
-        ),
-      },
-    ],
-    [handleEdit, handleOpenRoleAssign, handleOpenPermissions, handleOpenResetPassword, handleOpenChangePassword, handleOpenDeleteModal]
+              <Button
+                type="link"
+                size="small"
+                icon={<KeyOutlined />}
+                onClick={() => handleOpenResetPassword(record)}
+              >
+                重置密码
+              </Button>
+              <Button
+                type="link"
+                size="small"
+                danger
+                icon={<DeleteOutlined />}
+                onClick={() => handleOpenDeleteModal(record)}
+              >
+                删除
+              </Button>
+            </Space>
+          ),
+        })
+      }
+
+      return baseColumns
+    },
+    [isAdmin, handleEdit, handleOpenResetPassword, handleOpenDeleteModal]
   )
 
   const users = data?.items || []
@@ -389,12 +424,14 @@ const UserList: React.FC = () => {
               <Button icon={<ReloadOutlined />} onClick={handleReset}>
                 重置
               </Button>
-              <Button
-                icon={<FileTextOutlined />}
-                onClick={() => navigate('/users/logs')}
-              >
-                系统日志
-              </Button>
+              {canViewLogs && (
+                <Button
+                  icon={<FileTextOutlined />}
+                  onClick={() => navigate('/users/logs')}
+                >
+                  系统日志
+                </Button>
+              )}
             </Space>
           </Col>
           <Col>
@@ -433,6 +470,7 @@ const UserList: React.FC = () => {
       <UserForm
         open={formOpen}
         user={currentUser}
+        roles={AVAILABLE_ROLES}
         onSubmit={handleSubmit}
         onCancel={() => {
           setFormOpen(false)
@@ -465,7 +503,7 @@ const UserList: React.FC = () => {
       <RoleAssignModal
         open={roleAssignOpen}
         userId={operatingUser?.id || ''}
-        currentRoles={operatingUser?.roles || []}
+        currentRoles={(operatingUser?.roles || []) as string[]}
         onCancel={() => {
           setRoleAssignOpen(false)
           setOperatingUser(null)

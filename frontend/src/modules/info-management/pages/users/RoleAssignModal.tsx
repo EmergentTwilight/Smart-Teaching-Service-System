@@ -42,6 +42,8 @@ const RoleAssignModal: React.FC<RoleAssignModalProps> = ({
       const toAdd = newRoles.filter((r) => !currentRoles.includes(r))
       const toRemove = currentRoles.filter((r) => !newRoles.includes(r))
 
+      console.log('Role assignment:', { userId, toAdd, toRemove, currentRoles, newRoles })
+
       // 先添加新角色
       if (toAdd.length > 0) {
         await usersApi.assignRoles(userId, toAdd)
@@ -56,7 +58,8 @@ const RoleAssignModal: React.FC<RoleAssignModalProps> = ({
       queryClient.invalidateQueries({ queryKey: ['users'] })
       onSuccess()
     },
-    onError: () => {
+    onError: (error) => {
+      console.error('Role assignment error:', error)
       message.error('角色分配失败')
     },
   })

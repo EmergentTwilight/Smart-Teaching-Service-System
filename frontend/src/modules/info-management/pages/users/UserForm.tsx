@@ -47,6 +47,7 @@ const UserForm: React.FC<UserFormProps> = ({ open, user, roles, onSubmit, onCanc
           gender: user.gender || undefined,
           status: user.status,
           password: undefined,
+          roleIds: user.roles || [],
         });
       } else {
         // 新建模式：重置表单

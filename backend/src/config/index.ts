@@ -91,6 +91,26 @@ const config = {
     /** 认证 API 最大请求数 */
     authMaxRequests: 10,
   },
+
+  /** SMTP 邮件配置 */
+  smtp: {
+    /** SMTP 服务器地址 */
+    host: process.env.SMTP_HOST || 'smtp.example.com',
+    /** SMTP 端口 */
+    port: parseInt(process.env.SMTP_PORT || '587', 10),
+    /** SMTP 用户名 */
+    user: process.env.SMTP_USER || '',
+    /** SMTP 密码 */
+    pass: process.env.SMTP_PASS || '',
+    /** 发件人邮箱 */
+    from: process.env.SMTP_FROM || 'noreply@example.com',
+  },
+
+  /** 前端配置 */
+  frontend: {
+    /** 前端 URL（用于生成重置链接） */
+    url: process.env.FRONTEND_URL || 'http://localhost:5173',
+  },
 }
 
 export default config

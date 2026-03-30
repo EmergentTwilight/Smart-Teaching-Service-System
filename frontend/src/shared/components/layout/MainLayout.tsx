@@ -51,11 +51,16 @@ const MainLayout: React.FC = () => {
     navigate('/login');
   }, [logout, navigate]);
 
+  const handleUserProfile = useCallback(() => {
+    navigate('/profile');
+  }, [navigate]);
+
   const userMenuItems = useMemo(() => [
     {
       key: 'profile',
       icon: <UserOutlined />,
       label: '个人资料',
+      onClick: handleUserProfile,
     },
     {
       type: 'divider' as const,
@@ -66,7 +71,7 @@ const MainLayout: React.FC = () => {
       label: '退出登录',
       onClick: handleLogout,
     },
-  ], [handleLogout]);
+  ], [handleLogout, handleUserProfile]);
 
   return (
     <Layout style={{ minHeight: '100vh' }}>

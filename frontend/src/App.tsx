@@ -19,6 +19,7 @@ const ResetPassword = lazy(() => import('@/modules/info-management/pages/ResetPa
 const Dashboard = lazy(() => import('@/modules/info-management/pages/Dashboard'));
 const UserList = lazy(() => import('@/modules/info-management/pages/users/UserList'));
 const SystemLogs = lazy(() => import('@/modules/info-management/pages/users/SystemLogs'));
+const Profile = lazy(() => import('@/modules/info-management/pages/Profile'));
 const ComingSoon = lazy(() => import('@/shared/components/ComingSoon'));
 
 // 加载中组件
@@ -121,7 +122,15 @@ const App: React.FC = () => {
 
                   {/* 基础信息管理 */}
                   <Route path="users" element={<UserList />} />
-                  <Route path="users/logs" element={<SystemLogs />} />
+                  <Route
+                    path="users/logs"
+                    element={
+                      <ProtectedRoute requiredRoles={['admin', 'super_admin']}>
+                        <SystemLogs />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route path="profile" element={<Profile />} />
                   <Route path="info/roles" element={<ComingSoon title="角色权限" />} />
                   <Route path="info/courses" element={<ComingSoon title="课程信息" />} />
                   <Route path="info/classrooms" element={<ComingSoon title="教室管理" />} />

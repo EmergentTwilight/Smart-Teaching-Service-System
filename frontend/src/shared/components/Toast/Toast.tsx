@@ -2,25 +2,12 @@
  * 全局提示组件
  * 统一的 Toast 提示，显示在页面顶部
  */
-import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react'
+import React, { useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import './Toast.css'
 
 type ToastType = 'success' | 'error' | 'warning' | 'info'
 
-interface ToastMessage {
-  id: number
-  type: ToastType
-  content: string
-}
-
-interface ToastContextType {
-  showToast: (type: ToastType, content: string, duration?: number) => void
-}
-
-const ToastContext = createContext<ToastContextType | null>(null)
-
-let toastId = 0
 let container: HTMLDivElement | null = null
 let root: any = null
 
@@ -51,12 +38,9 @@ function showToastMessage(type: ToastType, content: string, duration: number) {
     root = createRoot(container)
   }
 
-  const id = ++toastId
-
   // 渲染 Toast
   root.render(
     <ToastItem
-      id={id}
       type={type}
       content={content}
       duration={duration}
@@ -69,14 +53,13 @@ function showToastMessage(type: ToastType, content: string, duration: number) {
 }
 
 interface ToastItemProps {
-  id: number
   type: ToastType
   content: string
   duration: number
   onClose: () => void
 }
 
-const ToastItem: React.FC<ToastItemProps> = ({ id, type, content, duration, onClose }) => {
+const ToastItem: React.FC<ToastItemProps> = ({ type, content, duration, onClose }) => {
   const [visible, setVisible] = useState(false)
 
   React.useEffect(() => {

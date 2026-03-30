@@ -13,7 +13,7 @@ import { PrismaClient } from '@prisma/client'
 import { hashPassword, comparePassword } from '../../../shared/utils/password.js'
 import { usersService } from '../../../modules/info-management/users.service.js'
 import { ConflictError, NotFoundError, ValidationError } from '@stss/shared'
-import type { UserStatus, Gender } from '@prisma/client'
+import type { UserStatus } from '@prisma/client'
 
 // 使用独立的 Prisma Client 实例用于测试
 const prisma = new PrismaClient({
@@ -26,7 +26,6 @@ const prisma = new PrismaClient({
 
 // 测试数据
 const testRoleIds: string[] = []
-let testUserId: string
 
 // 清理函数
 async function cleanupDatabase() {
@@ -150,8 +149,6 @@ describe('UsersService Integration Tests', () => {
         expect(dbUser!.email).toBe('itest_newuser@test.com')
         expect(dbUser!.userRoles).toHaveLength(1)
         expect(dbUser!.userRoles[0].roleId).toBe(testRoleIds[0])
-
-        testUserId = result.id
       })
 
       it('用户名冲突时应该抛出 ConflictError', async () => {

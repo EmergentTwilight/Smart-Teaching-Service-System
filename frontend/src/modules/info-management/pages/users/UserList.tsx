@@ -14,7 +14,6 @@ import {
   Card,
   Row,
   Col,
-  Dropdown,
   Alert,
   Modal,
 } from 'antd'
@@ -23,13 +22,10 @@ import {
   EditOutlined,
   DeleteOutlined,
   ReloadOutlined,
-  KeyOutlined,
-  UserOutlined,
   UploadOutlined,
 } from '@ant-design/icons'
 import type { ColumnsType, TableProps } from 'antd/es/table'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { useNavigate } from 'react-router-dom'
 import { usersApi, type UserQueryParams } from '@/modules/info-management/api/users'
 import type { User, UserFormData } from '@/shared/types'
 import { USER_STATUS_CONFIG, USER_ROLE_LABELS } from '@/shared/constants/user'
@@ -41,7 +37,6 @@ import BatchStatusModal from './BatchStatusModal'
 import BatchDeleteModal from './BatchDeleteModal'
 import RoleAssignModal from './RoleAssignModal'
 import UserPermissionsDrawer from './UserPermissionsDrawer'
-import ResetPasswordModal from './ResetPasswordModal'
 import ChangePasswordModal from './ChangePasswordModal'
 
 const { Search } = Input
@@ -66,7 +61,6 @@ function debounce<T extends (...args: never[]) => void>(
 }
 
 const UserList: React.FC = () => {
-  const navigate = useNavigate()
   const queryClient = useQueryClient()
   const loggedInUser = useAuthStore((state) => state.user)
 
@@ -83,7 +77,6 @@ const UserList: React.FC = () => {
   const [batchDeleteOpen, setBatchDeleteOpen] = useState(false)
   const [roleAssignOpen, setRoleAssignOpen] = useState(false)
   const [permissionsOpen, setPermissionsOpen] = useState(false)
-  const [resetPasswordOpen, setResetPasswordOpen] = useState(false)
   const [changePasswordOpen, setChangePasswordOpen] = useState(false)
   const [operatingUser, setOperatingUser] = useState<User | null>(null)
   
@@ -156,30 +149,6 @@ const UserList: React.FC = () => {
   const handleOpenDeleteModal = useCallback((user: User) => {
     setUserToDelete(user)
     setDeleteModalOpen(true)
-  }, [])
-
-  // 打开角色分配
-  const handleOpenRoleAssign = useCallback((user: User) => {
-    setOperatingUser(user)
-    setRoleAssignOpen(true)
-  }, [])
-
-  // 打开权限查看
-  const handleOpenPermissions = useCallback((user: User) => {
-    setOperatingUser(user)
-    setPermissionsOpen(true)
-  }, [])
-
-  // 打开重置密码
-  const handleOpenResetPassword = useCallback((user: User) => {
-    setOperatingUser(user)
-    setResetPasswordOpen(true)
-  }, [])
-
-  // 打开修改密码
-  const handleOpenChangePassword = useCallback((user: User) => {
-    setOperatingUser(user)
-    setChangePasswordOpen(true)
   }, [])
 
   // 搜索处理（防抖）
@@ -357,7 +326,7 @@ const UserList: React.FC = () => {
 
       return baseColumns
     },
-    [isAdmin, handleEdit, handleOpenResetPassword, handleOpenDeleteModal]
+    [isAdmin, handleEdit, handleOpenDeleteModal]
   )
 
   const users = data?.items || []
@@ -534,21 +503,6 @@ const UserList: React.FC = () => {
         userName={operatingUser?.realName || operatingUser?.username || ''}
         onClose={() => {
           setPermissionsOpen(false)
-          setOperatingUser(null)
-        }}
-      />
-
-      {/* 重置密码 */}
-      <ResetPasswordModal
-        open={resetPasswordOpen}
-        userId={operatingUser?.id || ''}
-        userName={operatingUser?.realName || operatingUser?.username || ''}
-        onCancel={() => {
-          setResetPasswordOpen(false)
-          setOperatingUser(null)
-        }}
-        onSuccess={() => {
-          setResetPasswordOpen(false)
           setOperatingUser(null)
         }}
       />

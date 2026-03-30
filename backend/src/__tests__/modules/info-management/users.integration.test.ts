@@ -562,6 +562,7 @@ describe('UsersService Integration Tests', () => {
 
         let userRoles = await prisma.userRole.findMany({
           where: { userId: user.id },
+          include: { role: true },
         })
         expect(userRoles).toHaveLength(1)
 

@@ -31,7 +31,7 @@ function getTransporter(): nodemailer.Transporter {
           console.log('📧 [MOCK EMAIL] Password reset email would be sent:')
           console.log(`  To: ${options.to}`)
           console.log(`  Subject: ${options.subject}`)
-          if (options.html) {
+          if (typeof options.html === 'string') {
             // 提取重置链接用于开发测试
             const match = options.html.match(/href="([^"]+reset-password[^"]*)"/)
             if (match) {
@@ -116,9 +116,10 @@ ${resetUrl}
     const result = await getTransporter().sendMail(mailOptions)
     console.log(`✅ Password reset email sent to ${input.to}, messageId: ${result.messageId}`)
   } catch (error) {
-    console.error('❌ Failed to send password reset email:', error.message || error)
-    console.error('❌ Error code:', error.code)
-    console.error('❌ Error command:', error.command)
+    const err = error as { message?: string; code?: string; command?: string }
+    console.error('❌ Failed to send password reset email:', err.message || error)
+    console.error('❌ Error code:', err.code)
+    console.error('❌ Error command:', err.command)
     throw error
   }
 }

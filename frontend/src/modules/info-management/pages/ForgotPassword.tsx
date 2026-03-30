@@ -6,7 +6,9 @@ import React, { useState } from 'react';
 import { Form, Input, Button, Card, message, Result } from 'antd';
 import { MailOutlined, TrophyOutlined, CheckCircleOutlined } from '@ant-design/icons';
 import { Link } from 'react-router-dom';
+import type { AxiosError } from 'axios';
 import { authApi } from '@/modules/info-management/api/auth';
+import type { ApiErrorResponse } from '@/shared/types';
 import styles from './Login.module.css';
 
 const ForgotPassword: React.FC = () => {
@@ -26,7 +28,7 @@ const ForgotPassword: React.FC = () => {
       setSubmitted(true);
       message.success('重置邮件已发送');
     } catch (error: unknown) {
-      message.error((error as any).response?.data?.message || '发送失败，请重试');
+      message.error((error as AxiosError<ApiErrorResponse>)?.response?.data?.message || '发送失败，请重试');
     } finally {
       setLoading(false);
     }
@@ -41,7 +43,7 @@ const ForgotPassword: React.FC = () => {
       await authApi.forgotPassword({ email });
       message.success('重置邮件已重新发送');
     } catch (error: unknown) {
-      message.error((error as any).response?.data?.message || '发送失败，请重试');
+      message.error((error as AxiosError<ApiErrorResponse>)?.response?.data?.message || '发送失败，请重试');
     } finally {
       setLoading(false);
     }
@@ -63,7 +65,7 @@ const ForgotPassword: React.FC = () => {
               </div>
             }
             extra={[
-              <Button key="resend" onClick={handleResend} loading={loading}>
+              <Button key="resend" type="primary" onClick={handleResend} loading={loading}>
                 重新发送
               </Button>,
               <Link to="/login" key="login">

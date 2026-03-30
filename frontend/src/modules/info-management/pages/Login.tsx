@@ -5,6 +5,7 @@
 import React from 'react';
 import { Form, Input, Button, Card } from 'antd';
 import { UserOutlined, LockOutlined, TrophyOutlined } from '@ant-design/icons';
+import { Link } from 'react-router-dom';
 import { useAuth } from '@/shared/hooks/useAuth';
 import styles from './Login.module.css';
 
@@ -73,8 +74,12 @@ const Login: React.FC = () => {
             </Button>
           </Form.Item>
         </Form>
-        
 
+        <div className={styles.footer}>
+          <Link to="/forgot-password">忘记密码？</Link>
+          <span style={{ margin: '0 8px', color: '#e2e8f0' }}>|</span>
+          <Link to="/register">还没有账号？立即注册</Link>
+        </div>
       </Card>
     </div>
   );

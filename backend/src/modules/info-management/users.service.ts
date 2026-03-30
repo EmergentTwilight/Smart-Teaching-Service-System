@@ -95,6 +95,16 @@ export const usersService = {
   },
 
   /**
+   * 获取用户统计
+   */
+  async getUserStats() {
+    const totalCount = await prisma.user.count()
+    return {
+      totalCount,
+    }
+  },
+
+  /**
    * 根据 ID 获取用户详情
    */
   async getUserById(id: string) {
@@ -183,9 +193,9 @@ export const usersService = {
 
   /**
    * 更新用户信息
-   * 注意：此方法不允许修改密码和角色
+   * 支持更新基本信息、状态和角色
+   * 注意：此方法不允许修改密码
    * - 密码修改请使用 changePassword 或 resetPassword
-   * - 角色修改请使用 assignRoles
    */
   async updateUser(id: string, data: UpdateUserInput) {
     const user = await prisma.user.findUnique({
@@ -196,7 +206,7 @@ export const usersService = {
       throw new NotFoundError('用户不存在')
     }
 
-    const { gender, email, ...restData } = data
+    const { gender, email, roleIds, status, password, ...restData } = data
 
     // 邮箱唯一性检查：只有当新邮箱与当前用户不同时才检查
     if (email !== undefined && email !== user.email) {
@@ -212,11 +222,39 @@ export const usersService = {
       ...restData,
       email: email,
       gender: gender as Gender | null | undefined,
+      status: status as UserStatus | undefined,
     }
 
-    await prisma.user.update({
-      where: { id },
-      data: updatePayload,
+    // 如果提供了新密码，则哈希并更新
+    if (password) {
+      updatePayload.passwordHash = await hashPassword(password)
+    }
+
+    // 使用事务更新用户信息和角色
+    await prisma.$transaction(async (tx) => {
+      // 更新用户基本信息
+      await tx.user.update({
+        where: { id },
+        data: updatePayload,
+      })
+
+      // 如果提供了 roleIds，则更新角色
+      if (roleIds !== undefined) {
+        // 先删除所有现有角色
+        await tx.userRole.deleteMany({
+          where: { userId: id },
+        })
+
+        // 添加新角色
+        if (roleIds.length > 0) {
+          await tx.userRole.createMany({
+            data: roleIds.map((roleId) => ({
+              userId: id,
+              roleId,
+            })),
+          })
+        }
+      }
     })
 
     return this.getUserById(id)
@@ -415,7 +453,7 @@ export const usersService = {
    * 批量修改用户状态
    */
   async batchUpdateStatus(data: BatchUpdateStatusInput) {
-    const { userIds, status } = data
+    const { userIds, status, roleIds } = data
 
     // 数量上限检查
     if (userIds.length > 100) {
@@ -431,9 +469,31 @@ export const usersService = {
       throw new NotFoundError(`用户不存在: ${missingIds.join(', ')}`)
     }
 
-    await prisma.user.updateMany({
-      where: { id: { in: userIds } },
-      data: { status },
+    await prisma.$transaction(async (tx) => {
+      // 更新状态
+      if (status !== undefined) {
+        await tx.user.updateMany({
+          where: { id: { in: userIds } },
+          data: { status },
+        })
+      }
+
+      // 更新角色
+      if (roleIds !== undefined && roleIds.length > 0) {
+        // 先删除所有用户的现有角色
+        await tx.userRole.deleteMany({
+          where: { userId: { in: userIds } },
+        })
+
+        // 为每个用户添加新角色
+        const userRoleData = userIds.flatMap((userId) =>
+          roleIds.map((roleId) => ({
+            userId,
+            roleId,
+          }))
+        )
+        await tx.userRole.createMany({ data: userRoleData })
+      }
     })
 
     return {
@@ -537,12 +597,17 @@ export const usersService = {
       throw new NotFoundError('用户不存在')
     }
 
+    // 支持通过角色 ID 或角色代码分配角色
     const existingRoles = await prisma.role.findMany({
-      where: { id: { in: data.roleIds } },
+      where: {
+        OR: [{ id: { in: data.roleIds } }, { code: { in: data.roleIds } }],
+      },
     })
 
     if (existingRoles.length !== data.roleIds.length) {
-      const missingIds = data.roleIds.filter((id) => !existingRoles.some((r) => r.id === id))
+      const missingIds = data.roleIds.filter(
+        (id) => !existingRoles.some((r) => r.id === id || r.code === id)
+      )
       throw new NotFoundError(`角色不存在: ${missingIds.join(', ')}`)
     }
 
@@ -567,11 +632,11 @@ export const usersService = {
       prisma.userRole.deleteMany({
         where: { userId },
       }),
-      // 再创建新角色
+      // 再创建新角色（使用查询到的角色 ID）
       prisma.userRole.createMany({
-        data: data.roleIds.map((roleId) => ({
+        data: existingRoles.map((role) => ({
           userId,
-          roleId,
+          roleId: role.id,
         })),
       }),
       // 吊销所有 Refresh Token
@@ -586,23 +651,33 @@ export const usersService = {
   /**
    * 撤销角色
    */
-  async revokeRole(userId: string, roleId: string, currentUserId?: string) {
+  async revokeRole(userId: string, roleIdOrCode: string, currentUserId?: string) {
+    // 先查找角色（支持 ID 或代码）
+    const role = await prisma.role.findFirst({
+      where: {
+        OR: [{ id: roleIdOrCode }, { code: roleIdOrCode }],
+      },
+    })
+
+    if (!role) {
+      throw new NotFoundError('角色不存在')
+    }
+
+    const roleId = role.id
+
     // 检查是否在撤销自己的角色
     if (currentUserId && userId === currentUserId) {
       const user = await prisma.user.findUnique({
         where: { id: userId },
         include: { userRoles: { include: { role: true } } },
       })
-      if (user) {
-        const role = await prisma.role.findUnique({ where: { id: roleId } })
-        if (role && ['admin', 'super_admin'].includes(role.code)) {
-          // 检查用户是否只有这一个特权角色
-          const privilegedRoles = user.userRoles
-            .map((ur) => ur.role.code)
-            .filter((code) => ['admin', 'super_admin'].includes(code))
-          if (privilegedRoles.length <= 1) {
-            throw new ForbiddenError('不能撤销自己的最后一个管理员角色')
-          }
+      if (user && ['admin', 'super_admin'].includes(role.code)) {
+        // 检查用户是否只有这一个特权角色
+        const privilegedRoles = user.userRoles
+          .map((ur) => ur.role.code)
+          .filter((code) => ['admin', 'super_admin'].includes(code))
+        if (privilegedRoles.length <= 1) {
+          throw new ForbiddenError('不能撤销自己的最后一个管理员角色')
         }
       }
     }

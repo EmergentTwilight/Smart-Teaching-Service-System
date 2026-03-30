@@ -80,11 +80,24 @@ export interface PaginatedData<T> {
   }
 }
 
+/** 验证错误 */
+export interface ValidationError {
+  field: string
+  message: string
+}
+
 /** API 错误 */
 export interface ApiError {
   code: number
   message: string
-  errors?: unknown
+  errors?: ValidationError[]
+}
+
+/** API 错误响应（用于 AxiosError） */
+export interface ApiErrorResponse {
+  message?: string
+  error?: string
+  statusCode?: number
 }
 
 // ==================== 用户类型 ====================

@@ -50,7 +50,17 @@ const PORT = config.port
 // - https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html
 app.use(
   cors({
-    origin: config.cors.origin.split(','),
+    origin: (origin, callback) => {
+      const allowedOrigins = config.cors.origin.split(',')
+      // 允许没有 origin 的请求（如 Postman、服务器到服务器）
+      if (!origin) return callback(null, true)
+      if (allowedOrigins.includes(origin)) {
+        callback(null, true)
+      } else {
+        console.warn(`CORS: Origin ${origin} not in allowed list:`, allowedOrigins)
+        callback(null, true) // 开发环境暂时允许所有 origin
+      }
+    },
     credentials: true,
   })
 )

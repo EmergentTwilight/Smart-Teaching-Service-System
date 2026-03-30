@@ -33,6 +33,14 @@ export const usersApi = {
   },
 
   /**
+   * 获取用户统计
+   * @returns 用户统计数据
+   */
+  getStats: async (): Promise<{ totalCount: number }> => {
+    return request.get('/users/stats')
+  },
+
+  /**
    * 获取单个用户详情
    * @param id 用户ID
    * @returns 用户信息
@@ -82,8 +90,12 @@ export const usersApi = {
    * @param userIds 用户ID列表
    * @param status 新状态
    */
-  batchUpdateStatus: async (userIds: string[], status: string): Promise<void> => {
-    return request.patch('/users/batch/status', { userIds, status })
+  batchUpdateStatus: async (
+    userIds: string[],
+    status?: string,
+    roleIds?: string[]
+  ): Promise<void> => {
+    return request.patch('/users/batch/status', { userIds, status, roleIds })
   },
 
   /**
@@ -94,17 +106,18 @@ export const usersApi = {
    */
   changePassword: async (id: string, oldPassword: string, newPassword: string): Promise<void> => {
     return request.patch(`/users/${id}/password`, {
-      old_password: oldPassword,
-      new_password: newPassword,
+      oldPassword,
+      newPassword,
     })
   },
 
   /**
    * 重置用户密码
    * @param id 用户ID
+   * @param newPassword 新密码
    */
-  resetPassword: async (id: string): Promise<void> => {
-    return request.post(`/users/${id}/password/reset`)
+  resetPassword: async (id: string, newPassword: string): Promise<void> => {
+    return request.post(`/users/${id}/password/reset`, { newPassword })
   },
 
   /**
@@ -160,12 +173,22 @@ export const usersApi = {
     items: Array<{
       id: string
       userId: string
+      username: string
+      realName: string
       action: string
+      resourceType: string
+      resourceId: string
+      ipAddress: string
+      userAgent: string
       details: string
-      ip: string
       createdAt: string
     }>
-    total: number
+    pagination: {
+      page: number
+      pageSize: number
+      total: number
+      totalPages: number
+    }
   }> => {
     return request.get('/users/logs', { params })
   },

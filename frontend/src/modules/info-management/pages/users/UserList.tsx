@@ -1,24 +1,96 @@
 /**
  * 用户列表页面
- * 显示用户列表，支持新增、编辑、删除、搜索、分页操作
+ * 显示用户列表，支持新增、编辑、删除、搜索、分页、批量操作、状态管理、角色分配、权限查看
  */
-import React, { useState, useCallback } from 'react'
-import { Table, Button, Space, Tag, Popconfirm, message, Input, Select, Card, Row, Col } from 'antd'
-import { PlusOutlined, EditOutlined, DeleteOutlined, ReloadOutlined } from '@ant-design/icons'
-import type { ColumnsType } from 'antd/es/table'
+import React, { useState, useCallback, useMemo, useRef } from 'react'
+import {
+  Table,
+  Button,
+  Space,
+  Tag,
+  message,
+  Input,
+  Select,
+  Card,
+  Row,
+  Col,
+  Dropdown,
+  Alert,
+  Modal,
+} from 'antd'
+import {
+  PlusOutlined,
+  EditOutlined,
+  DeleteOutlined,
+  ReloadOutlined,
+  KeyOutlined,
+  UserOutlined,
+  UploadOutlined,
+} from '@ant-design/icons'
+import type { ColumnsType, TableProps } from 'antd/es/table'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useNavigate } from 'react-router-dom'
 import { usersApi, type UserQueryParams } from '@/modules/info-management/api/users'
 import type { User, UserFormData } from '@/shared/types'
+import { USER_STATUS_CONFIG, USER_ROLE_LABELS } from '@/shared/constants/user'
+import { useAuthStore } from '@/shared/stores/authStore'
 import dayjs from 'dayjs'
 import UserForm from './UserForm'
+import BatchImportModal from './BatchImportModal'
+import BatchStatusModal from './BatchStatusModal'
+import BatchDeleteModal from './BatchDeleteModal'
+import RoleAssignModal from './RoleAssignModal'
+import UserPermissionsDrawer from './UserPermissionsDrawer'
+import ResetPasswordModal from './ResetPasswordModal'
+import ChangePasswordModal from './ChangePasswordModal'
 
 const { Search } = Input
 
+// 可用角色列表（使用数据库中的真实 UUID）
+const AVAILABLE_ROLES = [
+  { id: '21678428-762a-4906-a2b0-0b1bc5a31bf8', name: '管理员', code: 'admin' },
+  { id: '0060b84b-7c2c-4659-aeb5-903046bf3cb5', name: '教师', code: 'teacher' },
+  { id: '17282ca0-6b33-4659-8132-b4f975780269', name: '学生', code: 'student' },
+]
+
+/** 简单防抖函数 */
+function debounce<T extends (...args: never[]) => void>(
+  func: T,
+  wait: number
+): (...args: Parameters<T>) => void {
+  let timeoutId: ReturnType<typeof setTimeout> | null = null
+  return (...args: Parameters<T>) => {
+    if (timeoutId) clearTimeout(timeoutId)
+    timeoutId = setTimeout(() => func(...args), wait)
+  }
+}
+
 const UserList: React.FC = () => {
+  const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const loggedInUser = useAuthStore((state) => state.user)
+
+  // 表单状态
   const [formOpen, setFormOpen] = useState(false)
   const [currentUser, setCurrentUser] = useState<User | null>(null)
+
+  // 多选状态
+  const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([])
+
+  // 弹窗状态
+  const [batchImportOpen, setBatchImportOpen] = useState(false)
+  const [batchStatusOpen, setBatchStatusOpen] = useState(false)
+  const [batchDeleteOpen, setBatchDeleteOpen] = useState(false)
+  const [roleAssignOpen, setRoleAssignOpen] = useState(false)
+  const [permissionsOpen, setPermissionsOpen] = useState(false)
+  const [resetPasswordOpen, setResetPasswordOpen] = useState(false)
+  const [changePasswordOpen, setChangePasswordOpen] = useState(false)
+  const [operatingUser, setOperatingUser] = useState<User | null>(null)
   
+  // 删除确认弹窗状态
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false)
+  const [userToDelete, setUserToDelete] = useState<User | null>(null)
+
   // 搜索和分页状态
   const [params, setParams] = useState<UserQueryParams>({
     page: 1,
@@ -44,45 +116,104 @@ const UserList: React.FC = () => {
     },
   })
 
-  const handleCreate = () => {
+  // 表格多选配置
+  const rowSelection = useMemo<TableProps<User>['rowSelection']>(
+    () => ({
+      selectedRowKeys,
+      onChange: (keys) => setSelectedRowKeys(keys),
+    }),
+    [selectedRowKeys]
+  )
+
+  // 清空选择
+  const clearSelection = useCallback(() => {
+    setSelectedRowKeys([])
+  }, [])
+
+  // 处理创建
+  const handleCreate = useCallback(() => {
     setCurrentUser(null)
     setFormOpen(true)
-  }
+  }, [])
 
-  const handleEdit = (user: User) => {
+  // 处理编辑
+  const handleEdit = useCallback((user: User) => {
     setCurrentUser(user)
     setFormOpen(true)
-  }
+  }, [])
 
+  // 处理表单提交
   const handleSubmit = async (values: UserFormData) => {
     if (currentUser) {
       await usersApi.update(currentUser.id, values)
     } else {
       await usersApi.create(values)
     }
-    // UserForm 会处理成功消息和关闭对话框
-    // 只需要刷新列表
     queryClient.invalidateQueries({ queryKey: ['users'] })
   }
 
-  // 搜索处理
+  // 打开删除确认弹窗
+  const handleOpenDeleteModal = useCallback((user: User) => {
+    setUserToDelete(user)
+    setDeleteModalOpen(true)
+  }, [])
+
+  // 打开角色分配
+  const handleOpenRoleAssign = useCallback((user: User) => {
+    setOperatingUser(user)
+    setRoleAssignOpen(true)
+  }, [])
+
+  // 打开权限查看
+  const handleOpenPermissions = useCallback((user: User) => {
+    setOperatingUser(user)
+    setPermissionsOpen(true)
+  }, [])
+
+  // 打开重置密码
+  const handleOpenResetPassword = useCallback((user: User) => {
+    setOperatingUser(user)
+    setResetPasswordOpen(true)
+  }, [])
+
+  // 打开修改密码
+  const handleOpenChangePassword = useCallback((user: User) => {
+    setOperatingUser(user)
+    setChangePasswordOpen(true)
+  }, [])
+
+  // 搜索处理（防抖）
+  const debouncedSearchRef = useRef(
+    debounce((value: string) => {
+      setParams((prev) => ({ ...prev, keyword: value, page: 1 }))
+    }, 300)
+  )
+
   const handleSearch = useCallback((value: string) => {
-    setParams(prev => ({ ...prev, keyword: value, page: 1 }))
+    debouncedSearchRef.current(value)
   }, [])
 
   // 状态筛选
-  const handleStatusChange = useCallback((value: string | undefined) => {
-    setParams(prev => ({ ...prev, status: value, page: 1 }))
+  const handleFilterStatusChange = useCallback((value: string | undefined) => {
+    setParams((prev) => ({ ...prev, status: value, page: 1 }))
+  }, [])
+
+  // 角色筛选
+  const handleFilterRoleChange = useCallback((value: string | undefined) => {
+    setParams((prev) => ({ ...prev, role: value, page: 1 }))
   }, [])
 
   // 分页变化
-  const handleTableChange = useCallback((pagination: { current?: number; pageSize?: number }) => {
-    setParams(prev => ({
-      ...prev,
-      page: pagination.current,
-      pageSize: pagination.pageSize,
-    }))
-  }, [])
+  const handleTableChange = useCallback(
+    (pagination: { current?: number; pageSize?: number }) => {
+      setParams((prev) => ({
+        ...prev,
+        page: pagination.current,
+        pageSize: pagination.pageSize,
+      }))
+    },
+    []
+  )
 
   // 重置搜索
   const handleReset = useCallback(() => {
@@ -95,91 +226,139 @@ const UserList: React.FC = () => {
     })
   }, [])
 
-  const columns: ColumnsType<User> = [
-    {
-      title: '用户名',
-      dataIndex: 'username',
-      key: 'username',
-      width: 120,
+  // 检查是否有管理员权限（用于显示操作列）
+  const isAdmin = useMemo(() => {
+    const roles = loggedInUser?.roles || []
+    return roles.includes('admin') || roles.includes('super_admin')
+  }, [loggedInUser?.roles])
+
+  const columns = useMemo<ColumnsType<User>>(
+    () => {
+      const baseColumns: ColumnsType<User> = [
+        {
+          title: '用户名',
+          dataIndex: 'username',
+          key: 'username',
+          width: 120,
+        },
+        {
+          title: '姓名',
+          dataIndex: 'realName',
+          key: 'realName',
+          width: 100,
+        },
+        {
+          title: '邮箱',
+          dataIndex: 'email',
+          key: 'email',
+          width: 200,
+        },
+        {
+          title: '手机号',
+          dataIndex: 'phone',
+          key: 'phone',
+          width: 130,
+          render: (phone: string) => phone || '-',
+        },
+        {
+          title: '性别',
+          dataIndex: 'gender',
+          key: 'gender',
+          width: 80,
+          render: (gender: string) => {
+            if (!gender) return '-'
+            const genderMap: Record<string, string> = {
+              MALE: '男',
+              FEMALE: '女',
+              OTHER: '其他',
+            }
+            return genderMap[gender] || gender
+          },
+        },
+        {
+          title: '角色',
+          dataIndex: 'roles',
+          key: 'roles',
+          width: 150,
+          render: (roles: string[]) => {
+            if (!roles || roles.length === 0) {
+              return <span style={{ color: '#999' }}>未分配</span>
+            }
+            return (
+              <Space size={4} wrap>
+                {roles.map((role) => (
+                  <Tag key={role} color="blue">
+                    {USER_ROLE_LABELS[role] || role}
+                  </Tag>
+                ))}
+              </Space>
+            )
+          },
+        },
+        {
+          title: '状态',
+          dataIndex: 'status',
+          key: 'status',
+          width: 90,
+          render: (status: string) => {
+            const config = USER_STATUS_CONFIG[status] || { color: 'default', text: status }
+            return <Tag color={config.color}>{config.text}</Tag>
+          },
+        },
+        {
+          title: '最后登录',
+          dataIndex: 'lastLoginAt',
+          key: 'lastLoginAt',
+          width: 150,
+          render: (date: string) =>
+            date ? dayjs(date).format('YYYY-MM-DD HH:mm') : '从未登录',
+        },
+        {
+          title: '创建时间',
+          dataIndex: 'createdAt',
+          key: 'createdAt',
+          width: 150,
+          render: (date: string) =>
+            date ? dayjs(date).format('YYYY-MM-DD HH:mm') : '-',
+        },
+      ]
+
+      // 只有管理员才显示操作列
+      if (isAdmin) {
+        baseColumns.push({
+          title: '操作',
+          key: 'action',
+          width: 180,
+          fixed: 'right',
+          align: 'left',
+          render: (_, record) => (
+            <Space size={16}>
+              <Button
+                type="link"
+                size="small"
+                icon={<EditOutlined />}
+                onClick={() => handleEdit(record)}
+              >
+                编辑
+              </Button>
+              <Button
+                type="link"
+                size="small"
+                danger
+                icon={<DeleteOutlined />}
+                onClick={() => handleOpenDeleteModal(record)}
+              >
+                删除
+              </Button>
+            </Space>
+          ),
+        })
+      }
+
+      return baseColumns
     },
-    {
-      title: '姓名',
-      dataIndex: 'realName',
-      key: 'realName',
-      width: 100,
-    },
-    {
-      title: '邮箱',
-      dataIndex: 'email',
-      key: 'email',
-      width: 180,
-    },
-    {
-      title: '角色',
-      dataIndex: 'roles',
-      key: 'roles',
-      width: 120,
-      render: (roles: string[]) => (
-        <Space>
-          {roles?.map((role) => (
-            <Tag key={role} color="blue">
-              {role}
-            </Tag>
-          ))}
-        </Space>
-      ),
-    },
-    {
-      title: '状态',
-      dataIndex: 'status',
-      key: 'status',
-      width: 80,
-      render: (status: string) => (
-        <Tag color={status === 'ACTIVE' ? 'green' : 'red'}>
-          {status === 'ACTIVE' ? '正常' : '禁用'}
-        </Tag>
-      ),
-    },
-    {
-      title: '创建时间',
-      dataIndex: 'createdAt',
-      key: 'createdAt',
-      width: 160,
-      render: (date: string) => date ? dayjs(date).format('YYYY-MM-DD HH:mm') : '-',
-    },
-    {
-      title: '操作',
-      key: 'action',
-      width: 150,
-      render: (_, record) => (
-        <Space>
-          <Button
-            type="link"
-            size="small"
-            icon={<EditOutlined />}
-            onClick={() => handleEdit(record)}
-          >
-            编辑
-          </Button>
-          <Popconfirm
-            title="确定要删除此用户吗？"
-            onConfirm={() => deleteMutation.mutate(record.id)}
-            okText="确定"
-            cancelText="取消"
-          >
-            <Button
-              type="link"
-              size="small"
-              danger
-              icon={<DeleteOutlined />}
-            >
-              删除
-            </Button>
-          </Popconfirm>
-        </Space>
-      ),
-    },
-  ]
+    [isAdmin, handleEdit, handleOpenResetPassword, handleOpenDeleteModal]
+  )
 
   const users = data?.items || []
   const pagination = data?.pagination
@@ -187,26 +366,69 @@ const UserList: React.FC = () => {
   return (
     <div>
       <Card>
+        {/* 批量操作栏 */}
+        {selectedRowKeys.length > 0 && (
+          <Alert
+            type="info"
+            showIcon
+            style={{ marginBottom: 16 }}
+            message={
+              <Space>
+                <span>已选择 {selectedRowKeys.length} 个用户</span>
+                <Button
+                  size="small"
+                  onClick={() => setBatchStatusOpen(true)}
+                >
+                  批量修改
+                </Button>
+                <Button
+                  size="small"
+                  danger
+                  onClick={() => setBatchDeleteOpen(true)}
+                >
+                  批量删除
+                </Button>
+                <Button size="small" onClick={clearSelection}>
+                  取消选择
+                </Button>
+              </Space>
+            }
+          />
+        )}
+
         <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
           <Col flex="auto">
             <Space size="middle" wrap>
               <Search
                 placeholder="搜索用户名、姓名、邮箱"
                 allowClear
-                onSearch={handleSearch}
+                onChange={(e) => handleSearch(e.target.value)}
                 style={{ width: 280 }}
                 defaultValue={params.keyword}
               />
               <Select
                 placeholder="状态筛选"
                 allowClear
-                style={{ width: 120 }}
+                style={{ width: 120, height: 40 }}
                 value={params.status}
-                onChange={handleStatusChange}
+                onChange={handleFilterStatusChange}
                 options={[
                   { label: '正常', value: 'ACTIVE' },
                   { label: '禁用', value: 'INACTIVE' },
                   { label: '封禁', value: 'BANNED' },
+                ]}
+              />
+              <Select
+                placeholder="角色筛选"
+                allowClear
+                style={{ width: 120, height: 40 }}
+                value={params.role}
+                onChange={handleFilterRoleChange}
+                options={[
+                  { label: '学生', value: 'student' },
+                  { label: '教师', value: 'teacher' },
+                  { label: '管理员', value: 'admin' },
+                  { label: '超级管理员', value: 'super_admin' },
                 ]}
               />
               <Button icon={<ReloadOutlined />} onClick={handleReset}>
@@ -215,9 +437,14 @@ const UserList: React.FC = () => {
             </Space>
           </Col>
           <Col>
-            <Button type="primary" icon={<PlusOutlined />} onClick={handleCreate}>
-              新增用户
-            </Button>
+            <Space>
+              <Button icon={<UploadOutlined />} onClick={() => setBatchImportOpen(true)}>
+                批量导入
+              </Button>
+              <Button type="primary" icon={<PlusOutlined />} onClick={handleCreate}>
+                新增用户
+              </Button>
+            </Space>
           </Col>
         </Row>
 
@@ -226,7 +453,9 @@ const UserList: React.FC = () => {
           dataSource={users}
           rowKey="id"
           loading={isLoading}
+          rowSelection={rowSelection}
           onChange={handleTableChange}
+          scroll={{ x: 1200 }}
           pagination={{
             total: pagination?.total || 0,
             pageSize: params.pageSize,
@@ -239,15 +468,123 @@ const UserList: React.FC = () => {
         />
       </Card>
 
+      {/* 编辑用户表单 */}
       <UserForm
         open={formOpen}
         user={currentUser}
+        roles={AVAILABLE_ROLES}
         onSubmit={handleSubmit}
         onCancel={() => {
           setFormOpen(false)
           setCurrentUser(null)
         }}
       />
+
+      {/* 批量导入 */}
+      <BatchImportModal
+        open={batchImportOpen}
+        onCancel={() => setBatchImportOpen(false)}
+        onSuccess={() => {
+          setBatchImportOpen(false)
+          queryClient.invalidateQueries({ queryKey: ['users'] })
+        }}
+      />
+
+      {/* 批量修改 */}
+      <BatchStatusModal
+        open={batchStatusOpen}
+        userIds={selectedRowKeys as string[]}
+        onCancel={() => setBatchStatusOpen(false)}
+        onSuccess={() => {
+          setBatchStatusOpen(false)
+          clearSelection()
+        }}
+      />
+
+      {/* 批量删除 */}
+      <BatchDeleteModal
+        open={batchDeleteOpen}
+        userIds={selectedRowKeys as string[]}
+        onCancel={() => setBatchDeleteOpen(false)}
+        onSuccess={() => {
+          setBatchDeleteOpen(false)
+          clearSelection()
+        }}
+      />
+
+      {/* 角色分配 */}
+      <RoleAssignModal
+        open={roleAssignOpen}
+        userId={operatingUser?.id || ''}
+        currentRoles={(operatingUser?.roles || []) as string[]}
+        onCancel={() => {
+          setRoleAssignOpen(false)
+          setOperatingUser(null)
+        }}
+        onSuccess={() => {
+          setRoleAssignOpen(false)
+          setOperatingUser(null)
+        }}
+      />
+
+      {/* 权限查看 */}
+      <UserPermissionsDrawer
+        open={permissionsOpen}
+        userId={operatingUser?.id || ''}
+        userName={operatingUser?.realName || operatingUser?.username || ''}
+        onClose={() => {
+          setPermissionsOpen(false)
+          setOperatingUser(null)
+        }}
+      />
+
+      {/* 重置密码 */}
+      <ResetPasswordModal
+        open={resetPasswordOpen}
+        userId={operatingUser?.id || ''}
+        userName={operatingUser?.realName || operatingUser?.username || ''}
+        onCancel={() => {
+          setResetPasswordOpen(false)
+          setOperatingUser(null)
+        }}
+        onSuccess={() => {
+          setResetPasswordOpen(false)
+          setOperatingUser(null)
+        }}
+      />
+
+      {/* 修改密码 */}
+      <ChangePasswordModal
+        open={changePasswordOpen}
+        userId={operatingUser?.id || ''}
+        userName={operatingUser?.realName || operatingUser?.username || ''}
+        onCancel={() => {
+          setChangePasswordOpen(false)
+          setOperatingUser(null)
+        }}
+        onSuccess={() => {
+          setChangePasswordOpen(false)
+          setOperatingUser(null)
+        }}
+      />
+
+      {/* 删除确认弹窗 */}
+      <Modal
+        title="确认删除"
+        open={deleteModalOpen}
+        onCancel={() => setDeleteModalOpen(false)}
+        onOk={() => {
+          if (userToDelete) {
+            deleteMutation.mutate(userToDelete.id)
+            setDeleteModalOpen(false)
+          }
+        }}
+        okText="确定"
+        cancelText="取消"
+        okButtonProps={{ danger: true, loading: deleteMutation.isPending }}
+      >
+        <p>确定要删除用户 <strong>{userToDelete?.username}</strong> 吗？此操作不可恢复。</p>
+      </Modal>
     </div>
   )
 }

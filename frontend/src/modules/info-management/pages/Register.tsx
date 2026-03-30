@@ -6,7 +6,14 @@ import React, { useState } from 'react';
 import { Form, Input, Button, Card, message, Progress } from 'antd';
 import { UserOutlined, LockOutlined, MailOutlined, TrophyOutlined, CheckCircleOutlined } from '@ant-design/icons';
 import { useNavigate, Link } from 'react-router-dom';
+import type { AxiosError } from 'axios';
 import { authApi } from '@/modules/info-management/api/auth';
+import type { ApiErrorResponse } from '@/shared/types';
+import {
+  calculatePasswordStrength,
+  getStrengthColor,
+  getStrengthText,
+} from '@/shared/utils/password';
 import styles from './Login.module.css';
 
 interface RegisterForm {
@@ -23,40 +30,6 @@ const Register: React.FC = () => {
   const [passwordStrength, setPasswordStrength] = useState(0);
   const navigate = useNavigate();
 
-  /**
-   * 计算密码强度
-   */
-  const calculatePasswordStrength = (password: string): number => {
-    if (!password) return 0;
-    let strength = 0;
-    if (password.length >= 8) strength += 25;
-    if (/[a-z]/.test(password)) strength += 25;
-    if (/[A-Z]/.test(password)) strength += 25;
-    if (/[0-9]/.test(password)) strength += 15;
-    if (/[^a-zA-Z0-9]/.test(password)) strength += 10;
-    return Math.min(strength, 100);
-  };
-
-  /**
-   * 获取密码强度颜色
-   */
-  const getStrengthColor = (strength: number): string => {
-    if (strength < 30) return '#ff4d4f';
-    if (strength < 60) return '#faad14';
-    if (strength < 80) return '#52c41a';
-    return '#1890ff';
-  };
-
-  /**
-   * 获取密码强度文本
-   */
-  const getStrengthText = (strength: number): string => {
-    if (strength < 30) return '弱';
-    if (strength < 60) return '中等';
-    if (strength < 80) return '强';
-    return '非常强';
-  };
-
   const handleSubmit = async (values: RegisterForm) => {
     try {
       setLoading(true);
@@ -69,7 +42,7 @@ const Register: React.FC = () => {
       message.success('注册成功！请查看邮箱激活账号');
       navigate('/login');
     } catch (error: unknown) {
-      message.error((error as any).response?.data?.message || '注册失败，请重试');
+      message.error((error as AxiosError<ApiErrorResponse>)?.response?.data?.message || '注册失败，请重试');
     } finally {
       setLoading(false);
     }

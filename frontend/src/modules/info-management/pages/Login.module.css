@@ -50,7 +50,8 @@
 }
 
 @keyframes pulse {
-  0%, 100% {
+  0%,
+  100% {
     transform: scale(1);
   }
   50% {
@@ -125,14 +126,21 @@
 /* 底部提示 */
 .footer {
   text-align: center;
-  color: #9ca3af;
-  font-size: 13px;
+  color: #6b7280;
+  font-size: 14px;
   margin-top: 24px;
-  padding-top: 24px;
+  padding-top: 20px;
   border-top: 1px solid #f1f5f9;
 }
 
-.footer strong {
+.footer a {
   color: #6366f1;
+  text-decoration: none;
   font-weight: 500;
+  transition: color 0.2s ease;
+}
+
+.footer a:hover {
+  color: #4f46e5;
+  text-decoration: underline;
 }

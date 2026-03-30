@@ -42,13 +42,12 @@ services:
       NODE_ENV: development
       CORS_ORIGIN: http://localhost:5173
       # 鷻加邮件相关配置
-      # 邮件配置（Outlook/Microsoft 365）
-      SMTP_HOST: smtp.yeah.net
-      SMTP_PORT: 465
-      SMTP_USER: smart_teaching@yeah.net
-      SMTP_PASS: FPp4aFnzGtdyZSmQ
-      SMTP_FROM: smart_teaching@yeah.net
-      # 前端 URL 配置（用于生成重置链接）
+      SMTP_HOST: smtp.example.com
+      SMTP_PORT: 587
+      SMTP_USER: your-email@example.com
+      SMTP_PASS: your-password
+      SMTP_FROM: noreply@example.com
+      # 巻加前端 URL 配置（用于生成重置链接）
       FRONTEND_URL: http://localhost:5173
     volumes:
       - .:/app

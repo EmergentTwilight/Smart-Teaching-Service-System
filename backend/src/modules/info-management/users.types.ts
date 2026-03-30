@@ -60,9 +60,15 @@ export const updateUserSchema = z.object({
   realName: z.string().min(1, '姓名不能为空').max(50).optional(),
   avatarUrl: z.string().url('头像URL格式不正确').optional(),
   gender: z.nativeEnum(Gender).optional(),
-  // 注意：不包含 password 和 roleIds，这些需要通过专用接口修改
-  // 修改密码：PUT /users/:id/password
-  // 分配角色：POST /users/:id/roles
+  status: z.nativeEnum(UserStatus).optional(),
+  roleIds: z.array(z.string()).optional(),
+  password: z
+    .string()
+    .min(8, '密码至少 8 个字符')
+    .regex(/[A-Z]/, '密码必须包含大写字母')
+    .regex(/[a-z]/, '密码必须包含小写字母')
+    .regex(/[0-9]/, '密码必须包含数字')
+    .optional(),
 })
 
 /**
@@ -119,10 +125,18 @@ export const batchCreateUsersSchema = z.object({
 /**
  * 批量修改用户状态 schema
  */
-export const batchUpdateStatusSchema = z.object({
-  userIds: z.array(z.string()).min(1, '至少需要一个用户ID').max(100, '单次最多修改100个用户'),
-  status: z.nativeEnum(UserStatus),
-})
+export const batchUpdateStatusSchema = z
+  .object({
+    userIds: z.array(z.string()).min(1, '至少需要一个用户ID').max(100, '单次最多修改100个用户'),
+    status: z.nativeEnum(UserStatus).optional(),
+    roleIds: z.array(z.string()).optional(),
+  })
+  .refine(
+    (data) => data.status !== undefined || (data.roleIds !== undefined && data.roleIds.length > 0),
+    {
+      message: '至少需要提供状态或角色之一',
+    }
+  )
 
 /**
  * 修改密码 schema

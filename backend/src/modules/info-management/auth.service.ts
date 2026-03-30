@@ -499,7 +499,7 @@ export const authService = {
         realName: data.realName,
         phone: data.phone,
         gender: data.gender?.toUpperCase() as Gender | undefined,
-        status: 'INACTIVE',
+        status: 'ACTIVE',
       },
     })
 

@@ -60,6 +60,17 @@ router.get(
 
 /**
  * @swagger
+ * /api/v1/users/stats:
+ *   get:
+ *     summary: 获取用户统计
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ */
+router.get('/stats', usersController.getStats)
+
+/**
+ * @swagger
  * /api/v1/users:
  *   post:
  *     summary: 创建用户

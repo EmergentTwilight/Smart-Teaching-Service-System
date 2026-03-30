@@ -123,7 +123,7 @@ const BatchImportModal: React.FC<BatchImportModalProps> = ({
             
             const user: ParsedUser = {
               username: values[headers.indexOf('username')] || '',
-              realName: values[headers.indexOf('realname') || values[headers.indexOf('real_name')] || '',
+              realName: values[headers.indexOf('realname')] || values[headers.indexOf('real_name')] || '',
               email: values[headers.indexOf('email')] || '',
               phone: values[headers.indexOf('phone')],
               roles: roleIds.length > 0 ? roleIds : undefined,

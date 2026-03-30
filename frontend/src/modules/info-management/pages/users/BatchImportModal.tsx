@@ -123,7 +123,7 @@ const BatchImportModal: React.FC<BatchImportModalProps> = ({
           }
           resolve(users)
         } catch (error) {
-          console.debug('CSV 解析失败:', error)
+          console.error('CSV 解析失败:', error)
           message.error('文件解析失败，请检查文件格式')
           resolve([])
         }

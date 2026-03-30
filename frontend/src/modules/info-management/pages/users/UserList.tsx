@@ -2,7 +2,7 @@
  * 用户列表页面
  * 显示用户列表，支持新增、编辑、删除、搜索、分页、批量操作、状态管理、角色分配、权限查看
  */
-import React, { useState, useCallback, useMemo } from 'react'
+import React, { useState, useCallback, useMemo, useRef } from 'react'
 import {
   Table,
   Button,
@@ -46,6 +46,18 @@ import ResetPasswordModal from './ResetPasswordModal'
 import ChangePasswordModal from './ChangePasswordModal'
 
 const { Search } = Input
+
+/** 简单防抖函数 */
+function debounce<T extends (...args: any[]) => any>(
+  func: T,
+  wait: number
+): (...args: Parameters<T>) => void {
+  let timeoutId: ReturnType<typeof setTimeout> | null = null
+  return (...args: Parameters<T>) => {
+    if (timeoutId) clearTimeout(timeoutId)
+    timeoutId = setTimeout(() => func(...args), wait)
+  }
+}
 
 const UserList: React.FC = () => {
   const navigate = useNavigate()
@@ -111,16 +123,16 @@ const UserList: React.FC = () => {
   }, [])
 
   // 处理创建
-  const handleCreate = () => {
+  const handleCreate = useCallback(() => {
     setCurrentUser(null)
     setFormOpen(true)
-  }
+  }, [])
 
   // 处理编辑
-  const handleEdit = (user: User) => {
+  const handleEdit = useCallback((user: User) => {
     setCurrentUser(user)
     setFormOpen(true)
-  }
+  }, [])
 
   // 处理表单提交
   const handleSubmit = async (values: UserFormData) => {
@@ -133,38 +145,44 @@ const UserList: React.FC = () => {
   }
 
   // 打开删除确认弹窗
-  const handleOpenDeleteModal = (user: User) => {
+  const handleOpenDeleteModal = useCallback((user: User) => {
     setUserToDelete(user)
     setDeleteModalOpen(true)
-  }
+  }, [])
 
   // 打开角色分配
-  const handleOpenRoleAssign = (user: User) => {
+  const handleOpenRoleAssign = useCallback((user: User) => {
     setOperatingUser(user)
     setRoleAssignOpen(true)
-  }
+  }, [])
 
   // 打开权限查看
-  const handleOpenPermissions = (user: User) => {
+  const handleOpenPermissions = useCallback((user: User) => {
     setOperatingUser(user)
     setPermissionsOpen(true)
-  }
+  }, [])
 
   // 打开重置密码
-  const handleOpenResetPassword = (user: User) => {
+  const handleOpenResetPassword = useCallback((user: User) => {
     setOperatingUser(user)
     setResetPasswordOpen(true)
-  }
+  }, [])
 
   // 打开修改密码
-  const handleOpenChangePassword = (user: User) => {
+  const handleOpenChangePassword = useCallback((user: User) => {
     setOperatingUser(user)
     setChangePasswordOpen(true)
-  }
+  }, [])
 
-  // 搜索处理
+  // 搜索处理（防抖）
+  const debouncedSearchRef = useRef(
+    debounce((value: string) => {
+      setParams((prev) => ({ ...prev, keyword: value, page: 1 }))
+    }, 300)
+  )
+
   const handleSearch = useCallback((value: string) => {
-    setParams((prev) => ({ ...prev, keyword: value, page: 1 }))
+    debouncedSearchRef.current(value)
   }, [])
 
   // 状态筛选
@@ -352,7 +370,7 @@ const UserList: React.FC = () => {
               <Search
                 placeholder="搜索用户名、姓名、邮箱"
                 allowClear
-                onSearch={handleSearch}
+                onChange={(e) => handleSearch(e.target.value)}
                 style={{ width: 280 }}
                 defaultValue={params.keyword}
               />

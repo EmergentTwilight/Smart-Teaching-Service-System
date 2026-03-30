@@ -16,6 +16,7 @@ import { authApi } from '@/modules/info-management/api/auth';
 import { usersApi } from '@/modules/info-management/api/users';
 import type { AuthUserDto, UserDetail } from '@/shared/types';
 import toast from '@/shared/components/Toast/Toast';
+import { extractErrorMessage } from '@/shared/utils/error';
 
 const Profile: React.FC = () => {
   const { user, updateUser } = useAuthStore();
@@ -38,7 +39,7 @@ const Profile: React.FC = () => {
       toast.success('密码修改成功');
       passwordForm.resetFields();
     } catch (error: unknown) {
-      toast.error((error as any).response?.data?.message || '修改密码失败');
+      toast.error(extractErrorMessage(error, '修改密码失败'));
     } finally {
       setPasswordLoading(false);
     }
@@ -65,12 +66,8 @@ const Profile: React.FC = () => {
       // 更新本地用户数据
       updateUser(updateData)
       toast.success('信息更新成功')
-    } catch (error) {
-      if (error instanceof Error) {
-        toast.error(error.message || '更新失败')
-      } else {
-        toast.error('更新失败')
-      }
+    } catch (error: unknown) {
+      toast.error(extractErrorMessage(error, '更新失败'))
     } finally {
       setLoading(false)
     }

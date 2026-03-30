@@ -7,6 +7,7 @@ import { Form, Input, Button, Card, Result, Spin, Progress, message } from 'antd
 import { LockOutlined, TrophyOutlined, CheckCircleOutlined, CloseCircleOutlined } from '@ant-design/icons';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { authApi } from '@/modules/info-management/api/auth';
+import { extractErrorMessage } from '@/shared/utils/error';
 import styles from './Login.module.css';
 
 const ResetPassword: React.FC = () => {
@@ -82,7 +83,7 @@ const ResetPassword: React.FC = () => {
       message.success('密码重置成功');
       navigate('/login');
     } catch (error: unknown) {
-      message.error((error as any).response?.data?.message || '重置失败，请重试');
+      message.error(extractErrorMessage(error, '重置失败，请重试'));
     } finally {
       setLoading(false);
     }

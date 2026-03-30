@@ -326,10 +326,10 @@ const UserList: React.FC = () => {
         baseColumns.push({
           title: '操作',
           key: 'action',
-          width: 220,
+          width: 180,
           fixed: 'right',
           render: (_, record) => (
-            <Space size={0}>
+            <Space size={4}>
               <Button
                 type="link"
                 size="small"
@@ -344,7 +344,7 @@ const UserList: React.FC = () => {
                 icon={<KeyOutlined />}
                 onClick={() => handleOpenResetPassword(record)}
               >
-                重置密码
+                重置
               </Button>
               <Button
                 type="link"

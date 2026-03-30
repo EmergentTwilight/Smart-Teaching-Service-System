@@ -61,6 +61,7 @@ const BatchImportModal: React.FC<BatchImportModalProps> = ({
       usersApi.batchCreate(
         users.map((u) => ({
           username: u.username!,
+          password: 'User1234', // 默认密码，用户首次登录后应修改
           realName: u.realName!,
           email: u.email!,
           phone: u.phone,

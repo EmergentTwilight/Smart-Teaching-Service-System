@@ -38,6 +38,7 @@ import dayjs from 'dayjs'
 import UserForm from './UserForm'
 import BatchImportModal from './BatchImportModal'
 import BatchStatusModal from './BatchStatusModal'
+import BatchDeleteModal from './BatchDeleteModal'
 import RoleAssignModal from './RoleAssignModal'
 import UserPermissionsDrawer from './UserPermissionsDrawer'
 import ResetPasswordModal from './ResetPasswordModal'
@@ -79,6 +80,7 @@ const UserList: React.FC = () => {
   // 弹窗状态
   const [batchImportOpen, setBatchImportOpen] = useState(false)
   const [batchStatusOpen, setBatchStatusOpen] = useState(false)
+  const [batchDeleteOpen, setBatchDeleteOpen] = useState(false)
   const [roleAssignOpen, setRoleAssignOpen] = useState(false)
   const [permissionsOpen, setPermissionsOpen] = useState(false)
   const [resetPasswordOpen, setResetPasswordOpen] = useState(false)
@@ -379,6 +381,13 @@ const UserList: React.FC = () => {
                 >
                   批量修改
                 </Button>
+                <Button
+                  size="small"
+                  danger
+                  onClick={() => setBatchDeleteOpen(true)}
+                >
+                  批量删除
+                </Button>
                 <Button size="small" onClick={clearSelection}>
                   取消选择
                 </Button>
@@ -488,6 +497,17 @@ const UserList: React.FC = () => {
         onCancel={() => setBatchStatusOpen(false)}
         onSuccess={() => {
           setBatchStatusOpen(false)
+          clearSelection()
+        }}
+      />
+
+      {/* 批量删除 */}
+      <BatchDeleteModal
+        open={batchDeleteOpen}
+        userIds={selectedRowKeys as string[]}
+        onCancel={() => setBatchDeleteOpen(false)}
+        onSuccess={() => {
+          setBatchDeleteOpen(false)
           clearSelection()
         }}
       />

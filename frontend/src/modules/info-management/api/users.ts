@@ -194,4 +194,19 @@ export const usersApi = {
   }> => {
     return request.get('/users/logs', { params })
   },
+
+  /**
+   * 获取所有角色列表
+   * @returns 角色列表
+   */
+  getRoles: async (): Promise<
+    Array<{
+      id: string
+      name: string
+      code: string
+      description?: string
+    }>
+  > => {
+    return request.get('/users/roles')
+  },
 }

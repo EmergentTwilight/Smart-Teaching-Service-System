@@ -743,4 +743,26 @@ export const usersService = {
       permissions,
     }
   },
+
+  /**
+   * 获取所有角色列表
+   */
+  async getRoles() {
+    const roles = await prisma.role.findMany({
+      select: {
+        id: true,
+        name: true,
+        code: true,
+        description: true,
+      },
+      orderBy: { name: 'asc' },
+    })
+
+    return roles.map((role) => ({
+      id: role.id,
+      name: role.name,
+      code: role.code,
+      description: role.description,
+    }))
+  },
 }

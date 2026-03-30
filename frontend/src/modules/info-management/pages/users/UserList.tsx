@@ -41,13 +41,6 @@ import ChangePasswordModal from './ChangePasswordModal'
 
 const { Search } = Input
 
-// 可用角色列表（使用数据库中的真实 UUID）
-const AVAILABLE_ROLES = [
-  { id: '21678428-762a-4906-a2b0-0b1bc5a31bf8', name: '管理员', code: 'admin' },
-  { id: '0060b84b-7c2c-4659-aeb5-903046bf3cb5', name: '教师', code: 'teacher' },
-  { id: '17282ca0-6b33-4659-8132-b4f975780269', name: '学生', code: 'student' },
-]
-
 /** 简单防抖函数 */
 function debounce<T extends (...args: never[]) => void>(
   func: T,
@@ -97,6 +90,15 @@ const UserList: React.FC = () => {
     queryKey: ['users', params],
     queryFn: () => usersApi.getList(params),
   })
+
+  // 获取角色列表
+  const { data: rolesData } = useQuery({
+    queryKey: ['roles'],
+    queryFn: () => usersApi.getRoles(),
+  })
+
+  // 角色列表（从 API 获取）
+  const availableRoles = rolesData || []
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => usersApi.delete(id),
@@ -441,7 +443,7 @@ const UserList: React.FC = () => {
       <UserForm
         open={formOpen}
         user={currentUser}
-        roles={AVAILABLE_ROLES}
+        roles={availableRoles}
         onSubmit={handleSubmit}
         onCancel={() => {
           setFormOpen(false)

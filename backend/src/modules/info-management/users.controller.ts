@@ -180,4 +180,12 @@ export const usersController = {
     const permissions = await usersService.getUserPermissions(id)
     success(res, permissions)
   },
+
+  /**
+   * 获取所有角色列表
+   */
+  async getRoles(req: Request, res: Response) {
+    const roles = await usersService.getRoles()
+    success(res, roles)
+  },
 }

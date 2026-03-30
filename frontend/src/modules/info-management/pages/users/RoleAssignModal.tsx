@@ -1,18 +1,10 @@
 /**
  * 角色分配弹窗
  */
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import { Modal, Transfer, Tag, Space, message } from 'antd'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query'
 import { usersApi } from '@/modules/info-management/api/users'
-
-// 可用角色列表（根据实际项目配置)
-const AVAILABLE_ROLES = [
-  { key: 'admin', title: '管理员' },
-  { key: 'teacher', title: '教师' },
-  { key: 'student', title: '学生' },
-  { key: 'super_admin', title: '超级管理员' },
-]
 
 interface RoleAssignModalProps {
   open: boolean
@@ -31,6 +23,20 @@ const RoleAssignModal: React.FC<RoleAssignModalProps> = ({
 }) => {
   const [selectedRoles, setSelectedRoles] = useState<string[]>(currentRoles)
   const queryClient = useQueryClient()
+
+  // 获取角色列表
+  const { data: rolesData } = useQuery({
+    queryKey: ['roles'],
+    queryFn: () => usersApi.getRoles(),
+  })
+
+  // 转换为 Transfer 组件所需的格式
+  const availableRoles = useMemo(() => {
+    return (rolesData || []).map((role) => ({
+      key: role.code,
+      title: role.name,
+    }))
+  }, [rolesData])
 
   useEffect(() => {
     setSelectedRoles(currentRoles)
@@ -81,7 +87,7 @@ const RoleAssignModal: React.FC<RoleAssignModalProps> = ({
           <Space>
             {currentRoles.map((role) => (
               <Tag key={role} color="blue">
-                {AVAILABLE_ROLES.find((r) => r.key === role)?.title || role}
+                {availableRoles.find((r) => r.key === role)?.title || role}
               </Tag>
             ))}
           </Space>
@@ -91,7 +97,7 @@ const RoleAssignModal: React.FC<RoleAssignModalProps> = ({
       </div>
 
       <Transfer
-        dataSource={AVAILABLE_ROLES}
+        dataSource={availableRoles}
         titles={['可选角色', '已选角色']}
         targetKeys={selectedRoles}
         onChange={(keys) => setSelectedRoles(keys as string[])}

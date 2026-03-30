@@ -14,6 +14,14 @@ import { usersApi } from '@/modules/info-management/api/users';
 
 const { Title, Text } = Typography;
 
+// 活动数据
+const ACTIVITIES = [
+  { text: '新用户 zhangsan 完成注册', time: '2 分钟前', color: '#6366f1' },
+  { text: '课程《高等数学》已更新', time: '15 分钟前', color: '#10b981' },
+  { text: '选课系统已开启', time: '1 小时前', color: '#f59e0b' },
+  { text: '系统完成数据备份', time: '3 小时前', color: '#3b82f6' },
+] as const;
+
 const Dashboard: React.FC = () => {
   const [userCount, setUserCount] = useState(0);
 
@@ -29,7 +37,7 @@ const Dashboard: React.FC = () => {
     fetchStats();
   }, []);
 
-  // 统计数据（移到组件外避免重复创建）
+  // 统计数据
   const STATS = [
     {
       title: '用户总数',
@@ -61,15 +69,6 @@ const Dashboard: React.FC = () => {
     },
   ] as const;
 
-// 活动数据
-const ACTIVITIES = [
-  { text: '新用户 zhangsan 完成注册', time: '2 分钟前', color: '#6366f1' },
-  { text: '课程《高等数学》已更新', time: '15 分钟前', color: '#10b981' },
-  { text: '选课系统已开启', time: '1 小时前', color: '#f59e0b' },
-  { text: '系统完成数据备份', time: '3 小时前', color: '#3b82f6' },
-] as const;
-
-const Dashboard: React.FC = () => {
   return (
     <div className="fade-in">
       {/* 页面标题 */}

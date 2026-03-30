@@ -183,9 +183,9 @@ export const usersService = {
 
   /**
    * 更新用户信息
-   * 注意：此方法不允许修改密码和角色
+   * 支持更新基本信息、状态和角色
+   * 注意：此方法不允许修改密码
    * - 密码修改请使用 changePassword 或 resetPassword
-   * - 角色修改请使用 assignRoles
    */
   async updateUser(id: string, data: UpdateUserInput) {
     const user = await prisma.user.findUnique({
@@ -196,7 +196,7 @@ export const usersService = {
       throw new NotFoundError('用户不存在')
     }
 
-    const { gender, email, ...restData } = data
+    const { gender, email, roleIds, status, ...restData } = data
 
     // 邮箱唯一性检查：只有当新邮箱与当前用户不同时才检查
     if (email !== undefined && email !== user.email) {
@@ -212,11 +212,34 @@ export const usersService = {
       ...restData,
       email: email,
       gender: gender as Gender | null | undefined,
+      status: status as UserStatus | undefined,
     }
 
-    await prisma.user.update({
-      where: { id },
-      data: updatePayload,
+    // 使用事务更新用户信息和角色
+    await prisma.$transaction(async (tx) => {
+      // 更新用户基本信息
+      await tx.user.update({
+        where: { id },
+        data: updatePayload,
+      })
+
+      // 如果提供了 roleIds，则更新角色
+      if (roleIds !== undefined) {
+        // 先删除所有现有角色
+        await tx.userRole.deleteMany({
+          where: { userId: id },
+        })
+
+        // 添加新角色
+        if (roleIds.length > 0) {
+          await tx.userRole.createMany({
+            data: roleIds.map((roleId) => ({
+              userId: id,
+              roleId,
+            })),
+          })
+        }
+      }
     })
 
     return this.getUserById(id)

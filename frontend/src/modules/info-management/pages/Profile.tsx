@@ -17,7 +17,7 @@ import { usersApi } from '@/modules/info-management/api/users';
 import type { User } from '@/shared/types';
 
 const Profile: React.FC = () => {
-  const { user, updateUser } = useAuthStore();
+  const { user } = useAuthStore();
   const [form] = Form.useForm();
   const [passwordForm] = Form.useForm();
   const [loading, setLoading] = useState(false);
@@ -61,8 +61,6 @@ const Profile: React.FC = () => {
       if (values.gender !== undefined) updateData.gender = values.gender
 
       await usersApi.update(user.id, updateData)
-      // 更新本地状态
-      updateUser(updateData)
       message.success('信息更新成功')
     } catch (error) {
       if (error instanceof Error) {
@@ -230,7 +228,7 @@ const Profile: React.FC = () => {
               {user.roles?.join(', ') || '未设置'}
             </Descriptions.Item>
             <Descriptions.Item label="状态">
-              {user.status === 'ACTIVE' ? '正常' : user.status === 'INACTIVE' ? '未激活' : '已封禁'}
+              {user.status === 'ACTIVE' ? '正常' : user.status === 'INACTIVE' ? '未激活' : user.status === 'BANNED' ? '已封禁' : user.status}
             </Descriptions.Item>
             <Descriptions.Item label="注册时间">
               {new Date(user.createdAt).toLocaleString('zh-CN')}

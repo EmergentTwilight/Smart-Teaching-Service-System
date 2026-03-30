@@ -60,9 +60,10 @@ export const updateUserSchema = z.object({
   realName: z.string().min(1, '姓名不能为空').max(50).optional(),
   avatarUrl: z.string().url('头像URL格式不正确').optional(),
   gender: z.nativeEnum(Gender).optional(),
-  // 注意：不包含 password 和 roleIds，这些需要通过专用接口修改
+  status: z.nativeEnum(UserStatus).optional(),
+  roleIds: z.array(z.string()).optional(),
+  // 注意：不包含 password，需要通过专用接口修改
   // 修改密码：PUT /users/:id/password
-  // 分配角色：POST /users/:id/roles
 })
 
 /**

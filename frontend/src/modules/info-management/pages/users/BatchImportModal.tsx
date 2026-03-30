@@ -25,6 +25,14 @@ import { useMutation } from '@tanstack/react-query'
 import { usersApi } from '@/modules/info-management/api/users'
 import { MAX_FILE_SIZE } from '@/shared/constants/user'
 
+// 角色代码到ID的映射
+const ROLE_CODE_TO_ID: Record<string, string> = {
+  student: '17282ca0-6b33-4659-8132-b4f975780269',
+  teacher: '0060b84b-7c2c-4659-aeb5-903046bf3cb5',
+  admin: '21678428-762a-4906-a2b0-0b1bc5a31bf8',
+  super_admin: '55a8c104-b5e6-4b33-bc32-169518c95c64',
+}
+
 const { Text } = Typography
 
 interface BatchImportModalProps {
@@ -59,14 +67,21 @@ const BatchImportModal: React.FC<BatchImportModalProps> = ({
   const { mutate: batchCreate, isPending } = useMutation({
     mutationFn: (users: Array<Partial<ParsedUser>>) =>
       usersApi.batchCreate(
-        users.map((u) => ({
-          username: u.username!,
-          password: 'User1234', // 默认密码，用户首次登录后应修改
-          realName: u.realName!,
-          email: u.email!,
-          phone: u.phone,
-          roles: u.roles || ['student'],
-        }))
+        users.map((u) => {
+          // 将角色代码转换为ID
+          const roleIds = (u.roles || ['student'])
+            .map(code => ROLE_CODE_TO_ID[code] || code)
+            .filter(Boolean)
+          
+          return {
+            username: u.username!,
+            password: 'User1234', // 默认密码，用户首次登录后应修改
+            realName: u.realName!,
+            email: u.email!,
+            phone: u.phone,
+            roleIds: roleIds.length > 0 ? roleIds : ['17282ca0-6b33-4659-8132-b4f975780269'], // 默认学生角色
+          }
+        })
       ),
     onSuccess: (result) => {
       setImportResult(result)
@@ -99,12 +114,19 @@ const BatchImportModal: React.FC<BatchImportModalProps> = ({
           const users: ParsedUser[] = []
           for (let i = 1; i < lines.length; i++) {
             const values = lines[i].split(',').map((v) => v.trim())
+            
+            // 解析角色代码并转换为ID
+            const roleCodes = values[headers.indexOf('roles')]?.split(';').map((r) => r.trim()) || []
+            const roleIds = roleCodes
+              .map(code => ROLE_CODE_TO_ID[code])
+              .filter(Boolean) // 过滤掉未知的角色代码
+            
             const user: ParsedUser = {
               username: values[headers.indexOf('username')] || '',
-              realName: values[headers.indexOf('realname') || headers.indexOf('real_name')] || '',
+              realName: values[headers.indexOf('realname') || values[headers.indexOf('real_name')] || '',
               email: values[headers.indexOf('email')] || '',
               phone: values[headers.indexOf('phone')],
-              roles: values[headers.indexOf('roles')]?.split(';').map((r) => r.trim()),
+              roles: roleIds.length > 0 ? roleIds : undefined,
               valid: true,
             }
 

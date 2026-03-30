@@ -45,12 +45,11 @@ import ChangePasswordModal from './ChangePasswordModal'
 
 const { Search } = Input
 
-// 可用角色列表
+// 可用角色列表（使用数据库中的真实 UUID）
 const AVAILABLE_ROLES = [
-  { id: 'admin', name: '管理员', code: 'admin' },
-  { id: 'teacher', name: '教师', code: 'teacher' },
-  { id: 'student', name: '学生', code: 'student' },
-  { id: 'super_admin', name: '超级管理员', code: 'super_admin' },
+  { id: '21678428-762a-4906-a2b0-0b1bc5a31bf8', name: '管理员', code: 'admin' },
+  { id: '0060b84b-7c2c-4659-aeb5-903046bf3cb5', name: '教师', code: 'teacher' },
+  { id: '17282ca0-6b33-4659-8132-b4f975780269', name: '学生', code: 'student' },
 ]
 
 /** 简单防抖函数 */

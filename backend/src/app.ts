@@ -58,7 +58,7 @@ app.use(
         callback(null, true)
       } else {
         console.warn(`CORS: Origin ${origin} not in allowed list:`, allowedOrigins)
-        callback(null, true) // 开发环境暂时允许所有 origin
+        callback(null, false) // 拒绝不在白名单的 origin
       }
     },
     credentials: true,

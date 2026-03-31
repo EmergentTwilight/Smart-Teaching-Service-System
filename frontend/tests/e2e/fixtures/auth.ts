@@ -13,7 +13,7 @@ export const test = base.extend({
    */
   authenticatedUser: async ({ page }, use) => {
     const username = process.env.E2E_USERNAME || 'admin'
-    const password = process.env.E2E_PASSWORD || 'admin123'
+    const password = process.env.E2E_PASSWORD || 'Admin123'
 
     // 每次都执行登录，确保测试独立性
     await page.goto('/login')

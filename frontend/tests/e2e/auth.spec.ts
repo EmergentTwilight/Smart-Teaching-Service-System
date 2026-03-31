@@ -53,7 +53,7 @@ test.describe('登录功能', () => {
 
   test('登录成功应该跳转到首页（Dashboard）', async ({ page }) => {
     const username = process.env.E2E_USERNAME || 'admin'
-    const password = process.env.E2E_PASSWORD || 'admin123'
+    const password = process.env.E2E_PASSWORD || 'Admin123'
 
     await page.goto('/login')
     await page.fill('input[name="username"]', username)
@@ -71,7 +71,7 @@ test.describe('登录功能', () => {
 
   test('登录后刷新页面应该保持会话', async ({ page }) => {
     const username = process.env.E2E_USERNAME || 'admin'
-    const password = process.env.E2E_PASSWORD || 'admin123'
+    const password = process.env.E2E_PASSWORD || 'Admin123'
 
     // 登录
     await page.goto('/login')
@@ -92,7 +92,7 @@ test.describe('登录功能', () => {
 
   test('登出应该跳转到登录页', async ({ page }) => {
     const username = process.env.E2E_USERNAME || 'admin'
-    const password = process.env.E2E_PASSWORD || 'admin123'
+    const password = process.env.E2E_PASSWORD || 'Admin123'
 
     // 登录
     await page.goto('/login')

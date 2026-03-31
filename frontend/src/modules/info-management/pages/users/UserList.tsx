@@ -305,7 +305,6 @@ const UserList: React.FC = () => {
         baseColumns.push({
           title: '操作',
           key: 'action',
-          width: 180,
           fixed: 'right',
           align: 'left',
           render: (_, record) => (

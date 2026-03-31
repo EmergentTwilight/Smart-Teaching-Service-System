@@ -21,6 +21,7 @@ const prismaMock = vi.hoisted(() => ({
   role: {
     findUnique: vi.fn(),
     findMany: vi.fn(),
+    findFirst: vi.fn(),
   },
   userRole: {
     create: vi.fn(),
@@ -812,7 +813,7 @@ describe('UsersService', () => {
       })
 
       expect(prismaMock.role.findMany).toHaveBeenCalledWith({
-        where: { id: { in: ['role-1', 'role-2'] } },
+        where: { OR: [{ id: { in: ['role-1', 'role-2'] } }, { code: { in: ['role-1', 'role-2'] } }] },
       })
       expect(prismaMock.userRole.createMany).toHaveBeenCalledWith({
         data: [
@@ -848,6 +849,7 @@ describe('UsersService', () => {
   describe('revokeRole', () => {
     it('应该成功撤销角色', async () => {
       const user = buildUserWithRoles()
+      prismaMock.role.findFirst.mockResolvedValue({ id: 'role-1', code: 'admin', name: '管理员' })
       prismaMock.userRole.findUnique.mockResolvedValue({
         userId: 'user-1',
         roleId: 'role-1',
@@ -857,6 +859,9 @@ describe('UsersService', () => {
 
       const result = await usersService.revokeRole('user-1', 'role-1')
 
+      expect(prismaMock.role.findFirst).toHaveBeenCalledWith({
+        where: { OR: [{ id: 'role-1' }, { code: 'role-1' }] },
+      })
       expect(prismaMock.userRole.findUnique).toHaveBeenCalledWith({
         where: { userId_roleId: { userId: 'user-1', roleId: 'role-1' } },
       })
@@ -867,6 +872,7 @@ describe('UsersService', () => {
     })
 
     it('用户未分配该角色应该抛出 NotFoundError', async () => {
+      prismaMock.role.findFirst.mockResolvedValue({ id: 'role-1', code: 'admin', name: '管理员' })
       prismaMock.userRole.findUnique.mockResolvedValue(null)
 
       await expect(usersService.revokeRole('user-1', 'role-1')).rejects.toBeInstanceOf(

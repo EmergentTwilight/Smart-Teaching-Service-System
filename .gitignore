@@ -33,3 +33,7 @@ redis_data/
 # Coverage
 coverage/
 *.lcov
+
+# Playwright test results
+test-results/
+playwright-report/

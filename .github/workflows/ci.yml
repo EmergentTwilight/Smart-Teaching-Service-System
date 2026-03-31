@@ -2,9 +2,10 @@ name: CI
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main, develop, dev/A]
   pull_request:
     branches: [main, develop]
+  workflow_dispatch:
 
 env:
   NODE_VERSION: '24'

@@ -5,6 +5,7 @@ import React, { useState, useEffect, useMemo } from 'react'
 import { Modal, Transfer, Tag, Space, message } from 'antd'
 import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query'
 import { usersApi } from '@/modules/info-management/api/users'
+import { useAuthStore } from '@/shared/stores/authStore'
 
 interface RoleAssignModalProps {
   open: boolean
@@ -23,6 +24,12 @@ const RoleAssignModal: React.FC<RoleAssignModalProps> = ({
 }) => {
   const [selectedRoles, setSelectedRoles] = useState<string[]>(currentRoles)
   const queryClient = useQueryClient()
+  const loggedInUser = useAuthStore((state) => state.user)
+
+  // 检查当前用户是否是超级管理员
+  const isSuperAdmin = useMemo(() => {
+    return loggedInUser?.roles?.includes('super_admin') ?? false
+  }, [loggedInUser?.roles])
 
   // 获取角色列表
   const { data: rolesData } = useQuery({
@@ -31,16 +38,29 @@ const RoleAssignModal: React.FC<RoleAssignModalProps> = ({
   })
 
   // 转换为 Transfer 组件所需的格式
+  // 如果不是超级管理员，过滤掉 super_admin 角色
   const availableRoles = useMemo(() => {
-    return (rolesData || []).map((role) => ({
+    let roles = (rolesData || []).map((role) => ({
       key: role.code,
       title: role.name,
     }))
-  }, [rolesData])
+    
+    // 非 super_admin 不能分配 super_admin 角色
+    if (!isSuperAdmin) {
+      roles = roles.filter((role) => role.key !== 'super_admin')
+    }
+    
+    return roles
+  }, [rolesData, isSuperAdmin])
 
   useEffect(() => {
-    setSelectedRoles(currentRoles)
-  }, [currentRoles])
+    // 非 super_admin 不能看到/操作 super_admin 角色
+    if (!isSuperAdmin) {
+      setSelectedRoles(currentRoles.filter((r) => r !== 'super_admin'))
+    } else {
+      setSelectedRoles(currentRoles)
+    }
+  }, [currentRoles, isSuperAdmin])
 
   const { mutate, isPending } = useMutation({
     mutationFn: async (newRoles: string[]) => {

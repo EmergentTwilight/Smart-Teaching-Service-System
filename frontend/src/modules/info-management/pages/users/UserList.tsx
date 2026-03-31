@@ -203,6 +203,12 @@ const UserList: React.FC = () => {
     return roles.includes('admin') || roles.includes('super_admin')
   }, [loggedInUser?.roles])
 
+  // 检查是否是超级管理员
+  const isSuperAdmin = useMemo(() => {
+    const roles = loggedInUser?.roles || []
+    return roles.includes('super_admin')
+  }, [loggedInUser?.roles])
+
   const columns = useMemo<ColumnsType<UserDetail>>(
     () => {
       const baseColumns: ColumnsType<UserDetail> = [
@@ -312,15 +318,17 @@ const UserList: React.FC = () => {
               >
                 编辑
               </Button>
-              <Button
-                type="link"
-                size="small"
-                danger
-                icon={<DeleteOutlined />}
-                onClick={() => handleOpenDeleteModal(record)}
-              >
-                删除
-              </Button>
+              {isSuperAdmin && (
+                <Button
+                  type="link"
+                  size="small"
+                  danger
+                  icon={<DeleteOutlined />}
+                  onClick={() => handleOpenDeleteModal(record)}
+                >
+                  删除
+                </Button>
+              )}
             </Space>
           ),
         })
@@ -328,7 +336,7 @@ const UserList: React.FC = () => {
 
       return baseColumns
     },
-    [isAdmin, handleEdit, handleOpenDeleteModal]
+    [isAdmin, isSuperAdmin, handleEdit, handleOpenDeleteModal]
   )
 
   const users = data?.items || []
@@ -352,13 +360,15 @@ const UserList: React.FC = () => {
                 >
                   批量修改
                 </Button>
-                <Button
-                  size="small"
-                  danger
-                  onClick={() => setBatchDeleteOpen(true)}
-                >
-                  批量删除
-                </Button>
+                {isSuperAdmin && (
+                  <Button
+                    size="small"
+                    danger
+                    onClick={() => setBatchDeleteOpen(true)}
+                  >
+                    批量删除
+                  </Button>
+                )}
                 <Button size="small" onClick={clearSelection}>
                   取消选择
                 </Button>
@@ -395,12 +405,20 @@ const UserList: React.FC = () => {
                 style={{ width: 120, height: 40 }}
                 value={params.role}
                 onChange={handleFilterRoleChange}
-                options={[
-                  { label: '学生', value: 'student' },
-                  { label: '教师', value: 'teacher' },
-                  { label: '管理员', value: 'admin' },
-                  { label: '超级管理员', value: 'super_admin' },
-                ]}
+                options={
+                  isSuperAdmin
+                    ? [
+                        { label: '学生', value: 'student' },
+                        { label: '教师', value: 'teacher' },
+                        { label: '管理员', value: 'admin' },
+                        { label: '超级管理员', value: 'super_admin' },
+                      ]
+                    : [
+                        { label: '学生', value: 'student' },
+                        { label: '教师', value: 'teacher' },
+                        { label: '管理员', value: 'admin' },
+                      ]
+                }
               />
               <Button icon={<ReloadOutlined />} onClick={handleReset}>
                 重置
@@ -409,12 +427,16 @@ const UserList: React.FC = () => {
           </Col>
           <Col>
             <Space>
-              <Button icon={<UploadOutlined />} onClick={() => setBatchImportOpen(true)}>
-                批量导入
-              </Button>
-              <Button type="primary" icon={<PlusOutlined />} onClick={handleCreate}>
-                新增用户
-              </Button>
+              {isSuperAdmin && (
+                <Button icon={<UploadOutlined />} onClick={() => setBatchImportOpen(true)}>
+                  批量导入
+                </Button>
+              )}
+              {isSuperAdmin && (
+                <Button type="primary" icon={<PlusOutlined />} onClick={handleCreate}>
+                  新增用户
+                </Button>
+              )}
             </Space>
           </Col>
         </Row>

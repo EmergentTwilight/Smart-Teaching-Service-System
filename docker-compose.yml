@@ -72,15 +72,14 @@ services:
     environment:
       VITE_API_URL: http://localhost:3000/api/v1
     volumes:
-      - ./frontend:/app
-      - ./shared:/shared
+      - .:/app
       - /app/node_modules
       - /app/.pnpm-store
     ports:
       - "5173:5173"
     depends_on:
       - server
-    command: sh -c "corepack enable && pnpm install && pnpm dev"
+    command: sh -c "corepack enable && pnpm install && cd frontend && pnpm dev"
     networks:
       - stss-network
 

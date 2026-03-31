@@ -73,6 +73,13 @@ export const usersController = {
    */
   async delete(req: Request, res: Response) {
     const id = req.params.id as string
+    const currentUserId = req.user?.id
+
+    // 防止删除自己的账号
+    if (id === currentUserId) {
+      throw new ValidationError('不能删除自己的账号')
+    }
+
     await usersService.deleteUser(id)
     success(res, null, '删除成功')
   },
@@ -148,7 +155,8 @@ export const usersController = {
     const id = req.params.id as string
     const data = assignRolesSchema.parse(req.body)
     const currentUserId = req.user?.userId
-    const user = await usersService.assignRoles(id, data, currentUserId)
+    const currentUserRoles = req.user?.roles
+    const user = await usersService.assignRoles(id, data, currentUserId, currentUserRoles)
     success(res, user, '角色分配成功')
   },
 

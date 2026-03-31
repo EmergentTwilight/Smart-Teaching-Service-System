@@ -93,6 +93,14 @@ export interface LoginRequest {
   password: string
 }
 
+/** 角色详情 */
+export interface RoleDetail {
+  /** 角色代码 */
+  code: string
+  /** 角色名称 */
+  name: string
+}
+
 /**
  * 认证用户 DTO
  * 登录/刷新令牌时返回的用户信息结构
@@ -116,8 +124,10 @@ export interface AuthUserDto {
   status: 'active' | 'inactive' | 'banned'
   /** 最后登录时间 */
   lastLoginAt: Date | null
-  /** 角色列表 */
+  /** 角色代码列表 */
   roles: string[]
+  /** 角色详情列表 */
+  roleDetails?: RoleDetail[]
   /** 权限列表 */
   permissions: string[]
 }

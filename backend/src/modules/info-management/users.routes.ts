@@ -117,7 +117,7 @@ router.get('/stats', usersController.getStats)
 router.post(
   '/',
   validate(createUserSchema, 'body'),
-  requireRoles('admin', 'super_admin'),
+  requireRoles('super_admin'),
   usersController.create
 )
 
@@ -133,7 +133,7 @@ router.post(
 router.post(
   '/batch',
   validate(batchCreateUsersSchema, 'body'),
-  requireRoles('admin', 'super_admin'),
+  requireRoles('super_admin'),
   usersController.batchCreate
 )
 

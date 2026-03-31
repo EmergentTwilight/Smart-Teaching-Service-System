@@ -586,7 +586,12 @@ export const usersService = {
   /**
    * 分配角色
    */
-  async assignRoles(userId: string, data: AssignRolesInput, currentUserId?: string) {
+  async assignRoles(
+    userId: string,
+    data: AssignRolesInput,
+    currentUserId?: string,
+    currentUserRoles?: string[]
+  ) {
     // 先检查用户和角色存在性（在事务外做，减少事务时间）
     const user = await prisma.user.findUnique({
       where: { id: userId },
@@ -611,9 +616,16 @@ export const usersService = {
       throw new NotFoundError(`角色不存在: ${missingIds.join(', ')}`)
     }
 
+    // admin 不能分配 super_admin 角色
+    const targetCodes = existingRoles.map((r) => r.code)
+    if (currentUserRoles && !currentUserRoles.includes('super_admin')) {
+      if (targetCodes.includes('super_admin')) {
+        throw new ForbiddenError('只有超级管理员才能分配超级管理员角色')
+      }
+    }
+
     // 检查是否在修改自己的角色（在事务外做）
     if (currentUserId && userId === currentUserId) {
-      const targetCodes = existingRoles.map((r) => r.code)
       const currentPrivilegedRoles = user.userRoles
         .map((ur) => ur.role.code)
         .filter((code) => ['admin', 'super_admin'].includes(code))

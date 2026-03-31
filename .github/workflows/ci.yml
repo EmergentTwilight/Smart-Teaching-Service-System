@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main, develop, dev/A]
+    branches: [main, develop]
   pull_request:
     branches: [main, develop]
   workflow_dispatch:
@@ -150,8 +150,7 @@ jobs:
           exit 1
 
       - name: Run Playwright E2E tests
-        run: cd frontend && npx playwright test || echo "E2E tests skipped"
-        continue-on-error: true
+        run: cd frontend && npx playwright test
         env:
           VITE_API_URL: http://localhost:3000
 

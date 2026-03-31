@@ -51,6 +51,8 @@ jobs:
 
       - name: Run unit tests
         run: pnpm -r test:run
+        env:
+          DATABASE_URL: postgresql://test:test@localhost:5432/stss_test
 
   e2e:
     name: E2E Tests
@@ -117,6 +119,9 @@ jobs:
         env:
           DATABASE_URL: postgresql://test:test@localhost:5432/stss
           REDIS_URL: redis://localhost:6379
+
+      - name: Build backend
+        run: cd backend && pnpm build
 
       - name: Start backend server
         run: cd backend && pnpm start &

@@ -28,6 +28,42 @@ router.use(authMiddleware)
 
 /**
  * @swagger
+ * /api/v1/users/roles:
+ *   get:
+ *     summary: 获取所有角色列表
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: 成功获取角色列表
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 code:
+ *                   type: integer
+ *                 message:
+ *                   type: string
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: string
+ *                       name:
+ *                         type: string
+ *                       code:
+ *                         type: string
+ *                       description:
+ *                         type: string
+ */
+router.get('/roles', usersController.getRoles)
+
+/**
+ * @swagger
  * /api/v1/users/logs:
  *   get:
  *     summary: 获取系统日志
@@ -81,7 +117,7 @@ router.get('/stats', usersController.getStats)
 router.post(
   '/',
   validate(createUserSchema, 'body'),
-  requireRoles('admin', 'super_admin'),
+  requireRoles('super_admin'),
   usersController.create
 )
 
@@ -97,7 +133,7 @@ router.post(
 router.post(
   '/batch',
   validate(batchCreateUsersSchema, 'body'),
-  requireRoles('admin', 'super_admin'),
+  requireRoles('super_admin'),
   usersController.batchCreate
 )
 

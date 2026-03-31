@@ -5,7 +5,7 @@
 import React, { useState, useEffect } from 'react';
 import { Modal, Form, Input, Select, Radio, Space, Row, Col } from 'antd';
 import { UserOutlined, LockOutlined, MailOutlined, PhoneOutlined } from '@ant-design/icons';
-import type { User, UserFormData } from '@/shared/types';
+import type { UserDetail, UserFormData } from '@/shared/types';
 import toast from '@/shared/components/Toast/Toast';
 
 /**
@@ -15,7 +15,7 @@ interface UserFormProps {
   /** 是否显示 */
   open: boolean;
   /** 编辑的用户（为空表示新建） */
-  user?: User | null;
+  user?: UserDetail | null;
   /** 可选角色列表 */
   roles?: { id: string; name: string; code: string }[];
   /** 提交回调 */

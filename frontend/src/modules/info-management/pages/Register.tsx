@@ -6,9 +6,8 @@ import React, { useState } from 'react';
 import { Form, Input, Button, Card, message, Progress } from 'antd';
 import { UserOutlined, LockOutlined, MailOutlined, TrophyOutlined, CheckCircleOutlined } from '@ant-design/icons';
 import { useNavigate, Link } from 'react-router-dom';
-import type { AxiosError } from 'axios';
 import { authApi } from '@/modules/info-management/api/auth';
-import type { ApiErrorResponse } from '@/shared/types';
+import { extractErrorMessage } from '@/shared/utils/error';
 import {
   calculatePasswordStrength,
   getStrengthColor,
@@ -42,7 +41,7 @@ const Register: React.FC = () => {
       message.success('注册成功！请查看邮箱激活账号');
       navigate('/login');
     } catch (error: unknown) {
-      message.error((error as AxiosError<ApiErrorResponse>)?.response?.data?.message || '注册失败，请重试');
+      message.error(extractErrorMessage(error, '注册失败，请重试'));
     } finally {
       setLoading(false);
     }

@@ -1,9 +1,9 @@
 /**
  * 批量修改弹窗
  */
-import React, { useState } from 'react'
+import React, { useState, useMemo } from 'react'
 import { Modal, Radio, Space, Select, message, Divider } from 'antd'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query'
 import { usersApi } from '@/modules/info-management/api/users'
 
 interface BatchStatusModalProps {
@@ -22,6 +22,20 @@ const BatchStatusModal: React.FC<BatchStatusModalProps> = ({
   const [status, setStatus] = useState<string | undefined>(undefined)
   const [roleIds, setRoleIds] = useState<string[]>([])
   const queryClient = useQueryClient()
+
+  // 获取角色列表
+  const { data: rolesData } = useQuery({
+    queryKey: ['roles'],
+    queryFn: () => usersApi.getRoles(),
+  })
+
+  // 角色选项（从 API 获取）
+  const roleOptions = useMemo(() => {
+    return (rolesData || []).map((role) => ({
+      label: role.name,
+      value: role.id,
+    }))
+  }, [rolesData])
 
   const { mutate, isPending } = useMutation({
     mutationFn: () => usersApi.batchUpdateStatus(userIds, status, roleIds.length > 0 ? roleIds : undefined),
@@ -75,12 +89,7 @@ const BatchStatusModal: React.FC<BatchStatusModalProps> = ({
           placeholder="选择要分配的角色（不选择则不修改）"
           value={roleIds}
           onChange={setRoleIds}
-          options={[
-            { label: '学生', value: '17282ca0-6b33-4659-8132-b4f975780269' },
-            { label: '教师', value: '0060b84b-7c2c-4659-aeb5-903046bf3cb5' },
-            { label: '管理员', value: '21678428-762a-4906-a2b0-0b1bc5a31bf8' },
-            { label: '超级管理员', value: '55a8c104-b5e6-4b33-bc32-169518c95c64' },
-          ]}
+          options={roleOptions}
         />
       </div>
     </Modal>

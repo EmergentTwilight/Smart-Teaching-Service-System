@@ -7,6 +7,7 @@ import { Card, Button, Result, Spin, Input, Form, message } from 'antd';
 import { TrophyOutlined, CheckCircleOutlined, CloseCircleOutlined } from '@ant-design/icons';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { authApi } from '@/modules/info-management/api/auth';
+import { extractErrorMessage } from '@/shared/utils/error';
 import styles from './Login.module.css';
 
 const Activate: React.FC = () => {
@@ -36,7 +37,7 @@ const Activate: React.FC = () => {
       message.success('账号激活成功！');
     } catch (error: unknown) {
       setStatus('error');
-      message.error((error as any).response?.data?.message || '激活失败，请重试');
+      message.error(extractErrorMessage(error, '激活失败，请重试'));
     }
   };
 

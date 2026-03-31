@@ -142,7 +142,11 @@ function serializeUser(
     include: typeof userAuthInclude
   }>
 ) {
-  const roles = user.userRoles.map((userRole) => userRole.role.code)
+  const roleDetails = user.userRoles.map((userRole) => ({
+    code: userRole.role.code,
+    name: userRole.role.name,
+  }))
+  const roles = roleDetails.map((r) => r.code)
   const permissions = Array.from(
     new Set(
       user.userRoles.flatMap((userRole) =>
@@ -162,6 +166,7 @@ function serializeUser(
     status: user.status.toLowerCase(),
     lastLoginAt: user.lastLoginAt,
     roles,
+    roleDetails,
     permissions,
   }
 }

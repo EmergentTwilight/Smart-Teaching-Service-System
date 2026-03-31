@@ -1,18 +1,11 @@
 /**
  * 角色分配弹窗
  */
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import { Modal, Transfer, Tag, Space, message } from 'antd'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query'
 import { usersApi } from '@/modules/info-management/api/users'
-
-// 可用角色列表（根据实际项目配置)
-const AVAILABLE_ROLES = [
-  { key: 'admin', title: '管理员' },
-  { key: 'teacher', title: '教师' },
-  { key: 'student', title: '学生' },
-  { key: 'super_admin', title: '超级管理员' },
-]
+import { useAuthStore } from '@/shared/stores/authStore'
 
 interface RoleAssignModalProps {
   open: boolean
@@ -31,10 +24,43 @@ const RoleAssignModal: React.FC<RoleAssignModalProps> = ({
 }) => {
   const [selectedRoles, setSelectedRoles] = useState<string[]>(currentRoles)
   const queryClient = useQueryClient()
+  const loggedInUser = useAuthStore((state) => state.user)
+
+  // 检查当前用户是否是超级管理员
+  const isSuperAdmin = useMemo(() => {
+    return loggedInUser?.roles?.includes('super_admin') ?? false
+  }, [loggedInUser?.roles])
+
+  // 获取角色列表
+  const { data: rolesData } = useQuery({
+    queryKey: ['roles'],
+    queryFn: () => usersApi.getRoles(),
+  })
+
+  // 转换为 Transfer 组件所需的格式
+  // 如果不是超级管理员，过滤掉 super_admin 角色
+  const availableRoles = useMemo(() => {
+    let roles = (rolesData || []).map((role) => ({
+      key: role.code,
+      title: role.name,
+    }))
+    
+    // 非 super_admin 不能分配 super_admin 角色
+    if (!isSuperAdmin) {
+      roles = roles.filter((role) => role.key !== 'super_admin')
+    }
+    
+    return roles
+  }, [rolesData, isSuperAdmin])
 
   useEffect(() => {
-    setSelectedRoles(currentRoles)
-  }, [currentRoles])
+    // 非 super_admin 不能看到/操作 super_admin 角色
+    if (!isSuperAdmin) {
+      setSelectedRoles(currentRoles.filter((r) => r !== 'super_admin'))
+    } else {
+      setSelectedRoles(currentRoles)
+    }
+  }, [currentRoles, isSuperAdmin])
 
   const { mutate, isPending } = useMutation({
     mutationFn: async (newRoles: string[]) => {
@@ -81,7 +107,7 @@ const RoleAssignModal: React.FC<RoleAssignModalProps> = ({
           <Space>
             {currentRoles.map((role) => (
               <Tag key={role} color="blue">
-                {AVAILABLE_ROLES.find((r) => r.key === role)?.title || role}
+                {availableRoles.find((r) => r.key === role)?.title || role}
               </Tag>
             ))}
           </Space>
@@ -91,7 +117,7 @@ const RoleAssignModal: React.FC<RoleAssignModalProps> = ({
       </div>
 
       <Transfer
-        dataSource={AVAILABLE_ROLES}
+        dataSource={availableRoles}
         titles={['可选角色', '已选角色']}
         targetKeys={selectedRoles}
         onChange={(keys) => setSelectedRoles(keys as string[])}

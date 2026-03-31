@@ -27,7 +27,7 @@ import {
 import type { ColumnsType, TableProps } from 'antd/es/table'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { usersApi, type UserQueryParams } from '@/modules/info-management/api/users'
-import type { User, UserFormData } from '@/shared/types'
+import type { UserDetail, UserFormData } from '@/shared/types'
 import { USER_STATUS_CONFIG, USER_ROLE_LABELS } from '@/shared/constants/user'
 import { useAuthStore } from '@/shared/stores/authStore'
 import dayjs from 'dayjs'
@@ -40,13 +40,6 @@ import UserPermissionsDrawer from './UserPermissionsDrawer'
 import ChangePasswordModal from './ChangePasswordModal'
 
 const { Search } = Input
-
-// 可用角色列表（使用数据库中的真实 UUID）
-const AVAILABLE_ROLES = [
-  { id: '21678428-762a-4906-a2b0-0b1bc5a31bf8', name: '管理员', code: 'admin' },
-  { id: '0060b84b-7c2c-4659-aeb5-903046bf3cb5', name: '教师', code: 'teacher' },
-  { id: '17282ca0-6b33-4659-8132-b4f975780269', name: '学生', code: 'student' },
-]
 
 /** 简单防抖函数 */
 function debounce<T extends (...args: never[]) => void>(
@@ -66,7 +59,7 @@ const UserList: React.FC = () => {
 
   // 表单状态
   const [formOpen, setFormOpen] = useState(false)
-  const [currentUser, setCurrentUser] = useState<User | null>(null)
+  const [currentUser, setCurrentUser] = useState<UserDetail | null>(null)
 
   // 多选状态
   const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([])
@@ -78,11 +71,11 @@ const UserList: React.FC = () => {
   const [roleAssignOpen, setRoleAssignOpen] = useState(false)
   const [permissionsOpen, setPermissionsOpen] = useState(false)
   const [changePasswordOpen, setChangePasswordOpen] = useState(false)
-  const [operatingUser, setOperatingUser] = useState<User | null>(null)
+  const [operatingUser, setOperatingUser] = useState<UserDetail | null>(null)
   
   // 删除确认弹窗状态
   const [deleteModalOpen, setDeleteModalOpen] = useState(false)
-  const [userToDelete, setUserToDelete] = useState<User | null>(null)
+  const [userToDelete, setUserToDelete] = useState<UserDetail | null>(null)
 
   // 搜索和分页状态
   const [params, setParams] = useState<UserQueryParams>({
@@ -98,6 +91,15 @@ const UserList: React.FC = () => {
     queryFn: () => usersApi.getList(params),
   })
 
+  // 获取角色列表
+  const { data: rolesData } = useQuery({
+    queryKey: ['roles'],
+    queryFn: () => usersApi.getRoles(),
+  })
+
+  // 角色列表（从 API 获取）
+  const availableRoles = rolesData || []
+
   const deleteMutation = useMutation({
     mutationFn: (id: string) => usersApi.delete(id),
     onSuccess: () => {
@@ -110,7 +112,7 @@ const UserList: React.FC = () => {
   })
 
   // 表格多选配置
-  const rowSelection = useMemo<TableProps<User>['rowSelection']>(
+  const rowSelection = useMemo<TableProps<UserDetail>['rowSelection']>(
     () => ({
       selectedRowKeys,
       onChange: (keys) => setSelectedRowKeys(keys),
@@ -130,7 +132,7 @@ const UserList: React.FC = () => {
   }, [])
 
   // 处理编辑
-  const handleEdit = useCallback((user: User) => {
+  const handleEdit = useCallback((user: UserDetail) => {
     setCurrentUser(user)
     setFormOpen(true)
   }, [])
@@ -146,7 +148,7 @@ const UserList: React.FC = () => {
   }
 
   // 打开删除确认弹窗
-  const handleOpenDeleteModal = useCallback((user: User) => {
+  const handleOpenDeleteModal = useCallback((user: UserDetail) => {
     setUserToDelete(user)
     setDeleteModalOpen(true)
   }, [])
@@ -201,9 +203,15 @@ const UserList: React.FC = () => {
     return roles.includes('admin') || roles.includes('super_admin')
   }, [loggedInUser?.roles])
 
-  const columns = useMemo<ColumnsType<User>>(
+  // 检查是否是超级管理员
+  const isSuperAdmin = useMemo(() => {
+    const roles = loggedInUser?.roles || []
+    return roles.includes('super_admin')
+  }, [loggedInUser?.roles])
+
+  const columns = useMemo<ColumnsType<UserDetail>>(
     () => {
-      const baseColumns: ColumnsType<User> = [
+      const baseColumns: ColumnsType<UserDetail> = [
         {
           title: '用户名',
           dataIndex: 'username',
@@ -297,9 +305,8 @@ const UserList: React.FC = () => {
         baseColumns.push({
           title: '操作',
           key: 'action',
-          width: 180,
+          width: isSuperAdmin ? 180 : 100,
           fixed: 'right',
-          align: 'left',
           render: (_, record) => (
             <Space size={16}>
               <Button
@@ -310,15 +317,17 @@ const UserList: React.FC = () => {
               >
                 编辑
               </Button>
-              <Button
-                type="link"
-                size="small"
-                danger
-                icon={<DeleteOutlined />}
-                onClick={() => handleOpenDeleteModal(record)}
-              >
-                删除
-              </Button>
+              {isSuperAdmin && (
+                <Button
+                  type="link"
+                  size="small"
+                  danger
+                  icon={<DeleteOutlined />}
+                  onClick={() => handleOpenDeleteModal(record)}
+                >
+                  删除
+                </Button>
+              )}
             </Space>
           ),
         })
@@ -326,7 +335,7 @@ const UserList: React.FC = () => {
 
       return baseColumns
     },
-    [isAdmin, handleEdit, handleOpenDeleteModal]
+    [isAdmin, isSuperAdmin, handleEdit, handleOpenDeleteModal]
   )
 
   const users = data?.items || []
@@ -350,13 +359,15 @@ const UserList: React.FC = () => {
                 >
                   批量修改
                 </Button>
-                <Button
-                  size="small"
-                  danger
-                  onClick={() => setBatchDeleteOpen(true)}
-                >
-                  批量删除
-                </Button>
+                {isSuperAdmin && (
+                  <Button
+                    size="small"
+                    danger
+                    onClick={() => setBatchDeleteOpen(true)}
+                  >
+                    批量删除
+                  </Button>
+                )}
                 <Button size="small" onClick={clearSelection}>
                   取消选择
                 </Button>
@@ -393,12 +404,20 @@ const UserList: React.FC = () => {
                 style={{ width: 120, height: 40 }}
                 value={params.role}
                 onChange={handleFilterRoleChange}
-                options={[
-                  { label: '学生', value: 'student' },
-                  { label: '教师', value: 'teacher' },
-                  { label: '管理员', value: 'admin' },
-                  { label: '超级管理员', value: 'super_admin' },
-                ]}
+                options={
+                  isSuperAdmin
+                    ? [
+                        { label: '学生', value: 'student' },
+                        { label: '教师', value: 'teacher' },
+                        { label: '管理员', value: 'admin' },
+                        { label: '超级管理员', value: 'super_admin' },
+                      ]
+                    : [
+                        { label: '学生', value: 'student' },
+                        { label: '教师', value: 'teacher' },
+                        { label: '管理员', value: 'admin' },
+                      ]
+                }
               />
               <Button icon={<ReloadOutlined />} onClick={handleReset}>
                 重置
@@ -407,12 +426,16 @@ const UserList: React.FC = () => {
           </Col>
           <Col>
             <Space>
-              <Button icon={<UploadOutlined />} onClick={() => setBatchImportOpen(true)}>
-                批量导入
-              </Button>
-              <Button type="primary" icon={<PlusOutlined />} onClick={handleCreate}>
-                新增用户
-              </Button>
+              {isSuperAdmin && (
+                <Button icon={<UploadOutlined />} onClick={() => setBatchImportOpen(true)}>
+                  批量导入
+                </Button>
+              )}
+              {isSuperAdmin && (
+                <Button type="primary" icon={<PlusOutlined />} onClick={handleCreate}>
+                  新增用户
+                </Button>
+              )}
             </Space>
           </Col>
         </Row>
@@ -441,7 +464,7 @@ const UserList: React.FC = () => {
       <UserForm
         open={formOpen}
         user={currentUser}
-        roles={AVAILABLE_ROLES}
+        roles={availableRoles}
         onSubmit={handleSubmit}
         onCancel={() => {
           setFormOpen(false)

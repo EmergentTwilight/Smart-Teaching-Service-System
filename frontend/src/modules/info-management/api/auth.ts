@@ -3,7 +3,7 @@
  * 处理登录、登出、用户信息等接口
  */
 import request from '@/shared/utils/request'
-import type { LoginResponse, User } from '@/shared/types'
+import type { LoginResponse, AuthUserDto } from '@/shared/types'
 
 /** 登录请求参数 */
 export interface LoginRequest {
@@ -42,7 +42,7 @@ export const authApi = {
    * 获取当前用户信息
    * @returns 用户信息
    */
-  me: async (): Promise<User> => {
+  me: async (): Promise<AuthUserDto> => {
     return request.get('/auth/me')
   },
 

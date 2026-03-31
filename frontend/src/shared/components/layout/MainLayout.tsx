@@ -14,6 +14,7 @@ import {
 import { MENU_ITEMS } from '@/shared/config/menu';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '@/shared/stores/authStore';
+import { USER_ROLE_LABELS, type UserRoleType } from '@/shared/types';
 
 const { Header, Sider, Content } = Layout;
 
@@ -207,7 +208,7 @@ const MainLayout: React.FC = () => {
                   {user?.realName || '用户'}
                 </div>
                 <div style={{ fontSize: 12, color: '#9ca3af' }}>
-                  {user?.roles?.[0] || '管理员'}
+                  {user?.roleDetails?.[0]?.name || USER_ROLE_LABELS[user?.roles?.[0] as UserRoleType] || '未设置'}
                 </div>
               </div>
             </div>

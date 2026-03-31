@@ -3,7 +3,7 @@
  * 处理用户 CRUD 接口
  */
 import request from '@/shared/utils/request'
-import type { User, PaginatedData } from '@/shared/types'
+import type { UserDetail, PaginatedData } from '@/shared/types'
 
 /** 用户查询参数 */
 export interface UserQueryParams {
@@ -28,7 +28,7 @@ export const usersApi = {
    */
   getList: async (
     params?: UserQueryParams
-  ): Promise<{ items: User[]; pagination: PaginatedData<User>['pagination'] }> => {
+  ): Promise<{ items: UserDetail[]; pagination: PaginatedData<UserDetail>['pagination'] }> => {
     return request.get('/users', { params })
   },
 
@@ -45,7 +45,7 @@ export const usersApi = {
    * @param id 用户ID
    * @returns 用户信息
    */
-  getById: async (id: string): Promise<User> => {
+  getById: async (id: string): Promise<UserDetail> => {
     return request.get(`/users/${id}`)
   },
 
@@ -54,7 +54,7 @@ export const usersApi = {
    * @param data 用户数据
    * @returns 新创建的用户
    */
-  create: async (data: Partial<User>): Promise<User> => {
+  create: async (data: Partial<UserDetail>): Promise<UserDetail> => {
     return request.post('/users', data)
   },
 
@@ -64,7 +64,7 @@ export const usersApi = {
    * @param data 更新数据
    * @returns 更新后的用户
    */
-  update: async (id: string, data: Partial<User>): Promise<User> => {
+  update: async (id: string, data: Partial<UserDetail>): Promise<UserDetail> => {
     return request.put(`/users/${id}`, data)
   },
 
@@ -81,7 +81,9 @@ export const usersApi = {
    * @param data 用户数据列表
    * @returns 创建结果
    */
-  batchCreate: async (data: Array<Partial<User>>): Promise<{ success: number; failed: number }> => {
+  batchCreate: async (
+    data: Array<Partial<UserDetail>>
+  ): Promise<{ success: number; failed: number }> => {
     return request.post('/users/batch', { users: data })
   },
 
@@ -191,5 +193,20 @@ export const usersApi = {
     }
   }> => {
     return request.get('/users/logs', { params })
+  },
+
+  /**
+   * 获取所有角色列表
+   * @returns 角色列表
+   */
+  getRoles: async (): Promise<
+    Array<{
+      id: string
+      name: string
+      code: string
+      description?: string
+    }>
+  > => {
+    return request.get('/users/roles')
   },
 }

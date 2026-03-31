@@ -229,7 +229,7 @@ const Profile: React.FC = () => {
           >
             <Descriptions column={1}>
             <Descriptions.Item label="角色">
-              {user.roleDetails?.map(r => r.name).join('、') || '未设置'}
+              {user.roleDetails?.map((r: RoleDetail) => r.name).join('、') || '未设置'}
             </Descriptions.Item>
             <Descriptions.Item label="状态">
               {user.status === 'active' ? '正常' : user.status === 'inactive' ? '未激活' : user.status === 'banned' ? '已封禁' : user.status}

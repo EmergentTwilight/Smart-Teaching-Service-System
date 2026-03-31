@@ -21,5 +21,6 @@
     }
   },
   "include": ["src"],
+  "exclude": ["src/**/__tests__/**", "vitest.config.ts"],
   "references": [{ "path": "./tsconfig.node.json" }]
 }

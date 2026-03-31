@@ -53,6 +53,39 @@ export const refreshTokenSchema = z.object({
   refreshToken: z.string().min(1, '刷新令牌不能为空'),
 })
 
+/**
+ * 激活账号请求验证 schema
+ */
+export const activateAccountSchema = z.object({
+  token: z.string().min(1, '激活令牌不能为空'),
+})
+
+/**
+ * 忘记密码请求验证 schema
+ */
+export const forgotPasswordSchema = z.object({
+  email: z.string().email('邮箱格式不正确'),
+})
+
+/**
+ * 重置密码请求验证 schema
+ */
+export const resetPasswordSchema = z
+  .object({
+    token: z.string().min(1, '重置令牌不能为空'),
+    newPassword: z
+      .string()
+      .min(8, '新密码至少8位')
+      .regex(/[A-Z]/, '新密码必须包含大写字母')
+      .regex(/[a-z]/, '新密码必须包含小写字母')
+      .regex(/[0-9]/, '新密码必须包含数字'),
+    confirmPassword: z.string().min(8, '确认密码至少8位'),
+  })
+  .refine((data) => data.newPassword === data.confirmPassword, {
+    message: '两次输入的新密码不一致',
+    path: ['confirmPassword'],
+  })
+
 /** 登录输入类型 */
 export type LoginInput = z.infer<typeof loginSchema>
 /** 注册输入类型 */
@@ -61,3 +94,9 @@ export type RegisterInput = z.infer<typeof registerSchema>
 export type ChangePasswordInput = z.infer<typeof changePasswordSchema>
 /** 刷新令牌输入类型 */
 export type RefreshTokenInput = z.infer<typeof refreshTokenSchema>
+/** 激活账号输入类型 */
+export type ActivateAccountInput = z.infer<typeof activateAccountSchema>
+/** 忘记密码输入类型 */
+export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>
+/** 重置密码输入类型 */
+export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>

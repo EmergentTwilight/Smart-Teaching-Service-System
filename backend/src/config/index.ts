@@ -55,7 +55,7 @@ const config = {
     /** JWT 密钥（生产环境必须通过环境变量设置） */
     secret: process.env.JWT_SECRET || 'stss-super-secret-jwt-key-2026-dev-only',
     /** Access Token 过期时间（短时效，提高安全性） */
-    accessTokenExpiresIn: (process.env.JWT_ACCESS_EXPIRES_IN || '15m') as string,
+    accessTokenExpiresIn: (process.env.JWT_ACCESS_EXPIRES_IN || '2h') as string,
     /** Refresh Token 过期时间（长时效，用于刷新 access token） */
     refreshTokenExpiresIn: (process.env.JWT_REFRESH_EXPIRES_IN || '7d') as string,
     /** @deprecated 使用 accessTokenExpiresIn 代替 */
@@ -65,7 +65,9 @@ const config = {
   /** CORS 配置 */
   cors: {
     /** 允许的来源（逗号分隔） */
-    origin: process.env.CORS_ORIGIN || 'http://localhost:5173',
+    origin:
+      process.env.CORS_ORIGIN ||
+      'http://localhost:5173,http://localhost:5174,http://localhost:5175',
   },
 
   /** 密码安全配置 */
@@ -88,6 +90,26 @@ const config = {
     maxRequests: 100,
     /** 认证 API 最大请求数 */
     authMaxRequests: 10,
+  },
+
+  /** SMTP 邮件配置 */
+  smtp: {
+    /** SMTP 服务器地址 */
+    host: process.env.SMTP_HOST || 'smtp.example.com',
+    /** SMTP 端口 */
+    port: parseInt(process.env.SMTP_PORT || '587', 10),
+    /** SMTP 用户名 */
+    user: process.env.SMTP_USER || '',
+    /** SMTP 密码 */
+    pass: process.env.SMTP_PASS || '',
+    /** 发件人邮箱 */
+    from: process.env.SMTP_FROM || 'noreply@example.com',
+  },
+
+  /** 前端配置 */
+  frontend: {
+    /** 前端 URL（用于生成重置链接） */
+    url: process.env.FRONTEND_URL || 'http://localhost:5173',
   },
 }
 

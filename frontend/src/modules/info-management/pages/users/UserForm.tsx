@@ -3,9 +3,10 @@
  * 用于创建和编辑用户
  */
 import React, { useState, useEffect } from 'react';
-import { Modal, Form, Input, Select, message, Radio, Space } from 'antd';
+import { Modal, Form, Input, Select, Radio, Space, Row, Col } from 'antd';
 import { UserOutlined, LockOutlined, MailOutlined, PhoneOutlined } from '@ant-design/icons';
-import type { User, UserFormData } from '@/shared/types';
+import type { UserDetail, UserFormData } from '@/shared/types';
+import toast from '@/shared/components/Toast/Toast';
 
 /**
  * UserForm 组件 Props
@@ -14,7 +15,7 @@ interface UserFormProps {
   /** 是否显示 */
   open: boolean;
   /** 编辑的用户（为空表示新建） */
-  user?: User | null;
+  user?: UserDetail | null;
   /** 可选角色列表 */
   roles?: { id: string; name: string; code: string }[];
   /** 提交回调 */
@@ -39,6 +40,12 @@ const UserForm: React.FC<UserFormProps> = ({ open, user, roles, onSubmit, onCanc
     if (open) {
       if (user) {
         // 编辑模式：填充用户数据
+        // 将角色代码转换为角色 ID
+        const roleIds = user.roles?.map(roleCode => {
+          const role = roles?.find(r => r.code === roleCode)
+          return role?.id || roleCode
+        }) || []
+
         form.setFieldsValue({
           username: user.username,
           realName: user.realName,
@@ -46,14 +53,14 @@ const UserForm: React.FC<UserFormProps> = ({ open, user, roles, onSubmit, onCanc
           phone: user.phone || '',
           gender: user.gender || undefined,
           status: user.status,
-          password: undefined,
+          roleIds: roleIds,
         });
       } else {
         // 新建模式：重置表单
         form.resetFields();
       }
     }
-  }, [open, user, form]);
+  }, [open, user, form, roles]);
 
   const handleSubmit = async () => {
     try {
@@ -81,7 +88,7 @@ const UserForm: React.FC<UserFormProps> = ({ open, user, roles, onSubmit, onCanc
       }
 
       await onSubmit(submitData);
-      message.success(isEdit ? '更新成功' : '创建成功');
+      toast.success(isEdit ? '更新成功' : '创建成功');
       form.resetFields();
       onCancel();
     } catch (error: unknown) {
@@ -89,7 +96,7 @@ const UserForm: React.FC<UserFormProps> = ({ open, user, roles, onSubmit, onCanc
         // 表单验证失败
         return;
       }
-      message.error(error instanceof Error ? error.message : (isEdit ? '更新失败' : '创建失败'));
+      toast.error(error instanceof Error ? error.message : (isEdit ? '更新失败' : '创建失败'));
     } finally {
       setLoading(false);
     }
@@ -148,30 +155,31 @@ const UserForm: React.FC<UserFormProps> = ({ open, user, roles, onSubmit, onCanc
           <Input placeholder="请输入真实姓名" />
         </Form.Item>
 
-        <Space style={{ width: '100%' }} size="large">
-          <Form.Item
-            name="email"
-            label="邮箱"
-            rules={[
-              { type: 'email', message: '请输入有效的邮箱地址' },
-            ]}
-            style={{ width: 280 }}
-          >
-            <Input prefix={<MailOutlined />} placeholder="请输入邮箱" />
-          </Form.Item>
-
-          <Form.Item
-            name="phone"
-            label="手机号"
-            style={{ width: 260 }}
-          >
-            <Input prefix={<PhoneOutlined />} placeholder="请输入手机号" />
-          </Form.Item>
-        </Space>
+        <Row gutter={16}>
+          <Col span={12}>
+            <Form.Item
+              name="email"
+              label="邮箱"
+              rules={[
+                { type: 'email', message: '请输入有效的邮箱地址' },
+              ]}
+            >
+              <Input prefix={<MailOutlined />} placeholder="请输入邮箱" />
+            </Form.Item>
+          </Col>
+          <Col span={12}>
+            <Form.Item
+              name="phone"
+              label="手机号"
+            >
+              <Input prefix={<PhoneOutlined />} placeholder="请输入手机号" />
+            </Form.Item>
+          </Col>
+        </Row>
 
         <Form.Item
           name="password"
-          label={isEdit ? '密码（留空不修改）' : '密码'}
+          label={isEdit ? '新密码（留空不修改）' : '密码'}
           extra="密码至少8位，需包含大写字母、小写字母和数字"
           rules={
             isEdit
@@ -190,7 +198,11 @@ const UserForm: React.FC<UserFormProps> = ({ open, user, roles, onSubmit, onCanc
                 ]
           }
         >
-          <Input.Password prefix={<LockOutlined />} placeholder="请输入密码" />
+          <Input.Password 
+            prefix={<LockOutlined />} 
+            placeholder={isEdit ? '留空则不修改密码' : '请输入密码'}
+            autoComplete="new-password"
+          />
         </Form.Item>
 
         <Space style={{ width: '100%' }} size="large">

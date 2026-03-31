@@ -3,18 +3,18 @@
  * 配置中间件、路由和错误处理
  */
 import 'dotenv/config'
+// Express 5 已内置 async 错误处理支持，无需 express-async-errors
 import express, { type Application } from 'express'
 import cors from 'cors'
 import helmet from 'helmet'
 import compression from 'compression'
 import morgan from 'morgan'
-import rateLimit from 'express-rate-limit'
+
 import { errorHandler } from './shared/middleware/error.js'
 import { requestLogger } from './shared/middleware/requestLogger.js'
 import authRoutes from './modules/info-management/auth.routes.js'
 import usersRoutes from './modules/info-management/users.routes.js'
 import departmentsRoutes from './modules/info-management/departments.routes.js'
-import coursesRoutes from './modules/info-management/courses.routes.js'
 import config from './config/index.js'
 import { swaggerSpec } from './config/swagger.js'
 import swaggerUi from 'swagger-ui-express'
@@ -50,7 +50,17 @@ const PORT = config.port
 // - https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html
 app.use(
   cors({
-    origin: config.cors.origin.split(','),
+    origin: (origin, callback) => {
+      const allowedOrigins = config.cors.origin.split(',')
+      // 允许没有 origin 的请求（如 Postman、服务器到服务器）
+      if (!origin) return callback(null, true)
+      if (allowedOrigins.includes(origin)) {
+        callback(null, true)
+      } else {
+        console.warn(`CORS: Origin ${origin} not in allowed list:`, allowedOrigins)
+        callback(null, false) // 拒绝不在白名单的 origin
+      }
+    },
     credentials: true,
   })
 )
@@ -70,33 +80,6 @@ app.use(morgan('dev'))
 // JSON 解析
 app.use(express.json())
 app.use(express.urlencoded({ extended: true }))
-
-// 请求速率限制 - 防止暴力攻击
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 分钟
-  max: 100, // 每个 IP 最多 100 次请求
-  message: {
-    code: 429,
-    message: '请求过于频繁，请稍后再试',
-  },
-  standardHeaders: true,
-  legacyHeaders: false,
-})
-app.use('/api/', limiter)
-
-// 认证接口单独限流 - 更严格的限制
-const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 分钟
-  max: 10, // 每个 IP 最多 10 次登录尝试
-  message: {
-    code: 429,
-    message: '登录尝试次数过多，请稍后再试',
-  },
-  standardHeaders: true,
-  legacyHeaders: false,
-})
-app.use('/api/v1/auth/login', authLimiter)
-app.use('/api/v1/auth/register', authLimiter)
 
 // ==================== API 文档 (Swagger) ====================
 app.use(
@@ -134,6 +117,24 @@ app.get('/api/health', async (req, res) => {
     }
   }
 
+  // 检查 Redis 连接（使用 set + del 验证读写正常）
+  try {
+    const redisStart = Date.now()
+    const { redisClient } = await import('./config/redis.js')
+    const testKey = `health:check:${Date.now()}`
+    await redisClient.set(testKey, 'ok', { ex: 10 })
+    await redisClient.del(testKey)
+    checks.redis = {
+      status: 'connected',
+      latency: Date.now() - redisStart,
+    }
+  } catch (error) {
+    checks.redis = {
+      status: 'disconnected',
+      error: error instanceof Error ? error.message : 'Unknown redis error',
+    }
+  }
+
   // 检查服务器状态
   checks.server = {
     status: 'running',
@@ -161,7 +162,6 @@ app.get('/api/health', async (req, res) => {
 app.use('/api/v1/auth', authRoutes)
 app.use('/api/v1/users', usersRoutes)
 app.use('/api/v1/departments', departmentsRoutes)
-app.use('/api/v1/courses', coursesRoutes)
 
 // 404 处理
 app.use((req, res) => {
@@ -173,6 +173,9 @@ app.use((req, res) => {
 
 // 错误处理
 app.use(errorHandler)
+
+// 确保数据库连接已建立后再接受请求
+await prisma.$connect()
 
 // 启动服务器 - 监听 0.0.0.0 以便 Docker 容器访问
 app.listen(PORT, '0.0.0.0', () => {

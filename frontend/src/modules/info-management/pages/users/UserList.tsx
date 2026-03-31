@@ -305,7 +305,7 @@ const UserList: React.FC = () => {
         baseColumns.push({
           title: '操作',
           key: 'action',
-          width: 120,
+          width: isSuperAdmin ? 180 : 100,
           fixed: 'right',
           render: (_, record) => (
             <Space size={16}>

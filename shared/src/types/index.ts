@@ -93,6 +93,45 @@ export interface LoginRequest {
   password: string
 }
 
+/** 角色详情 */
+export interface RoleDetail {
+  /** 角色代码 */
+  code: string
+  /** 角色名称 */
+  name: string
+}
+
+/**
+ * 认证用户 DTO
+ * 登录/刷新令牌时返回的用户信息结构
+ */
+export interface AuthUserDto {
+  /** 用户ID */
+  id: string
+  /** 用户名 */
+  username: string
+  /** 邮箱 */
+  email: string | null
+  /** 手机号 */
+  phone: string | null
+  /** 真实姓名 */
+  realName: string
+  /** 头像URL */
+  avatarUrl: string | null
+  /** 性别 */
+  gender: GenderType | null
+  /** 状态（小写） */
+  status: 'active' | 'inactive' | 'banned'
+  /** 最后登录时间 */
+  lastLoginAt: Date | null
+  /** 角色代码列表 */
+  roles: string[]
+  /** 角色详情列表 */
+  roleDetails?: RoleDetail[]
+  /** 权限列表 */
+  permissions: string[]
+}
+
 /** 登录响应 */
 export interface LoginResponse {
   /** 访问令牌 */
@@ -101,8 +140,22 @@ export interface LoginResponse {
   refreshToken: string
   /** 过期时间（秒） */
   expiresIn: number
+  /** 令牌类型 */
+  tokenType: 'Bearer'
   /** 用户信息 */
-  user: UserType
+  user: AuthUserDto
+}
+
+/** 刷新令牌响应 */
+export interface RefreshTokenResponse {
+  /** 访问令牌 */
+  accessToken: string
+  /** 刷新令牌 */
+  refreshToken: string
+  /** 过期时间（秒） */
+  expiresIn: number
+  /** 令牌类型 */
+  tokenType: 'Bearer'
 }
 
 /** 注册请求 */
@@ -181,14 +234,14 @@ import type { UserStatus, Gender } from '@prisma/client'
 export const USER_STATUS_LABELS: Record<UserStatus, string> = {
   ACTIVE: '正常',
   INACTIVE: '停用',
-  BANNED: '封禁'
+  BANNED: '封禁',
 }
 
 /** 性别标签映射 */
 export const GENDER_LABELS: Record<Gender, string> = {
   MALE: '男',
   FEMALE: '女',
-  OTHER: '其他'
+  OTHER: '其他',
 }
 
 /** 用户角色类型（自定义，非 Prisma 枚举） */
@@ -200,5 +253,5 @@ export const USER_ROLE_LABELS: Record<UserRoleType, string> = {
   teacher: '教师',
   admin: '管理员',
   super_admin: '超级管理员',
-  security_admin: '安全管理员'
+  security_admin: '安全管理员',
 }

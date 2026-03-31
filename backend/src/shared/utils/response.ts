@@ -12,10 +12,42 @@ export interface ApiResponse<T = unknown> {
   code: number
   /** 响应消息 */
   message: string
-  /** 响应数据 */
+  /** 响应数据（成功时） */
   data?: T
+  /** 错误详情（失败时） */
+  errors?: unknown
   /** 请求 ID（用于追踪） */
-  requestId?: string
+  request_id?: string
+}
+
+/**
+ * 将对象键名递归转换为 snake_case
+ * 统一 API 输出字段风格
+ */
+const toSnakeCase = (value: string): string =>
+  value
+    .replace(/([a-z0-9])([A-Z])/g, '$1_$2')
+    .replace(/[\s-]+/g, '_')
+    .toLowerCase()
+
+const convertKeysToSnakeCase = <T>(input: T): T => {
+  if (Array.isArray(input)) {
+    return input.map((item) => convertKeysToSnakeCase(item)) as T
+  }
+
+  if (input instanceof Date) {
+    return input.toISOString() as T
+  }
+
+  if (input && typeof input === 'object') {
+    const entries = Object.entries(input as Record<string, unknown>).map(([key, value]) => [
+      toSnakeCase(key),
+      convertKeysToSnakeCase(value),
+    ])
+    return Object.fromEntries(entries) as T
+  }
+
+  return input
 }
 
 /**
@@ -36,10 +68,10 @@ export const success = <T>(
   const response: ApiResponse<T> = {
     code,
     message,
-    data,
+    data: convertKeysToSnakeCase(data),
   }
   if (requestId) {
-    response.requestId = requestId
+    response.request_id = requestId
   }
   res.status(code).json(response)
 }
@@ -64,10 +96,10 @@ export const error = (
     message,
   }
   if (errors !== undefined) {
-    response.data = errors as Record<string, unknown>
+    response.errors = convertKeysToSnakeCase(errors as Record<string, unknown>)
   }
   if (requestId) {
-    response.requestId = requestId
+    response.request_id = requestId
   }
   res.status(code).json(response)
 }
@@ -99,7 +131,7 @@ export const paginated = <T>(
     },
   }
   if (requestId) {
-    response.requestId = requestId
+    response.request_id = requestId
   }
-  res.json(response)
+  res.json(convertKeysToSnakeCase(response))
 }

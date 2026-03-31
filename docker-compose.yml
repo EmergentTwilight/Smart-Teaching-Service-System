@@ -16,20 +16,42 @@ services:
     networks:
       - stss-network
 
+  redis:
+    image: redis:7-alpine
+    container_name: stss-redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - stss-network
+
   server:
     image: node:22-alpine
     container_name: stss-server
     working_dir: /app
     environment:
       DATABASE_URL: postgresql://stss:stss_dev_2026@postgres:5432/stss?connection_limit=10&pool_timeout=30
-      JWT_SECRET: stss-super-secret-jwt-key-2026
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: stss-dev-key-do-not-use-in-production
       JWT_EXPIRES_IN: 7d
       PORT: 3000
       NODE_ENV: development
       CORS_ORIGIN: http://localhost:5173
+      # 鷻加邮件相关配置
+      # 邮件配置（Outlook/Microsoft 365）
+      SMTP_HOST: smtp.yeah.net
+      SMTP_PORT: 465
+      SMTP_USER: smart_teaching@yeah.net
+      SMTP_PASS: FPp4aFnzGtdyZSmQ
+      SMTP_FROM: smart_teaching@yeah.net
+      # 前端 URL 配置（用于生成重置链接）
+      FRONTEND_URL: http://localhost:5173
     volumes:
-      - ./backend:/app
-      - ./shared:/shared
+      - .:/app
       - /app/node_modules
       - /app/.pnpm-store
     ports:
@@ -37,7 +59,9 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-    command: sh -c "corepack enable && pnpm install && pnpm db:generate && pnpm db:push --accept-data-loss && pnpm db:seed && pnpm dev"
+      redis:
+        condition: service_healthy
+    command: sh -c "corepack enable && pnpm install && pnpm --filter @stss/server db:generate && pnpm --filter @stss/server db:push --accept-data-loss && pnpm --filter @stss/server db:seed && pnpm --filter @stss/server dev"
     networks:
       - stss-network
 
@@ -48,15 +72,14 @@ services:
     environment:
       VITE_API_URL: http://localhost:3000/api/v1
     volumes:
-      - ./frontend:/app
-      - ./shared:/shared
+      - .:/app
       - /app/node_modules
       - /app/.pnpm-store
     ports:
       - "5173:5173"
     depends_on:
       - server
-    command: sh -c "corepack enable && pnpm install && pnpm dev"
+    command: sh -c "corepack enable && pnpm install && cd frontend && pnpm dev"
     networks:
       - stss-network
 
@@ -67,6 +90,44 @@ services:
       - "8080:8080"
     depends_on:
       - postgres
+    networks:
+      - stss-network
+
+  test-server:
+    image: node:22-alpine
+    container_name: stss-test-server
+    working_dir: /app
+    environment:
+      NODE_ENV: test
+      DATABASE_URL: postgresql://stss:stss_dev_2026@postgres:5432/stss?connection_limit=10&pool_timeout=30
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: stss-test-key
+      JWT_EXPIRES_IN: 7d
+      PORT: 3000
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - /app/.pnpm-store
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: sh -c "corepack enable && pnpm install && pnpm --filter @stss/server db:generate && pnpm --filter @stss/server test:run"
+    networks:
+      - stss-network
+
+  test-web:
+    image: node:22-alpine
+    container_name: stss-test-web
+    working_dir: /app
+    environment:
+      VITE_API_URL: http://localhost:3000/api/v1
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - /app/.pnpm-store
+    command: sh -c "corepack enable && pnpm install && pnpm --filter @stss/web test:run"
     networks:
       - stss-network
 

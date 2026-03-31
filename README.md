@@ -6,16 +6,17 @@
 
 ## 技术栈
 
-| 层级 | 技术 |
-|------|------|
-| **前端** | React 19 + TypeScript + Vite 6 + Ant Design 5 + Zustand 5 |
-| **后端** | Node.js 22 + Express 5 + Prisma 7 |
-| **数据库** | PostgreSQL 18 |
-| **开发环境** | Docker Compose |
+| 层级         | 技术                                                      |
+| ------------ | --------------------------------------------------------- |
+| **前端**     | React 19 + TypeScript + Vite 6 + Ant Design 5 + Zustand 5 |
+| **后端**     | Node.js 22 + Express 5 + Prisma 7                         |
+| **数据库**   | PostgreSQL 18 + Redis 7                                   |
+| **开发环境** | Docker Compose                                            |
+| **CI/CD**    | GitHub Actions                                            |
 
 ## 开发环境设置
 
-### 勉拉要求
+### 系统要求
 
 - Docker Desktop 或 Docker Engine
 - Docker Compose
@@ -23,97 +24,81 @@
 ### 启动项目
 
 ```bash
-git clone <repository-url>
-cd Smart-Teaching-Service-System
-
 # 启动所有服务
-make up
-# 或后台启动
-make up-d
+docker compose up -d
+
+# 查看服务状态
+docker compose ps
+
+# 访问服务
+# Frontend:  http://localhost:5173
+# Backend:   http://localhost:3000
+# Adminer:   http://localhost:8080
 ```
-
-### 访问服务
-
-| 服务 | 地址 | 说明 |
-|------|------|------|
-| 前端应用 | http://localhost:5173 | React 开发服务器 |
-| 后端 API | http://localhost:3000 | Express API 服务器 |
-| 数据库管理 | http://localhost:8080 | Adminer 界面 |
 
 ### 测试账号
 
-| 账号 | 密码 | 角色 |
-|------|------|------|
-| admin | admin123 | 超级管理员 |
-| teacher | teacher123 | 教师 |
-| student | student123 | 学生 |
+| 用户名 | 密码     | 角色       |
+| ------ | -------- | ---------- |
+| admin  | Admin123 | 超级管理员 |
 
 ## 项目结构
 
 ```
-STSS/
-├── frontend/              # 前端服务（React + Vite）
-│   ├── src/
-│   │   ├── modules/       # 按子系统分模块
-│   │   ├── shared/        # 公共组件
-│   │   ├── stores/        # 状态管理
-│   │   └── router/
-│   └── package.json
-├── backend/               # 后端服务（Express + Prisma）
-│   ├── src/
-│   │   ├── modules/       # 按子系统分模块
-│   │   ├── shared/        # 公共模块
-│   │   └── prisma/        # 数据库 Schema
-│   └── package.json
-├── shared/                # 前后端共享类型定义
-├── docker-compose.dev.yml
-└── docker-compose.yml
+.
+├── frontend/          # React + Vite 前端
+├── backend/           # Express + Prisma 后端
+├── shared/            # 共享类型定义
+├── prisma/            # 数据库 Schema
+└── docker-compose.yml # 容器编排
 ```
 
 ## 核心功能
 
 ### 6 个子系统
 
-| 子系统 | 功能 | 描述 |
-|------|------|------|
-| **A - 基础信息管理** | 用户、课程、教室管理 | 用户认证、权限管理、院系专业信息 |
-| **B - 自动排课** | 排课算法、课表生成 | 教室资源调度、冲突检测 |
-| **C - 智能选课** | 选课系统、容量控制 | 先修课程检查、选课时间段管理 |
-| **D - 论坛交流** | 帖子、评论、附件 | 课程讨论、问题解答、公告发布 |
-| **E - 在线测试** | 题库、组卷、考试 | 选择题、判断题、自动评分 |
-| **F - 成绩管理** | 成绩录入、统计分析 | 成绩修改、GPA 计算 |
+| 子系统              | 功能                         | 状态      |
+| ------------------- | ---------------------------- | --------- |
+| **A. 基础信息管理** | 用户、角色、权限、部门、课程 | ✅ 已完成 |
+| **B. 自动排课**     | 教室资源、自动排课算法       | 🚧 开发中 |
+| **C. 智能选课**     | 培养方案、选课退选、AI 辅助  | 🚧 开发中 |
+| **D. 论坛交流**     | 帖子、评论、公告             | 📋 待开发 |
+| **E. 在线测试**     | 题库、试卷、答题、评分       | 📋 待开发 |
+| **F. 成绩管理**     | 成绩录入、GPA 统计           | 📋 待开发 |
 
-## 数据库模型
+## CI/CD
 
-### 核心表
+项目使用 GitHub Actions 进行持续集成：
 
-| 模块 | 主要表 | 说明 |
-|------|------|------|
-| **用户管理** | User, Student, Teacher, Admin | 用户基础信息和角色管理 |
-| **权限系统** | Role, Permission, UserRole, RolePermission | RBAC 权限控制 |
-| **课程管理** | Course, CourseOffering, Semester | 课程基本信息和开课记录 |
-| **选课管理** | Enrollment, SelectionPeriod | 学生选课记录和选课时间段 |
-| **论坛管理** | ForumPost, ForumComment, ForumAttachment | 课程讨论和帖子管理 |
-| **测试管理** | Question, QuestionOption, TestPaper, TestQuestion, TestResult, Answer | 题库、试卷和答题管理 |
-| **成绩管理** | Score, ScoreModificationLog, GPARecord | 成绩录入和修改记录、GPA 统计 |
+**Code Quality** (所有分支):
+
+- ✅ ESLint 代码检查
+- ✅ TypeScript 类型检查
+- ✅ Prisma Schema 验证
+- ✅ 单元测试 (Vitest)
 
 ## 开发规范
 
 ### 代码质量
 
-- **提交前必须通过 lint 检查** `npm run lint`
-- 代码规范： TypeScript strict mode, ESLint + Prettier
-- 命名规范: camelCase（前端）/ snake_case（数据库）
-- 分支管理: Git Flow + PR/Commit 规范
+- 提交前必须通过 lint 检查: `pnpm lint`
+- TypeScript strict mode
+- ESLint + Prettier
+- Git Flow + Conventional Commits
 
-- **飞书文档**: [开发指南](https://tcncx9czflpz.feishu.cn/wiki/OAxZwur1VicbthkbJDgcoIaSnYb)
+### 分支管理
+
+- `main` - 生产分支
+- `develop` - 开发分支
+- `feature/*` - 功能分支
+- `hotfix/*` - 紧急修复
 
 ## 相关链接
 
 - **GitHub**: https://github.com/EmergentTwilight/Smart-Teaching-Service-System
-- **飞书文档**: [数据库设计](https://tcncx9czflpz.feishu.cn/wiki/EDEKwJ9akirkkkkv52bcyUW0nmc)
+- **飞书文档**: [开发指南](https://tcncx9czflpz.feishu.cn/wiki/OAxZwur1VicbthkbJDgcoIaSnYb) | [数据库设计](https://tcncx9czflpz.feishu.cn/wiki/EDEKwJ9akirkkkkv52bcyUW0nmc)
 
 ---
 
-**当前分支**: `main`
-**开发状态**: 进行中
+**当前分支**: `develop`
+**开发状态**: 🚧 进行中

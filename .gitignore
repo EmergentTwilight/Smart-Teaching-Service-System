@@ -10,7 +10,9 @@ build/
 # Environment
 .env
 .env.local
+.env.test
 !.env.example
+!.env.test.example
 
 # IDE
 .idea/
@@ -27,3 +29,11 @@ Thumbs.db
 # Docker volumes (本地)
 postgres_data/
 redis_data/
+
+# Coverage
+coverage/
+*.lcov
+
+# Playwright test results
+test-results/
+playwright-report/

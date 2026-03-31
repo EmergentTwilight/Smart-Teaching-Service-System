@@ -5,6 +5,7 @@
 import React from 'react';
 import { Form, Input, Button, Card } from 'antd';
 import { UserOutlined, LockOutlined, TrophyOutlined } from '@ant-design/icons';
+import { Link } from 'react-router-dom';
 import { useAuth } from '@/shared/hooks/useAuth';
 import styles from './Login.module.css';
 
@@ -28,9 +29,9 @@ const Login: React.FC = () => {
           <TrophyOutlined className={styles.logoIcon} />
         </div>
         <h2 className={styles.title}>
-          智慧教学服务系统
+          登录
         </h2>
-        <p className={styles.subtitle}>Smart Teaching Service System</p>
+        <p className={styles.subtitle}>智慧教学服务系统</p>
         
         <Form
           form={form}
@@ -43,6 +44,7 @@ const Login: React.FC = () => {
             rules={[{ required: true, message: '请输入用户名' }]}
           >
             <Input
+              name="username"
               prefix={<UserOutlined style={{ color: '#9ca3af' }} />}
               placeholder="用户名"
               autoComplete="username"
@@ -54,9 +56,10 @@ const Login: React.FC = () => {
             rules={[{ required: true, message: '请输入密码' }]}
           >
             <Input.Password
+              name="password"
               prefix={<LockOutlined style={{ color: '#9ca3af' }} />}
               placeholder="密码"
-              autoComplete=""
+              autoComplete="current-password"
             />
           </Form.Item>
 
@@ -71,8 +74,12 @@ const Login: React.FC = () => {
             </Button>
           </Form.Item>
         </Form>
-        
 
+        <div className={styles.footer}>
+          <Link to="/forgot-password">忘记密码？</Link>
+          <span style={{ margin: '0 8px', color: '#e2e8f0' }}>|</span>
+          <Link to="/register">还没有账号？立即注册</Link>
+        </div>
       </Card>
     </div>
   );

@@ -2,53 +2,17 @@
  * 仪表盘页面
  * 显示系统概览和统计数据
  */
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Card, Row, Col, Progress, Typography, Space } from 'antd';
 import {
   UserOutlined,
   BookOutlined,
   TeamOutlined,
   CheckCircleOutlined,
-  RiseOutlined,
 } from '@ant-design/icons';
+import { usersApi } from '@/modules/info-management/api/users';
 
 const { Title, Text } = Typography;
-
-// 统计数据（移到组件外避免重复创建）
-const STATS = [
-  {
-    title: '用户总数',
-    value: 1234,
-    icon: <UserOutlined style={{ fontSize: 28, color: '#6366f1' }} />,
-    color: '#6366f1',
-    bgColor: '#eef2ff',
-    increase: 12,
-  },
-  {
-    title: '课程总数',
-    value: 86,
-    icon: <BookOutlined style={{ fontSize: 28, color: '#10b981' }} />,
-    color: '#10b981',
-    bgColor: '#ecfdf5',
-    increase: 8,
-  },
-  {
-    title: '班级数量',
-    value: 42,
-    icon: <TeamOutlined style={{ fontSize: 28, color: '#f59e0b' }} />,
-    color: '#f59e0b',
-    bgColor: '#fffbeb',
-    increase: 5,
-  },
-  {
-    title: '选课人数',
-    value: 856,
-    icon: <CheckCircleOutlined style={{ fontSize: 28, color: '#3b82f6' }} />,
-    color: '#3b82f6',
-    bgColor: '#eff6ff',
-    increase: 23,
-  },
-] as const;
 
 // 活动数据
 const ACTIVITIES = [
@@ -59,6 +23,52 @@ const ACTIVITIES = [
 ] as const;
 
 const Dashboard: React.FC = () => {
+  const [userCount, setUserCount] = useState(0);
+
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        const stats = await usersApi.getStats();
+        setUserCount(stats.totalCount);
+      } catch (error) {
+        console.error('Failed to fetch user stats:', error);
+      }
+    };
+    fetchStats();
+  }, []);
+
+  // 统计数据
+  const STATS = [
+    {
+      title: '用户总数',
+      value: userCount,
+      icon: <UserOutlined style={{ fontSize: 28, color: '#6366f1' }} />,
+      color: '#6366f1',
+      bgColor: '#eef2ff',
+    },
+    {
+      title: '课程总数',
+      value: 86,
+      icon: <BookOutlined style={{ fontSize: 28, color: '#10b981' }} />,
+      color: '#10b981',
+      bgColor: '#ecfdf5',
+    },
+    {
+      title: '班级数量',
+      value: 42,
+      icon: <TeamOutlined style={{ fontSize: 28, color: '#f59e0b' }} />,
+      color: '#f59e0b',
+      bgColor: '#fffbeb',
+    },
+    {
+      title: '选课人数',
+      value: 856,
+      icon: <CheckCircleOutlined style={{ fontSize: 28, color: '#3b82f6' }} />,
+      color: '#3b82f6',
+      bgColor: '#eff6ff',
+    },
+  ] as const;
+
   return (
     <div className="fade-in">
       {/* 页面标题 */}
@@ -93,13 +103,6 @@ const Dashboard: React.FC = () => {
                     <span style={{ fontSize: 32, fontWeight: 700, color: '#1f2937' }}>
                       {stat.value.toLocaleString()}
                     </span>
-                  </div>
-                  <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 4 }}>
-                    <RiseOutlined style={{ color: stat.color, fontSize: 12 }} />
-                    <Text style={{ color: stat.color, fontSize: 13, fontWeight: 500 }}>
-                      +{stat.increase}%
-                    </Text>
-                    <Text type="secondary" style={{ fontSize: 12 }}>较上月</Text>
                   </div>
                 </div>
                 <div

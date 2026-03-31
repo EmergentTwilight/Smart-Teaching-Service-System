@@ -107,13 +107,13 @@ async function main() {
     })
   }
 
-  // 创建测试管理员 (密码: admin123)
+  // 创建测试管理员 (密码: Admin123)
   const admin = await prisma.user.upsert({
     where: { username: 'admin' },
     update: {},
     create: {
       username: 'admin',
-      passwordHash: '$2b$10$X7Gb2Ob09tDa9StgWl6IHODcNfEg.o93ckv7Clng8RlUrdyiyC.xu',
+      passwordHash: '$2b$10$zp7zpWDbhVxVPwEWGMGMMeQd6TU4x8wrX0OGCbGUX5zWac5wAO022',
       email: 'admin@stss.edu',
       realName: '系统管理员',
       gender: 'MALE',
@@ -194,7 +194,7 @@ async function main() {
 
   console.log('✅ Database seeded successfully!')
   console.log('📝 Test accounts:')
-  console.log('   - admin / admin123 (超级管理员)')
+  console.log('   - admin / Admin123 (超级管理员)')
   console.log('   - teacher / teacher123 (教师)')
   console.log('   - student / student123 (学生)')
 }

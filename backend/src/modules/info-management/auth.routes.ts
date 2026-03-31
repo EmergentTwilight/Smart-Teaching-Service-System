@@ -11,6 +11,9 @@ import {
   registerSchema,
   changePasswordSchema,
   refreshTokenSchema,
+  activateAccountSchema,
+  forgotPasswordSchema,
+  resetPasswordSchema,
 } from './auth.types.js'
 
 const router: RouterType = Router()
@@ -216,6 +219,22 @@ router.post('/refresh', validate(refreshTokenSchema, 'body'), authController.ref
  */
 router.post('/register', validate(registerSchema, 'body'), authController.register)
 
+router.post('/activate', validate(activateAccountSchema, 'body'), authController.activate)
+
+router.post(
+  '/password/forgot',
+  validate(forgotPasswordSchema, 'body'),
+  authController.forgotPassword
+)
+
+router.get('/password/reset/verify', authController.verifyResetToken)
+
+router.post(
+  '/password/reset/confirm',
+  validate(resetPasswordSchema, 'body'),
+  authController.resetPassword
+)
+
 /**
  * @swagger
  * /api/v1/auth/logout:
@@ -248,7 +267,7 @@ router.post('/register', validate(registerSchema, 'body'), authController.regist
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
  */
-router.post('/logout', authMiddleware, authController.logout)
+router.post('/logout', authMiddleware, validate(refreshTokenSchema, 'body'), authController.logout)
 
 /**
  * @swagger

@@ -13,6 +13,7 @@ test.describe('密码找回功能', () => {
 
     // 页面应该显示错误提示（链接无效）或重置密码表单
     // 无论哪种情况，页面都应该正常渲染
-    await expect(page.locator('.ant-card, .ant-result')).toBeVisible({ timeout: 5000 })
+    // 使用 .first 避免 strict mode violation
+    await expect(page.locator('.ant-card, .ant-result').first()).toBeVisible({ timeout: 5000 })
   })
 })

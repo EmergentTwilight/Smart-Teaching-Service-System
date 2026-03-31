@@ -19,7 +19,7 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: process.env.CI ? 'VITE_API_URL=http://localhost:3000 pnpm dev' : 'pnpm dev',
+    command: process.env.CI ? 'VITE_API_URL=http://localhost:3000/api/v1 pnpm dev' : 'pnpm dev',
     url: 'http://localhost:5173',
     reuseExistingServer: !process.env.CI,
     timeout: 120 * 1000,

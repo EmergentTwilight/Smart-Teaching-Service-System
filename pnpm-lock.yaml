@@ -132,6 +132,9 @@ importers:
       '@ant-design/icons':
         specifier: ^5.5.0
         version: 5.6.1(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+      '@stss/shared':
+        specifier: workspace:*
+        version: link:../shared
       '@tanstack/react-query':
         specifier: ^5.62.0
         version: 5.94.5(react@19.2.4)

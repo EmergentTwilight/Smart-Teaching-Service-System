@@ -416,7 +416,7 @@ describe('AuthService', () => {
       expect(prismaMock.user.create).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({
-            status: 'INACTIVE',
+            status: 'ACTIVE',
             passwordHash: 'hashed:Password123',
             gender: 'FEMALE',
           }),

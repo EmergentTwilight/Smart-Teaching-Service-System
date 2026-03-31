@@ -19,7 +19,7 @@ import {
   updateStatusSchema,
   assignRolesSchema,
 } from './users.types.js'
-import { ForbiddenError } from '@stss/shared'
+import { ForbiddenError, ValidationError } from '@stss/shared'
 
 export const usersController = {
   /**
@@ -73,7 +73,7 @@ export const usersController = {
    */
   async delete(req: Request, res: Response) {
     const id = req.params.id as string
-    const currentUserId = req.user?.id
+    const currentUserId = req.user?.userId
 
     // 防止删除自己的账号
     if (id === currentUserId) {

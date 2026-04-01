@@ -6,6 +6,7 @@ version: 0.1.0
 last_updated_at: 2026-04-01
 last_updated_by: 程韬
 description: 在线测试子系统 API 接口设计（待补充）
+link: https://tcncx9czflpz.feishu.cn/wiki/LMBtwqPw0iyFo5kLECkcrWFNnbe
 ---
 
 # STSS E 模块 · 接口设计文档

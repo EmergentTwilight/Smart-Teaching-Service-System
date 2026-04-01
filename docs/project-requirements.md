@@ -6,6 +6,7 @@ version: 1.0.0
 last_updated_at: 2026-04-01
 last_updated_by: 程韬
 description: 智慧教学服务系统项目要求，包含大程要求、系统概述、6个子系统详细需求
+link: https://tcncx9czflpz.feishu.cn/wiki/Ayj6w5oK6i85b8knw89cVv8fnSV
 ---
 
 # Smart-Teaching-Service-System 项目要求

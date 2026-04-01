@@ -2,10 +2,11 @@
 filename: database-design.md
 title: Smart-Teaching-Service-System 数据库设计
 status: active
-version: 1.2.0
+version: 1.3.0
 last_updated_at: 2026-04-01
 last_updated_by: 程韬
 description: 智慧教学服务系统数据库设计，包含E-R图、所有数据表定义、字段类型和约束、索引设计
+link: https://tcncx9czflpz.feishu.cn/wiki/EDEKwJ9akirkkkkv52bcyUW0nmc
 ---
 
 # Smart-Teaching-Service-System 数据库设计
@@ -78,10 +79,6 @@ erDiagram
     COURSE_OFFERING ||--o{ SCORE : "for"
     SCORE ||--o{ SCORE_MODIFICATION_LOG : "has"
 
-    %% 学生排名
-    STUDENT ||--o{ STUDENT_RANKING : "has"
-    SEMESTER ||--o{ STUDENT_RANKING : "for"
-
     %% 日志
     USER ||--o{ SYSTEM_LOG : "generates"
 ```
@@ -118,8 +115,8 @@ erDiagram
 | major_id       | UUID        | FK -> Major      | 专业ID          |
 | grade          | INT         | NOT NULL         | 年级 (入学年份) |
 | class_name     | VARCHAR(20) |                  | 班级            |
-| class_rank     | INT         |                  | 班级排名        |
-| grade_rank     | INT         |                  | 年级排名        |
+
+> **说明**：GPA 和排名不单独存储，每次根据成绩动态计算。
 
 #### Teacher - 教师表
 
@@ -511,22 +508,7 @@ erDiagram
 | reason      | TEXT      |             | 修改原因   |
 | created_at  | TIMESTAMP | NOT NULL    | 创建时间   |
 
-#### StudentRanking - 学生排名表
-
-记录每学期学生的 GPA 和排名信息。
-
-| 字段           | 类型         | 约束                    | 说明     |
-| -------------- | ------------ | ----------------------- | -------- |
-| id             | UUID         | PK                      | 记录ID   |
-| student_id     | UUID         | FK -> Student           | 学生ID   |
-| semester_id    | UUID         | FK -> Semester          | 学期ID   |
-| total_credits  | DECIMAL(5,1) |                         | 总学分   |
-| earned_credits | DECIMAL(5,1) |                         | 获得学分 |
-| semester_gpa   | DECIMAL(3,2) |                         | 学期GPA  |
-| cumulative_gpa | DECIMAL(3,2) |                         | 累计GPA  |
-| class_rank     | INT          |                         | 班级排名 |
-| grade_rank     | INT          |                         | 年级排名 |
-| calculated_at  | TIMESTAMP    | NOT NULL, DEFAULT NOW() | 计算时间 |
+> **说明**：GPA 和排名不单独建表存储，每次根据 Score 表动态计算。
 
 ---
 
@@ -567,18 +549,25 @@ erDiagram
 
 ---
 
-**文档版本: 1.2**
-**最后更新: 2026-03-26**
+**文档版本: 1.3**
+**最后更新: 2026-04-01**
 
 ---
 
 ## 变更记录
 
+### v1.3 (2026-04-01)
+
+- 删除 Student 表中的 class_rank、grade_rank 字段
+- 删除 StudentRanking 表（GPA 和排名改为动态计算）
+- 更新 E-R 图：删除 STUDENT_RANKING 相关关系
+- 新增 ActivationToken 表（用于账号激活流程）
+- 新增 PasswordResetToken 表（用于密码重置流程）
+
 ### v1.2 (2026-03-26)
 
 - 删除 GPARecord 表
-- Student 表新增 class_rank、grade_rank 字段
-- 新增 StudentRanking 表（替代 GPARecord，记录每学期 GPA 和排名）
+- 新增 StudentRanking 表（记录每学期 GPA 和排名）
 - 更新 E-R 图：删除 GPARecord，添加 StudentRanking
 
 ### v1.1 (2026-03-22)
@@ -595,12 +584,6 @@ erDiagram
 ### v1.0 (2026-03-22)
 
 - 初始版本
-
-### v1.3 (2026-03-27)
-
-- 新增 ActivationToken 表（用于账号激活流程）
-- 新增 PasswordResetToken 表（用于密码重置流程）
-- User 表新增关联关系
 
 #### ActivationToken - 账号激活令牌表
 
@@ -668,9 +651,3 @@ model PasswordResetToken {
   @@map("password_reset_tokens")
 }
 ```
-
----
-
-# 审计意见
-
-- 删除学生表中的排名

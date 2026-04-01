@@ -6,6 +6,7 @@ version: 0.1.0
 last_updated_at: 2026-04-01
 last_updated_by: 程韬
 description: 公共接口设计，包含跨子系统共享的接口定义（待补充）
+link: https://tcncx9czflpz.feishu.cn/wiki/HPZBwnM5zi5x1CkH5MQctU7KniY
 ---
 
 # STSS 公共接口设计文档

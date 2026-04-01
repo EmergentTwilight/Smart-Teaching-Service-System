@@ -6,6 +6,7 @@ version: 2.1.0
 last_updated_at: 2026-04-01
 last_updated_by: 程韬
 description: 智慧教学服务系统开发规范，包含技术栈、项目结构、Git规范、代码规范、API设计等
+link: https://tcncx9czflpz.feishu.cn/wiki/OAxZwur1VicbthkbJDgcoIaSnYb
 ---
 
 # STSS 开发规范
@@ -471,7 +472,11 @@ export function UserCard({ user, onClick }: UserCardProps) {
 
 ## 七、开发环境
 
-### 7.1 服务地址
+### 7.1 环境说明
+
+项目使用 Docker Compose 容器化开发环境，一键启动所有服务。
+
+### 7.2 服务地址
 
 | 服务       | 地址                  |
 | ---------- | --------------------- |
@@ -481,7 +486,7 @@ export function UserCard({ user, onClick }: UserCardProps) {
 | PostgreSQL | localhost:5432        |
 | Redis      | localhost:6379        |
 
-### 7.2 测试账号
+### 7.3 测试账号
 
 | 账号    | 密码       | 角色       |
 | ------- | ---------- | ---------- |
@@ -489,9 +494,7 @@ export function UserCard({ user, onClick }: UserCardProps) {
 | teacher | teacher123 | 教师       |
 | student | student123 | 学生       |
 
-### 7.3 常用命令
-
-**Docker 环境：**
+### 7.4 常用命令
 
 ```bash
 make up           # 启动所有服务
@@ -499,32 +502,10 @@ make down         # 停止所有服务
 make logs         # 查看日志
 make ps           # 查看容器状态
 make shell-server # 进入后端容器
+make lint         # Lint 检查
 ```
 
-**本地开发：**
-
-```bash
-# 安装依赖
-pnpm install
-
-# 启动服务
-pnpm --filter @stss/server dev   # 后端
-pnpm --filter @stss/web dev      # 前端
-
-# 代码质量
-pnpm lint        # Lint 检查
-pnpm typecheck   # 类型检查
-
-# 数据库
-pnpm --filter @stss/server db:generate  # 生成 Prisma Client
-pnpm --filter @stss/server db:push      # 推送 schema 变更
-pnpm --filter @stss/server db:studio    # 打开 Prisma Studio
-pnpm --filter @stss/server db:seed      # 运行种子数据
-
-# 测试
-pnpm --filter @stss/server test   # 后端单元测试
-pnpm --filter @stss/web test      # 前端单元测试
-```
+> **首次启动**：Docker 会自动安装依赖、初始化数据库、运行 seed，约需 2-3 分钟。
 
 ---
 
@@ -670,6 +651,12 @@ description: 文档简述
 2. **子系统文档**：在各组 `dev/X` 分支修改，随代码一起合并
 3. **更新后**：必须更新 `last_updated_at` 和 `last_updated_by` 字段
 
+### 10.5 飞书文档同步
+
+- 本地文档会定期同步到飞书知识库
+- 对文档的任何问题，请直接在飞书文档对应位置评论，或在飞书大群讨论
+- 飞书知识库地址：项目要求中指定
+
 ---
 
 ## 十一、子系统状态
@@ -682,31 +669,3 @@ description: 文档简述
 | D   | 论坛交流     | ⬜ 未开始   | -                    |
 | E   | 在线测试     | ⬜ 未开始   | -                    |
 | F   | 成绩管理     | ⬜ 未开始   | -                    |
-
----
-
-## 十二、FAQ
-
-**Q: 组员提交代码后，组长需要做什么？**
-
-A: 审核代码 → 测试功能 → 沟通确认后合并到 `develop`
-
-**Q: 如果需要修改数据库怎么办？**
-
-A: 修改 `backend/prisma/schema.prisma`，运行 `pnpm db:push`，通知 Travis
-
-**Q: 如何处理跨组依赖？**
-
-A: 在飞书大群沟通，或直接联系相关组长
-
-**Q: `develop` 分支什么时候合并到 `main`？**
-
-A: 需要所有组长协商，确认功能稳定后再操作
-
-**Q: 出现代码冲突怎么办？**
-
-A: 在飞书群沟通，协调解决
-
----
-
-**有任何问题，直接在飞书大群提出！** 🚀

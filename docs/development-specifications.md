@@ -190,11 +190,13 @@ main                        # 生产环境（受保护）
 
 ### 4.2 分支保护
 
-| 分支      | 规则                                   |
-| --------- | -------------------------------------- |
-| `main`    | 禁止直接推送，必须通过 PR，需 1 review |
-| `develop` | 禁止直接推送，必须通过 PR              |
-| `dev/*`   | 组长可推送，建议使用 PR                |
+| 分支      | 规则                                     |
+| --------- | ---------------------------------------- |
+| `main`    | 禁止直接推送，需组长协商后由 Travis 合并 |
+| `develop` | 禁止直接推送，由各组组长合并             |
+| `dev/*`   | 所有组员可推送，组长负责合并到 `develop` |
+
+> **注**：暂时不强制使用 PR，合并操作通过沟通协调。
 
 ### 4.3 分支命名
 
@@ -251,13 +253,17 @@ git add .
 git commit -m "feat(A): add user CRUD API"
 git push origin feat/A-user-crud-0401
 
-# 3. 合并到 dev/X
+# 3. 合并到 dev/X（所有组员）
 git checkout dev/A
 git merge feat/A-user-crud-0401 --no-ff
 git push origin dev/A
 
-# 4. 组长提交 PR 到 develop
-# 在 GitHub 创建 PR: dev/A → develop
+# 4. 组长合并 dev/X → develop（沟通后执行）
+git checkout develop
+git merge dev/A --no-ff
+git push origin develop
+
+# 5. develop → main（组长协商后由 Travis 执行）
 ```
 
 ---
@@ -300,7 +306,8 @@ git push origin dev/A
       "total": 100,
       "total_pages": 5
     }
-  }
+  },
+  "request_id": "abc123"
 }
 ```
 
@@ -310,9 +317,12 @@ git push origin dev/A
 {
   "code": 40001,
   "message": "参数校验失败",
-  "errors": [{ "field": "username", "message": "用户名不能为空" }]
+  "errors": [{ "field": "username", "message": "用户名不能为空" }],
+  "request_id": "abc123"
 }
 ```
+
+> **注**：`request_id` 用于请求追踪，可选字段。
 
 ### 5.3 HTTP 状态码
 
@@ -484,10 +494,10 @@ export function UserCard({ user, onClick }: UserCardProps) {
 **Docker 环境：**
 
 ```bash
-make up          # 启动所有服务
-make down        # 停止所有服务
-make logs        # 查看日志
-make ps          # 查看容器状态
+make up           # 启动所有服务
+make down         # 停止所有服务
+make logs         # 查看日志
+make ps           # 查看容器状态
 make shell-server # 进入后端容器
 ```
 
@@ -527,7 +537,14 @@ pnpm --filter @stss/web test      # 前端单元测试
 | 单元测试 | Vitest     | ≥ 80%      |
 | E2E 测试 | Playwright | 关键路径   |
 
-### 8.2 单元测试示例
+### 8.2 测试要求
+
+1. **新功能必须同步更新测试**
+2. 修复 Bug 时，先写复现测试
+3. 提交前确保所有测试通过
+4. 测试覆盖率 ≥ 80%
+
+### 8.3 单元测试示例
 
 ```typescript
 // backend/src/__tests__/modules/info-management/user.service.test.ts
@@ -553,7 +570,7 @@ describe('UserService', () => {
 })
 ```
 
-### 8.3 测试文件位置
+### 8.4 测试文件位置
 
 ```plaintext
 # 单元测试
@@ -580,14 +597,17 @@ frontend/tests/
 
 ### 9.2 安全最佳实践
 
-| 项目           | 实践                    |
-| -------------- | ----------------------- |
-| **输入验证**   | Zod schema 校验所有输入 |
-| **SQL 注入**   | Prisma 参数化查询       |
-| **XSS**        | 前端转义用户输入        |
-| **CSRF**       | SameSite Cookie         |
-| **CORS**       | 严格配置白名单          |
-| **Rate Limit** | 登录等敏感接口限流      |
+| 项目           | 实践                     |
+| -------------- | ------------------------ |
+| **输入验证**   | Zod schema 校验所有输入  |
+| **SQL 注入**   | Prisma 参数化查询        |
+| **XSS**        | 前端转义用户输入         |
+| **CSRF**       | 不使用 Cookie，无需 CSRF |
+| **CORS**       | 严格配置白名单           |
+| **Rate Limit** | 登录等敏感接口限流       |
+| **安全头部**   | Helmet 中间件            |
+
+> **CSRF 说明**：当前架构使用 JWT Bearer Token，Token 通过 `Authorization` header 传递，不使用 Cookie。因此浏览器不会自动携带认证信息，无需 CSRF 保护。
 
 ### 9.3 敏感操作日志
 
@@ -646,7 +666,7 @@ description: 文档简述
 
 ### 10.4 更新规则
 
-1. **公共文档**：只能在 `develop` 分支修改，通过 PR 审核
+1. **公共文档**：只能在 `develop` 分支修改
 2. **子系统文档**：在各组 `dev/X` 分支修改，随代码一起合并
 3. **更新后**：必须更新 `last_updated_at` 和 `last_updated_by` 字段
 
@@ -669,7 +689,7 @@ description: 文档简述
 
 **Q: 组员提交代码后，组长需要做什么？**
 
-A: 审核代码 → 测试功能 → 合并到 `dev/X` → 提交 PR 到 `develop`
+A: 审核代码 → 测试功能 → 沟通确认后合并到 `develop`
 
 **Q: 如果需要修改数据库怎么办？**
 
@@ -682,6 +702,10 @@ A: 在飞书大群沟通，或直接联系相关组长
 **Q: `develop` 分支什么时候合并到 `main`？**
 
 A: 需要所有组长协商，确认功能稳定后再操作
+
+**Q: 出现代码冲突怎么办？**
+
+A: 在飞书群沟通，协调解决
 
 ---
 

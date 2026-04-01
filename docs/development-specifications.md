@@ -1,18 +1,18 @@
 ---
 filename: development-specifications.md
-title: STSS 开发规范
+title: Smart-Teaching-Service-System 开发规范
 status: active
-version: 2.1.0
+version: 2.1.1
 last_updated_at: 2026-04-01
 last_updated_by: 程韬
 description: 智慧教学服务系统开发规范，包含技术栈、项目结构、Git规范、代码规范、API设计等
 link: https://tcncx9czflpz.feishu.cn/wiki/OAxZwur1VicbthkbJDgcoIaSnYb
 ---
 
-# STSS 开发规范
+# Smart-Teaching-Service-System 开发规范
 
 > 智慧教学服务系统（Smart Teaching Service System）
-> 版本：2.1.0 | 更新时间：2026-04-01
+> 版本：2.1.1 | 更新时间：2026-04-01
 
 ---
 

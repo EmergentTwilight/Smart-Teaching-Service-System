@@ -8,7 +8,7 @@ const defaultApiBase = import.meta.env.VITE_API_URL || 'http://localhost:3000/ap
 const eApiBase = import.meta.env.VITE_E_API_URL || 'http://localhost:3001/api/v1'
 const eApiPrefixes = (import.meta.env.VITE_E_API_PREFIXES || '/online-testing')
   .split(',')
-  .map((prefix: string) => prefix.trim())
+  .map((prefix: string): string => prefix.trim())
   .filter(Boolean)
 
 function shouldUseEApi(url?: string): boolean {
@@ -16,7 +16,7 @@ function shouldUseEApi(url?: string): boolean {
   if (/^https?:\/\//i.test(url)) return false
 
   const path = url.split('?')[0]
-  return eApiPrefixes.some((prefix) => path === prefix || path.startsWith(`${prefix}/`))
+  return eApiPrefixes.some((prefix: string) => path === prefix || path.startsWith(`${prefix}/`))
 }
 
 /** 创建 axios 实例 */

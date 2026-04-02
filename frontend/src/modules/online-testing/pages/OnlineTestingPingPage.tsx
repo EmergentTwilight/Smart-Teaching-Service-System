@@ -20,7 +20,7 @@ const OnlineTestingPingPage: React.FC = () => {
     setError(null);
 
     try {
-      const data = await request.get<PingData>('/online-testing/ping');
+      const data = await request.get<PingData, PingData>('/online-testing/ping');
       setResult(data);
     } catch (err) {
       const message = err instanceof Error ? err.message : '请求失败';

@@ -1,6 +1,6 @@
 use axum::{
     extract::State,
-    http::Method,
+    http::{header, HeaderValue, Method},
     routing::get,
     Json, Router,
 };
@@ -41,6 +41,20 @@ struct EnvData {
     redis_url: String,
 }
 
+#[derive(Serialize)]
+struct OnlineTestingPingResponse {
+    code: u16,
+    message: &'static str,
+    data: OnlineTestingPingData,
+}
+
+#[derive(Serialize)]
+struct OnlineTestingPingData {
+    module: &'static str,
+    from: &'static str,
+    status: &'static str,
+}
+
 #[tokio::main]
 async fn main() {
     tracing_subscriber::fmt()
@@ -58,14 +72,21 @@ async fn main() {
         redis_url: env::var("REDIS_URL").unwrap_or_default(),
     };
 
+    let cors_origin = env::var("CORS_ORIGIN").unwrap_or_else(|_| "http://localhost:5173".to_string());
     let cors = CorsLayer::new()
-        .allow_origin(Any)
+        .allow_origin(
+            cors_origin
+                .parse::<HeaderValue>()
+                .expect("CORS_ORIGIN must be a valid header value"),
+        )
         .allow_methods([Method::GET, Method::POST, Method::PATCH, Method::DELETE])
-        .allow_headers(Any);
+        .allow_headers([header::CONTENT_TYPE, header::AUTHORIZATION, header::ACCEPT])
+        .allow_credentials(true);
 
     let app = Router::new()
         .route("/api/v1/health", get(health))
         .route("/api/v1/env", get(show_env))
+        .route("/api/v1/online-testing/ping", get(online_testing_ping))
         .with_state(state)
         .layer(cors);
 
@@ -98,6 +119,18 @@ async fn show_env(State(state): State<AppState>) -> Json<EnvResponse> {
         data: EnvData {
             database_url: state.database_url,
             redis_url: state.redis_url,
+        },
+    })
+}
+
+async fn online_testing_ping() -> Json<OnlineTestingPingResponse> {
+    Json(OnlineTestingPingResponse {
+        code: 200,
+        message: "online testing ping ok",
+        data: OnlineTestingPingData {
+            module: "online-testing",
+            from: "rust-e-server",
+            status: "ok",
         },
     })
 }

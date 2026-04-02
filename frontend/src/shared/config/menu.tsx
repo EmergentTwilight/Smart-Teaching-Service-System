@@ -21,6 +21,7 @@ import {
   DatabaseOutlined,
   LineChartOutlined,
   CalculatorOutlined,
+  ApiOutlined,
 } from '@ant-design/icons';
 
 export const MENU_ITEMS: MenuProps['items'] = [
@@ -75,6 +76,7 @@ export const MENU_ITEMS: MenuProps['items'] = [
     icon: <FileTextOutlined />,
     label: '在线测试',
     children: [
+      { key: '/exam/ping', icon: <ApiOutlined />, label: '联调验证' },
       { key: '/exam/questions', icon: <DatabaseOutlined />, label: '题库管理' },
       { key: '/exam/papers', icon: <FileTextOutlined />, label: '组卷考试' },
       { key: '/exam/results', icon: <BarChartOutlined />, label: '成绩查看' },

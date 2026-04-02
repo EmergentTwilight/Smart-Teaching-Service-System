@@ -61,7 +61,33 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-    command: sh -c "corepack enable && pnpm install && pnpm --filter @stss/server db:generate && pnpm --filter @stss/server db:push --accept-data-loss && pnpm --filter @stss/server db:seed && pnpm --filter @stss/server dev"
+    command: sh -c "corepack enable && pnpm install && pnpm --filter @stss/shared build && pnpm --filter @stss/server db:generate && pnpm --filter @stss/server db:push --accept-data-loss && pnpm --filter @stss/server db:seed && pnpm --filter @stss/server dev"
+    networks:
+      - stss-network
+
+  e-server:
+    image: rust:1.86-slim
+    container_name: stss-e-server
+    working_dir: /app
+    environment:
+      DATABASE_URL: postgresql://stss:stss_dev_2026@postgres:5432/stss?connection_limit=10&pool_timeout=30
+      REDIS_URL: redis://redis:6379
+      RUST_LOG: info
+      PORT: 3001
+      NODE_ENV: development
+      CORS_ORIGIN: http://localhost:5173
+    volumes:
+      - ./backend-e-rust:/app
+      - /app/target
+      - /usr/local/cargo/registry
+    ports:
+      - "3001:3001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: sh -c "cargo run"
     networks:
       - stss-network
 
@@ -70,7 +96,9 @@ services:
     container_name: stss-web
     working_dir: /app
     environment:
-      VITE_API_URL: http://localhost:3000/api/v1
+      VITE_API_URL: ${WEB_API_URL:-http://localhost:3000/api/v1}
+      VITE_E_API_URL: ${WEB_E_API_URL:-http://localhost:3001/api/v1}
+      VITE_E_API_PREFIXES: ${WEB_E_API_PREFIXES:-/online-testing}
     volumes:
       - .:/app
       - /app/node_modules
@@ -113,7 +141,7 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-    command: sh -c "corepack enable && pnpm install && pnpm --filter @stss/server db:generate && pnpm --filter @stss/server test:run"
+    command: sh -c "corepack enable && pnpm install && pnpm --filter @stss/shared build && pnpm --filter @stss/server db:generate && pnpm --filter @stss/server test:run"
     networks:
       - stss-network
 

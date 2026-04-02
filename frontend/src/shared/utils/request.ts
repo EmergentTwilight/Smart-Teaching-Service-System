@@ -4,9 +4,24 @@
  */
 import axios, { AxiosError, AxiosResponse, InternalAxiosRequestConfig } from 'axios'
 
+const defaultApiBase = import.meta.env.VITE_API_URL || 'http://localhost:3000/api/v1'
+const eApiBase = import.meta.env.VITE_E_API_URL || 'http://localhost:3001/api/v1'
+const eApiPrefixes = (import.meta.env.VITE_E_API_PREFIXES || '/online-testing')
+  .split(',')
+  .map((prefix: string) => prefix.trim())
+  .filter(Boolean)
+
+function shouldUseEApi(url?: string): boolean {
+  if (!url) return false
+  if (/^https?:\/\//i.test(url)) return false
+
+  const path = url.split('?')[0]
+  return eApiPrefixes.some((prefix) => path === prefix || path.startsWith(`${prefix}/`))
+}
+
 /** 创建 axios 实例 */
 const request = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:3000/api/v1',
+  baseURL: defaultApiBase,
   timeout: 10000,
   headers: {
     'Content-Type': 'application/json',
@@ -78,7 +93,7 @@ async function refreshAccessToken(): Promise<{ accessToken: string; refreshToken
   try {
     // 使用独立的 axios 实例，避免触发拦截器循环
     const response = await axios.post(
-      `${import.meta.env.VITE_API_URL || 'http://localhost:3000/api/v1'}/auth/refresh`,
+      `${defaultApiBase}/auth/refresh`,
       { refreshToken },
       {
         headers: { 'Content-Type': 'application/json' },
@@ -99,6 +114,8 @@ async function refreshAccessToken(): Promise<{ accessToken: string; refreshToken
 // 请求拦截器
 request.interceptors.request.use(
   (config) => {
+    config.baseURL = shouldUseEApi(config.url) ? eApiBase : defaultApiBase
+
     // 从 zustand persist 存储中获取 token
     const authStorage = localStorage.getItem('auth-storage')
     const token = authStorage ? JSON.parse(authStorage)?.state?.token : null

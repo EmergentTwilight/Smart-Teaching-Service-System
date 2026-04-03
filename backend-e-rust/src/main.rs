@@ -72,7 +72,8 @@ async fn main() {
         redis_url: env::var("REDIS_URL").unwrap_or_default(),
     };
 
-    let cors_origin = env::var("CORS_ORIGIN").unwrap_or_else(|_| "http://localhost:5173".to_string());
+    let cors_origin =
+        env::var("CORS_ORIGIN").unwrap_or_else(|_| "http://localhost:5173".to_string());
     let cors = CorsLayer::new()
         .allow_origin(
             cors_origin

@@ -61,7 +61,7 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-    command: sh -c "corepack enable && pnpm install && pnpm --filter @stss/shared build && pnpm --filter @stss/server db:generate && pnpm --filter @stss/server db:push --accept-data-loss && pnpm --filter @stss/server db:seed && pnpm --filter @stss/server dev"
+    command: sh -c "corepack enable && pnpm install && pnpm --filter @stss/server db:generate && pnpm --filter @stss/shared build && pnpm --filter @stss/server db:push --accept-data-loss && pnpm --filter @stss/server db:seed && pnpm --filter @stss/server dev"
     networks:
       - stss-network
 
@@ -141,7 +141,7 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-    command: sh -c "corepack enable && pnpm install && pnpm --filter @stss/shared build && pnpm --filter @stss/server db:generate && pnpm --filter @stss/server test:run"
+    command: sh -c "corepack enable && pnpm install && pnpm --filter @stss/server db:generate && pnpm --filter @stss/shared build && pnpm --filter @stss/server test:run"
     networks:
       - stss-network
 

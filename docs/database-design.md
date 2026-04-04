@@ -2,8 +2,8 @@
 filename: database-design.md
 title: Smart-Teaching-Service-System 数据库设计
 status: active
-version: 1.3.0
-last_updated_at: 2026-04-01
+version: 1.4.1
+last_updated_at: 2026-04-04
 last_updated_by: 程韬
 description: 智慧教学服务系统数据库设计，包含E-R图、所有数据表定义、字段类型和约束、索引设计
 link: https://tcncx9czflpz.feishu.cn/wiki/EDEKwJ9akirkkkkv52bcyUW0nmc
@@ -81,6 +81,11 @@ erDiagram
 
     %% 日志
     USER ||--o{ SYSTEM_LOG : "generates"
+
+    %% 认证令牌
+    USER ||--o{ REFRESH_TOKEN : "has"
+    USER ||--o{ ACTIVATION_TOKEN : "has"
+    USER ||--o{ PASSWORD_RESET_TOKEN : "has"
 ```
 
 ---
@@ -199,10 +204,61 @@ erDiagram
 | action        | VARCHAR(100) | NOT NULL   | 操作类型   |
 | resource_type | VARCHAR(50)  |            | 资源类型   |
 | resource_id   | UUID         |            | 资源ID     |
-| ip_address    | INET         |            | IP地址     |
+| ip_address    | VARCHAR(45)  |            | IP地址     |
 | user_agent    | TEXT         |            | 浏览器信息 |
 | details       | JSONB        |            | 详细信息   |
 | created_at    | TIMESTAMP    | NOT NULL   | 创建时间   |
+
+#### RefreshToken - 刷新令牌表
+
+用于实现 JWT 刷新机制，存储长期有效的刷新令牌。支持令牌吊销和审计追踪。
+
+| 字段       | 类型         | 约束             | 说明                   |
+| ---------- | ------------ | ---------------- | ---------------------- |
+| id         | UUID         | PK               | 令牌唯一标识           |
+| user_id    | UUID         | FK -> User       | 用户ID                 |
+| token_hash | VARCHAR(255) | UNIQUE           | 令牌哈希（非明文存储） |
+| expires_at | TIMESTAMP    | NOT NULL         | 过期时间               |
+| is_used    | BOOLEAN      | DEFAULT FALSE    | 是否已使用/已吊销      |
+| created_at | TIMESTAMP    | NOT NULL         | 创建时间               |
+
+**索引：** user_id, expires_at
+
+**说明：**
+- 令牌存储哈希值而非明文，提高安全性
+- `is_used` 字段用于标记令牌是否已使用或已吊销
+- 删除用户时级联删除相关令牌
+- 角色变更/密码修改时会吊销所有该用户的刷新令牌
+
+#### ActivationToken - 账号激活令牌表
+
+用于完成注册后的账号激活流程。
+
+| 字段       | 类型         | 约束             | 说明         |
+| ---------- | ------------ | ---------------- | ------------ |
+| id         | UUID         | PK               | 令牌唯一标识 |
+| user_id    | UUID         | FK -> User       | 用户ID       |
+| token_hash | VARCHAR(255) | UNIQUE           | 令牌哈希     |
+| expires_at | TIMESTAMP    | NOT NULL         | 过期时间     |
+| is_used    | BOOLEAN      | DEFAULT FALSE    | 是否已使用   |
+| created_at | TIMESTAMP    | NOT NULL         | 创建时间     |
+
+**索引：** user_id, expires_at
+
+#### PasswordResetToken - 密码重置令牌表
+
+用于忘记密码后的重置流程。
+
+| 字段       | 类型         | 约束          | 说明         |
+| ---------- | ------------ | ------------- | ------------ |
+| id         | UUID         | PK            | 令牌唯一标识 |
+| user_id    | UUID         | FK -> User    | 用户ID       |
+| token_hash | VARCHAR(255) | UNIQUE        | 令牌哈希     |
+| expires_at | TIMESTAMP    | NOT NULL      | 过期时间     |
+| is_used    | BOOLEAN      | DEFAULT FALSE | 是否已使用   |
+| created_at | TIMESTAMP    | NOT NULL      | 创建时间     |
+
+**索引：** user_id, expires_at
 
 ---
 
@@ -247,6 +303,7 @@ erDiagram
 | code              | VARCHAR(20)  | UNIQUE, NOT NULL | 课程代码                        |
 | name              | VARCHAR(100) | NOT NULL         | 课程名称                        |
 | credits           | DECIMAL(3,1) | NOT NULL         | 学分                            |
+| hours             | INT          |                  | 学时（总教学时长）              |
 | course_type       | ENUM         | NOT NULL         | 类型: required/elective/general |
 | category          | VARCHAR(50)  |                  | 课程分类                        |
 | description       | TEXT         |                  | 课程描述                        |
@@ -549,26 +606,37 @@ erDiagram
 
 ---
 
-**文档版本: 1.3**
-**最后更新: 2026-04-01**
+**文档版本: 1.4**
+**最后更新: 2026-04-04**
 
 ---
 
 ## 变更记录
+
+### v1.4.1 (2026-04-04)
+
+- 补充 Course 表 hours 字段（学时）
+
+### v1.4 (2026-04-04)
+
+- 新增 RefreshToken 表（JWT 刷新令牌机制）
+- 新增 ActivationToken 表（账号激活流程）
+- 新增 PasswordResetToken 表（密码重置流程）
+- 更新 SystemLog.ip_address 类型为 VARCHAR(45)（支持 IPv6）
+- 更新 E-R 图：添加认证令牌相关关系
+- 删除 GPARecord、StudentRanking 表（GPA 和排名改为动态计算）
+- 与 Prisma schema 完全对齐
 
 ### v1.3 (2026-04-01)
 
 - 删除 Student 表中的 class_rank、grade_rank 字段
 - 删除 StudentRanking 表（GPA 和排名改为动态计算）
 - 更新 E-R 图：删除 STUDENT_RANKING 相关关系
-- 新增 ActivationToken 表（用于账号激活流程）
-- 新增 PasswordResetToken 表（用于密码重置流程）
 
 ### v1.2 (2026-03-26)
 
 - 删除 GPARecord 表
-- 新增 StudentRanking 表（记录每学期 GPA 和排名）
-- 更新 E-R 图：删除 GPARecord，添加 StudentRanking
+- GPA 和排名改为动态计算
 
 ### v1.1 (2026-03-22)
 
@@ -585,69 +653,4 @@ erDiagram
 
 - 初始版本
 
-#### ActivationToken - 账号激活令牌表
 
-| 字段      | 类型         | 约束               | 说明         |
-| --------- | ------------ | ------------------ | ------------ |
-| id        | UUID         | PK                 | 令牌唯一标识 |
-| userId    | UUID         | FK -> User, 用户ID |              |
-| tokenHash | VARCHAR(255) | UNIQUE             | 令牌哈希     |
-| expiresAt | TIMESTAMP    |                    | 过期时间     |
-| isUsed    | BOOLEAN      | DEFAULT false      | 是否已使用   |
-| createdAt | TIMESTAMP    |                    | 创建时间     |
-
-#### PasswordResetToken - 密码重置令牌表
-
-| 字段      | 类型         | 约束          | 说明         |
-| --------- | ------------ | ------------- | ------------ |
-| id        | UUID         | PK            | 令牌唯一标识 |
-| userId    | UUID         | FK -> User    | 用户ID       |
-| tokenHash | VARCHAR(255) | UNIQUE        | 令牌哈希     |
-| expiresAt | TIMESTAMP    |               | 过期时间     |
-| isUsed    | BOOLEAN      | DEFAULT false | 是否已使用   |
-| createdAt | TIMESTAMP    |               | 创建时间     |
-
-#### 模型关系
-
-- User 1:N ActivationToken
-- User 1:N PasswordResetToken
-- 删除用户时级联删除相关令牌
-
-#### 索引优化
-
-- userId 索引
-- expiresAt 索引（过期时间)
-
-#### Prisma Schema
-
-```plaintext
-model ActivationToken {
-  id        String   @id @default(uuid())
-  userId    String
-  tokenHash String   @unique @db.VarChar(255)
-  expiresAt DateTime
-  isUsed    Boolean  @default(false)
-  createdAt DateTime @default(now())
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([userId])
-  @@index([expiresAt])
-  @@map("activation_tokens")
-}
-
-model PasswordResetToken {
-  id        String   @id @default(uuid())
-  userId    String
-  tokenHash String   @unique @db.VarChar(255)
-  expiresAt DateTime
-  isUsed    Boolean  @default(false)
-  createdAt DateTime @default(now())
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([userId])
-  @@index([expiresAt])
-  @@map("password_reset_tokens")
-}
-```

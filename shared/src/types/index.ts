@@ -119,8 +119,8 @@ export interface AuthUserDto {
   avatarUrl: string | null
   /** 性别 */
   gender: GenderType | null
-  /** 状态（小写） */
-  status: 'active' | 'inactive' | 'banned'
+  /** 状态 */
+  status: UserStatusType
   /** 最后登录时间 */
   lastLoginAt: Date | null
   /** 角色代码列表 */

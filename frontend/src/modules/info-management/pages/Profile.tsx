@@ -232,7 +232,7 @@ const Profile: React.FC = () => {
               {user.roleDetails?.map((r: { name: string }) => r.name).join('、') || '未设置'}
             </Descriptions.Item>
             <Descriptions.Item label="状态">
-              {user.status === 'active' ? '正常' : user.status === 'inactive' ? '未激活' : user.status === 'banned' ? '已封禁' : user.status}
+              {user.status === 'ACTIVE' ? '正常' : user.status === 'INACTIVE' ? '未激活' : user.status === 'BANNED' ? '已封禁' : user.status}
             </Descriptions.Item>
             <Descriptions.Item label="最后登录">
               {user.lastLoginAt ? new Date(user.lastLoginAt).toLocaleString('zh-CN') : '从未登录'}

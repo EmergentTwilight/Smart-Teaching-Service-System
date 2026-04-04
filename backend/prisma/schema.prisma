@@ -144,7 +144,6 @@ model Student {
   enrollments Enrollment[]
   testResults TestResult[]
   scores      Score[]
-  gpaRecords  GPARecord[]
 
   // 索引优化：常用查询字段
   @@index([majorId]) // 按专业查询学生
@@ -403,7 +402,6 @@ model Semester {
 
   courseOfferings  CourseOffering[]
   selectionPeriods SelectionPeriod[]
-  gpaRecords       GPARecord[]
 
   @@map("semesters")
 }
@@ -908,32 +906,6 @@ model ScoreModificationLog {
   modifier User  @relation(fields: [modifierId], references: [id])
 
   @@map("score_modification_logs")
-}
-
-/// GPA记录表
-model GPARecord {
-  /// GPA记录ID
-  id            String   @id @default(uuid())
-  /// 学生ID
-  studentId     String   @map("student_id")
-  /// 学期ID
-  semesterId    String   @map("semester_id")
-  /// 总学分
-  totalCredits  Decimal? @map("total_credits") @db.Decimal(5, 1)
-  /// 已获学分
-  earnedCredits Decimal? @map("earned_credits") @db.Decimal(5, 1)
-  /// 学期GPA
-  semesterGpa   Decimal? @map("semester_gpa") @db.Decimal(3, 2)
-  /// 累计GPA
-  cumulativeGpa Decimal? @map("cumulative_gpa") @db.Decimal(3, 2)
-  /// 计算时间
-  calculatedAt  DateTime @default(now()) @map("calculated_at")
-
-  student  Student  @relation(fields: [studentId], references: [userId])
-  semester Semester @relation(fields: [semesterId], references: [id])
-
-  @@unique([studentId, semesterId])
-  @@map("gpa_records")
 }
 
 // ==================== 枚举类型 ====================

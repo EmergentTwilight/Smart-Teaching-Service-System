@@ -52,7 +52,6 @@ export type {
   Answer,
   Score,
   ScoreModificationLog,
-  GPARecord,
 } from '@prisma/client'
 
 // 导出所有枚举类型

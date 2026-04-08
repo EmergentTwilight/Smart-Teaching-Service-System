@@ -10,12 +10,16 @@
  *  - 缺少单元测试
  */
 import { Router, type Router as RouterType } from 'express'
-import { authMiddleware } from '../../shared/middleware/auth.js'
+import { authMiddleware, requireRoles } from '../../shared/middleware/auth.js'
 import { validate } from '../../shared/middleware/validate.js'
 import prisma from '../../shared/prisma/client.js'
 import { success } from '../../shared/utils/response.js'
 import { NotFoundError } from '@stss/shared'
-import { departmentIdSchema } from './departments.types.js'
+import {
+  departmentIdSchema,
+  createDepartmentSchema,
+  updateDepartmentSchema,
+} from './departments.types.js'
 
 const router: RouterType = Router()
 
@@ -153,5 +157,183 @@ router.get('/:id', validate(departmentIdSchema, 'params'), async (req, res, next
     next(err)
   }
 })
+
+/**
+ * @swagger
+ * /api/v1/departments:
+ *   post:
+ *     summary: 创建院系
+ *     description: 创建一个新的院系
+ *     tags: [Departments]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *               code:
+ *                 type: string
+ *               description:
+ *                 type: string
+ *     responses:
+ *       201:
+ *         description: 成功创建院系
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *               code:
+ *                 type: string
+ *               message:
+ *                 type: string
+ *               data:
+ *                 type: object
+ *                 properties:
+ *                   id:
+ *                     type: string
+ *                     format: uuid
+ *                   name:
+ *                     type: string
+ *                   code:
+ *                     type: string
+ *       400:
+ *         description: 无效的请求数据
+ *       401:
+ *         description: 未授权
+ *       403:
+ *         description: 无权限
+ */
+router.post(
+  '/',
+  requireRoles('super_admin'),
+  validate(createDepartmentSchema, 'body'),
+  async (req, res, next) => {
+    try {
+      const name = req.body.name as string
+      const code = req.body.code as string
+      const description = req.body.description as string
+      const newDepartment = await prisma.department.create({
+        data: {
+          name,
+          code,
+          description,
+        },
+        select: {
+          id: true,
+          name: true,
+          code: true,
+        },
+      })
+
+      success(res, newDepartment, '院系创建成功', 201)
+    } catch (err) {
+      next(err)
+    }
+  }
+)
+
+/**
+ * @swagger
+ * /api/v1/departments/{id}:
+ *   put:
+ *     summary: 更新院系信息
+ *     description: 根据ID更新院系的名称和描述
+ *     tags: [Departments]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: 院系ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *               description:
+ *                 type: string
+ *    responses:
+ *      200:
+ *       description: 成功更新院系信息
+ */
+router.put(
+  '/:id',
+  requireRoles('admin', 'super_admin'),
+  validate(updateDepartmentSchema, 'body'),
+  async (req, res, next) => {
+    try {
+      const id = req.params.id as string
+      const name = req.body.name as string
+      const description = req.body.description as string
+      const updatedDepartment = await prisma.department.update({
+        where: { id },
+        data: {
+          name,
+          description,
+        },
+        select: {
+          id: true,
+          name: true,
+          code: true,
+        },
+      })
+      success(res, updatedDepartment, '院系更新成功', 200)
+    } catch (err) {
+      next(err)
+    }
+  }
+)
+
+/**
+ * @swagger
+ * /api/v1/departments/{id}:
+ *   delete:
+ *     summary: 删除院系
+ *     description: 根据ID删除院系
+ *     tags: [Departments]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: 院系ID
+ *     responses:
+ *       200:
+ *         description: 成功删除院系
+ */
+router.delete(
+  '/:id',
+  requireRoles('super_admin'),
+  validate(departmentIdSchema, 'params'),
+  async (req, res, next) => {
+    try {
+      const id = req.params.id as string
+      await prisma.department.delete({
+        where: { id },
+      })
+      success(res, null, '院系删除成功', 200)
+    } catch (err) {
+      next(err)
+    }
+  }
+)
 
 export default router

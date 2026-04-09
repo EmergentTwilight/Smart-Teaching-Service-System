@@ -1,12 +1,13 @@
 mod middleware;
 
 use middleware::{
-    AuthMiddleware, ErrorTransformMiddleware, RequestLoggerMiddleware, RequireRolesMiddleware,
+    decode_jwt_token, ensure_roles, ErrorTransformMiddleware, JwtPayload, RequestLoggerMiddleware,
 };
 use poem::{
-    get, handler, listener::TcpListener, middleware::Cors, web::Data, EndpointExt, Route, Server,
+    http::StatusCode, listener::TcpListener, middleware::Cors, web::Data, EndpointExt, Request,
+    Route, Server,
 };
-use poem_openapi::{payload::Json, Object, OpenApi, OpenApiService};
+use poem_openapi::{auth::Bearer, payload::Json, Object, OpenApi, OpenApiService, SecurityScheme};
 use std::env;
 
 // --- 模型定义 (使用 poem_openapi::Object 代替单纯的 Serialize) ---
@@ -58,10 +59,24 @@ struct AppState {
     service: String,
     database_url: String,
     redis_url: String,
+    jwt_secret: String,
 }
 
 // --- API 实现 ---
 struct Api;
+
+#[derive(SecurityScheme)]
+#[oai(rename = "BearerAuth", ty = "bearer", checker = "check_bearer")]
+struct BearerAuth(JwtPayload);
+
+async fn check_bearer(req: &Request, bearer: Bearer) -> poem::Result<JwtPayload> {
+    let state = req.data::<AppState>().ok_or_else(|| {
+        poem::Error::from_string("应用状态缺失", StatusCode::INTERNAL_SERVER_ERROR)
+    })?;
+
+    decode_jwt_token(&bearer.token, &state.jwt_secret)
+        .map_err(|_| poem::Error::from_string("无效或过期的令牌", StatusCode::UNAUTHORIZED))
+}
 
 #[OpenApi(prefix_path = "/api/v1")]
 impl Api {
@@ -76,6 +91,25 @@ impl Api {
                 status: "ok".to_string(),
             },
         })
+    }
+
+    /// 显示环境变量（仅 super_admin/admin）
+    #[oai(path = "/env", method = "get")]
+    async fn show_env(
+        &self,
+        state: Data<&AppState>,
+        auth: BearerAuth,
+    ) -> poem::Result<Json<EnvResponse>> {
+        ensure_roles(&auth.0, &["super_admin", "admin"])?;
+
+        Ok(Json(EnvResponse {
+            code: 200,
+            message: "success".to_string(),
+            data: EnvData {
+                database_url: state.database_url.clone(),
+                redis_url: state.redis_url.clone(),
+            },
+        }))
     }
 
     /// 在线测试 Ping
@@ -93,18 +127,6 @@ impl Api {
     }
 }
 
-#[handler]
-async fn show_env(state: Data<&AppState>) -> Json<EnvResponse> {
-    Json(EnvResponse {
-        code: 200,
-        message: "success".to_string(),
-        data: EnvData {
-            database_url: state.database_url.clone(),
-            redis_url: state.redis_url.clone(),
-        },
-    })
-}
-
 #[tokio::main]
 async fn main() -> Result<(), std::io::Error> {
     tracing_subscriber::fmt()
@@ -115,6 +137,7 @@ async fn main() -> Result<(), std::io::Error> {
         service: "stss-e-server".to_string(),
         database_url: env::var("DATABASE_URL").unwrap_or_default(),
         redis_url: env::var("REDIS_URL").unwrap_or_default(),
+        jwt_secret: env::var("JWT_SECRET").unwrap_or_else(|_| "dev-secret-change-me".to_string()),
     };
 
     // 1. 创建 OpenAPI 服务
@@ -132,18 +155,10 @@ async fn main() -> Result<(), std::io::Error> {
         .allow_methods(vec!["GET", "POST", "PATCH", "DELETE"])
         .allow_credentials(true);
 
-    let jwt_secret = env::var("JWT_SECRET").unwrap_or_else(|_| "dev-secret-change-me".to_string());
-
     // 4. 组装路由
     let app = Route::new()
         .nest("/", api_service) // 接口挂载
         .nest("/docs", ui) // 文档挂载在 /docs
-        .at(
-            "/api/v1/env",
-            get(show_env)
-                .with(RequireRolesMiddleware::new(["super_admin", "admin"]))
-                .with(AuthMiddleware::new(jwt_secret)),
-        )
         .with(cors) // 中间件
         .with(ErrorTransformMiddleware)
         .with(RequestLoggerMiddleware)

@@ -21,6 +21,33 @@ pub struct JwtPayload {
     pub exp: usize,
 }
 
+pub fn decode_jwt_token(
+    token: &str,
+    jwt_secret: &str,
+) -> Result<JwtPayload, jsonwebtoken::errors::Error> {
+    decode::<JwtPayload>(
+        token,
+        &DecodingKey::from_secret(jwt_secret.as_bytes()),
+        &Validation::default(),
+    )
+    .map(|data| data.claims)
+}
+
+pub fn has_any_role(payload: &JwtPayload, roles: &[&str]) -> bool {
+    payload
+        .roles
+        .iter()
+        .any(|role| roles.iter().any(|required| required == role))
+}
+
+pub fn ensure_roles(payload: &JwtPayload, roles: &[&str]) -> poem::Result<()> {
+    if has_any_role(payload, roles) {
+        Ok(())
+    } else {
+        Err(poem::Error::from_string("权限不足", StatusCode::FORBIDDEN))
+    }
+}
+
 #[derive(Serialize)]
 struct ErrorResponse {
     code: u16,
@@ -205,13 +232,9 @@ where
             }
 
             let token = auth_header.trim_start_matches("Bearer ").trim();
-            match decode::<JwtPayload>(
-                token,
-                &DecodingKey::from_secret(jwt_secret.as_bytes()),
-                &Validation::default(),
-            ) {
-                Ok(data) => {
-                    req.extensions_mut().insert(data.claims);
+            match decode_jwt_token(token, &jwt_secret) {
+                Ok(claims) => {
+                    req.extensions_mut().insert(claims);
                     Ok(ep.call(req).await?.into_response())
                 }
                 Err(_) => Ok(make_error_response(
@@ -281,14 +304,11 @@ where
                 ));
             };
 
-            let has_role = user
-                .roles
-                .iter()
-                .any(|role| roles.iter().any(|v| v == role));
-            if !has_role {
+            let required_roles: Vec<&str> = roles.iter().map(String::as_str).collect();
+            if let Err(err) = ensure_roles(&user, &required_roles) {
                 return Ok(make_error_response(
-                    StatusCode::FORBIDDEN,
-                    "权限不足",
+                    err.status(),
+                    err.to_string(),
                     request_id,
                 ));
             }

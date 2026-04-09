@@ -98,7 +98,7 @@ const mockRequest = {
   user: { userId: 'user-1' },
   ip: '127.0.0.1',
   get: (header: string) => (header === 'User-Agent' ? 'Mozilla/5.0' : undefined),
-} as unknown as Partial<Request>
+} as any
 
 beforeEach(() => {
   vi.resetAllMocks()

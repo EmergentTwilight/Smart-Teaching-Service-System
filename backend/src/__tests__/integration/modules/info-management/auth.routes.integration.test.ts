@@ -6,7 +6,7 @@
  * 1. 确保 Docker 数据库已启动
  * 2. 运行: DATABASE_URL="..." pnpm vitest run src/__tests__/integration/modules/info-management/auth.routes.integration.test.ts
  */
-import { beforeAll, beforeEach, describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import request from 'supertest'
 import express, { type Express } from 'express'
 import { PrismaClient } from '@prisma/client'
@@ -19,7 +19,7 @@ import jwt from 'jsonwebtoken'
 import crypto from 'crypto'
 
 // 直接使用 ioredis 清理测试数据（绕过自定义封装）
-const testRedis = new Redis(process.env.REDIS_URL || 'redis://localhost:6379/1')
+const testRedis = new Redis.default(process.env.REDIS_URL || 'redis://localhost:6379/1')
 
 // 与 auth.service.ts 中 hashToken 一致
 function hashToken(token: string): string {

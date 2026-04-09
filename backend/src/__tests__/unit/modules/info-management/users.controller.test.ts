@@ -84,7 +84,7 @@ describe('UsersController', () => {
       }
 
       req.query = { page: '1', pageSize: '10' }
-      vi.mocked(usersService.getUsers).mockResolvedValue(mockResult)
+      vi.mocked(usersService.getUsers).mockResolvedValue(mockResult as any)
 
       await usersController.list(req as Request, res as Response)
 
@@ -118,7 +118,7 @@ describe('UsersController', () => {
       }
 
       req.params = { id: 'user-1' }
-      vi.mocked(usersService.getUserById).mockResolvedValue(mockUser)
+      vi.mocked(usersService.getUserById).mockResolvedValue(mockUser as any)
 
       await usersController.getById(req as Request, res as Response)
 
@@ -151,7 +151,7 @@ describe('UsersController', () => {
         realName: '新用户',
         email: 'newuser@example.com',
       }
-      vi.mocked(usersService.createUser).mockResolvedValue(mockUser)
+      vi.mocked(usersService.createUser).mockResolvedValue(mockUser as any)
 
       await usersController.create(req as Request, res as Response)
 
@@ -183,7 +183,7 @@ describe('UsersController', () => {
 
       req.params = { id: 'user-1' }
       req.body = { realName: 'Updated Name' }
-      vi.mocked(usersService.updateUser).mockResolvedValue(mockUser)
+      vi.mocked(usersService.updateUser).mockResolvedValue(mockUser as any)
 
       await usersController.update(req as Request, res as Response)
 
@@ -255,7 +255,7 @@ describe('UsersController', () => {
       }
 
       req.query = { page: '1', pageSize: '10' }
-      vi.mocked(usersService.getLogs).mockResolvedValue(mockResult)
+      vi.mocked(usersService.getLogs).mockResolvedValue(mockResult as any)
 
       await usersController.getLogs(req as Request, res as Response)
 
@@ -284,7 +284,7 @@ describe('UsersController', () => {
           { username: 'user2', password: 'Password123', realName: '用户二' },
         ],
       }
-      vi.mocked(usersService.batchCreateUsers).mockResolvedValue(mockResult)
+      vi.mocked(usersService.batchCreateUsers).mockResolvedValue(mockResult as any)
 
       await usersController.batchCreate(req as Request, res as Response)
 
@@ -388,7 +388,7 @@ describe('UsersController', () => {
 
       req.params = { id: 'user-1' }
       req.body = { status: 'INACTIVE' }
-      vi.mocked(usersService.updateStatus).mockResolvedValue(mockUser)
+      vi.mocked(usersService.updateStatus).mockResolvedValue(mockUser as any)
 
       await usersController.updateStatus(req as Request, res as Response)
 
@@ -408,7 +408,7 @@ describe('UsersController', () => {
       req.params = { id: 'user-1' }
       req.user = { userId: 'admin-1', username: 'admin', roles: ['admin'] }
       req.body = { roleIds: ['role-admin', 'role-student'] }
-      vi.mocked(usersService.assignRoles).mockResolvedValue(mockUser)
+      vi.mocked(usersService.assignRoles).mockResolvedValue(mockUser as any)
 
       await usersController.assignRoles(req as Request, res as Response)
 
@@ -442,7 +442,7 @@ describe('UsersController', () => {
 
       req.params = { id: 'user-1', role_id: 'role-admin' }
       req.user = { userId: 'admin-1', username: 'admin', roles: ['admin'] }
-      vi.mocked(usersService.revokeRole).mockResolvedValue(mockUser)
+      vi.mocked(usersService.revokeRole).mockResolvedValue(mockUser as any)
 
       await usersController.revokeRole(req as Request, res as Response)
 

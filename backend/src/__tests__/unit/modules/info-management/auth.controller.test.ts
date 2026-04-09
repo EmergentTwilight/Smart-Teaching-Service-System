@@ -67,7 +67,7 @@ describe('AuthController', () => {
       get: vi.fn((header: string) => {
         if (header === 'user-agent') return 'vitest'
         return undefined
-      }),
+      }) as any,
     }
 
     res = {}
@@ -93,7 +93,7 @@ describe('AuthController', () => {
       }
 
       req.body = { username: 'alice', password: 'Password123' }
-      vi.mocked(authService.login).mockResolvedValue(mockResult)
+      vi.mocked(authService.login).mockResolvedValue(mockResult as any)
 
       await authController.login(req as Request, res as Response)
 
@@ -233,7 +233,7 @@ describe('AuthController', () => {
       }
 
       req.user = { userId: 'user-1', username: 'alice', roles: ['student'] }
-      vi.mocked(authService.getUserById).mockResolvedValue(mockUser)
+      vi.mocked(authService.getUserById).mockResolvedValue(mockUser as any)
 
       await authController.me(req as Request, res as Response)
 

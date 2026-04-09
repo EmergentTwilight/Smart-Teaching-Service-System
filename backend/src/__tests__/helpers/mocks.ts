@@ -22,9 +22,12 @@ interface MockUserOptions {
       id: string
       name: string
       code: string
+      description?: string
       permissions: Array<{
-        permission: { code: string }
+        permission: { id?: string; name?: string; code: string; resource?: string; action?: string }
       }>
+      userRoles?: unknown[]
+      rolePermissions?: unknown[]
     }
   }>
 }
@@ -32,13 +35,15 @@ interface MockUserOptions {
 /**
  * 创建 Mock User 对象
  */
-export function mockUser(options: MockUserOptions = {}): Prisma.UserGetPayload<{
+type MockUserType = Prisma.UserGetPayload<{
   include: {
     userRoles: {
       include: { role: { include: { permissions: { include: { permission: true } } } } }
     }
   }
-}> {
+}>
+
+export function mockUser(options: MockUserOptions = {}): MockUserType {
   const id = options.id || uuidv4()
   const now = new Date()
 
@@ -97,7 +102,7 @@ export function mockUser(options: MockUserOptions = {}): Prisma.UserGetPayload<{
     refreshTokens: [],
     activationTokens: [],
     passwordResetTokens: [],
-  }
+  } as unknown as MockUserType
 }
 
 /**

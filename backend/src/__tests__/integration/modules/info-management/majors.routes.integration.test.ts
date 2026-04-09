@@ -475,7 +475,7 @@ describe('POST /api/v1/majors', () => {
       },
     })
 
-    const createLog = logs.find((l) => l.details?.includes('itest_测试专业'))
+    const createLog = logs.find((l) => (l.details as string)?.includes('itest_测试专业'))
     expect(createLog).toBeDefined()
     expect(createLog?.userId).toBe(admin.id)
   })

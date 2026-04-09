@@ -340,7 +340,7 @@ describe('错误处理', () => {
     const next = vi.fn()
 
     // authMiddleware 会处理错误并返回，不会抛出异常或调用 next
-    await authMiddleware(req as Request, res as Response, next)
+    await authMiddleware(req as Request, res as unknown as Response, next)
 
     // 不应该调用 next（错误已被中间件处理并返回响应）
     expect(next).not.toHaveBeenCalled()
@@ -359,7 +359,7 @@ describe('错误处理', () => {
     }
     const next = vi.fn()
 
-    await authMiddleware(req as Request, res as Response, next)
+    await authMiddleware(req as Request, res as unknown as Response, next)
 
     // 不应该调用 next
     expect(next).not.toHaveBeenCalled()

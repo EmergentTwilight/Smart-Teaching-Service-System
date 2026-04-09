@@ -3,7 +3,8 @@
  * 测试 Zod schema 验证中间件的行为
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { Request, Response, NextFunction } from 'express'
+import type { Request, Response } from 'express'
+import type { Mock } from 'vitest'
 import { ZodError } from 'zod'
 import { validate } from '../../../../shared/middleware/validate.js'
 import { z } from 'zod'
@@ -11,7 +12,7 @@ import { z } from 'zod'
 describe('validate middleware', () => {
   let req: Partial<Request>
   let res: Partial<Response>
-  let next: NextFunction
+  let next: Mock
 
   beforeEach(() => {
     req = {

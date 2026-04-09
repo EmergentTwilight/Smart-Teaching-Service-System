@@ -1,7 +1,7 @@
 /**
  * 认证测试辅助函数
  */
-import jwt from 'jsonwebtoken'
+import jwt, { type SignOptions } from 'jsonwebtoken'
 import config from '../../config/index.js'
 
 /**
@@ -23,7 +23,7 @@ export function generateTestToken(payload: {
       type: 'access',
     },
     config.jwt.secret,
-    { expiresIn }
+    { expiresIn: expiresIn as SignOptions['expiresIn'] }
   )
 }
 
@@ -45,7 +45,7 @@ export function generateExpiredTestToken(payload: {
       type: 'access',
     },
     config.jwt.secret,
-    { expiresIn: '-1h' } // 已过期
+    { expiresIn: '-1h' } as SignOptions // 已过期
   )
 }
 
@@ -61,7 +61,7 @@ export function generateInvalidTestToken(): string {
       type: 'access',
     },
     'wrong-secret',
-    { expiresIn: '2h' }
+    { expiresIn: '2h' } as SignOptions
   )
 }
 

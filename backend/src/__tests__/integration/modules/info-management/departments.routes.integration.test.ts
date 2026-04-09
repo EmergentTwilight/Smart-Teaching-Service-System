@@ -6,7 +6,7 @@
  * 1. 确保 Docker 数据库已启动
  * 2. 运行: DATABASE_URL="..." pnpm vitest run src/__tests__/integration/modules/info-management/departments.routes.integration.test.ts
  */
-import { beforeAll, beforeEach, describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import request from 'supertest'
 import express, { type Express } from 'express'
 import { PrismaClient } from '@prisma/client'

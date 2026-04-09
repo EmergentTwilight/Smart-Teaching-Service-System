@@ -38,24 +38,24 @@ const prisma = new PrismaClient({
 
 // 清理函数
 async function cleanupDepartmentsData() {
-  // 删除测试创建的院系
+  // 删除测试创建的院系（先删除关联的专业）
   await prisma.major.deleteMany({
     where: {
       department: {
-        name: { startsWith: 'itest_' },
+        name: { startsWith: 'itest_dept_' },
       },
     },
   })
   await prisma.department.deleteMany({
-    where: { name: { startsWith: 'itest_' } },
+    where: { name: { startsWith: 'itest_dept_' } },
   })
 }
 
 // 辅助函数：创建测试用户
 async function createTestUser() {
-  const username = `itest_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`
+  const username = `itest_dept_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`
   const hashedPassword = await bcrypt.hash('Password123', 10)
-  const email = `itest_${Date.now()}_${Math.random().toString(36).slice(2, 7)}@test.com`
+  const email = `itest_dept_${Date.now()}_${Math.random().toString(36).slice(2, 7)}@test.com`
 
   const user = await prisma.user.create({
     data: {
@@ -87,7 +87,7 @@ async function createTestUser() {
 // 辅助函数：创建测试院系
 async function createTestDepartment(overrides: Record<string, unknown> = {}) {
   const random = Math.random().toString(36).slice(2, 6)
-  const name = `itest_院系_${random}`
+  const name = `itest_dept_院系_${random}`
   const code = `ID${random}`
 
   const department = await prisma.department.create({
@@ -133,8 +133,8 @@ describe('GET /api/v1/departments', () => {
     const token = generateTestToken(user.id, user.username)
 
     // 创建测试院系
-    await createTestDepartment({ name: 'itest_计算机学院', code: 'CS' })
-    await createTestDepartment({ name: 'itest_数学学院', code: 'MATH' })
+    await createTestDepartment({ name: 'itest_dept_计算机学院', code: 'CS' })
+    await createTestDepartment({ name: 'itest_dept_数学学院', code: 'MATH' })
 
     const response = await request(app)
       .get('/api/v1/departments')
@@ -146,7 +146,7 @@ describe('GET /api/v1/departments', () => {
 
     // 应该包含我们创建的测试院系
     const testDepartments = response.body.data.filter((d: { name: string }) =>
-      d.name.startsWith('itest_')
+      d.name.startsWith('itest_dept_')
     )
     expect(testDepartments.length).toBeGreaterThanOrEqual(2)
   })
@@ -159,7 +159,7 @@ describe('GET /api/v1/departments', () => {
     const department = await createTestDepartment()
     await prisma.major.create({
       data: {
-        name: 'itest_计算机科学与技术',
+        name: 'itest_dept_计算机科学与技术',
         code: 'CS',
         departmentId: department.id,
       },
@@ -203,7 +203,7 @@ describe('GET /api/v1/departments/:id', () => {
     const token = generateTestToken(user.id, user.username)
 
     const department = await createTestDepartment({
-      name: 'itest_计算机学院',
+      name: 'itest_dept_计算机学院',
       code: 'CS',
       description: '计算机科学与技术学院',
     })
@@ -214,7 +214,7 @@ describe('GET /api/v1/departments/:id', () => {
       .expect(200)
 
     expect(response.body.data.id).toBe(department.id)
-    expect(response.body.data.name).toBe('itest_计算机学院')
+    expect(response.body.data.name).toBe('itest_dept_计算机学院')
     expect(response.body.data.code).toBe('CS')
     expect(response.body.data.description).toBe('计算机科学与技术学院')
   })
@@ -229,12 +229,12 @@ describe('GET /api/v1/departments/:id', () => {
     await prisma.major.createMany({
       data: [
         {
-          name: 'itest_计算机科学与技术',
+          name: 'itest_dept_计算机科学与技术',
           code: 'CS',
           departmentId: department.id,
         },
         {
-          name: 'itest_软件工程',
+          name: 'itest_dept_软件工程',
           code: 'SE',
           departmentId: department.id,
         },
@@ -306,7 +306,7 @@ describe('院系数据结构验证', () => {
     const token = generateTestToken(user.id, user.username)
 
     await createTestDepartment({
-      name: 'itest_测试学院',
+      name: 'itest_dept_测试学院',
       code: 'TEST',
       description: '测试描述',
     })
@@ -316,7 +316,9 @@ describe('院系数据结构验证', () => {
       .set('Authorization', `Bearer ${token}`)
       .expect(200)
 
-    const testDept = response.body.data.find((d: { name: string }) => d.name === 'itest_测试学院')
+    const testDept = response.body.data.find(
+      (d: { name: string }) => d.name === 'itest_dept_测试学院'
+    )
     expect(testDept).toHaveProperty('id')
     expect(testDept).toHaveProperty('name')
     expect(testDept).toHaveProperty('code')
@@ -331,7 +333,7 @@ describe('院系数据结构验证', () => {
     const department = await createTestDepartment()
     await prisma.major.create({
       data: {
-        name: 'itest_测试专业',
+        name: 'itest_dept_测试专业',
         code: 'T_MAJOR',
         departmentId: department.id,
       },
@@ -359,9 +361,9 @@ describe('并发请求处理', () => {
 
     // 创建多个院系
     const departments = await Promise.all([
-      createTestDepartment({ name: 'itest_院系1' }),
-      createTestDepartment({ name: 'itest_院系2' }),
-      createTestDepartment({ name: 'itest_院系3' }),
+      createTestDepartment({ name: 'itest_dept_院系1' }),
+      createTestDepartment({ name: 'itest_dept_院系2' }),
+      createTestDepartment({ name: 'itest_dept_院系3' }),
     ])
 
     // 并发请求

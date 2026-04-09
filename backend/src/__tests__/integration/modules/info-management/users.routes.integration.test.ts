@@ -39,31 +39,31 @@ const prisma = new PrismaClient({
 // 清理函数
 async function cleanupUsersData() {
   await prisma.systemLog.deleteMany({
-    where: { userId: { startsWith: 'itest_' } },
+    where: { user: { username: { startsWith: 'itest_user_' } } },
   })
   await prisma.refreshToken.deleteMany({
-    where: { user: { username: { startsWith: 'itest_' } } },
+    where: { user: { username: { startsWith: 'itest_user_' } } },
   })
   await prisma.userRole.deleteMany({
     where: {
-      user: { username: { startsWith: 'itest_' } },
+      user: { username: { startsWith: 'itest_user_' } },
     },
   })
   await prisma.user.deleteMany({
-    where: { username: { startsWith: 'itest_' } },
+    where: { username: { startsWith: 'itest_user_' } },
   })
 }
 
 // 辅助函数：创建测试用户
 async function createTestUser(overrides: Record<string, unknown> = {}) {
-  const username = `itest_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`
+  const username = `itest_user_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`
   const hashedPassword = await bcrypt.hash('Password123', 10)
 
   const user = await prisma.user.create({
     data: {
       username,
       passwordHash: hashedPassword,
-      email: `itest_${Date.now()}@test.com`,
+      email: `itest_user_${Date.now()}@test.com`,
       realName: '测试用户',
       status: 'ACTIVE',
       ...overrides,
@@ -89,14 +89,14 @@ async function createTestUser(overrides: Record<string, unknown> = {}) {
 
 // 辅助函数：创建管理员用户
 async function createAdminUser() {
-  const username = `itest_admin_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`
+  const username = `itest_user_admin_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`
   const hashedPassword = await bcrypt.hash('AdminPassword123', 10)
 
   const user = await prisma.user.create({
     data: {
       username,
       passwordHash: hashedPassword,
-      email: `itest_admin_${Date.now()}@test.com`,
+      email: `itest_user_admin_${Date.now()}@test.com`,
       realName: '测试管理员',
       status: 'ACTIVE',
     },
@@ -177,8 +177,8 @@ describe('GET /api/v1/users', () => {
     const token = generateTestToken(adminUser.id, adminUser.username, ['admin'])
 
     // 创建几个测试用户
-    await createTestUser({ username: 'itest_user1' })
-    await createTestUser({ username: 'itest_user2' })
+    await createTestUser({ username: 'itest_user_user1' })
+    await createTestUser({ username: 'itest_user_user2' })
 
     const response = await request(app)
       .get('/api/v1/users?page=1&pageSize=10')
@@ -196,7 +196,10 @@ describe('GET /api/v1/users', () => {
     const adminUser = await createAdminUser()
     const token = generateTestToken(adminUser.id, adminUser.username, ['admin'])
 
-    const testUser = await createTestUser({ username: 'itest_search_user', realName: '搜索用户' })
+    const testUser = await createTestUser({
+      username: 'itest_user_search_user',
+      realName: '搜索用户',
+    })
 
     const response = await request(app)
       .get('/api/v1/users?keyword=search')
@@ -303,9 +306,9 @@ describe('POST /api/v1/users', () => {
 
     const adminUser = await prisma.user.create({
       data: {
-        username: `itest_sa_${Date.now()}`,
+        username: `itest_user_sa_${Date.now()}`,
         passwordHash: await bcrypt.hash('AdminPassword123', 10),
-        email: `itest_sa_${Date.now()}@test.com`,
+        email: `itest_user_sa_${Date.now()}@test.com`,
         realName: '超级管理员',
         status: 'ACTIVE',
       },
@@ -326,7 +329,7 @@ describe('POST /api/v1/users', () => {
       .post('/api/v1/users')
       .set('Authorization', `Bearer ${token}`)
       .send({
-        username: `itest_new_${Date.now()}`,
+        username: `itest_user_new_${Date.now()}`,
         password: 'Password123',
         realName: '新用户',
         email: `new_${Date.now()}@test.com`,
@@ -345,9 +348,9 @@ describe('POST /api/v1/users', () => {
 
     const adminUser = await prisma.user.create({
       data: {
-        username: `itest_sa_${Date.now()}`,
+        username: `itest_user_sa_${Date.now()}`,
         passwordHash: await bcrypt.hash('AdminPassword123', 10),
-        email: `itest_sa_${Date.now()}@test.com`,
+        email: `itest_user_sa_${Date.now()}@test.com`,
         realName: '超级管理员',
         status: 'ACTIVE',
       },
@@ -364,13 +367,13 @@ describe('POST /api/v1/users', () => {
 
     const token = generateTestToken(adminUser.id, adminUser.username, ['super_admin'])
 
-    await createTestUser({ username: 'itest_duplicate' })
+    await createTestUser({ username: 'itest_user_duplicate' })
 
     const response = await request(app)
       .post('/api/v1/users')
       .set('Authorization', `Bearer ${token}`)
       .send({
-        username: 'itest_duplicate',
+        username: 'itest_user_duplicate',
         password: 'Password123',
         realName: '重复用户',
       })
@@ -387,7 +390,7 @@ describe('POST /api/v1/users', () => {
       .post('/api/v1/users')
       .set('Authorization', `Bearer ${token}`)
       .send({
-        username: `itest_${Date.now()}`,
+        username: `itest_user_${Date.now()}`,
         password: 'Password123',
         realName: '新用户',
       })
@@ -482,9 +485,9 @@ describe('DELETE /api/v1/users/:id', () => {
 
     const adminUser = await prisma.user.create({
       data: {
-        username: `itest_sa_${Date.now()}`,
+        username: `itest_user_sa_${Date.now()}`,
         passwordHash: await bcrypt.hash('AdminPassword123', 10),
-        email: `itest_sa_${Date.now()}@test.com`,
+        email: `itest_user_sa_${Date.now()}@test.com`,
         realName: '超级管理员',
         status: 'ACTIVE',
       },
@@ -523,9 +526,9 @@ describe('DELETE /api/v1/users/:id', () => {
 
     const adminUser = await prisma.user.create({
       data: {
-        username: `itest_sa_${Date.now()}`,
+        username: `itest_user_sa_${Date.now()}`,
         passwordHash: await bcrypt.hash('AdminPassword123', 10),
-        email: `itest_sa_${Date.now()}@test.com`,
+        email: `itest_user_sa_${Date.now()}@test.com`,
         realName: '超级管理员',
         status: 'ACTIVE',
       },

@@ -48,12 +48,20 @@ const prisma = new PrismaClient({
 
 // 清理函数
 async function cleanupAuthData() {
+  // 只清理测试用户的系统日志
   await prisma.systemLog.deleteMany({
-    where: { action: { startsWith: 'auth:' } },
+    where: { action: { startsWith: 'auth:' }, user: { username: { startsWith: 'itest_auth_' } } },
   })
-  await prisma.refreshToken.deleteMany({})
-  await prisma.activationToken.deleteMany({})
-  await prisma.passwordResetToken.deleteMany({})
+  // 只清理测试用户的令牌（避免影响并行运行的其他测试）
+  await prisma.refreshToken.deleteMany({
+    where: { user: { username: { startsWith: 'itest_auth_' } } },
+  })
+  await prisma.activationToken.deleteMany({
+    where: { user: { username: { startsWith: 'itest_auth_' } } },
+  })
+  await prisma.passwordResetToken.deleteMany({
+    where: { user: { username: { startsWith: 'itest_auth_' } } },
+  })
 
   // 清除 Redis 中的登录限流键
   const loginKeys = await testRedis.keys('auth:login_*')

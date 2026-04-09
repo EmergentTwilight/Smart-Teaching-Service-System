@@ -42,27 +42,27 @@ async function cleanupMajorsData() {
   await prisma.curriculum.deleteMany({
     where: {
       major: {
-        name: { startsWith: 'itest_' },
+        name: { startsWith: 'itest_major_' },
       },
     },
   })
   // 删除测试创建的专业
   await prisma.major.deleteMany({
     where: {
-      name: { startsWith: 'itest_' },
+      name: { startsWith: 'itest_major_' },
     },
   })
   // 删除测试创建的院系
   await prisma.department.deleteMany({
-    where: { name: { startsWith: 'itest_' } },
+    where: { name: { startsWith: 'itest_major_dept_' } },
   })
 }
 
 // 辅助函数：创建测试用户
 async function createTestUser(roleCode: string = 'student') {
-  const username = `itest_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`
+  const username = `itest_major_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`
   const hashedPassword = await bcrypt.hash('Password123', 10)
-  const email = `itest_${Date.now()}_${Math.random().toString(36).slice(2, 7)}@test.com`
+  const email = `itest_major_${Date.now()}_${Math.random().toString(36).slice(2, 7)}@test.com`
 
   const user = await prisma.user.create({
     data: {
@@ -94,7 +94,7 @@ async function createTestUser(roleCode: string = 'student') {
 // 辅助函数：创建测试院系
 async function createTestDepartment(overrides: Record<string, unknown> = {}) {
   const random = Math.random().toString(36).slice(2, 6)
-  const name = `itest_院系_${random}`
+  const name = `itest_major_dept_院系_${random}`
   const code = `ID${random}` // 限制在20字符以内
 
   const department = await prisma.department.create({
@@ -112,7 +112,7 @@ async function createTestDepartment(overrides: Record<string, unknown> = {}) {
 // 辅助函数：创建测试专业
 async function createTestMajor(departmentId: string, overrides: Record<string, unknown> = {}) {
   const random = Math.random().toString(36).slice(2, 6)
-  const name = `itest_专业_${random}`
+  const name = `itest_major_专业_${random}`
   const code = `IM${random}` // 限制在20字符以内
 
   const major = await prisma.major.create({
@@ -161,8 +161,8 @@ describe('GET /api/v1/majors', () => {
 
     // 创建测试院系和专业
     const department = await createTestDepartment()
-    await createTestMajor(department.id, { name: 'itest_计算机科学与技术' })
-    await createTestMajor(department.id, { name: 'itest_软件工程' })
+    await createTestMajor(department.id, { name: 'itest_major_计算机科学与技术' })
+    await createTestMajor(department.id, { name: 'itest_major_软件工程' })
 
     const response = await request(app)
       .get('/api/v1/majors/')
@@ -175,7 +175,7 @@ describe('GET /api/v1/majors', () => {
 
     // 应该包含我们创建的测试专业
     const testMajors = response.body.data.items.filter((m: { name: string }) =>
-      m.name.startsWith('itest_')
+      m.name.startsWith('itest_major_')
     )
     expect(testMajors.length).toBeGreaterThanOrEqual(2)
   })
@@ -187,9 +187,9 @@ describe('GET /api/v1/majors', () => {
     const department = await createTestDepartment()
     // 创建3个专业
     await Promise.all([
-      createTestMajor(department.id, { name: 'itest_专业1' }),
-      createTestMajor(department.id, { name: 'itest_专业2' }),
-      createTestMajor(department.id, { name: 'itest_专业3' }),
+      createTestMajor(department.id, { name: 'itest_major_专业1' }),
+      createTestMajor(department.id, { name: 'itest_major_专业2' }),
+      createTestMajor(department.id, { name: 'itest_major_专业3' }),
     ])
 
     const response = await request(app)
@@ -206,11 +206,11 @@ describe('GET /api/v1/majors', () => {
     const user = await createTestUser()
     const token = generateTestToken(user.id, user.username)
 
-    const dept1 = await createTestDepartment({ name: 'itest_计算机学院' })
-    const dept2 = await createTestDepartment({ name: 'itest_数学学院' })
+    const dept1 = await createTestDepartment({ name: 'itest_major_计算机学院' })
+    const dept2 = await createTestDepartment({ name: 'itest_major_数学学院' })
 
-    await createTestMajor(dept1.id, { name: 'itest_计算机科学与技术' })
-    await createTestMajor(dept2.id, { name: 'itest_数学与应用数学' })
+    await createTestMajor(dept1.id, { name: 'itest_major_计算机科学与技术' })
+    await createTestMajor(dept2.id, { name: 'itest_major_数学与应用数学' })
 
     const response = await request(app)
       .get(`/api/v1/majors/?department_id=${dept1.id}`)
@@ -218,7 +218,7 @@ describe('GET /api/v1/majors', () => {
       .expect(200)
 
     const testMajors = response.body.data.items.filter((m: { name: string }) =>
-      m.name.startsWith('itest_')
+      m.name.startsWith('itest_major_')
     )
     expect(testMajors.length).toBe(1)
     expect(testMajors[0].name).toContain('计算机')
@@ -229,8 +229,8 @@ describe('GET /api/v1/majors', () => {
     const token = generateTestToken(user.id, user.username)
 
     const department = await createTestDepartment()
-    await createTestMajor(department.id, { name: 'itest_计算机科学与技术', code: 'CS' })
-    await createTestMajor(department.id, { name: 'itest_软件工程', code: 'SE' })
+    await createTestMajor(department.id, { name: 'itest_major_计算机科学与技术', code: 'CS' })
+    await createTestMajor(department.id, { name: 'itest_major_软件工程', code: 'SE' })
 
     const response = await request(app)
       .get('/api/v1/majors/?keyword=计算机')
@@ -238,7 +238,7 @@ describe('GET /api/v1/majors', () => {
       .expect(200)
 
     const testMajors = response.body.data.items.filter((m: { name: string }) =>
-      m.name.startsWith('itest_')
+      m.name.startsWith('itest_major_')
     )
     expect(testMajors.length).toBe(1)
     expect(testMajors[0].name).toContain('计算机')
@@ -248,7 +248,7 @@ describe('GET /api/v1/majors', () => {
     const user = await createTestUser()
     const token = generateTestToken(user.id, user.username)
 
-    const department = await createTestDepartment({ name: 'itest_计算机学院' })
+    const department = await createTestDepartment({ name: 'itest_major_计算机学院' })
     await createTestMajor(department.id)
 
     const response = await request(app)
@@ -257,11 +257,11 @@ describe('GET /api/v1/majors', () => {
       .expect(200)
 
     const testMajor = response.body.data.items.find((m: { name: string }) =>
-      m.name.startsWith('itest_')
+      m.name.startsWith('itest_major_')
     )
     expect(testMajor).toBeDefined()
     expect(testMajor.department_id).toBe(department.id)
-    expect(testMajor.department_name).toBe('itest_计算机学院')
+    expect(testMajor.department_name).toBe('itest_major_计算机学院')
   })
 
   it('应该包含学生数量', async () => {
@@ -318,9 +318,9 @@ describe('GET /api/v1/majors/:id', () => {
     const user = await createTestUser()
     const token = generateTestToken(user.id, user.username)
 
-    const department = await createTestDepartment({ name: 'itest_计算机学院' })
+    const department = await createTestDepartment({ name: 'itest_major_计算机学院' })
     const major = await createTestMajor(department.id, {
-      name: 'itest_计算机科学与技术',
+      name: 'itest_major_计算机科学与技术',
       code: 'CS',
     })
 
@@ -438,7 +438,7 @@ describe('POST /api/v1/majors', () => {
       .set('Authorization', `Bearer ${token}`)
       .send({
         department_id: department.id,
-        name: 'itest_计算机科学与技术',
+        name: 'itest_major_计算机科学与技术',
         code: 'CS',
         degree_type: 'BACHELOR',
         total_credits: 150,
@@ -446,7 +446,7 @@ describe('POST /api/v1/majors', () => {
       .expect(201)
 
     expect(response.body.data.id).toBeDefined()
-    expect(response.body.data.name).toBe('itest_计算机科学与技术')
+    expect(response.body.data.name).toBe('itest_major_计算机科学与技术')
     expect(response.body.message).toBe('创建成功')
   })
 
@@ -461,7 +461,7 @@ describe('POST /api/v1/majors', () => {
       .set('Authorization', `Bearer ${token}`)
       .send({
         department_id: department.id,
-        name: 'itest_测试专业',
+        name: 'itest_major_测试专业',
         code: 'TEST',
       })
       .expect(201)
@@ -475,7 +475,7 @@ describe('POST /api/v1/majors', () => {
       },
     })
 
-    const createLog = logs.find((l) => (l.details as string)?.includes('itest_测试专业'))
+    const createLog = logs.find((l) => (l.details as string)?.includes('itest_major_测试专业'))
     expect(createLog).toBeDefined()
     expect(createLog?.userId).toBe(admin.id)
   })
@@ -491,7 +491,7 @@ describe('POST /api/v1/majors', () => {
       .set('Authorization', `Bearer ${token}`)
       .send({
         department_id: department.id,
-        name: 'itest_测试专业',
+        name: 'itest_major_测试专业',
       })
       .expect(403)
 
@@ -509,7 +509,7 @@ describe('POST /api/v1/majors', () => {
       .set('Authorization', `Bearer ${token}`)
       .send({
         department_id: department.id,
-        name: 'itest_测试专业',
+        name: 'itest_major_测试专业',
       })
       .expect(403)
   })
@@ -523,7 +523,7 @@ describe('POST /api/v1/majors', () => {
       .set('Authorization', `Bearer ${token}`)
       .send({
         // 缺少 department_id
-        name: 'itest_测试专业',
+        name: 'itest_major_测试专业',
       })
       .expect(400)
 
@@ -559,7 +559,7 @@ describe('POST /api/v1/majors', () => {
       .set('Authorization', `Bearer ${token}`)
       .send({
         department_id: department.id,
-        name: 'itest_测试专业',
+        name: 'itest_major_测试专业',
         code: 'a'.repeat(21), // 超过20字符
       })
       .expect(400)
@@ -578,7 +578,7 @@ describe('POST /api/v1/majors', () => {
       .set('Authorization', `Bearer ${token}`)
       .send({
         department_id: department.id,
-        name: 'itest_测试专业',
+        name: 'itest_major_测试专业',
         total_credits: 10000, // 超过9999
       })
       .expect(400)
@@ -601,13 +601,13 @@ describe('PUT /api/v1/majors/:id', () => {
     const token = generateTestToken(admin.id, admin.username, ['super_admin'])
 
     const department = await createTestDepartment()
-    const major = await createTestMajor(department.id, { name: 'itest_原专业名' })
+    const major = await createTestMajor(department.id, { name: 'itest_major_原专业名' })
 
     const response = await request(app)
       .put(`/api/v1/majors/${major.id}`)
       .set('Authorization', `Bearer ${token}`)
       .send({
-        name: 'itest_新专业名',
+        name: 'itest_major_新专业名',
         total_credits: 160,
       })
       .expect(200)
@@ -626,7 +626,7 @@ describe('PUT /api/v1/majors/:id', () => {
       .put(`/api/v1/majors/${major.id}`)
       .set('Authorization', `Bearer ${token}`)
       .send({
-        name: 'itest_更新后的专业名',
+        name: 'itest_major_更新后的专业名',
       })
       .expect(200)
   })
@@ -636,13 +636,13 @@ describe('PUT /api/v1/majors/:id', () => {
     const token = generateTestToken(admin.id, admin.username, ['super_admin'])
 
     const department = await createTestDepartment()
-    const major = await createTestMajor(department.id, { name: 'itest_原名称' })
+    const major = await createTestMajor(department.id, { name: 'itest_major_原名称' })
 
     await request(app)
       .put(`/api/v1/majors/${major.id}`)
       .set('Authorization', `Bearer ${token}`)
       .send({
-        name: 'itest_新名称',
+        name: 'itest_major_新名称',
       })
       .expect(200)
 
@@ -670,7 +670,7 @@ describe('PUT /api/v1/majors/:id', () => {
       .put(`/api/v1/majors/${major.id}`)
       .set('Authorization', `Bearer ${token}`)
       .send({
-        name: 'itest_新名称',
+        name: 'itest_major_新名称',
       })
       .expect(403)
   })
@@ -683,7 +683,7 @@ describe('PUT /api/v1/majors/:id', () => {
       .put('/api/v1/majors/00000000-0000-0000-0000-000000000000') // 使用有效的UUID格式但不存在
       .set('Authorization', `Bearer ${token}`)
       .send({
-        name: 'itest_新名称',
+        name: 'itest_major_新名称',
       })
       .expect(404)
 
@@ -713,19 +713,22 @@ describe('PUT /api/v1/majors/:id', () => {
     const token = generateTestToken(admin.id, admin.username, ['super_admin'])
 
     const department = await createTestDepartment()
-    const major = await createTestMajor(department.id, { name: 'itest_原名称', totalCredits: 150 })
+    const major = await createTestMajor(department.id, {
+      name: 'itest_major_原名称',
+      totalCredits: 150,
+    })
 
     await request(app)
       .put(`/api/v1/majors/${major.id}`)
       .set('Authorization', `Bearer ${token}`)
       .send({
-        name: 'itest_新名称',
+        name: 'itest_major_新名称',
       })
       .expect(200)
 
     // 验证数据库中的值
     const updated = await prisma.major.findUnique({ where: { id: major.id } })
-    expect(updated?.name).toBe('itest_新名称')
+    expect(updated?.name).toBe('itest_major_新名称')
   })
 
   it('未认证时应该拒绝访问', async () => {
@@ -763,7 +766,7 @@ describe('DELETE /api/v1/majors/:id', () => {
     const token = generateTestToken(admin.id, admin.username, ['super_admin'])
 
     const department = await createTestDepartment()
-    const major = await createTestMajor(department.id, { name: 'itest_待删除专业' })
+    const major = await createTestMajor(department.id, { name: 'itest_major_待删除专业' })
 
     await request(app)
       .delete(`/api/v1/majors/${major.id}`)
@@ -780,7 +783,7 @@ describe('DELETE /api/v1/majors/:id', () => {
     })
 
     expect(logs.length).toBeGreaterThan(0)
-    expect(logs[0].details).toContain('itest_待删除专业')
+    expect(logs[0].details).toContain('itest_major_待删除专业')
   })
 
   it('应该拒绝 admin 用户删除', async () => {
@@ -838,9 +841,9 @@ describe('并发请求处理', () => {
 
     const department = await createTestDepartment()
     const majors = await Promise.all([
-      createTestMajor(department.id, { name: 'itest_专业1' }),
-      createTestMajor(department.id, { name: 'itest_专业2' }),
-      createTestMajor(department.id, { name: 'itest_专业3' }),
+      createTestMajor(department.id, { name: 'itest_major_专业1' }),
+      createTestMajor(department.id, { name: 'itest_major_专业2' }),
+      createTestMajor(department.id, { name: 'itest_major_专业3' }),
     ])
 
     // 并发请求
@@ -865,9 +868,9 @@ describe('专业数据结构验证', () => {
     const user = await createTestUser()
     const token = generateTestToken(user.id, user.username)
 
-    const department = await createTestDepartment({ name: 'itest_计算机学院' })
+    const department = await createTestDepartment({ name: 'itest_major_计算机学院' })
     await createTestMajor(department.id, {
-      name: 'itest_计算机科学与技术',
+      name: 'itest_major_计算机科学与技术',
       code: 'CS',
     })
 
@@ -877,7 +880,7 @@ describe('专业数据结构验证', () => {
       .expect(200)
 
     const testMajor = response.body.data.items.find((m: { name: string }) =>
-      m.name.startsWith('itest_')
+      m.name.startsWith('itest_major_')
     )
     expect(testMajor).toHaveProperty('id')
     expect(testMajor).toHaveProperty('name')
@@ -896,7 +899,7 @@ describe('专业数据结构验证', () => {
 
     const department = await createTestDepartment()
     const major = await createTestMajor(department.id, {
-      name: 'itest_计算机科学与技术',
+      name: 'itest_major_计算机科学与技术',
       code: 'CS',
     })
 

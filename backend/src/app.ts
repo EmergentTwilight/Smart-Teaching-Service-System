@@ -19,6 +19,10 @@ import config from './config/index.js'
 import { swaggerSpec } from './config/swagger.js'
 import swaggerUi from 'swagger-ui-express'
 import prisma from './shared/prisma/client.js'
+// group B part
+import classroomRoutes from './modules/course-arrangement/classroom/classroom.routes.js'
+import scheduleRoutes from './modules/course-arrangement/schedule/schedule.routes.js';
+import timetableRoutes from './modules/course-arrangement/timetable/timetable.routes.js';
 
 const app: Application = express()
 const PORT = config.port
@@ -162,6 +166,10 @@ app.get('/api/health', async (req, res) => {
 app.use('/api/v1/auth', authRoutes)
 app.use('/api/v1/users', usersRoutes)
 app.use('/api/v1/departments', departmentsRoutes)
+// group B part
+app.use('/api/v1/course-arrangement/classrooms', classroomRoutes)
+app.use('/api/v1/course-arrangement/schedules', scheduleRoutes)
+app.use('/api/v1/course-arrangement/timetables', timetableRoutes)
 
 // 404 处理
 app.use((req, res) => {

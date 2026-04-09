@@ -37,3 +37,14 @@ coverage/
 # Playwright test results
 test-results/
 playwright-report/
+
+# Claude Code
+.claude/
+CLAUDE.md
+
+# 中间文档和 Agent 状态 (不提交)
+INSTALL_DOCKER_PG.md
+SETUP.md
+backend/.omc/
+backend/RUN_INTEGRATION_TESTS.md
+backend/TEST_PLAN.md

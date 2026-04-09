@@ -5,12 +5,13 @@
 import prisma from '../../shared/prisma/client.js'
 import { Request } from 'express'
 import { NotFoundError } from '@stss/shared'
+import type { Prisma } from '@prisma/client'
 import type { CreateMajorSchema, GetMajorListSchema, UpdateMajorSchema } from './major.types.js'
 
 export const majorService = {
   async getMajorList(params: GetMajorListSchema) {
     const { page, page_size, department_id, keyword } = params
-    const where: any = {}
+    const where: Prisma.MajorWhereInput = {}
     if (department_id) {
       where.departmentId = department_id
     }
@@ -121,7 +122,7 @@ export const majorService = {
           },
         },
       })
-      if (!major) throw new NotFoundError('专业不存在')
+      if (!major) throw new NotFoundError('专业')
       //查找SystemLog中更新该专业信息的日志，获取最近一次更新时间
       const updateLog = await tx.systemLog.findFirst({
         where: {

@@ -16,7 +16,11 @@
     "lint": "eslint src",
     "test": "vitest",
     "test:run": "vitest run",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "test:unit": "vitest run --exclude='**/*.integration.test.ts' --exclude='**/*.e2e.test.ts'",
+    "test:integration": "DATABASE_URL=\"postgresql://stss:stss_dev_2026@localhost:5432/stss?schema=public\" vitest run src/__tests__/modules/info-management/users.integration.test.ts",
+    "test:e2e": "vitest run '**/*.e2e.test.ts'",
+    "test:watch": "vitest --exclude='**/*.integration.test.ts' --exclude='**/*.e2e.test.ts'"
   },
   "dependencies": {
     "@prisma/client": "^6.19.2",
@@ -45,14 +49,17 @@
     "@types/jsonwebtoken": "^9.0.7",
     "@types/morgan": "^1.9.9",
     "@types/nodemailer": "^7.0.11",
+    "@types/supertest": "^7.2.0",
     "@types/swagger-ui-express": "^4.1.8",
     "@types/uuid": "^10.0.0",
     "@vitest/coverage-v8": "^3.0.0",
     "eslint": "^9.18.0",
     "prisma": "^6.4.0",
+    "supertest": "^7.2.2",
     "tsx": "^4.19.0",
     "typescript": "^5.7.0",
     "typescript-eslint": "^8.20.0",
+    "vite-tsconfig-paths": "^6.1.1",
     "vitest": "^3.0.0"
   },
   "engines": {

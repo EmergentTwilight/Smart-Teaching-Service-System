@@ -16,10 +16,13 @@ import { ConflictError, NotFoundError, ValidationError } from '@stss/shared'
 import type { UserStatus } from '@prisma/client'
 
 // 使用独立的 Prisma Client 实例用于测试
+// 集成测试使用开发数据库（与 Docker Compose 配置一致）
 const prisma = new PrismaClient({
   datasources: {
     db: {
-      url: process.env.DATABASE_URL,
+      url:
+        process.env.DATABASE_URL ||
+        'postgresql://stss:stss_dev_2026@localhost:5432/stss?schema=public',
     },
   },
 })

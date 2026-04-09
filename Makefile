@@ -60,22 +60,6 @@ lint:
 	docker exec stss-server pnpm lint
 	docker exec stss-web pnpm lint
 
-# 启动 E 组 Rust 后端（含依赖）
-up-e:
-	docker compose -f $(COMPOSE_FILE) up -d postgres redis e-server
-
-# 前端切换到 E 组 Rust API（3001）并重建
-web-use-e:
-	set WEB_API_URL=http://localhost:3001/api/v1&& docker compose -f $(COMPOSE_FILE) up -d web
-
-# 前端切回默认 Node API（3000）并重建
-web-use-node:
-	set WEB_API_URL=http://localhost:3000/api/v1&& docker compose -f $(COMPOSE_FILE) up -d web
-
-# 仅 E 组路径走 Rust，其余继续走 Node（推荐）
-web-split-e:
-	set WEB_API_URL=http://localhost:3000/api/v1&& set WEB_E_API_URL=http://localhost:3001/api/v1&& set WEB_E_API_PREFIXES=/online-testing&& docker compose -f $(COMPOSE_FILE) up -d web
-
 # 查看 E 组 Rust 后端日志
 logs-e:
 	docker compose -f $(COMPOSE_FILE) logs -f e-server

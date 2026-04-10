@@ -56,6 +56,20 @@ async function cleanupMajorsData() {
   await prisma.department.deleteMany({
     where: { name: { startsWith: 'itest_major_dept_' } },
   })
+
+  // 清理本测试创建的用户和关联数据
+  await prisma.student.deleteMany({
+    where: { user: { username: { startsWith: 'itest_major_' } } },
+  })
+  await prisma.systemLog.deleteMany({
+    where: { user: { username: { startsWith: 'itest_major_' } } },
+  })
+  await prisma.userRole.deleteMany({
+    where: { user: { username: { startsWith: 'itest_major_' } } },
+  })
+  await prisma.user.deleteMany({
+    where: { username: { startsWith: 'itest_major_' } },
+  })
 }
 
 // 辅助函数：创建测试用户

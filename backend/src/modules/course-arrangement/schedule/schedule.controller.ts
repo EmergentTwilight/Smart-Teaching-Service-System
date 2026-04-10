@@ -34,7 +34,7 @@ export const validateSchedule = async (req: Request, res: Response) => {
       message: result.valid ? '校验通过' : '排课冲突',
       data: result,
     })
-  } catch (error: any) {
+  } catch {
     res.status(400).json({ code: 400, message: '请求参数错误' })
   }
 }
@@ -47,7 +47,7 @@ export const getSchedules = async (req: Request, res: Response) => {
       message: 'success',
       data: result,
     })
-  } catch (error) {
+  } catch {
     res.status(500).json({ code: 500, message: 'Internal Server Error' })
   }
 }
@@ -60,7 +60,7 @@ export const getScheduleById = async (req: Request, res: Response) => {
       return res.status(404).json({ code: 404, message: '排课记录不存在' })
     }
     res.json({ code: 200, message: 'success', data: result })
-  } catch (error) {
+  } catch {
     res.status(500).json({ code: 500, message: 'Internal Server Error' })
   }
 }
@@ -82,7 +82,7 @@ export const deleteSchedule = async (req: Request, res: Response) => {
     const id = req.params.id as string
     await scheduleService.delete(id)
     res.json({ code: 200, message: '删除成功', data: { id } })
-  } catch (error) {
+  } catch {
     res.status(500).json({ code: 500, message: '删除失败' })
   }
 }

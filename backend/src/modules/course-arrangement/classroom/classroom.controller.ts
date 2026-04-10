@@ -15,7 +15,7 @@ export const getClassrooms = async (req: Request, res: Response) => {
       message: 'success',
       data: result,
     })
-  } catch (error) {
+  } catch {
     res.status(500).json({
       code: 500,
       message: 'Internal Server Error',
@@ -32,7 +32,7 @@ export const getClassroomById = async (req: Request, res: Response) => {
       return res.status(404).json({ code: 404, message: '教室不存在' })
     }
     res.json({ code: 200, message: 'success', data: result })
-  } catch (error) {
+  } catch {
     res.status(500).json({ code: 500, message: '服务器内部错误' })
   }
 }

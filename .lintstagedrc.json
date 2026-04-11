@@ -2,6 +2,6 @@
   "$schema": "https://json.schemastore.org/lintstagedrc.json",
   "*.{js,ts,json,md,css,scss}": ["prettier --write --ignore-unknown"],
   "backend/**/*.ts": ["cd backend && pnpm exec eslint --fix"],
-  "frontend/**/*.{ts,tsx}": ["cd frontend && pnpm exec eslint --fix"],
+  "frontend/**/*.{ts,tsx}": ["pnpm --dir frontend exec eslint --fix"],
   "backend/prisma/schema.prisma": ["cd backend && npx prisma format"]
 }

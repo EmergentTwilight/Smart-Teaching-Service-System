@@ -17,6 +17,7 @@
     "@ant-design/icons": "^5.5.0",
     "@stss/shared": "workspace:*",
     "@tanstack/react-query": "^5.62.0",
+    "ahooks": "^3.9.7",
     "antd": "^5.22.0",
     "axios": "^1.7.9",
     "dayjs": "^1.11.13",

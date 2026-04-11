@@ -22,6 +22,11 @@ const SystemLogs = lazy(() => import('@/modules/info-management/pages/users/Syst
 const Profile = lazy(() => import('@/modules/info-management/pages/Profile'));
 const ComingSoon = lazy(() => import('@/shared/components/ComingSoon'));
 
+// group B: course arrangement
+const ClassroomList = lazy(() => import('@/modules/course-arrangement/pages/classroom-list'));
+const ScheduleList = lazy(() => import('@/modules/course-arrangement/pages/schedule-list'))
+const TimetableView = lazy(() => import('@/modules/course-arrangement/pages/timetable-view'))
+
 // 加载中组件
 const LoadingFallback = () => (
   <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
@@ -132,13 +137,14 @@ const App: React.FC = () => {
                   />
                   <Route path="profile" element={<Profile />} />
                   <Route path="info/roles" element={<ComingSoon title="角色权限" />} />
-                  <Route path="info/courses" element={<ComingSoon title="课程信息" />} />
-                  <Route path="info/classrooms" element={<ComingSoon title="教室管理" />} />
+                  <Route path="info/courses" element={<ComingSoon title="课程信息"/>} />
+                  <Route path="info/classrooms" element={<ClassroomList />} />
 
                   {/* 自动排课 */}
+                  {/* [todo]: 目前的版本还是预校验, 而非自动排课, 此页面目前空置 */}
                   <Route path="schedule/tasks" element={<ComingSoon title="排课任务" />} />
-                  <Route path="schedule/view" element={<ComingSoon title="课表查看" />} />
-                  <Route path="schedule/manual" element={<ComingSoon title="手动调整" />} />
+                  <Route path="schedule/view" element={<TimetableView />} />
+                  <Route path="schedule/manual" element={<ScheduleList />} />
 
                   {/* 智能选课 */}
                   <Route path="selection/courses" element={<ComingSoon title="课程列表" />} />

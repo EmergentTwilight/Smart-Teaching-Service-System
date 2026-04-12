@@ -15,3 +15,5 @@ jsonwebtoken = "9"
 uuid = { version = "1", features = ["v4", "fast-rng"] }
 async-trait = "0.1"
 time = "0.3"
+tokio-postgres = "0.7"
+url = "2"

@@ -100,6 +100,8 @@ services:
       VITE_API_URL: ${WEB_API_URL:-http://localhost:3000/api/v1}
       VITE_E_API_URL: ${WEB_E_API_URL:-http://localhost:3001/api/v1}
       VITE_E_API_PREFIXES: ${WEB_E_API_PREFIXES:-/online-testing}
+      CHOKIDAR_USEPOLLING: "true"
+      CHOKIDAR_INTERVAL: "300"
     volumes:
       - .:/app
       - /app/node_modules

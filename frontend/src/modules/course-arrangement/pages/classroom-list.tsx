@@ -1,6 +1,6 @@
 /**
  * 教室列表页面
- * 提供资源的筛选、展示和新建/编辑入口 [cite: 102]
+ * 提供资源的筛选、展示和新建/编辑入口
  */
 import React, { useEffect, useState } from 'react';
 import { Card, Table, Form, Input, Select, Button, Space, Tag, message } from 'antd';
@@ -32,7 +32,7 @@ export const ClassroomList: React.FC = () => {
   const [data, setData] = useState<Classroom[]>([]);
   const [total, setTotal] = useState(0);
   
-  // 分页状态 [cite: 120-124]
+  // 分页状态 
   const [pagination, setPagination] = useState({ page: 1, pageSize: 20 });
   
   // 抽屉状态

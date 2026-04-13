@@ -1,16 +1,18 @@
 # 初步开发进展
 
-## 1. 已完成功能
+## 1. 已完成功能 (更新于 0413)
 
 目前已完成以下前端页面的开发：
 
-- 教室管理页 (教室管理)
+- 教室管理页 (教室管理) (0408)
 
-- 排课编辑页 (手动排课)
+- 自动排课页 (排课任务) (0413)
 
-- 课表查询页 (课表查看)
+- 排课编辑页 (手动排课) (0411)
 
-## 2. 目录结构说明
+- 课表查询页 (课表查看) (0411)
+
+## 2. 目录结构说明 (更新于 0413)
 
 为保证项目规范的统一性, 前端页面目录已严格按照总开发文档中的规范进行划分(未使用 B 小组的 3.4 推荐目录), 新增的目录结构如下:
 
@@ -18,29 +20,34 @@
 .
 ├── Readme.md
 ├── api
+│   ├── auto-schedule.ts
 │   ├── classrooms.ts
 │   ├── schedules.ts
 │   └── timetables.ts
 ├── components
 ├── hooks
 ├── pages
+│   ├── auto-schedule-management.tsx
 │   ├── classroom-edit.tsx
 │   ├── classroom-list.tsx
 │   ├── schedule-edit.tsx
 │   ├── schedule-list.tsx
 │   └── timetable-view.tsx
 └── types
+    ├── auto-schedule.ts
     ├── classroom.ts
     └── schedule.ts
 
-6 directories, 11 files
+6 directories, 14 files
 ```
 
-## 3. 待确认与待开发项
+## 3. 待确认与待开发项 (更新于 0413)
 
-主页面中的 **"排课任务"** 页面暂未进行设计开发。
+新增页面 (排课任务) 暂未进行单独功能测试.
 
-原因: 目前的业务流程是 "手动排课 -> 校验冲突 -> 无冲突时写入 Schedule" , 暂未涉及自动排课逻辑. 大概看了一下, 后端目前也暂无对应的自动排课接口. 或许要看下后续怎么安排.
+总体未与后端联合测试.
+
+有问题请联系 @刘锋锋 来修.
 
 ## 4. 其他
 

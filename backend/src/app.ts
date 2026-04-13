@@ -15,7 +15,8 @@ import { requestLogger } from './shared/middleware/requestLogger.js'
 import authRoutes from './modules/info-management/auth.routes.js'
 import usersRoutes from './modules/info-management/users.routes.js'
 import departmentsRoutes from './modules/info-management/departments.routes.js'
-import maorRoutes from './modules/info-management/major.routes.js'
+import majorRoutes from './modules/info-management/major.routes.js'
+import courseRoutes from './modules/info-management/course.routes.js'
 import config from './config/index.js'
 import { swaggerSpec } from './config/swagger.js'
 import swaggerUi from 'swagger-ui-express'
@@ -163,7 +164,8 @@ app.get('/api/health', async (req, res) => {
 app.use('/api/v1/auth', authRoutes)
 app.use('/api/v1/users', usersRoutes)
 app.use('/api/v1/departments', departmentsRoutes)
-app.use('/api/v1/majors', maorRoutes)
+app.use('/api/v1/majors', majorRoutes)
+app.use('/api/v1/courses', courseRoutes)
 
 // 404 处理
 app.use((req, res) => {

@@ -26,6 +26,7 @@ const ComingSoon = lazy(() => import('@/shared/components/ComingSoon'));
 const ClassroomList = lazy(() => import('@/modules/course-arrangement/pages/classroom-list'));
 const ScheduleList = lazy(() => import('@/modules/course-arrangement/pages/schedule-list'))
 const TimetableView = lazy(() => import('@/modules/course-arrangement/pages/timetable-view'))
+const AutoScheduleManagement = lazy(() => import('@/modules/course-arrangement/pages/auto-schedule-management'))
 
 // 加载中组件
 const LoadingFallback = () => (
@@ -141,8 +142,7 @@ const App: React.FC = () => {
                   <Route path="info/classrooms" element={<ClassroomList />} />
 
                   {/* 自动排课 */}
-                  {/* [todo]: 目前的版本还是预校验, 而非自动排课, 此页面目前空置 */}
-                  <Route path="schedule/tasks" element={<ComingSoon title="排课任务" />} />
+                  <Route path="schedule/tasks" element={<AutoScheduleManagement />} />
                   <Route path="schedule/view" element={<TimetableView />} />
                   <Route path="schedule/manual" element={<ScheduleList />} />
 

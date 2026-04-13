@@ -191,27 +191,31 @@ export const courseService = {
       throw new NotFoundError('课程不存在')
     }
     const updated = await prisma.$transaction(async (tx) => {
-      const updated = await prisma.course.update({
+      if (data.prerequisite_ids) {
+        await tx.coursePrerequisite.deleteMany({
+          where: { courseId: course_id },
+        })
+      }
+
+      const updated = await tx.course.update({
         where: { id: course_id },
         data: {
           name: data.name,
           credits: data.credits,
           description: data.description,
-          prerequisites: data.prerequisite_ids
-            ? {
-                createMany: {
-                  data: data.prerequisite_ids.map((id) => ({
-                    prerequisiteId: id,
-                  })),
-                },
-                deleteMany: {
-                  courseId: course_id,
-                },
-              }
-            : {},
           updatedAt: new Date(),
         },
       })
+
+      if (data.prerequisite_ids) {
+        await tx.coursePrerequisite.createMany({
+          data: data.prerequisite_ids.map((id) => ({
+            courseId: course_id,
+            prerequisiteId: id,
+          })),
+        })
+      }
+
       await tx.systemLog.create({
         data: {
           userId: req.user?.userId || null,
@@ -256,7 +260,7 @@ export const courseService = {
       const data = coursesData[dataInd]
       try {
         const course = await prisma.$transaction(async (tx) => {
-          const course = await prisma.course.create({
+          const course = await tx.course.create({
             data: {
               code: data.code,
               name: data.name,

@@ -8,13 +8,35 @@ on:
   workflow_dispatch:
 
 env:
-  NODE_VERSION: '24'
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  NODE_VERSION: '22'
 
 jobs:
   quality:
     name: Code Quality
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: stss_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U test -d stss_test"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd="redis-cli ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
 
     steps:
       - name: Checkout
@@ -50,7 +72,20 @@ jobs:
         env:
           DATABASE_URL: postgresql://test:test@localhost:5432/stss
 
-      - name: Run unit tests
-        run: pnpm -r test:run
+      - name: Run frontend tests
+        run: cd frontend && pnpm test:run
+
+      - name: Run backend unit tests
+        run: cd backend && pnpm test:unit
+
+      - name: Prepare test database
+        run: cd backend && pnpm db:push && pnpm db:seed
         env:
-          DATABASE_URL: postgresql://test:test@localhost:5432/stss_test
+          DATABASE_URL: postgresql://test:test@localhost:5432/stss_test?schema=public
+          REDIS_URL: redis://localhost:6379/1
+
+      - name: Run backend integration tests
+        run: cd backend && pnpm test:integration
+        env:
+          DATABASE_URL: postgresql://test:test@localhost:5432/stss_test?schema=public
+          REDIS_URL: redis://localhost:6379/1

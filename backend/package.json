@@ -18,7 +18,7 @@
     "test:run": "vitest run",
     "test:coverage": "vitest run --coverage",
     "test:unit": "vitest run --exclude='**/*.integration.test.ts' --exclude='**/*.e2e.test.ts'",
-    "test:integration": "DATABASE_URL=\"postgresql://stss:stss_dev_2026@localhost:5432/stss?schema=public\" vitest run src/__tests__/modules/info-management/users.integration.test.ts",
+    "test:integration": "vitest run src/__tests__/integration src/__tests__/modules/info-management/users.integration.test.ts",
     "test:e2e": "vitest run '**/*.e2e.test.ts'",
     "test:watch": "vitest --exclude='**/*.integration.test.ts' --exclude='**/*.e2e.test.ts'"
   },

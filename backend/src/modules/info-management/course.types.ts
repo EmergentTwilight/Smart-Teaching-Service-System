@@ -11,8 +11,8 @@ import { CourseType, CourseStatus } from '@prisma/client'
  * 使用zod的preprocess将输入转换为大写后再验证。
  */
 export const getCoursesListSchema = z.object({
-  page: z.number().int().min(1).default(1),
-  page_size: z.number().int().min(1).max(100).default(10),
+  page: z.coerce.number().int().min(1).default(1),
+  page_size: z.coerce.number().int().min(1).max(100).default(10),
   keyword: z.string().optional(),
   department_id: z.string().uuid().optional(),
   course_type: z.preprocess(

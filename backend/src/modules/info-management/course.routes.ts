@@ -25,7 +25,7 @@ router.use(authMiddleware)
  *   get:
  *     summary: 获取课程列表
  */
-router.get('/', validate(getCoursesListSchema, 'params'), courseController.list)
+router.get('/', validate(getCoursesListSchema, 'query'), courseController.list)
 
 /**
  * @swagger
@@ -57,6 +57,7 @@ router.post(
 router.put(
   '/:course_id',
   requireRoles('admin', 'super_admin'),
+  validate(courseIdSchema, 'params'),
   validate(updateCourseSchema),
   courseController.update
 )

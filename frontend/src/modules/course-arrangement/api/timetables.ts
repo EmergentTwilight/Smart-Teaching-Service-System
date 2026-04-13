@@ -1,11 +1,21 @@
 /**
  * 课表查询 API
- * 提供纯读视图数据，支持多维度（课程、教室、综合）检索
+ * 提供纯读视图数据，支持多维度（课程、教室、综合）检索以及课表的导出
  */
 import request from '@/shared/utils/request'
 import type { Schedule } from '../types/schedule.js'
 
 const BASE_PATH = '/timetables'
+
+// 导出课表的请求参数类型
+export interface ExportTimetableParams {
+  semesterId: string
+  format?: 'pdf' | 'excel'
+  targetType: 'classroom' | 'teacher' | 'student' | 'global'
+  targetId: string
+  startWeek?: number
+  endWeek?: number
+}
 
 export const timetablesApi = {
   /**
@@ -36,5 +46,17 @@ export const timetablesApi = {
     courseOfferingId?: string
   }): Promise<Schedule[]> => {
     return request.get(`${BASE_PATH}`, { params })
+  },
+
+  /**
+   * 导出/打印课表
+   * @param params 导出条件
+   * @returns 二进制文件流
+   */
+  exportTimetable: async (params: ExportTimetableParams): Promise<Blob> => {
+    return request.get(`${BASE_PATH}/export`, {
+      params,
+      responseType: 'blob', // 接收二进制数据
+    })
   },
 }

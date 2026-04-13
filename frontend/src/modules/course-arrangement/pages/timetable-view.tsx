@@ -1,10 +1,11 @@
 /**
  * 课表查看页面
- * 提供按教室、按课程的直观周视图课表展现，避免前端大量二次聚合 
+ * 提供按教室、按课程的直观周视图课表展现，支持课表导出下载
  */
 import React, { useState, useMemo, useEffect } from 'react';
-import { Card, Select, Radio, Spin, Empty, Space } from 'antd';
-import { timetablesApi } from '../api/timetables';
+import { Card, Select, Radio, Spin, Empty, Space, Button, Modal, Form, Input, InputNumber, message } from 'antd';
+import { DownloadOutlined } from '@ant-design/icons';
+import { timetablesApi, ExportTimetableParams } from '../api/timetables';
 import { classroomsApi } from '../api/classrooms';
 import type { Schedule } from '../types/schedule';
 import type { Classroom } from '../types/classroom';
@@ -33,6 +34,11 @@ export const TimetableView: React.FC = () => {
   // 基础数据字典
   const [classrooms, setClassrooms] = useState<Classroom[]>([]);
 
+  // 导出功能状态
+  const [exportModalVisible, setExportModalVisible] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [exportForm] = Form.useForm<ExportTimetableParams>();
+
   // 挂载时拉取基础字典数据
   useEffect(() => {
     classroomsApi.getList({ pageSize: 1000 }).then(res => setClassrooms(res.items));
@@ -53,6 +59,7 @@ export const TimetableView: React.FC = () => {
       setSchedules(data);
     } catch (error) {
       console.error('课表拉取失败', error);
+      message.error('获取课表数据失败');
     } finally {
       setLoading(false);
     }
@@ -69,20 +76,59 @@ export const TimetableView: React.FC = () => {
     }
   }, [viewMode, selectedClassroom, selectedCourse]);
 
+  // 处理导出逻辑
+  const handleExport = async () => {
+    try {
+      const values = await exportForm.validateFields();
+      setExporting(true);
+      
+      const blob = await timetablesApi.exportTimetable(values);
+      
+      // 创建隐藏的 a 标签触发下载
+      const url = window.URL.createObjectURL(new Blob([blob]));
+      const link = document.createElement('a');
+      link.href = url;
+      const extension = values.format === 'excel' ? 'xlsx' : 'pdf';
+      link.setAttribute('download', `timetable_${values.targetType}_${values.targetId}.${extension}`);
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode?.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      
+      message.success('导出成功');
+      setExportModalVisible(false);
+    } catch (error) {
+      console.error('导出失败', error);
+      // 若非表单校验错误，则提示网络异常
+      if (!(error as any).errorFields) {
+        message.error('导出失败，请检查参数或稍后重试');
+      }
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const openExportModal = () => {
+    exportForm.resetFields();
+    exportForm.setFieldsValue({
+      format: 'pdf',
+      semesterId: '2026-Spring', // 默认这学期
+      targetType: viewMode === 'course' ? 'global' : 'classroom',
+      targetId: viewMode === 'classroom' && selectedClassroom ? selectedClassroom : 'all',
+    });
+    setExportModalVisible(true);
+  };
+
   /**
    * 核心转换逻辑：将扁平的 schedule 数组映射为 13(节次) x 7(星期) 的二维矩阵 
-   * 为什么这样设计？为了极大地简化 React 渲染逻辑，使得前端只需双重循环渲染 Table 即可。
    */
   const gridData = useMemo(() => {
-    // 初始化 13 x 7 的空矩阵
     const matrix: Array<Array<Schedule[]>> = Array.from({ length: TOTAL_PERIODS }, () => 
       Array.from({ length: 7 }, () => [])
     );
 
     schedules.forEach(schedule => {
-      // 周次映射到 0-6 索引
       const dayIndex = schedule.dayOfWeek - 1; 
-      // 遍历该排课跨越的节次，填入矩阵
       for (let p = schedule.startPeriod; p <= schedule.endPeriod; p++) {
         const periodIndex = p - 1;
         if (periodIndex >= 0 && periodIndex < TOTAL_PERIODS) {
@@ -116,7 +162,7 @@ export const TimetableView: React.FC = () => {
           {item.classroom ? `${item.classroom.building}-${item.classroom.roomNumber}` : item.classroomId}
         </div>
         <div style={{ color: '#6b7280' }}>
-          {item.startWeek}-{item.endWeek} 周
+          第 {item.startWeek}-{item.endWeek} 周
         </div>
       </div>
     ));
@@ -125,53 +171,62 @@ export const TimetableView: React.FC = () => {
   return (
     <div className="fade-in">
       <Card bordered={false} style={{ marginBottom: 16 }}>
-        <Space direction="vertical" size="middle" style={{ width: '100%' }}>
-          <Radio.Group 
-            value={viewMode} 
-            onChange={e => {
-              setViewMode(e.target.value);
-              setSelectedClassroom(undefined);
-              setSelectedCourse(undefined);
-            }}
-            optionType="button"
-            buttonStyle="solid"
-          >
-            <Radio.Button value="classroom">按教室查看</Radio.Button>
-            <Radio.Button value="course">按课程查看</Radio.Button>
-            <Radio.Button value="comprehensive">综合筛选</Radio.Button>
-          </Radio.Group>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+          <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+            <Radio.Group 
+              value={viewMode} 
+              onChange={e => {
+                setViewMode(e.target.value);
+                setSelectedClassroom(undefined);
+                setSelectedCourse(undefined);
+              }}
+              optionType="button"
+              buttonStyle="solid"
+            >
+              <Radio.Button value="classroom">按教室查看</Radio.Button>
+              <Radio.Button value="course">按课程查看</Radio.Button>
+              <Radio.Button value="comprehensive">综合筛选</Radio.Button>
+            </Radio.Group>
 
-          <Space>
-            {(viewMode === 'classroom' || viewMode === 'comprehensive') && (
-              <Select
-                showSearch
-                placeholder="请选择教室"
-                style={{ width: 240 }}
-                value={selectedClassroom}
-                onChange={setSelectedClassroom}
-                optionFilterProp="children"
-              >
-                {classrooms.map(room => (
-                  <Option key={room.id} value={room.id}>{room.building} - {room.roomNumber}</Option>
-                ))}
-              </Select>
-            )}
+            <Space>
+              {(viewMode === 'classroom' || viewMode === 'comprehensive') && (
+                <Select
+                  showSearch
+                  placeholder="请选择教室"
+                  style={{ width: 240 }}
+                  value={selectedClassroom}
+                  onChange={setSelectedClassroom}
+                  optionFilterProp="children"
+                >
+                  {classrooms.map(room => (
+                    <Option key={room.id} value={room.id}>{room.building} - {room.roomNumber}</Option>
+                  ))}
+                </Select>
+              )}
 
-            {(viewMode === 'course' || viewMode === 'comprehensive') && (
-              <Select
-                showSearch
-                placeholder="请选择课程开设 (演示)"
-                style={{ width: 240 }}
-                value={selectedCourse}
-                onChange={setSelectedCourse}
-              >
-                {/* 实际业务中这里接入课程开设数据 */}
-                <Option value="course_math_101">高等数学</Option>
-                <Option value="course_cs_201">数据结构</Option>
-              </Select>
-            )}
+              {(viewMode === 'course' || viewMode === 'comprehensive') && (
+                <Select
+                  showSearch
+                  placeholder="请选择课程开设 (演示)"
+                  style={{ width: 240 }}
+                  value={selectedCourse}
+                  onChange={setSelectedCourse}
+                >
+                  <Option value="course_math_101">高等数学</Option>
+                  <Option value="course_cs_201">数据结构</Option>
+                </Select>
+              )}
+            </Space>
           </Space>
-        </Space>
+          
+          <Button 
+            type="primary" 
+            icon={<DownloadOutlined />} 
+            onClick={openExportModal}
+          >
+            导出课表
+          </Button>
+        </div>
       </Card>
 
       <Card bordered={false} styles={{ body: { padding: 0 } }}>
@@ -210,6 +265,54 @@ export const TimetableView: React.FC = () => {
           )}
         </Spin>
       </Card>
+
+      {/* 导出课表弹窗 */}
+      <Modal
+        title="导出课表"
+        open={exportModalVisible}
+        onOk={handleExport}
+        onCancel={() => setExportModalVisible(false)}
+        confirmLoading={exporting}
+        okText="确认导出"
+        cancelText="取消"
+        destroyOnClose
+      >
+        <Form form={exportForm} layout="vertical">
+          <Form.Item name="semesterId" label="学期 ID" rules={[{ required: true, message: '请输入学期ID' }]}>
+            <Input placeholder="例如：2026-Spring" />
+          </Form.Item>
+          <Form.Item name="targetType" label="导出维度" rules={[{ required: true }]}>
+            <Select>
+              <Option value="classroom">按教室</Option>
+              <Option value="teacher">按教师</Option>
+              <Option value="student">按学生</Option>
+              <Option value="global">全校/全系</Option>
+            </Select>
+          </Form.Item>
+          <Form.Item 
+            name="targetId" 
+            label="维度 ID" 
+            rules={[{ required: true, message: '请输入对应维度的ID，全校可填all' }]}
+            tooltip="如果是按教室，请填入教室ID；如果是全校，请填入 all"
+          >
+            <Input placeholder="输入目标 ID" />
+          </Form.Item>
+          <Space style={{ display: 'flex', width: '100%' }}>
+            <Form.Item name="startWeek" label="起始周次">
+              <InputNumber min={1} max={20} style={{ width: '100%' }} placeholder="选填" />
+            </Form.Item>
+            <Form.Item name="endWeek" label="结束周次">
+              <InputNumber min={1} max={20} style={{ width: '100%' }} placeholder="选填" />
+            </Form.Item>
+            <Form.Item name="format" label="文件格式" rules={[{ required: true }]}>
+              <Select style={{ width: 120 }}>
+                <Option value="pdf">PDF</Option>
+                <Option value="excel">Excel</Option>
+              </Select>
+            </Form.Item>
+          </Space>
+        </Form>
+      </Modal>
     </div>
   );
 };

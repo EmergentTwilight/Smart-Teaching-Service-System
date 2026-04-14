@@ -23,6 +23,8 @@ import prisma from './shared/prisma/client.js'
 import classroomRoutes from './modules/course-arrangement/classroom/classroom.routes.js'
 import scheduleRoutes from './modules/course-arrangement/schedule/schedule.routes.js';
 import timetableRoutes from './modules/course-arrangement/timetable/timetable.routes.js';
+import ruleRoutes from './modules/course-arrangement/rules/rule.routes.js'
+import autoScheduleRoutes from './modules/course-arrangement/auto-schedule/auto-schedule.routes.js';
 
 const app: Application = express()
 const PORT = config.port
@@ -170,6 +172,8 @@ app.use('/api/v1/departments', departmentsRoutes)
 app.use('/api/v1/course-arrangement/classrooms', classroomRoutes)
 app.use('/api/v1/course-arrangement/schedules', scheduleRoutes)
 app.use('/api/v1/course-arrangement/timetables', timetableRoutes)
+app.use('/api/v1/course-arrangement/rules', ruleRoutes)
+app.use('/api/v1/course-arrangement/auto-schedule', autoScheduleRoutes);
 
 // 404 处理
 app.use((req, res) => {

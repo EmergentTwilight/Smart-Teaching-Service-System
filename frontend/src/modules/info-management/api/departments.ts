@@ -18,9 +18,10 @@ export const departmentsApi = {
    * @param params 查询参数
    * @returns 部门列表
    */
-  getList: async (params?: DepartmentQueryParams): Promise<Department[]> => {
-    const response = await request.get('/departments', { params })
-    return response.items || response
+
+  getList: async (params?: DepartmentQueryParams): Promise<{ items: Department[] }> => {
+    const result = await request.get<Department[]>('/departments', { params })
+    return { items: result || [] }
   },
 
   /**

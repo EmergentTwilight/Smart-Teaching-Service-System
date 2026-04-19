@@ -189,7 +189,7 @@ const DepartmentList: React.FC = () => {
     
     console.log('=== [调试] 权限检查通过 ===');
     
-    const department = data?.find((item) => item.id === id);
+    const department = data?.items?.find((item: Department) => item.id === id);
     console.log('找到的部门:', department);
     
     if (department) {
@@ -234,12 +234,13 @@ const DepartmentList: React.FC = () => {
     });
   }, []);
 
-  const departments = data || [];
+  const departments = data?.items || [];
+  const pageSize = params.pageSize || 10;
   const pagination = {
     total: departments.length,
     page: params.page,
-    pageSize: params.pageSize,
-    totalPages: Math.ceil(departments.length / params.pageSize),
+    pageSize,
+    totalPages: Math.ceil(departments.length / pageSize),
   };
 
   return (
@@ -356,12 +357,12 @@ const DepartmentList: React.FC = () => {
         okButtonProps={{ danger: true, loading: deleteMutation.isPending }}
       >
         <p>确定要删除部门 <strong>{departmentToDelete?.name}</strong> 吗？此操作不可恢复。</p>
-        {departmentToDelete?.teacher_count > 0 && (
+        {departmentToDelete && departmentToDelete.teacher_count != null && departmentToDelete.teacher_count > 0 && (
           <p style={{ color: '#f59e0b', marginTop: 8 }}>
             该部门下还有 {departmentToDelete.teacher_count} 名教师，删除前请先转移或删除相关教师。
           </p>
         )}
-        {departmentToDelete?.major_count > 0 && (
+        {departmentToDelete && departmentToDelete.major_count != null && departmentToDelete.major_count > 0 && (
           <p style={{ color: '#f59e0b', marginTop: 8 }}>
             该部门下还有 {departmentToDelete.major_count} 个专业，删除前请先删除相关专业。
           </p>

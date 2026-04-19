@@ -20,7 +20,7 @@ export const departmentsApi = {
    */
 
   getList: async (params?: DepartmentQueryParams): Promise<{ items: Department[] }> => {
-    const result = await request.get<Department[]>('/departments', { params })
+    const result = (await request.get('/departments', { params })) as Department[]
     return { items: result || [] }
   },
 

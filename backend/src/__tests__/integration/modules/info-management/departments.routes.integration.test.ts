@@ -237,16 +237,17 @@ describe('GET /api/v1/departments/:id', () => {
     const department = await createTestDepartment()
 
     // 创建多个专业
+    const random = Math.random().toString(36).slice(2, 6)
     await prisma.major.createMany({
       data: [
         {
-          name: 'itest_dept_计算机科学与技术',
-          code: 'CS',
+          name: `itest_dept_计算机科学与技术_${random}`,
+          code: `CS${random}`,
           departmentId: department.id,
         },
         {
-          name: 'itest_dept_软件工程',
-          code: 'SE',
+          name: `itest_dept_软件工程_${random}`,
+          code: `SE${random}`,
           departmentId: department.id,
         },
       ],
@@ -258,8 +259,9 @@ describe('GET /api/v1/departments/:id', () => {
       .expect(200)
 
     expect(response.body.data.majors).toHaveLength(2)
-    expect(response.body.data.majors[0].name).toContain('计算机')
-    expect(response.body.data.majors[1].name).toContain('软件')
+    const majorNames = response.body.data.majors.map((m: { name: string }) => m.name)
+    expect(majorNames.some((name: string) => name.includes('计算机'))).toBe(true)
+    expect(majorNames.some((name: string) => name.includes('软件'))).toBe(true)
   })
 
   it('应该返回 404 当院系不存在', async () => {

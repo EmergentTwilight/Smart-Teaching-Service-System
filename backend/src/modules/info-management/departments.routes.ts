@@ -266,9 +266,9 @@ router.post(
  *                 type: string
  *               description:
  *                 type: string
- *    responses:
- *      200:
- *       description: 成功更新院系信息
+ *     responses:
+ *       200:
+ *         description: 成功更新院系信息
  */
 router.put(
   '/:id',

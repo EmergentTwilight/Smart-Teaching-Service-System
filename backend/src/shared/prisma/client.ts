@@ -6,11 +6,13 @@ import { PrismaClient } from '@prisma/client'
 
 const prisma = new PrismaClient({
   log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
-  datasources: {
-    db: {
-      url: process.env.DATABASE_URL,
-    },
-  },
+  datasources: process.env.DATABASE_URL
+    ? {
+        db: {
+          url: process.env.DATABASE_URL,
+        },
+      }
+    : undefined,
 })
 
 // 连接池参数通过 DATABASE_URL 配置

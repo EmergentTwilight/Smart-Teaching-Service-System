@@ -13,8 +13,7 @@ import {
   Col,
   Alert,
   Modal,
-  Pagination,
-  BuildOutlined,
+  Pagination
 } from 'antd';
 import {
   PlusOutlined,

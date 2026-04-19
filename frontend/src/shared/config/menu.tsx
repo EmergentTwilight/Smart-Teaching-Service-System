@@ -21,6 +21,7 @@ import {
   DatabaseOutlined,
   LineChartOutlined,
   CalculatorOutlined,
+  BuildOutlined,
 } from '@ant-design/icons';
 
 export const MENU_ITEMS: MenuProps['items'] = [
@@ -35,6 +36,7 @@ export const MENU_ITEMS: MenuProps['items'] = [
     label: '基础信息管理',
     children: [
       { key: '/users', icon: <TeamOutlined />, label: '用户管理' },
+      { key: '/info/departments', icon: <BuildOutlined />, label: '部门管理' },
       { key: '/info/roles', icon: <SafetyOutlined />, label: '角色权限' },
       { key: '/info/courses', icon: <BookOutlined />, label: '课程信息' },
       { key: '/info/classrooms', icon: <HomeOutlined />, label: '教室管理' },

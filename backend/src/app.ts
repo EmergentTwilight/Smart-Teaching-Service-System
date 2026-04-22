@@ -15,6 +15,7 @@ import authRoutes from './modules/info-management/auth.routes.js'
 import usersRoutes from './modules/info-management/users.routes.js'
 import departmentsRoutes from './modules/info-management/departments.routes.js'
 import coursesRoutes from './modules/info-management/courses.routes.js'
+import scoreModificationRoutes from './modules/score-management/score-modification.routes.js'
 import config from './config/index.js'
 import { swaggerSpec } from './config/swagger.js'
 import swaggerUi from 'swagger-ui-express'
@@ -162,6 +163,7 @@ app.use('/api/v1/auth', authRoutes)
 app.use('/api/v1/users', usersRoutes)
 app.use('/api/v1/departments', departmentsRoutes)
 app.use('/api/v1/courses', coursesRoutes)
+app.use('/api/v1/scores', scoreModificationRoutes)
 
 // 404 处理
 app.use((req, res) => {

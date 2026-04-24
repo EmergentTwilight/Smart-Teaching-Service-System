@@ -3,7 +3,7 @@
  * 供教室列表页调用，处理单个教室的维护
  */
 import React, { useEffect, useState } from 'react';
-import {Card, Drawer, Form, Input, Select, Button, InputNumber, Switch, Space, message, Spin } from 'antd';
+import {Card, Drawer, Form, Input, Select, Button, InputNumber, Switch, Space, Spin } from 'antd';
 import { classroomsApi } from '../api/classrooms';
 import type { Classroom } from '../types/classroom';
 
@@ -36,7 +36,7 @@ export const ClassroomEdit: React.FC<ClassroomEditProps> = ({ visible, id, onClo
             ...res.equipment,
           });
         } catch {
-          message.error('获取教室详情失败');
+          // message.error('获取教室详情失败');
           onClose();
         } finally {
           setLoading(false);
@@ -62,14 +62,13 @@ export const ClassroomEdit: React.FC<ClassroomEditProps> = ({ visible, id, onClo
 
       if (isEdit) {
         await classroomsApi.update(id!, payload);
-        message.success('更新成功');
+        // message.success('更新成功');
       } else {
         await classroomsApi.create(payload as Omit<Classroom, 'id'>);
-        message.success('创建成功');
+        // message.success('创建成功');
       }
       onSuccess();
     } catch (error) {
-      console.error(error);
       // Zod/接口错误会由 request 工具抛出拦截
     } finally {
       setSubmitting(false);
@@ -113,23 +112,23 @@ export const ClassroomEdit: React.FC<ClassroomEditProps> = ({ visible, id, onClo
              </Form.Item>
              <Form.Item name="roomType" label="教室类型" rules={[{ required: true }]}>
                <Select style={{ width: 160 }}>
-                 <Option value="lecture">普通教室</Option>
-                 <Option value="lab">实验室</Option>
-                 <Option value="computer">机房</Option>
-                 <Option value="multimedia">多媒体教室</Option>
+                 <Option value="LECTURE">普通教室</Option>
+                 <Option value="LAB">实验室</Option>
+                 <Option value="COMPUTER">机房</Option>
+                 <Option value="MULTIMEDIA">多媒体教室</Option>
                </Select>
              </Form.Item>
           </Space>
 
-          <Form.Item name="status" label="当前状态" initialValue="available" rules={[{ required: true }]}>
+          <Form.Item name="status" label="当前状态" initialValue="AVAILABLE" rules={[{ required: true }]}>
             <Select>
-              <Option value="available">可用</Option>
-              <Option value="maintenance">维护中</Option>
-              <Option value="unavailable">不可用</Option>
+              <Option value="AVAILABLE">可用</Option>
+              <Option value="MAINTENENCE">维护中</Option>
+              <Option value="UNAVAILABLE">不可用</Option>
             </Select>
           </Form.Item>
 
-          <Card size="small" title="设备信息" bordered={false} style={{ background: '#f8fafc' }}>
+          <Card size="small" title="设备信息" style={{ background: '#f8fafc' }}>
             <Space size="large" wrap>
               <Form.Item name="projector" label="投影仪" valuePropName="checked" style={{ marginBottom: 0 }}>
                 <Switch />

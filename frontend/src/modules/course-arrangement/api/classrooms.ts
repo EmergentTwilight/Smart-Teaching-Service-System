@@ -9,7 +9,7 @@ import type {
   PaginatedClassrooms 
 } from '../types/classroom.js';
 
-const BASE_PATH = '/classrooms';
+const BASE_PATH = '/course-arrangement/classrooms';
 
 export const classroomsApi = {
   /**

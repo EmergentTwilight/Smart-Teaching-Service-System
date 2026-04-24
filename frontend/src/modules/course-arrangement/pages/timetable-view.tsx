@@ -6,7 +6,8 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { Card, Select, Radio, Spin, Empty, Space, Button, Modal, Form, Input, InputNumber, message } from 'antd';
 import { DownloadOutlined } from '@ant-design/icons';
 import { timetablesApi, ExportTimetableParams } from '../api/timetables';
-import { classroomsApi } from '../api/classrooms';
+import { autoScheduleApi } from '../api/auto-schedule';
+import type { OverviewStats } from '../types/auto-schedule';
 import type { Schedule } from '../types/schedule';
 import type { Classroom } from '../types/classroom';
 
@@ -28,6 +29,7 @@ export const TimetableView: React.FC = () => {
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   
   // 筛选器状态
+  const [selectedSemester, setSelectedSemester] = useState<string>();
   const [selectedClassroom, setSelectedClassroom] = useState<string>();
   const [selectedCourse, setSelectedCourse] = useState<string>();
   
@@ -39,27 +41,56 @@ export const TimetableView: React.FC = () => {
   const [exporting, setExporting] = useState(false);
   const [exportForm] = Form.useForm<ExportTimetableParams>();
 
+    // 概览统计数据
+  const [overviewStats, setOverviewStats] = useState<OverviewStats | null>(null);
+
   // 挂载时拉取基础字典数据
   useEffect(() => {
-    classroomsApi.getList({ pageSize: 1000 }).then(res => setClassrooms(res.items));
+    Promise.all([
+      autoScheduleApi.getOverview().then(res => setOverviewStats(res)),
+    ]).catch(() => {
+    });
   }, []);
+
+  // 根据概览统计生成学期和课程选项
+  const semesterOptions = useMemo(() => {
+    return overviewStats?.semesters || [];
+  }, [overviewStats]);
+
+  // 全部学期下的所有课程（并集）
+  const allCourseOptions = useMemo(() => {
+    if (!overviewStats?.semesters) return [];
+    const courseMap = new Map<string, { id: string; name: string }>();
+    overviewStats.semesters.forEach(sem => {
+      sem.courseOfferings?.forEach(co => {
+        if (!courseMap.has(co.id)) {
+          courseMap.set(co.id, { id: co.id, name: co.name });
+        }
+      });
+    });
+    return Array.from(courseMap.values());
+  }, [overviewStats]);
 
   // 触发课表数据拉取
   const fetchTimetable = async () => {
     setLoading(true);
     try {
       let data: Schedule[] = [];
-      if (viewMode === 'classroom' && selectedClassroom) {
+      if (viewMode === 'comprehensive') {
+        const res = await timetablesApi.getBySemester({ 
+          semesterId: selectedSemester,
+          classroomId: selectedClassroom,
+          courseOfferingId: selectedCourse,
+        });
+        data = res.items
+      } else if (viewMode === 'classroom') {
         data = await timetablesApi.getByClassroom(selectedClassroom);
-      } else if (viewMode === 'course' && selectedCourse) {
+      } else if (viewMode === 'course') {
         data = await timetablesApi.getByCourseOffering(selectedCourse);
-      } else if (viewMode === 'comprehensive') {
-        data = await timetablesApi.query({ classroomId: selectedClassroom, courseOfferingId: selectedCourse });
       }
       setSchedules(data);
     } catch (error) {
-      console.error('课表拉取失败', error);
-      message.error('获取课表数据失败');
+      // message.error('获取课表数据失败');
     } finally {
       setLoading(false);
     }
@@ -95,13 +126,12 @@ export const TimetableView: React.FC = () => {
       link.parentNode?.removeChild(link);
       window.URL.revokeObjectURL(url);
       
-      message.success('导出成功');
+      // message.success('导出成功');
       setExportModalVisible(false);
     } catch (error) {
-      console.error('导出失败', error);
       // 若非表单校验错误，则提示网络异常
       if (!(error as any).errorFields) {
-        message.error('导出失败，请检查参数或稍后重试');
+        // message.error('导出失败，请检查参数或稍后重试');
       }
     } finally {
       setExporting(false);
@@ -156,7 +186,7 @@ export const TimetableView: React.FC = () => {
         }}
       >
         <div style={{ fontWeight: 600, color: '#1f2937' }}>
-          {item.courseOffering?.courseName || item.courseOfferingId}
+          {item.courseOffering?.course?.name || item.courseOfferingId}
         </div>
         <div style={{ color: '#6b7280', marginTop: '2px' }}>
           {item.classroom ? `${item.classroom.building}-${item.classroom.roomNumber}` : item.classroomId}
@@ -170,7 +200,7 @@ export const TimetableView: React.FC = () => {
 
   return (
     <div className="fade-in">
-      <Card bordered={false} style={{ marginBottom: 16 }}>
+      <Card style={{ marginBottom: 16 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
           <Space direction="vertical" size="middle" style={{ width: '100%' }}>
             <Radio.Group 
@@ -183,40 +213,81 @@ export const TimetableView: React.FC = () => {
               optionType="button"
               buttonStyle="solid"
             >
-              <Radio.Button value="classroom">按教室查看</Radio.Button>
-              <Radio.Button value="course">按课程查看</Radio.Button>
-              <Radio.Button value="comprehensive">综合筛选</Radio.Button>
+              <Radio.Button value="comprehensive">课表</Radio.Button>
+              <Radio.Button value="classroom">按教室查看（教师）</Radio.Button>
+              <Radio.Button value="course">按课程查看（教师）</Radio.Button>
             </Radio.Group>
 
             <Space>
-              {(viewMode === 'classroom' || viewMode === 'comprehensive') && (
-                <Select
-                  showSearch
-                  placeholder="请选择教室"
-                  style={{ width: 240 }}
-                  value={selectedClassroom}
-                  onChange={setSelectedClassroom}
-                  optionFilterProp="children"
-                >
-                  {classrooms.map(room => (
-                    <Option key={room.id} value={room.id}>{room.building} - {room.roomNumber}</Option>
-                  ))}
-                </Select>
-              )}
+  {/* 按学期查看：显示学期 + 教室 + 课程 综合筛选 */}
+  {viewMode === 'comprehensive' && (
+    <>
+      <Select
+        showSearch
+        placeholder="请选择学期"
+        style={{ width: 240 }}
+        value={selectedSemester}
+        onChange={setSelectedSemester}
+      >
+        {semesterOptions.map(sem => (
+          <Option key={sem.id} value={sem.id}>{sem.name}</Option>
+        ))}
+      </Select>
+      <Select
+        showSearch
+        placeholder="请选择教室"
+        style={{ width: 240 }}
+        value={selectedClassroom}
+        onChange={setSelectedClassroom}
+      >
+        {overviewStats?.classrooms?.map(room => (
+          <Option key={room.id} value={room.id}>{room.name}</Option>
+        ))}
+      </Select>
+      <Select
+        showSearch
+        placeholder="请选择课程"
+        style={{ width: 240 }}
+        value={selectedCourse}
+        onChange={setSelectedCourse}
+      >
+        {allCourseOptions.map(course => (
+          <Option key={course.id} value={course.id}>{course.name}</Option>
+        ))}
+      </Select>
+    </>
+  )}
 
-              {(viewMode === 'course' || viewMode === 'comprehensive') && (
-                <Select
-                  showSearch
-                  placeholder="请选择课程开设 (演示)"
-                  style={{ width: 240 }}
-                  value={selectedCourse}
-                  onChange={setSelectedCourse}
-                >
-                  <Option value="course_math_101">高等数学</Option>
-                  <Option value="course_cs_201">数据结构</Option>
-                </Select>
-              )}
-            </Space>
+  {/* 按教室查看：仅显示教室筛选 */}
+  {viewMode === 'classroom' && (
+    <Select
+      showSearch
+      placeholder="请选择教室"
+      style={{ width: 240 }}
+      value={selectedClassroom}
+      onChange={setSelectedClassroom}
+    >
+      {overviewStats?.classrooms?.map(room => (
+        <Option key={room.id} value={room.id}>{room.name}</Option>
+      ))}
+    </Select>
+  )}
+
+  {/* 按课程查看：仅显示课程筛选（所有学期并集） */}
+  {viewMode === 'course' && (
+    <Select
+      showSearch
+      placeholder="请选择课程"
+      style={{ width: 240 }}
+      value={selectedCourse}
+      onChange={setSelectedCourse}
+    >
+      {allCourseOptions.map(course => (
+        <Option key={course.id} value={course.id}>{course.name}</Option>
+      ))}
+    </Select>
+  )}
+</Space>
           </Space>
           
           <Button 
@@ -229,7 +300,7 @@ export const TimetableView: React.FC = () => {
         </div>
       </Card>
 
-      <Card bordered={false} styles={{ body: { padding: 0 } }}>
+      <Card styles={{ body: { padding: 0 } }}>
         <Spin spinning={loading}>
           {schedules.length === 0 && !loading ? (
             <Empty description="请选择筛选条件或当前维度下暂无课表" style={{ padding: '48px 0' }} />
@@ -275,7 +346,7 @@ export const TimetableView: React.FC = () => {
         confirmLoading={exporting}
         okText="确认导出"
         cancelText="取消"
-        destroyOnClose
+        destroyOnHidden
       >
         <Form form={exportForm} layout="vertical">
           <Form.Item name="semesterId" label="学期 ID" rules={[{ required: true, message: '请输入学期ID' }]}>

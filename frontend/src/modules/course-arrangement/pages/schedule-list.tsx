@@ -36,7 +36,7 @@ export const ScheduleList: React.FC = () => {
       setData(res.items);
       setTotal(res.pagination.total);
     } catch {
-      message.error('获取排课列表失败');
+      // message.error('获取排课列表失败');
     } finally {
       setLoading(false);
     }
@@ -54,10 +54,10 @@ export const ScheduleList: React.FC = () => {
   const handleDelete = async (id: string) => {
     try {
       await schedulesApi.delete(id);
-      message.success('删除成功');
+      // message.success('删除成功');
       fetchSchedules(form.getFieldsValue());
     } catch {
-      message.error('删除失败');
+      // message.error('删除失败');
     }
   };
 
@@ -67,10 +67,18 @@ export const ScheduleList: React.FC = () => {
   };
 
   const columns = [
-    { 
-      title: '课程开设', 
+    {
+      title: '课程开设',
       key: 'courseOffering',
-      render: (_: any, record: Schedule) => record.courseOffering?.courseName || record.courseOfferingId 
+      render: (_: any, record: Schedule) => {
+        // 课程名称在 courseOffering.course.name 中
+        const courseName = record.courseOffering?.course?.name;
+        const courseCode = record.courseOffering?.course?.code;
+        if (courseName) {
+          return courseCode ? `${courseName} (${courseCode})` : courseName;
+        }
+        return record.courseOfferingId; // 兜底显示 ID
+      }
     },
     { 
       title: '上课教室', 
@@ -110,7 +118,7 @@ export const ScheduleList: React.FC = () => {
 
   return (
     <div className="fade-in">
-      <Card bordered={false} style={{ marginBottom: 16 }}>
+      <Card style={{ marginBottom: 16 }}>
         <Form form={form} layout="inline" onFinish={handleSearch}>
           <Form.Item name="dayOfWeek" label="星期">
             <Select placeholder="全部" allowClear style={{ width: 120 }}>
@@ -129,7 +137,7 @@ export const ScheduleList: React.FC = () => {
         </Form>
       </Card>
 
-      <Card bordered={false}>
+      <Card>
         <div style={{ marginBottom: 16 }}>
           <Button type="primary" icon={<PlusOutlined />} onClick={() => openDrawer()}>
             手动排课

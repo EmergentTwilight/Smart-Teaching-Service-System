@@ -21,13 +21,16 @@
 ├── Readme.md
 ├── api
 │   ├── auto-schedule.ts
+│   ├── client.ts
+│   ├── constraint.ts
 │   ├── classrooms.ts
 │   ├── schedules.ts
 │   └── timetables.ts
 ├── components
-├── hooks
 ├── pages
 │   ├── auto-schedule-management.tsx
+│   ├── constraint-rule-edit-drawer.tsx
+│   ├── Constraint-rule-table.tsx
 │   ├── classroom-edit.tsx
 │   ├── classroom-list.tsx
 │   ├── schedule-edit.tsx
@@ -36,6 +39,7 @@
 └── types
     ├── auto-schedule.ts
     ├── classroom.ts
+    ├── constraint.ts
     └── schedule.ts
 
 6 directories, 14 files

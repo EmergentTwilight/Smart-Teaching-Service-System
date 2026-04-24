@@ -28,7 +28,7 @@ export const getByClassroom = async (req: Request, res: Response) => {
 export const getTimetables = async (req: Request, res: Response) => {
   try {
     // 这里的 req.user 视你们认证中间件的实现而定
-    const user = (req as any).user || { id: 'test-id', role: 'student' }
+    const user = req.user!
     const result = await timetableService.getTimetables(req.query, user)
     res.json({ code: 0, message: '查询成功', data: result })
   } catch {
@@ -59,7 +59,7 @@ export const exportTimetable = async (req: Request, res: Response) => {
 
     return res.status(200).send(csvContent)
   } catch (err) {
-    console.error(err)
+
     res.status(500).send('导出失败')
   }
 }

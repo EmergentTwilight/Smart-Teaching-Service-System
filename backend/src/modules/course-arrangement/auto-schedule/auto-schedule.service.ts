@@ -29,7 +29,12 @@ export class AutoScheduleService {
   getTaskPreview(taskId: string) {
     const task = taskMap.get(taskId)
     if (!task || task.status !== 'completed') throw new Error('Task results not ready')
-    return task
+    // 返回 task.result 而不是整个 task 对象
+    return {
+      successRate: task.result?.successRate ?? 0,
+      schedules: task.result?.schedules ?? [],
+      failures: task.result?.failures ?? [],
+    }
   }
   //6.4.4 应用排课结果
   async applyResults(taskId: string) {
@@ -199,7 +204,7 @@ export class AutoScheduleService {
       task.status = 'completed'
       task.progress = 100
     } catch (error) {
-      console.error(error)
+      
       task.status = 'failed'
     }
   }

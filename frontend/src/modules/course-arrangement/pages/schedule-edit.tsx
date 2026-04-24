@@ -52,7 +52,7 @@ export const ScheduleEdit: React.FC<ScheduleEditProps> = ({
             setAvailableClassrooms([res.classroom as Classroom]);
           }
         }).catch(() => {
-          message.error('获取排课详情失败');
+          // message.error('获取排课详情失败');
         }).finally(() => {
           setLoadingForm(false);
         });
@@ -97,10 +97,10 @@ export const ScheduleEdit: React.FC<ScheduleEditProps> = ({
         const currentRoomId = form.getFieldValue('classroomId');
         if (currentRoomId && !rooms.find(r => r.id === currentRoomId)) {
           form.setFieldsValue({ classroomId: undefined });
-          message.info('时间范围已更改，请重新选择可用教室');
+          // message.info('时间范围已更改，请重新选择可用教室');
         }
       } catch (error) {
-        console.error('获取空闲教室失败', error);
+
       } finally {
         setLoadingRooms(false);
       }
@@ -124,12 +124,12 @@ export const ScheduleEdit: React.FC<ScheduleEditProps> = ({
       setConflicts([]);
 
       if (values.startWeek > values.endWeek) {
-        message.error('开始周次不能大于结束周次');
+        // message.error('开始周次不能大于结束周次');
         setSubmitting(false);
         return;
       }
       if (values.startPeriod > values.endPeriod) {
-        message.error('开始节次不能大于结束节次');
+        // message.error('开始节次不能大于结束节次');
         setSubmitting(false);
         return;
       }
@@ -148,7 +148,7 @@ export const ScheduleEdit: React.FC<ScheduleEditProps> = ({
       // 处理校验结果
       if (!validation.valid) {
         setConflicts(validation.conflicts || []);
-        message.warning('排课存在冲突，请检查提示信息');
+        // message.warning('排课存在冲突，请检查提示信息');
         setSubmitting(false);
         return;
       }
@@ -156,14 +156,14 @@ export const ScheduleEdit: React.FC<ScheduleEditProps> = ({
       // 校验通过，执行写入操作
       if (isEdit) {
         await schedulesApi.update(id!, values);
-        message.success('调整排课成功');
+        // message.success('调整排课成功');
       } else {
         await schedulesApi.create(values as Omit<Schedule, 'id'>);
-        message.success('新增排课成功');
+        // message.success('新增排课成功');
       }
       onSuccess();
     } catch (error) {
-      console.error(error);
+      
       // 表单校验失败或其他网络错误
     } finally {
       setSubmitting(false);
@@ -176,7 +176,7 @@ export const ScheduleEdit: React.FC<ScheduleEditProps> = ({
       width={500}
       onClose={onClose}
       open={visible}
-      destroyOnClose
+      destroyOnHidden
       maskClosable={false}
       extra={
         <Space>

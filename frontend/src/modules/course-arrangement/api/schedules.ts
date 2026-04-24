@@ -11,7 +11,7 @@ import type {
 } from '../types/schedule'
 import { PaginatedData } from '@/shared/types'
 
-const BASE_PATH = '/schedules'
+const BASE_PATH = '/course-arrangement/schedules'
 
 export const schedulesApi = {
   /**

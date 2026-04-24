@@ -3,9 +3,9 @@
  * 提供纯读视图数据，支持多维度（课程、教室、综合）检索以及课表的导出
  */
 import request from '@/shared/utils/request'
-import type { Schedule } from '../types/schedule.js'
+import type { Schedule, ValidScheduleQueryParams } from '../types/schedule.js'
 
-const BASE_PATH = '/timetables'
+const BASE_PATH = '/course-arrangement/timetables'
 
 // 导出课表的请求参数类型
 export interface ExportTimetableParams {
@@ -37,14 +37,11 @@ export const timetablesApi = {
   },
 
   /**
-   * 综合课表查询
-   * @param params 组合过滤参数
+   * 按学期获取所有课表（综合视图）
+   * @param semesterId 学期ID
+   * @returns 该学期所有排课记录
    */
-  query: async (params: {
-    dayOfWeek?: number
-    classroomId?: string
-    courseOfferingId?: string
-  }): Promise<Schedule[]> => {
+  getBySemester: async (params: ValidScheduleQueryParams): Promise<{ items: Schedule[]; total: number; page: number; pageSize: number; }> => {
     return request.get(`${BASE_PATH}`, { params })
   },
 

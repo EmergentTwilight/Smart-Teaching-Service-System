@@ -71,9 +71,14 @@ export class ScheduleService {
         skip: (Number(page) - 1) * Number(pageSize),
         take: Number(pageSize),
         include: {
-          classroom: true, // 关联教室信息
-          // courseOffering: true // 如果 schema 里定义了关联，建议开启
-        },
+          classroom: { select: { building: true, roomNumber: true, campus: true, } },
+          courseOffering: {
+            include: {
+              course: { select: { id: true, name: true, code: true } },
+              teacher: { include: { user: { select: { realName: true } } } }
+            }
+          }
+        }
       }),
     ])
     return { total, page: Number(page), pageSize: Number(pageSize), items }

@@ -22,8 +22,10 @@ export interface Schedule {
 export interface ValidScheduleQueryParams {
   page?: number
   pageSize?: number
+  semesterId?: string
   classroomId?: string
   courseOfferingId?: string
+  dayOfWeek?: number
 }
 
 // 预校验请求 Payload

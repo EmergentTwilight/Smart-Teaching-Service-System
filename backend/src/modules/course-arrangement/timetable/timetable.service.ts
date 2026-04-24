@@ -6,11 +6,11 @@ export class TimetableService {
     return await prisma.schedule.findMany({
       where: { courseOfferingId },
       include: {
-        classroom: true,
+        classroom: { select: { building: true, roomNumber: true, campus: true } },
         courseOffering: {
           include: {
             course: true,
-            teacher: { include: { user: true } },
+            teacher: { include: { user: { select: { realName: true } } } },
           },
         },
       },
@@ -26,7 +26,13 @@ export class TimetableService {
         courseOffering: semesterId ? { semesterId } : {},
       },
       include: {
-        courseOffering: { include: { course: true } },
+        classroom: { select: { building: true, roomNumber: true, campus: true } },
+        courseOffering: {
+          include: {
+            course: true,
+            teacher: { include: { user: { select: { realName: true } } } },
+          },
+        },
       },
       orderBy: [{ startWeek: 'asc' }, { dayOfWeek: 'asc' }, { startPeriod: 'asc' }],
     })
@@ -70,9 +76,12 @@ export class TimetableService {
         skip,
         take,
         include: {
-          classroom: true,
+          classroom: { select: { building: true, roomNumber: true, campus: true } },
           courseOffering: {
-            include: { course: true, teacher: { include: { user: true } } },
+            include: {
+              course: true,
+              teacher: { include: { user: { select: { realName: true } } } },
+            },
           },
         },
         orderBy: [{ startWeek: 'asc' }, { dayOfWeek: 'asc' }, { startPeriod: 'asc' }],
@@ -106,8 +115,13 @@ export class TimetableService {
     return await prisma.schedule.findMany({
       where,
       include: {
-        classroom: true,
-        courseOffering: { include: { course: true } },
+        classroom: { select: { building: true, roomNumber: true, campus: true } },
+        courseOffering: {
+          include: {
+            course: true,
+            teacher: { include: { user: { select: { realName: true } } } },
+          },
+        },
       },
       orderBy: [{ dayOfWeek: 'asc' }, { startPeriod: 'asc' }],
     })

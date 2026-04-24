@@ -4,9 +4,10 @@ import type {
   AutoScheduleTaskStatus,
   AutoSchedulePreview,
   AutoScheduleApplyResult,
+  OverviewStats,
 } from '../types/auto-schedule'
 
-const BASE_PATH = '/auto-schedule/tasks'
+const BASE_PATH = '/course-arrangement/auto-schedule/tasks'
 
 export const autoScheduleApi = {
   /**
@@ -35,5 +36,12 @@ export const autoScheduleApi = {
    */
   applyTask: async (taskId: string): Promise<AutoScheduleApplyResult> => {
     return request.post(`${BASE_PATH}/${taskId}/apply`)
+  },
+
+  /**
+   * 获取排课概览统计
+   */
+  getOverview: async (): Promise<OverviewStats> => {
+    return request.get('/course-arrangement/rules/overview')
   },
 }

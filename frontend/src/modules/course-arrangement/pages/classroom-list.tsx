@@ -50,7 +50,7 @@ export const ClassroomList: React.FC = () => {
       setData(res.items);
       setTotal(res.pagination.total);
     } catch {
-      message.error('获取教室列表失败');
+      // message.error('获取教室列表失败');
     } finally {
       setLoading(false);
     }
@@ -103,7 +103,7 @@ export const ClassroomList: React.FC = () => {
 
   return (
     <div className="fade-in">
-      <Card bordered={false} style={{ marginBottom: 16 }}>
+      <Card style={{ marginBottom: 16 }}>
         <Form form={form} layout="inline" onFinish={handleSearch}>
           <Form.Item name="keyword" label="关键字">
             <Input placeholder="教室号或教学楼" allowClear />
@@ -130,7 +130,7 @@ export const ClassroomList: React.FC = () => {
         </Form>
       </Card>
 
-      <Card bordered={false}>
+      <Card>
         <div style={{ marginBottom: 16 }}>
           <Button type="primary" icon={<PlusOutlined />} onClick={() => openDrawer()}>
             新增教室

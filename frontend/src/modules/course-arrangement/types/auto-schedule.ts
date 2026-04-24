@@ -38,3 +38,19 @@ export interface AutoScheduleApplyResult {
   appliedCount: number
   ignoredCount: number
 }
+
+// 查询基本信息
+export interface OverviewStats {
+  semesters: Array<{
+    id: string
+    name: string
+    courseOfferings: Array<{
+      id: string
+      name: string
+    }>
+  }>
+  classrooms: Array<{
+    id: string
+    name: string
+  }>
+}

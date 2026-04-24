@@ -1,70 +1,124 @@
 // rule.service.ts
-import { fileURLToPath } from 'url'
-import fs from 'fs/promises'
-import path from 'path'
 import { v4 as uuidv4 } from 'uuid' // 记得 pnpm add uuid
-import { RuleSaveInput } from './rule.types.js'
-const __filename = fileURLToPath(import.meta.url)
-const __dirname = path.dirname(__filename)
-
-const RULES_FILE = path.join(__dirname, '../data/rules.json')
+import prisma from '../../../shared/prisma/client.js'
+import { RuleSaveInput, OverviewStats } from './rule.types.js'
 
 export class RuleService {
-  private async readData(): Promise<any[]> {
-    try {
-      const content = await fs.readFile(RULES_FILE, 'utf-8')
-      return JSON.parse(content)
-    } catch {
-      return [] // 文件不存在或损坏则返回空数组
-    }
-  }
-
+  // rule.service.ts - saveRule 方法修改
   async saveRule(input: RuleSaveInput) {
-    // 确保目录存在
-    await fs.mkdir(path.dirname(RULES_FILE), { recursive: true })
+    const existing = await prisma.rule.findUnique({
+      where: {
+        targetType_targetId: {
+          targetType: input.targetType,
+          targetId: input.targetId,
+        },
+      },
+    })
 
-    const allRules = await this.readData()
+    const rule = await prisma.rule.upsert({
+      where: {
+        targetType_targetId: {
+          targetType: input.targetType,
+          targetId: input.targetId,
+        },
+      },
+      update: { rules: input.rules as any },
+      create: {
+        id: uuidv4(),
+        targetType: input.targetType,
+        targetId: input.targetId,
+        rules: input.rules as any,
+      },
+    })
 
-    // 1. 查找是否已存在针对该 target 的规则
-    const existingIndex = allRules.findIndex(
-      (r) => r.targetType === input.targetType && r.targetId === input.targetId
-    )
-
-    let ruleId: string
-
-    if (existingIndex > -1) {
-      // 2. 如果存在，复用旧的 ruleId 并更新内容
-      ruleId = allRules[existingIndex].ruleId
-      allRules[existingIndex] = {
-        ...input,
-        ruleId,
-        updatedAt: new Date().toISOString(),
-      }
-    } else {
-      // 3. 如果不存在，生成新的 ruleId
-      ruleId = `rule-${uuidv4().slice(0, 8)}` // 生成一个短 UUID
-      allRules.push({
-        ...input,
-        ruleId,
-        updatedAt: new Date().toISOString(),
-      })
-    }
-
-    // 4. 写回文件
-    await fs.writeFile(RULES_FILE, JSON.stringify(allRules, null, 2))
-
-    return { ruleId }
+    return { ruleId: rule.id, isNew: !existing }
   }
 
   // 算法核心：获取所有规则并转换成 Map，方便排课时快速检索
   async getRulesMap() {
-    const allRules = await this.readData()
+    const allRules = await prisma.rule.findMany()
     const map = new Map<string, any>()
     allRules.forEach((r) => {
-      // 使用 "teacher:id" 作为 key
       map.set(`${r.targetType}:${r.targetId}`, r.rules)
     })
     return map
   }
+
+  // 获取规则列表（分页）
+async getList(params: { page: number; pageSize: number; targetType?: string; keyword?: string }) {
+  const where: any = {}
+  if (params.targetType) where.targetType = params.targetType
+  if (params.keyword) {
+    where.OR = [
+      { targetId: { contains: params.keyword } },
+      { targetName: { contains: params.keyword } },
+    ]
+  }
+  const [items, total] = await Promise.all([
+    prisma.rule.findMany({
+      where,
+      skip: (params.page - 1) * params.pageSize,
+      take: params.pageSize,
+      orderBy: { updatedAt: 'desc' },
+    }),
+    prisma.rule.count({ where }),
+  ])
+  return {
+    items,
+    pagination: { page: params.page, pageSize: params.pageSize, total },
+  }
 }
+
+// 获取单条规则
+async getById(id: string) {
+  return prisma.rule.findUniqueOrThrow({ where: { id } })
+}
+
+// 删除单条规则
+async deleteRule(id: string) {
+  await prisma.rule.delete({ where: { id } })
+}
+
+// 批量删除规则
+async batchDelete(ids: string[]) {
+  await prisma.rule.deleteMany({ where: { id: { in: ids } } })
+}
+
+// 获取学期列表（含课程数）和教室
+async getOverviewStats(): Promise<OverviewStats> {
+  const [semesters, classrooms] = await Promise.all([
+    prisma.semester.findMany({
+      select: {
+        id: true,
+        name: true,
+        courseOfferings: {
+          select: {
+            id: true,
+            course: { select: { name: true } }
+          }
+        }
+      },
+      orderBy: { startDate: 'desc' },
+    }),
+    prisma.classroom.findMany({
+      select: { id: true, building: true, roomNumber: true }
+    }),
+  ])
+  return {
+    semesters: semesters.map(s => ({
+      id: s.id,
+      name: s.name,
+      courseOfferings: s.courseOfferings.map(co => ({
+        id: co.id,
+        name: co.course.name
+      }))
+    })),
+    classrooms: classrooms.map(c => ({
+      id: c.id,
+      name: `${c.building} ${c.roomNumber}`
+    }))
+  }
+}
+}
+
 export const ruleService = new RuleService()

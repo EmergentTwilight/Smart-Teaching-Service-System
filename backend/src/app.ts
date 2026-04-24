@@ -9,6 +9,7 @@ import cors from 'cors'
 import helmet from 'helmet'
 import compression from 'compression'
 import morgan from 'morgan'
+import scoreEntryRoutes from './modules/score-entry/score-entry.routes.js'
 
 import { errorHandler } from './shared/middleware/error.js'
 import { requestLogger } from './shared/middleware/requestLogger.js'
@@ -162,6 +163,7 @@ app.get('/api/health', async (req, res) => {
 app.use('/api/v1/auth', authRoutes)
 app.use('/api/v1/users', usersRoutes)
 app.use('/api/v1/departments', departmentsRoutes)
+app.use('/api/v1/course-offerings/:courseOfferingId/scores', scoreEntryRoutes)
 
 // 404 处理
 app.use((req, res) => {

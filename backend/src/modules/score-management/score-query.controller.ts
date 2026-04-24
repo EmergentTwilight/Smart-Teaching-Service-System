@@ -10,7 +10,7 @@ export const scoreQueryController = {
       return error(res, '未认证', 401)
     }
 
-    const result = await scoreQueryService.getMyScores(user, req.query as MyScoresQuery)
+    const result = await scoreQueryService.getMyScores(user, req.query as unknown as MyScoresQuery)
     paginated(res, result.items, result.pagination)
   },
 

@@ -1,6 +1,5 @@
 import prisma from '../../shared/prisma/client.js'
 import { ForbiddenError, NotFoundError } from '@stss/shared'
-import type { Prisma } from '@prisma/client'
 
 type JwtUser = {
   userId: string
@@ -8,13 +7,6 @@ type JwtUser = {
 }
 
 const PASS_LINE = 60
-
-const toNumber = (value: Prisma.Decimal | number | null | undefined): number | null => {
-  if (value === null || value === undefined) {
-    return null
-  }
-  return Number(value)
-}
 
 const round2 = (value: number): number => Math.round(value * 100) / 100
 

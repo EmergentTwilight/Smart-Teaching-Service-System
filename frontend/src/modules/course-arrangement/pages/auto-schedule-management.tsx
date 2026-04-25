@@ -2,7 +2,7 @@
  * 自动排课管理页面 
  * 提供触发算法、查看进度、预览草稿及确认落库的闭环功能
  */
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Card, Button, Progress, Steps, Table, Alert, Space, Statistic, Row, Col, Select, Typography, Tag } from 'antd';
 import { RobotOutlined, CheckCircleOutlined, SyncOutlined, UnorderedListOutlined } from '@ant-design/icons';
 import { autoScheduleApi } from '../api/auto-schedule';
@@ -34,7 +34,7 @@ export const AutoScheduleManagement: React.FC = () => {
   const [ruleCount, setRuleCount] = useState(0);
   const [classroomLoading, setClassroomLoading] = useState(false);
 
-  const fetchOverview = async () => {
+  const fetchOverview = useCallback(async () => {
     try {
       setClassroomLoading(true);
       const res = await autoScheduleApi.getOverview(); // 假设 API 方法名
@@ -54,11 +54,11 @@ export const AutoScheduleManagement: React.FC = () => {
     } finally {
       setClassroomLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchOverview();
-  }, []);
+  }, [fetchOverview]);
 
   // 切换学期时获取该学期课程总数
   const handleSemesterChange = async (semesterId: string) => {

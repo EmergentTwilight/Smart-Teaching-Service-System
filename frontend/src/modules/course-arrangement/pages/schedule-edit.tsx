@@ -65,7 +65,7 @@ export const ScheduleEdit: React.FC<ScheduleEditProps> = ({
         setAvailableClassrooms([]);
       }
     }
-  }, [visible, id, initialCourseId, form]);
+  }, [visible, id, initialCourseId, form, isEdit]);
 
   // 监听时间字段的变化
   const watchTimeFields = Form.useWatch((values) => {

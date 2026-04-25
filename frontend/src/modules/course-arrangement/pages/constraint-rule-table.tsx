@@ -3,7 +3,7 @@
  * 约束规则表格组件
  * 展示所有约束规则，支持分页、搜索、新增、编辑、删除
  */
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { Card, Table, Form, Input, Select, Button, Space, Tag, Popconfirm, Typography } from 'antd';
 import { PlusOutlined, DeleteOutlined, EditOutlined } from '@ant-design/icons';
 import { rulesApi } from '../api/rule';
@@ -46,7 +46,7 @@ export const ConstraintRuleTable: React.FC<ConstraintRuleTableProps> = ({
   const [drawerVisible, setDrawerVisible] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
 
-  const fetchRules = async (values: Partial<GetRulesListInput> = {}) => {
+  const fetchRules = useCallback( async (values: Partial<GetRulesListInput> = {}) => {
     setLoading(true);
     try {
       const res = await rulesApi.getList({
@@ -63,7 +63,7 @@ export const ConstraintRuleTable: React.FC<ConstraintRuleTableProps> = ({
     } finally {
       setLoading(false);
     }
-  };
+  }, [pagination.page, pagination.pageSize, onRuleCountChange]);
 
   // 监听筛选条件变化，自动搜索
   const autoSearch = () => {
@@ -75,7 +75,7 @@ export const ConstraintRuleTable: React.FC<ConstraintRuleTableProps> = ({
   useEffect(() => {
     const values = form.getFieldsValue();
     fetchRules(values);
-  }, [pagination.page, pagination.pageSize]);
+  }, [fetchRules, form]);
 
   const handleDelete = async (id: string) => {
     try {

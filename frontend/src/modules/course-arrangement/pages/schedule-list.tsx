@@ -2,7 +2,7 @@
  * 排课列表页面
  * 用于展示所有排课记录，支持按学期、课程、教室筛选 
  */
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { Card, Table, Form, Select, Button, Space, Popconfirm } from 'antd';
 import { PlusOutlined, SearchOutlined, DeleteOutlined } from '@ant-design/icons';
 import { schedulesApi } from '../api/schedules';
@@ -25,7 +25,7 @@ export const ScheduleList: React.FC = () => {
   const [drawerVisible, setDrawerVisible] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
 
-  const fetchSchedules = async (values: ValidScheduleQueryParams = {}) => {
+  const fetchSchedules = useCallback( async (values: ValidScheduleQueryParams = {}) => {
     setLoading(true);
     try {
       const res = await schedulesApi.getList({
@@ -40,11 +40,11 @@ export const ScheduleList: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [pagination.page, pagination.pageSize]);
 
   useEffect(() => {
     fetchSchedules(form.getFieldsValue());
-  }, [pagination]);
+  }, [form, fetchSchedules]);
 
   const handleSearch = (values: any) => {
     setPagination({ ...pagination, page: 1 });

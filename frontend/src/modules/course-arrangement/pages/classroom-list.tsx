@@ -2,7 +2,7 @@
  * 教室列表页面
  * 提供资源的筛选、展示和新建/编辑入口
  */
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { Card, Table, Form, Input, Select, Button, Space, Tag } from 'antd';
 import { PlusOutlined, SearchOutlined } from '@ant-design/icons';
 import { classroomsApi } from '../api/classrooms';
@@ -39,7 +39,7 @@ export const ClassroomList: React.FC = () => {
   const [drawerVisible, setDrawerVisible] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
 
-  const fetchClassrooms = async (values: ClassroomQueryParams = {}) => {
+  const fetchClassrooms = useCallback( async (values: ClassroomQueryParams = {}) => {
     setLoading(true);
     try {
       const res = await classroomsApi.getList({
@@ -54,12 +54,12 @@ export const ClassroomList: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [pagination.page, pagination.pageSize]);
 
   useEffect(() => {
     const values = form.getFieldsValue();
     fetchClassrooms(values);
-  }, [pagination.page, pagination.pageSize]);
+  }, [form, fetchClassrooms]);
 
   const handleSearch = (values: any) => {
     setPagination({ ...pagination, page: 1 }); // 重置到第一页

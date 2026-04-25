@@ -82,7 +82,7 @@ export const ConstraintRuleEditDrawer: React.FC<ConstraintRuleEditDrawerProps> =
         },
       });
     }
-  }, [visible, ruleId]);
+  }, [visible, ruleId, form, isEdit]);
 
   const handleSubmit = async () => {
     try {

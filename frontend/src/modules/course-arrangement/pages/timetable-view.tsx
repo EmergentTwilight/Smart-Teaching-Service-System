@@ -2,7 +2,7 @@
  * 课表查看页面
  * 提供按教室、按课程的直观周视图课表展现，支持课表导出下载
  */
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { Card, Select, Radio, Spin, Empty, Space, Button, Modal, Form, Input, InputNumber } from 'antd';
 import { DownloadOutlined } from '@ant-design/icons';
 import { timetablesApi, ExportTimetableParams } from '../api/timetables';
@@ -68,7 +68,7 @@ export const TimetableView: React.FC = () => {
   }, [overviewStats]);
 
   // 触发课表数据拉取
-  const fetchTimetable = async () => {
+  const fetchTimetable = useCallback(async () => {
     setLoading(true);
     try {
       let data: Schedule[] = [];
@@ -93,7 +93,7 @@ export const TimetableView: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [viewMode, selectedSemester, selectedClassroom, selectedCourse]);
 
   // 当筛选条件变化时自动拉取
   useEffect(() => {
@@ -104,7 +104,7 @@ export const TimetableView: React.FC = () => {
     } else {
       setSchedules([]); // 清空试图
     }
-  }, [viewMode, selectedClassroom, selectedCourse]);
+  }, [viewMode, selectedClassroom, selectedCourse, fetchTimetable]);
 
   // 处理导出逻辑
   const handleExport = async () => {

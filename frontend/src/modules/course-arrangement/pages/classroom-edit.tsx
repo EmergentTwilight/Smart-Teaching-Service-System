@@ -46,7 +46,7 @@ export const ClassroomEdit: React.FC<ClassroomEditProps> = ({ visible, id, onClo
     } else if (visible && !isEdit) {
       form.resetFields();
     }
-  }, [visible, id, form, onClose]);
+  }, [visible, id, form, onClose, isEdit]);
 
   const handleSubmit = async () => {
     try {

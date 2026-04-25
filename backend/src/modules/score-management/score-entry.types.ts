@@ -4,16 +4,10 @@
  */
 import { z } from 'zod'
 
-/**
- * 路由参数 schema
- */
 export const courseOfferingParamsSchema = z.object({
   courseOfferingId: z.string().min(1, 'courseOfferingId 不能为空'),
 })
 
-/**
- * 成绩录入列表查询参数 schema
- */
 export const getScoreListQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
@@ -22,9 +16,6 @@ export const getScoreListQuerySchema = z.object({
   status: z.enum(['DRAFT', 'SUBMITTED', 'CONFIRMED', 'EMPTY']).optional(),
 })
 
-/**
- * 单条成绩草稿 schema
- */
 const scoreDraftItemSchema = z.object({
   enrollmentId: z.string().min(1, 'enrollmentId 不能为空'),
   usualScore: z.number().min(0).max(100).nullable().optional(),
@@ -32,27 +23,18 @@ const scoreDraftItemSchema = z.object({
   finalScore: z.number().min(0).max(100).nullable().optional(),
 })
 
-/**
- * 批量保存草稿请求 schema
- */
 export const saveDraftBodySchema = z.object({
   scores: z.array(scoreDraftItemSchema).min(1, '至少需要一条成绩数据'),
 })
 
 /**
  * 批量提交成绩请求 schema
+ * 统一口径：使用 scoreIds（Score 表的主键），与 F4 前端对齐
  */
-export const submitScoresBodySchema = z
-  .object({
-    enrollmentIds: z.array(z.string()).optional(),
-    submitAll: z.boolean().optional(),
-  })
-  .refine((data) => data.enrollmentIds || data.submitAll, {
-    message: '必须提供 enrollmentIds 或 submitAll: true',
-  })
+export const submitScoresBodySchema = z.object({
+  scoreIds: z.array(z.string()).min(1, '至少需要一个 scoreId'),
+})
 
-// ===== 导出的 TypeScript 类型 =====
 export type GetScoreListQuery = z.infer<typeof getScoreListQuerySchema>
-// keyword 会同时匹配 studentNumber 和 studentName（OR 条件）
 export type SaveDraftBody = z.infer<typeof saveDraftBodySchema>
 export type SubmitScoresBody = z.infer<typeof submitScoresBodySchema>

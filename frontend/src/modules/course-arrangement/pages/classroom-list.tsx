@@ -3,7 +3,7 @@
  * 提供资源的筛选、展示和新建/编辑入口
  */
 import React, { useEffect, useState } from 'react';
-import { Card, Table, Form, Input, Select, Button, Space, Tag, message } from 'antd';
+import { Card, Table, Form, Input, Select, Button, Space, Tag } from 'antd';
 import { PlusOutlined, SearchOutlined } from '@ant-design/icons';
 import { classroomsApi } from '../api/classrooms';
 import type { Classroom, ClassroomQueryParams } from '../types/classroom';

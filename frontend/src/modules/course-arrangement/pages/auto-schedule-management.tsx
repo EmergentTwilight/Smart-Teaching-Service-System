@@ -3,7 +3,7 @@
  * 提供触发算法、查看进度、预览草稿及确认落库的闭环功能
  */
 import React, { useState, useEffect } from 'react';
-import { Card, Button, Progress, Steps, Table, Alert, Space, Statistic, Row, Col, Select, Typography } from 'antd';
+import { Card, Button, Progress, Steps, Table, Alert, Space, Statistic, Row, Col, Select, Typography, Tag } from 'antd';
 import { RobotOutlined, CheckCircleOutlined, SyncOutlined, UnorderedListOutlined } from '@ant-design/icons';
 import { autoScheduleApi } from '../api/auto-schedule';
 import type { AutoScheduleTaskStatus, AutoSchedulePreview } from '../types/auto-schedule';
@@ -49,8 +49,8 @@ export const AutoScheduleManagement: React.FC = () => {
         setSelectedSemester(res.semesters[0].id);
         setCourseCount(res.semesters[0].courseOfferings?.length || 0);
       }
-    } catch (error) {
-
+    } catch  {
+      // ...
     } finally {
       setClassroomLoading(false);
     }
@@ -85,8 +85,8 @@ export const AutoScheduleManagement: React.FC = () => {
               setCurrentStep(0); // 退回初始
             }
           }
-        } catch (error) {
-          
+        } catch  {
+          // ...
         }
       }, 300); // 每0.3秒轮询一次
     }
@@ -120,8 +120,8 @@ export const AutoScheduleManagement: React.FC = () => {
       setTaskStatus({ taskId: res.taskId, status: 'queued', progress: 0 });
       setCurrentStep(1);
       // message.success('排课任务已提交后台处理');
-    } catch (error) {
-      
+    } catch  {
+      // ...
     } finally {
       setLoading(false);
     }

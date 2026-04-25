@@ -58,8 +58,7 @@ export const exportTimetable = async (req: Request, res: Response) => {
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`)
 
     return res.status(200).send(csvContent)
-  } catch (err) {
-
+  } catch {
     res.status(500).send('导出失败')
   }
 }

@@ -3,7 +3,7 @@
  * 填时间 -> 推算可用教室 -> 预校验 -> 落库
  */
 import React, { useEffect, useState } from 'react';
-import { Drawer, Form, Select, Button, Space, message, InputNumber, Alert, Input, Spin } from 'antd';
+import { Drawer, Form, Select, Button, Space, InputNumber, Alert, Input, Spin } from 'antd';
 import { useDebounceFn } from 'ahooks'; // 需要安装 ahooks: pnpm add ahooks
 import { schedulesApi } from '../api/schedules';
 import { classroomsApi } from '../api/classrooms';
@@ -99,8 +99,8 @@ export const ScheduleEdit: React.FC<ScheduleEditProps> = ({
           form.setFieldsValue({ classroomId: undefined });
           // message.info('时间范围已更改，请重新选择可用教室');
         }
-      } catch (error) {
-
+      } catch  {
+        // ...
       } finally {
         setLoadingRooms(false);
       }
@@ -162,8 +162,7 @@ export const ScheduleEdit: React.FC<ScheduleEditProps> = ({
         // message.success('新增排课成功');
       }
       onSuccess();
-    } catch (error) {
-      
+    } catch  {
       // 表单校验失败或其他网络错误
     } finally {
       setSubmitting(false);

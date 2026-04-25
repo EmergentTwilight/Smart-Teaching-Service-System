@@ -3,7 +3,7 @@
  * 用于展示所有排课记录，支持按学期、课程、教室筛选 
  */
 import React, { useEffect, useState } from 'react';
-import { Card, Table, Form, Select, Button, Space, Popconfirm, message } from 'antd';
+import { Card, Table, Form, Select, Button, Space, Popconfirm } from 'antd';
 import { PlusOutlined, SearchOutlined, DeleteOutlined } from '@ant-design/icons';
 import { schedulesApi } from '../api/schedules';
 import type { Schedule, ValidScheduleQueryParams } from '../types/schedule';

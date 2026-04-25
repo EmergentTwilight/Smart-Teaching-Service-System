@@ -19,7 +19,7 @@ const defaultTimeSlot: TimeSlot = { dayOfWeek: 1, startPeriod: 1, endPeriod: 2 }
 const TimeSlotList: React.FC<{
   name: string;
   form: any;
-}> = ({ name, form }) => (
+}> = ({ name }) => (
   <Form.List name={name}>
     {(fields, { add, remove }) => (
       <div style={{ background: '#f8fafc', padding: 16, borderRadius: 8 }}>
@@ -94,8 +94,8 @@ export const ConstraintRuleEditDrawer: React.FC<ConstraintRuleEditDrawerProps> =
         rules: values.rules,
       });
       onSuccess();
-    } catch (error) {
-      
+    } catch  {
+      // ...
     } finally {
       setSubmitting(false);
     }

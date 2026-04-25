@@ -4,7 +4,7 @@
  * 展示所有约束规则，支持分页、搜索、新增、编辑、删除
  */
 import React, { useEffect, useState } from 'react';
-import { Card, Table, Form, Input, Select, Button, Space, Tag, message, Popconfirm, Typography } from 'antd';
+import { Card, Table, Form, Input, Select, Button, Space, Tag, Popconfirm, Typography } from 'antd';
 import { PlusOutlined, DeleteOutlined, EditOutlined } from '@ant-design/icons';
 import { rulesApi } from '../api/constraint';
 import type { SchedulingRule, RuleQueryParams } from '../types/constraint';
@@ -58,7 +58,7 @@ export const ConstraintRuleTable: React.FC<ConstraintRuleTableProps> = ({
       setTotal(res.pagination.total);
       onRuleCountChange?.(res.pagination.total);
     } catch {
-      
+      // message ...
     } finally {
       setLoading(false);
     }
@@ -81,7 +81,7 @@ export const ConstraintRuleTable: React.FC<ConstraintRuleTableProps> = ({
       await rulesApi.delete(id);
       autoSearch();
     } catch {
-      
+      // ...
     }
   };
 
@@ -94,7 +94,7 @@ export const ConstraintRuleTable: React.FC<ConstraintRuleTableProps> = ({
       setSelectedRowKeys([]);
       autoSearch();
     } catch {
-      
+      // ...
     }
   };
 

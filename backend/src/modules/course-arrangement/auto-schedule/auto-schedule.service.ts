@@ -203,7 +203,7 @@ export class AutoScheduleService {
       }
       task.status = 'completed'
       task.progress = 100
-    } catch (error) {
+    } catch  {
       
       task.status = 'failed'
     }

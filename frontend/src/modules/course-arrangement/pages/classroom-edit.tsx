@@ -68,7 +68,7 @@ export const ClassroomEdit: React.FC<ClassroomEditProps> = ({ visible, id, onClo
         // message.success('创建成功');
       }
       onSuccess();
-    } catch (error) {
+    } catch  {
       // Zod/接口错误会由 request 工具抛出拦截
     } finally {
       setSubmitting(false);

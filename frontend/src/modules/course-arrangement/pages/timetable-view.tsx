@@ -3,13 +3,12 @@
  * 提供按教室、按课程的直观周视图课表展现，支持课表导出下载
  */
 import React, { useState, useMemo, useEffect } from 'react';
-import { Card, Select, Radio, Spin, Empty, Space, Button, Modal, Form, Input, InputNumber, message } from 'antd';
+import { Card, Select, Radio, Spin, Empty, Space, Button, Modal, Form, Input, InputNumber } from 'antd';
 import { DownloadOutlined } from '@ant-design/icons';
 import { timetablesApi, ExportTimetableParams } from '../api/timetables';
 import { autoScheduleApi } from '../api/auto-schedule';
 import type { OverviewStats } from '../types/auto-schedule';
 import type { Schedule } from '../types/schedule';
-import type { Classroom } from '../types/classroom';
 
 const { Option } = Select;
 
@@ -32,9 +31,6 @@ export const TimetableView: React.FC = () => {
   const [selectedSemester, setSelectedSemester] = useState<string>();
   const [selectedClassroom, setSelectedClassroom] = useState<string>();
   const [selectedCourse, setSelectedCourse] = useState<string>();
-  
-  // 基础数据字典
-  const [classrooms, setClassrooms] = useState<Classroom[]>([]);
 
   // 导出功能状态
   const [exportModalVisible, setExportModalVisible] = useState(false);
@@ -89,7 +85,7 @@ export const TimetableView: React.FC = () => {
         data = await timetablesApi.getByCourseOffering(selectedCourse);
       }
       setSchedules(data);
-    } catch (error) {
+    } catch  {
       // message.error('获取课表数据失败');
     } finally {
       setLoading(false);
@@ -128,7 +124,7 @@ export const TimetableView: React.FC = () => {
       
       // message.success('导出成功');
       setExportModalVisible(false);
-    } catch (error) {
+    } catch  {
       // 若非表单校验错误，则提示网络异常
       if (!(error as any).errorFields) {
         // message.error('导出失败，请检查参数或稍后重试');

@@ -20,7 +20,7 @@ export const scoreEntryController = {
     const { courseOfferingId } = req.params
     const query = getScoreListQuerySchema.parse(req.query)
     const userId = req.user!.userId
-    const roles = req.user!.roles as string[]
+    const roles = [req.user!.roles].flat()
 
     const result = await scoreEntryService.getScoreList(courseOfferingId, query, userId, roles)
 
@@ -40,7 +40,7 @@ export const scoreEntryController = {
     const { courseOfferingId } = req.params
     const body = saveDraftBodySchema.parse(req.body)
     const userId = req.user!.userId
-    const roles = req.user!.roles as string[]
+    const roles = [req.user!.roles].flat()
 
     const result = await scoreEntryService.saveDraft(courseOfferingId, body, userId, roles)
     success(res, result, '草稿保存成功')
@@ -54,7 +54,7 @@ export const scoreEntryController = {
     const { courseOfferingId } = req.params
     const body = submitScoresBodySchema.parse(req.body)
     const userId = req.user!.userId
-    const roles = req.user!.roles as string[]
+    const roles = [req.user!.roles].flat()
 
     const result = await scoreEntryService.submitScores(courseOfferingId, body, userId, roles)
     success(res, result, '成绩提交成功')

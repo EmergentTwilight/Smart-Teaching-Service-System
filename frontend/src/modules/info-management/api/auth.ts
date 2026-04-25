@@ -4,6 +4,7 @@
  */
 import request from '@/shared/utils/request'
 import type { LoginResponse, AuthUserDto } from '@/shared/types'
+import { useAuthStore } from '@/shared/stores/authStore'
 
 /** 登录请求参数 */
 export interface LoginRequest {
@@ -30,8 +31,7 @@ export const authApi = {
    */
   logout: async (): Promise<void> => {
     // 获取 refresh token 并发送登出请求
-    const authStorage = localStorage.getItem('auth-storage')
-    const refreshToken = authStorage ? JSON.parse(authStorage)?.state?.refreshToken : null
+    const refreshToken = useAuthStore.getState().refreshToken
     // 没有 refreshToken 时不需要调用后端（logout 主要是废 refresh token）
     if (refreshToken) {
       return request.post('/auth/logout', { refreshToken })

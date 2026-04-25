@@ -101,7 +101,7 @@ const Dashboard: React.FC = () => {
                   </Text>
                   <div style={{ marginTop: 12 }}>
                     <span style={{ fontSize: 32, fontWeight: 700, color: '#1f2937' }}>
-                      {stat.value.toLocaleString()}
+                      {stat.value !== undefined ? stat.value.toLocaleString() : '-'}
                     </span>
                   </div>
                 </div>

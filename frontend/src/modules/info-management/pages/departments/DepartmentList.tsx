@@ -14,7 +14,6 @@ import {
   Alert,
   Modal,
   Pagination,
-  BuildOutlined,
 } from 'antd';
 import {
   PlusOutlined,
@@ -179,7 +178,6 @@ const DepartmentList: React.FC = () => {
     console.log('isSuperAdmin:', isSuperAdmin);
     console.log('要删除的部门ID:', id);
     console.log('data:', data);
-    console.log('data?.items:', data?.items);
     
     // 检查权限
     if (!isSuperAdmin) {
@@ -239,8 +237,8 @@ const DepartmentList: React.FC = () => {
   const pagination = {
     total: departments.length,
     page: params.page,
-    pageSize: params.pageSize,
-    totalPages: Math.ceil(departments.length / params.pageSize),
+    pageSize: params.pageSize || 10,
+    totalPages: Math.ceil(departments.length / (params.pageSize || 10)),
   };
 
   return (
@@ -302,7 +300,7 @@ const DepartmentList: React.FC = () => {
         <div style={{ marginTop: 16, textAlign: 'right' }}>
           <Pagination
             total={pagination?.total || 0}
-            pageSize={params.pageSize}
+            pageSize={params.pageSize || 10}
             current={params.page}
             showSizeChanger
             showQuickJumper
@@ -357,14 +355,14 @@ const DepartmentList: React.FC = () => {
         okButtonProps={{ danger: true, loading: deleteMutation.isPending }}
       >
         <p>确定要删除部门 <strong>{departmentToDelete?.name}</strong> 吗？此操作不可恢复。</p>
-        {departmentToDelete?.teacher_count > 0 && (
+        {departmentToDelete?.teacherCount && departmentToDelete.teacherCount > 0 && (
           <p style={{ color: '#f59e0b', marginTop: 8 }}>
-            该部门下还有 {departmentToDelete.teacher_count} 名教师，删除前请先转移或删除相关教师。
+            该部门下还有 {departmentToDelete.teacherCount} 名教师，删除前请先转移或删除相关教师。
           </p>
         )}
-        {departmentToDelete?.major_count > 0 && (
+        {departmentToDelete?.majorCount && departmentToDelete.majorCount > 0 && (
           <p style={{ color: '#f59e0b', marginTop: 8 }}>
-            该部门下还有 {departmentToDelete.major_count} 个专业，删除前请先删除相关专业。
+            该部门下还有 {departmentToDelete.majorCount} 个专业，删除前请先删除相关专业。
           </p>
         )}
       </Modal>

@@ -58,7 +58,7 @@ const MajorList: React.FC = () => {
   });
 
   // 获取专业列表
-  const { data: majorData, isLoading } = useQuery({
+  const { data: majorData } = useQuery({
     queryKey: ['majors', paginationState.current, paginationState.pageSize, keyword, selectedDepartment],
     queryFn: () =>
       getMajorList({
@@ -305,7 +305,7 @@ const MajorList: React.FC = () => {
         cancelText="取消"
         okButtonProps={{ danger: true }}
       >
-        <p>确定删除专业 "{majorToDelete?.name}"？</p>
+        <p>确定删除专业 &apos;{majorToDelete?.name}&apos;？</p>
         <p style={{ color: '#999', fontSize: '12px' }}>删除后将无法恢复，请谨慎操作。</p>
       </Modal>
     </div>

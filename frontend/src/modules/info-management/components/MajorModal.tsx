@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, {  useEffect } from 'react';
 import { Modal, Form, Input, Select, Radio, InputNumber, message } from 'antd';
 import { DegreeType, DEGREE_TYPE_LABELS, Major } from '../types/majors';
 import type { Department } from '../types/departments';

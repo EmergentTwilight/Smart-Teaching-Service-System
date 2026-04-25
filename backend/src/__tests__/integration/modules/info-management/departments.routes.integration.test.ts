@@ -235,18 +235,19 @@ describe('GET /api/v1/departments/:id', () => {
     const token = generateTestToken(user.id, user.username)
 
     const department = await createTestDepartment()
+    const random = Math.random().toString(36).slice(2, 6)
 
-    // 创建多个专业
+    // 创建多个专业（使用随机后缀避免唯一约束冲突）
     await prisma.major.createMany({
       data: [
         {
-          name: 'itest_dept_计算机科学与技术',
-          code: 'CS',
+          name: `itest_dept_计算机科学与技术_${random}`,
+          code: `CS_${random}`,
           departmentId: department.id,
         },
         {
-          name: 'itest_dept_软件工程',
-          code: 'SE',
+          name: `itest_dept_软件工程_${random}`,
+          code: `SE_${random}`,
           departmentId: department.id,
         },
       ],

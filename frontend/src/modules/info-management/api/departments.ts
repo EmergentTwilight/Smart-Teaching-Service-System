@@ -20,8 +20,15 @@ export const departmentsApi = {
    */
   getList: async (params?: DepartmentQueryParams): Promise<Department[]> => {
     const response = await request.get('/departments', { params })
-    const data = response as unknown as { items?: Department[] }
-    return data.items || (response as unknown as Department[])
+    // 响应拦截器已经提取了 data 字段并转换了格式
+    // 直接返回数组或处理可能的分页结构
+    if (Array.isArray(response)) {
+      return response
+    }
+    if (typeof response === 'object' && response !== null && 'items' in response) {
+      return (response as { items: Department[] }).items
+    }
+    return []
   },
 
   /**

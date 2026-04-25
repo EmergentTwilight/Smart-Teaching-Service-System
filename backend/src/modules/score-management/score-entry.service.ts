@@ -3,7 +3,8 @@
  * 核心业务逻辑：查询录入列表、保存草稿、提交成绩
  */
 import prisma from '../../shared/prisma/client.js'
-import { ForbiddenError, NotFoundError, ValidationError } from '@stss/shared'
+import { Prisma } from '@prisma/client'
+import { ForbiddenError, NotFoundError } from '@stss/shared'
 import type { GetScoreListQuery, SaveDraftBody, SubmitScoresBody } from './score-entry.types.js'
 
 // ===== 内部工具函数 =====
@@ -88,20 +89,20 @@ export const scoreEntryService = {
   ) {
     await checkTeacherPermission(courseOfferingId, userId, roles)
 
-    const { page, pageSize, studentNumber, studentName, status } = query
+    const { page, pageSize, keyword, status } = query
     const skip = (page - 1) * pageSize
 
     // 查该课程下所有有效选课记录
-    const enrollmentWhere: any = {
+    // keyword 同时匹配学号或姓名（OR 条件），符合统一口径
+    const enrollmentWhere: Prisma.EnrollmentWhereInput = {
       courseOfferingId,
       status: 'ENROLLED',
-      // 修复：学号和姓名合并到同一个 student 对象，否则后写的会覆盖前写的
-      ...(studentNumber || studentName
+      ...(keyword
         ? {
-            student: {
-              ...(studentNumber ? { studentNumber: { contains: studentNumber } } : {}),
-              ...(studentName ? { user: { realName: { contains: studentName } } } : {}),
-            },
+            OR: [
+              { student: { studentNumber: { contains: keyword } } },
+              { student: { user: { realName: { contains: keyword } } } },
+            ],
           }
         : {}),
     }

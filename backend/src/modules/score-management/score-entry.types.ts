@@ -17,8 +17,7 @@ export const courseOfferingParamsSchema = z.object({
 export const getScoreListQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
-  studentNumber: z.string().optional(),
-  studentName: z.string().optional(),
+  keyword: z.string().optional(), // 统一口径：同时匹配学号或姓名
   // CONFIRMED 是 F2 审批流产生的正式确认状态，F1 需要识别并展示，但不自己产生
   status: z.enum(['DRAFT', 'SUBMITTED', 'CONFIRMED', 'EMPTY']).optional(),
 })
@@ -54,5 +53,6 @@ export const submitScoresBodySchema = z
 
 // ===== 导出的 TypeScript 类型 =====
 export type GetScoreListQuery = z.infer<typeof getScoreListQuerySchema>
+// keyword 会同时匹配 studentNumber 和 studentName（OR 条件）
 export type SaveDraftBody = z.infer<typeof saveDraftBodySchema>
 export type SubmitScoresBody = z.infer<typeof submitScoresBodySchema>

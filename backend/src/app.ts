@@ -9,7 +9,7 @@ import cors from 'cors'
 import helmet from 'helmet'
 import compression from 'compression'
 import morgan from 'morgan'
-import scoreEntryRoutes from './modules/score-entry/score-entry.routes.js'
+import scoreEntryRoutes from './modules/score-management/score-entry.routes.js'
 
 import { errorHandler } from './shared/middleware/error.js'
 import { requestLogger } from './shared/middleware/requestLogger.js'

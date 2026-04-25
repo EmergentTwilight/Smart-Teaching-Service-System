@@ -17,7 +17,7 @@ export const scoreEntryController = {
    * 获取某开课下的成绩录入列表
    */
   async getScoreList(req: Request, res: Response) {
-    const { courseOfferingId } = req.params
+    const { courseOfferingId } = req.params as Record<string, string>
     const query = getScoreListQuerySchema.parse(req.query)
     const userId = req.user!.userId
     const roles = [req.user!.roles].flat()
@@ -37,7 +37,7 @@ export const scoreEntryController = {
    * 批量保存成绩草稿
    */
   async saveDraft(req: Request, res: Response) {
-    const { courseOfferingId } = req.params
+    const { courseOfferingId } = req.params as Record<string, string>
     const body = saveDraftBodySchema.parse(req.body)
     const userId = req.user!.userId
     const roles = [req.user!.roles].flat()
@@ -51,7 +51,7 @@ export const scoreEntryController = {
    * 批量提交成绩
    */
   async submitScores(req: Request, res: Response) {
-    const { courseOfferingId } = req.params
+    const { courseOfferingId } = req.params as Record<string, string>
     const body = submitScoresBodySchema.parse(req.body)
     const userId = req.user!.userId
     const roles = [req.user!.roles].flat()

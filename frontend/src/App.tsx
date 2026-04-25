@@ -1,16 +1,11 @@
-/**
- * 应用根组件
- * 配置路由、主题和全局状态
- */
-import React, { lazy, Suspense } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import React, { Suspense, lazy } from 'react';
 import { ConfigProvider } from 'antd';
 import zhCN from 'antd/locale/zh_CN';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { useAuthStore } from '@/shared/stores/authStore';
 import ErrorBoundary from '@/shared/components/ErrorBoundary';
 
-// 懒加载页面组件
 const MainLayout = lazy(() => import('@/shared/components/layout/MainLayout'));
 const Login = lazy(() => import('@/modules/info-management/pages/Login'));
 const Register = lazy(() => import('@/modules/info-management/pages/Register'));
@@ -21,8 +16,10 @@ const UserList = lazy(() => import('@/modules/info-management/pages/users/UserLi
 const SystemLogs = lazy(() => import('@/modules/info-management/pages/users/SystemLogs'));
 const Profile = lazy(() => import('@/modules/info-management/pages/Profile'));
 const ComingSoon = lazy(() => import('@/shared/components/ComingSoon'));
+const TeacherScoreEntryPage = lazy(
+  () => import('@/modules/score-management/pages/TeacherScoreEntryPage'),
+);
 
-// 加载中组件
 const LoadingFallback = () => (
   <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
     加载中...
@@ -38,7 +35,6 @@ const queryClient = new QueryClient({
   },
 });
 
-// 受保护的路由组件
 interface ProtectedRouteProps {
   children: React.ReactNode;
   requiredRoles?: string[];
@@ -55,8 +51,8 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requiredRoles
   if (requiredRoles && user) {
     const userRoles = user.roles || [];
     const hasRole = requiredRoles.some((role) => userRoles.includes(role));
+
     if (!hasRole) {
-      // 暂时跳转到首页并提示无权限
       return <Navigate to="/" replace />;
     }
   }
@@ -72,7 +68,6 @@ const App: React.FC = () => {
           locale={zhCN}
           theme={{
             token: {
-              // 现代化配色
               colorPrimary: '#6366f1',
               colorSuccess: '#10b981',
               colorWarning: '#f59e0b',
@@ -80,7 +75,8 @@ const App: React.FC = () => {
               colorInfo: '#3b82f6',
               borderRadius: 8,
               fontSize: 14,
-              fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+              fontFamily:
+                '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
             },
             components: {
               Card: {
@@ -120,7 +116,6 @@ const App: React.FC = () => {
                   <Route index element={<Dashboard />} />
                   <Route path="dashboard" element={<Dashboard />} />
 
-                  {/* 基础信息管理 */}
                   <Route path="users" element={<UserList />} />
                   <Route
                     path="users/logs"
@@ -135,32 +130,33 @@ const App: React.FC = () => {
                   <Route path="info/courses" element={<ComingSoon title="课程信息" />} />
                   <Route path="info/classrooms" element={<ComingSoon title="教室管理" />} />
 
-                  {/* 自动排课 */}
                   <Route path="schedule/tasks" element={<ComingSoon title="排课任务" />} />
                   <Route path="schedule/view" element={<ComingSoon title="课表查看" />} />
                   <Route path="schedule/manual" element={<ComingSoon title="手动调整" />} />
 
-                  {/* 智能选课 */}
                   <Route path="selection/courses" element={<ComingSoon title="课程列表" />} />
                   <Route path="selection/my" element={<ComingSoon title="我的选课" />} />
                   <Route path="selection/ai" element={<ComingSoon title="AI 推荐" />} />
 
-                  {/* 论坛交流 */}
                   <Route path="forum/posts" element={<ComingSoon title="帖子列表" />} />
                   <Route path="forum/my" element={<ComingSoon title="我的发布" />} />
                   <Route path="forum/notifications" element={<ComingSoon title="消息通知" />} />
 
-                  {/* 在线测试 */}
                   <Route path="exam/questions" element={<ComingSoon title="题库管理" />} />
                   <Route path="exam/papers" element={<ComingSoon title="组卷考试" />} />
                   <Route path="exam/results" element={<ComingSoon title="成绩查看" />} />
 
-                  {/* 成绩管理 */}
-                  <Route path="grade/entry" element={<ComingSoon title="成绩录入" />} />
+                  <Route
+                    path="grade/entry"
+                    element={
+                      <ProtectedRoute requiredRoles={['teacher', 'admin', 'super_admin']}>
+                        <TeacherScoreEntryPage />
+                      </ProtectedRoute>
+                    }
+                  />
                   <Route path="grade/statistics" element={<ComingSoon title="统计分析" />} />
                   <Route path="grade/gpa" element={<ComingSoon title="GPA 计算" />} />
 
-                  {/* 系统设置 */}
                   <Route path="settings" element={<ComingSoon title="系统设置" />} />
                 </Route>
                 <Route path="*" element={<Navigate to="/" replace />} />

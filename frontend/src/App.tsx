@@ -21,6 +21,7 @@ const UserList = lazy(() => import('@/modules/info-management/pages/users/UserLi
 const SystemLogs = lazy(() => import('@/modules/info-management/pages/users/SystemLogs'));
 const Profile = lazy(() => import('@/modules/info-management/pages/Profile'));
 const ComingSoon = lazy(() => import('@/shared/components/ComingSoon'));
+const StudentScoreQueryPage = lazy(() => import('@/modules/score-management/student/pages/student-score-query-page'));
 
 // 加载中组件
 const LoadingFallback = () => (
@@ -158,7 +159,7 @@ const App: React.FC = () => {
                   {/* 成绩管理 */}
                   <Route path="grade/entry" element={<ComingSoon title="成绩录入" />} />
                   <Route path="grade/statistics" element={<ComingSoon title="统计分析" />} />
-                  <Route path="grade/gpa" element={<ComingSoon title="GPA 计算" />} />
+                  <Route path="grade/gpa" element={<StudentScoreQueryPage />} />
 
                   {/* 系统设置 */}
                   <Route path="settings" element={<ComingSoon title="系统设置" />} />

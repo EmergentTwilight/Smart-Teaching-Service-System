@@ -11,8 +11,8 @@
 import React from 'react'
 import { Card, Col, Progress, Row, Statistic } from 'antd'
 import type { CourseTypeBreakdownPoint } from '../../types/score-types'
-import { COURSE_TYPE, formatScore } from '../../../shared/constants/score-constants'
-import { formatCredits } from '../../../shared/utils/score-formatter'
+import { COURSE_TYPE } from '../../../shared/constants/score-constants'
+import { formatScore, formatCredits } from '../../../shared/utils/score-formatter'
 
 /**
  * 组件 Props

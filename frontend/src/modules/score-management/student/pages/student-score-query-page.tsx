@@ -8,7 +8,7 @@
  * @module score-management/student/pages
  */
 
-import React, { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { Row, Col, Space } from 'antd'
 import type { ScoreItem, ScoreListQuery } from '../types/score-types'
 import { useStudentScores, useStudentScoreSummary, useStudentScoreAnalytics } from '../hooks'
@@ -20,7 +20,7 @@ import { SemesterTrendChart, ScoreDistributionChart, CourseTypeBreakdownChart } 
 /**
  * 学生成绩查询页面
  */
-export function StudentScoreQueryPage() {
+export default function StudentScoreQueryPage() {
   // 筛选条件状态
   const [filters, setFilters] = useState<Partial<ScoreListQuery>>({
     page: 1,
@@ -49,6 +49,15 @@ export function StudentScoreQueryPage() {
     data: analyticsData,
     isLoading: analyticsLoading,
   } = useStudentScoreAnalytics()
+
+  // 从分析数据中提取学期选项（包含所有学期，不受筛选影响）
+  const semesterOptions = useMemo(() => {
+    if (!analyticsData?.semesterTrend) return []
+    return analyticsData.semesterTrend.map((item) => ({
+      value: item.semesterId,
+      label: item.semesterName,
+    }))
+  }, [analyticsData])
 
   // 处理筛选条件变化
   const handleFiltersChange = (newFilters: Partial<ScoreListQuery>) => {
@@ -106,6 +115,7 @@ export function StudentScoreQueryPage() {
             value={filters}
             onChange={handleFiltersChange}
             loading={scoreListLoading}
+            semesterOptions={semesterOptions}
           />
           <div style={{ marginTop: 16 }}>
             <ScoreListTable

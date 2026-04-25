@@ -1,8 +1,8 @@
 // frontend/src/modules/course-arrangement/pages/ConstraintRuleEditDrawer.tsx
 import React, { useEffect, useState } from 'react';
-import { Drawer, Form, Input, Select, Button, Space, Spin, Switch, InputNumber, Typography, Divider, Card } from 'antd';
-import { rulesApi } from '../api/constraint.js';
-import type { TimeSlot } from '../types/constraint.js';
+import { Drawer, Form, Input, Select, Button, Space, Spin, Switch, InputNumber, Typography, Divider, Card, FormInstance } from 'antd';
+import { rulesApi } from '../api/rule.js';
+import { SetSchedulingRuleInput } from '../types/rule.js'
 
 const { Option } = Select;
 const { Text } = Typography;
@@ -14,11 +14,11 @@ interface ConstraintRuleEditDrawerProps {
   onSuccess: () => void;
 }
 
-const defaultTimeSlot: TimeSlot = { dayOfWeek: 1, startPeriod: 1, endPeriod: 2 };
+const defaultTimeSlot = { dayOfWeek: 1, startPeriod: 1, endPeriod: 2 };
 
 const TimeSlotList: React.FC<{
-  name: string;
-  form: any;
+  name: string[];
+  form: FormInstance<SetSchedulingRuleInput>;
 }> = ({ name }) => (
   <Form.List name={name}>
     {(fields, { add, remove }) => (
@@ -56,7 +56,7 @@ const TimeSlotList: React.FC<{
 export const ConstraintRuleEditDrawer: React.FC<ConstraintRuleEditDrawerProps> = ({
   visible, ruleId, onClose, onSuccess
 }) => {
-  const [form] = Form.useForm();
+  const [form] = Form.useForm<SetSchedulingRuleInput>();
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const isEdit = !!ruleId;
@@ -64,7 +64,7 @@ export const ConstraintRuleEditDrawer: React.FC<ConstraintRuleEditDrawerProps> =
   useEffect(() => {
     if (visible && isEdit) {
       setLoading(true);
-      rulesApi.getById(ruleId!).then(res => {
+      rulesApi.getById({ id: ruleId! }).then(res => {
         form.setFieldsValue({
           targetType: res.targetType,
           targetId: res.targetId,

@@ -1,3 +1,4 @@
+// COPIED from rule.types.ts in backend
 // rule.types.ts
 // if modified, it (the new one) should be copied to the frontend
 

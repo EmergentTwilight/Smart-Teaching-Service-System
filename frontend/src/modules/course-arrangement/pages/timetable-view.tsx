@@ -7,7 +7,7 @@ import { Card, Select, Radio, Spin, Empty, Space, Button, Modal, Form, Input, In
 import { DownloadOutlined } from '@ant-design/icons';
 import { timetablesApi, ExportTimetableParams } from '../api/timetables';
 import { autoScheduleApi } from '../api/auto-schedule';
-import type { OverviewStats } from '../types/auto-schedule';
+import type { OverviewStatsResponse } from '../types/rule.ts';
 import type { Schedule } from '../types/schedule';
 
 const { Option } = Select;
@@ -38,7 +38,7 @@ export const TimetableView: React.FC = () => {
   const [exportForm] = Form.useForm<ExportTimetableParams>();
 
     // 概览统计数据
-  const [overviewStats, setOverviewStats] = useState<OverviewStats | null>(null);
+  const [overviewStats, setOverviewStats] = useState<OverviewStatsResponse | null>(null);
 
   // 挂载时拉取基础字典数据
   useEffect(() => {
@@ -80,9 +80,12 @@ export const TimetableView: React.FC = () => {
         });
         data = res.items
       } else if (viewMode === 'classroom') {
-        data = await timetablesApi.getByClassroom(selectedClassroom);
+        if (selectedClassroom)
+          data = await timetablesApi.getByClassroom(selectedClassroom);
       } else if (viewMode === 'course') {
-        data = await timetablesApi.getByCourseOffering(selectedCourse);
+        if (selectedCourse) {
+          data = await timetablesApi.getByCourseOffering(selectedCourse);
+        }
       }
       setSchedules(data);
     } catch  {
@@ -124,7 +127,7 @@ export const TimetableView: React.FC = () => {
       
       // message.success('导出成功');
       setExportModalVisible(false);
-    } catch  {
+    } catch (error) {
       // 若非表单校验错误，则提示网络异常
       if (!(error as any).errorFields) {
         // message.error('导出失败，请检查参数或稍后重试');
@@ -182,7 +185,7 @@ export const TimetableView: React.FC = () => {
         }}
       >
         <div style={{ fontWeight: 600, color: '#1f2937' }}>
-          {item.courseOffering?.course?.name || item.courseOfferingId}
+          {item.courseOffering?.courseName || item.courseOfferingId}
         </div>
         <div style={{ color: '#6b7280', marginTop: '2px' }}>
           {item.classroom ? `${item.classroom.building}-${item.classroom.roomNumber}` : item.classroomId}

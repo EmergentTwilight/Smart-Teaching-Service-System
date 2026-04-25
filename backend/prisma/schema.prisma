@@ -386,6 +386,50 @@ model Schedule {
   @@map("schedules")
 }
 
+/// 约束规则表
+model Rule {
+  /// 规则唯一标识（UUID）
+  id         String   @id @default(uuid())
+  /// 规则应用的目标类型：teacher（教师） 或 course（课程）
+  targetType String
+  /// 规则应用的目标 ID（对应 teacher.id 或 course.id）
+  targetId   String
+  /// 排课约束规则（JSON格式）
+  rules      Json
+  /// 创建时间
+  createdAt  DateTime @default(now())
+  /// 最后更新时间
+  updatedAt  DateTime @updatedAt
+
+  @@unique([targetType, targetId])
+  @@map("rules")
+}
+
+/// Json 结构说明：
+/// {
+///   "hardConstraints": {          // 硬约束（必须遵守）
+///     "unavailableTimeSlots": [    // 不可用时段列表
+///       {
+///         "dayOfWeek": 1,         // 星期几（1=周一，2=周二，...，7=周日）
+///         "startPeriod": 1,       // 开始节次（第几节课）
+///         "endPeriod": 2          // 结束节次（第几节课）
+///       }
+///     ],
+///     "requiredRoomType": "string" // 要求的教室类型（可选，如"多媒体"、"实验室"）
+///   },
+///   "softConstraints": {          // 软约束（优先满足，可优化）
+///     "preferredTimeSlots": [      // 偏好时段列表
+///       {
+///         "dayOfWeek": 1,
+///         "startPeriod": 3,
+///         "endPeriod": 4
+///       }
+///     ],
+///     "continuousPeriods": true,   // 是否偏好连续排课（true=是，false=否）
+///     "preferredBuilding": "string" // 偏好教学楼（可选）
+///   }
+/// }
+
 // ==================== 选课模块 (Subsystem C) ====================
 
 /// 学期表

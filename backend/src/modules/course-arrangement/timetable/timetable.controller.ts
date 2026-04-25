@@ -28,7 +28,7 @@ export const getByClassroom = async (req: Request, res: Response) => {
 export const getTimetables = async (req: Request, res: Response) => {
   try {
     // 这里的 req.user 视你们认证中间件的实现而定
-    const user = req.user!
+    const user = req.user as any as { id: string; role: string } // bug can happen!
     const result = await timetableService.getTimetables(req.query, user)
     res.json({ code: 0, message: '查询成功', data: result })
   } catch {

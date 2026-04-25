@@ -6,8 +6,8 @@
 import React, { useEffect, useState } from 'react';
 import { Card, Table, Form, Input, Select, Button, Space, Tag, Popconfirm, Typography } from 'antd';
 import { PlusOutlined, DeleteOutlined, EditOutlined } from '@ant-design/icons';
-import { rulesApi } from '../api/constraint';
-import type { SchedulingRule, RuleQueryParams } from '../types/constraint';
+import { rulesApi } from '../api/rule';
+import type { RuleResponse, GetRulesListInput } from '../types/rule';
 import { ConstraintRuleEditDrawer } from './constraint-rule-edit-drawer';
 
 const { Text } = Typography;
@@ -37,7 +37,7 @@ export const ConstraintRuleTable: React.FC<ConstraintRuleTableProps> = ({
 }) => {
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
-  const [data, setData] = useState<SchedulingRule[]>([]);
+  const [data, setData] = useState<RuleResponse[]>([]);
   const [total, setTotal] = useState(0);
   const [pagination, setPagination] = useState({ page: 1, pageSize: 20 });
   const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([]);
@@ -46,7 +46,7 @@ export const ConstraintRuleTable: React.FC<ConstraintRuleTableProps> = ({
   const [drawerVisible, setDrawerVisible] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
 
-  const fetchRules = async (values: RuleQueryParams = {}) => {
+  const fetchRules = async (values: Partial<GetRulesListInput> = {}) => {
     setLoading(true);
     try {
       const res = await rulesApi.getList({
@@ -57,7 +57,8 @@ export const ConstraintRuleTable: React.FC<ConstraintRuleTableProps> = ({
       setData(res.items);
       setTotal(res.pagination.total);
       onRuleCountChange?.(res.pagination.total);
-    } catch {
+    } catch (err) {
+      console.log(err)
       // message ...
     } finally {
       setLoading(false);
@@ -78,7 +79,7 @@ export const ConstraintRuleTable: React.FC<ConstraintRuleTableProps> = ({
 
   const handleDelete = async (id: string) => {
     try {
-      await rulesApi.delete(id);
+      await rulesApi.delete({id: id});
       autoSearch();
     } catch {
       // ...
@@ -90,7 +91,7 @@ export const ConstraintRuleTable: React.FC<ConstraintRuleTableProps> = ({
       return;
     }
     try {
-      await rulesApi.batchDelete(selectedRowKeys as string[]);
+      await rulesApi.batchDelete({ids: selectedRowKeys as [string, ...string[]]});
       setSelectedRowKeys([]);
       autoSearch();
     } catch {
@@ -116,13 +117,12 @@ export const ConstraintRuleTable: React.FC<ConstraintRuleTableProps> = ({
       dataIndex: 'targetId',
       key: 'targetId',
       width: 140,
-      render: (val: string, record: SchedulingRule) =>
-        record.targetName ? `${record.targetName} (${val})` : val,
+      render: (val: string) => val,
     },
     {
   title: '时间约束',
   key: 'rules',
-  render: (_: any, record: SchedulingRule) => {
+  render: (_: any, record: RuleResponse) => {
     const { hardConstraints, softConstraints } = record.rules || {};
     const hardSlots = hardConstraints?.unavailableTimeSlots || [];
     const softSlots = softConstraints?.preferredTimeSlots || [];
@@ -160,7 +160,7 @@ export const ConstraintRuleTable: React.FC<ConstraintRuleTableProps> = ({
     {
       title: '教室/教学楼',
       key: 'roomAndBuilding',
-      render: (_: any, record: SchedulingRule) => {
+      render: (_: any, record: RuleResponse) => {
         const hardRoom = record.rules?.hardConstraints?.requiredRoomType;
         const softBuilding = record.rules?.softConstraints?.preferredBuilding;
         return (
@@ -175,7 +175,7 @@ export const ConstraintRuleTable: React.FC<ConstraintRuleTableProps> = ({
     {
       title: '连续排课',
       key: 'continuousPeriods',
-      render: (_: any, record: SchedulingRule) =>
+      render: (_: any, record: RuleResponse) =>
         record.rules?.softConstraints?.continuousPeriods === true
           ? <Tag color="green">是</Tag>
           : record.rules?.softConstraints?.continuousPeriods === false
@@ -186,7 +186,7 @@ export const ConstraintRuleTable: React.FC<ConstraintRuleTableProps> = ({
       title: '操作',
       key: 'action',
       width: 120,
-      render: (_: any, record: SchedulingRule) => (
+      render: (_: any, record: RuleResponse) => (
         <Space>
           <Button type="link" icon={<EditOutlined />} onClick={() => openDrawer(record.id)}>
             编辑

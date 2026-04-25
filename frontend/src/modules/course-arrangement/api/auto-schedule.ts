@@ -4,8 +4,8 @@ import type {
   AutoScheduleTaskStatus,
   AutoSchedulePreview,
   AutoScheduleApplyResult,
-  OverviewStats,
 } from '../types/auto-schedule'
+import type { OverviewStatsResponse } from '../types/rule'
 
 const BASE_PATH = '/course-arrangement/auto-schedule/tasks'
 
@@ -41,7 +41,7 @@ export const autoScheduleApi = {
   /**
    * 获取排课概览统计
    */
-  getOverview: async (): Promise<OverviewStats> => {
+  getOverview: async (): Promise<OverviewStatsResponse> => {
     return request.get('/course-arrangement/rules/overview')
   },
 }

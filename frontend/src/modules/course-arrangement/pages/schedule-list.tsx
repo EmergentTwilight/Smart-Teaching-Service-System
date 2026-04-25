@@ -71,9 +71,8 @@ export const ScheduleList: React.FC = () => {
       title: '课程开设',
       key: 'courseOffering',
       render: (_: any, record: Schedule) => {
-        // 课程名称在 courseOffering.course.name 中
-        const courseName = record.courseOffering?.course?.name;
-        const courseCode = record.courseOffering?.course?.code;
+        const courseName = record.courseOffering?.courseName;
+        const courseCode = record.courseOfferingId;
         if (courseName) {
           return courseCode ? `${courseName} (${courseCode})` : courseName;
         }

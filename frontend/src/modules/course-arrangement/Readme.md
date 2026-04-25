@@ -22,7 +22,7 @@
 ├── api
 │   ├── auto-schedule.ts
 │   ├── client.ts
-│   ├── constraint.ts
+    ├── rule.ts
 │   ├── classrooms.ts
 │   ├── schedules.ts
 │   └── timetables.ts
@@ -39,7 +39,7 @@
 └── types
     ├── auto-schedule.ts
     ├── classroom.ts
-    ├── constraint.ts
+    ├── rule.ts
     └── schedule.ts
 
 6 directories, 14 files

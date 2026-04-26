@@ -157,14 +157,23 @@ request.interceptors.request.use(
       config.headers.Authorization = `Bearer ${token}`
     }
     // 将请求体的 camelCase 转换为 snake_case
-    if (config.data && typeof config.data === 'object') {
-      console.log('=== [请求拦截器] 转换前:', config.data)
+    // 注意：跳过 FormData 对象，因为它不是普通对象
+    if (config.data && typeof config.data === 'object' && !(config.data instanceof FormData)) {
+      console.log('=== [请求拦截器] 转换前数据:', JSON.stringify(config.data, null, 2))
+      console.log('=== [请求拦截器] 数据类型:', Object.prototype.toString.call(config.data))
+      console.log('=== [请求拦截器] 是否为 FormData:', config.data instanceof FormData)
       config.data = convertKeysToSnakeCase(config.data)
+      console.log('=== [请求拦截器] 转换后数据:', JSON.stringify(config.data, null, 2))
       // 处理枚举值：degree_type 需要转换为大写
       if (typeof config.data === 'object' && 'degree_type' in config.data) {
         config.data.degree_type = String(config.data.degree_type).toUpperCase()
+        console.log('=== [请求拦截器] degree_type 大写转换后:', config.data.degree_type)
       }
-      console.log('=== [请求拦截器] 转换后:', config.data)
+    } else if (config.data) {
+      console.log(
+        '=== [请求拦截器] 数据不是普通对象，跳过转换:',
+        Object.prototype.toString.call(config.data)
+      )
     }
     return config
   },

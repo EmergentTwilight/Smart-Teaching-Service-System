@@ -16,7 +16,7 @@ export const departmentIdSchema = z.object({
 export const createDepartmentSchema = z.object({
   name: z.string(),
   code: z.string(),
-  description: z.string(),
+  description: z.string().optional(),
 })
 
 /**

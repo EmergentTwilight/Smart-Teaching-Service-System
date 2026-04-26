@@ -6,7 +6,7 @@
  * 1. 确保 Docker 数据库已启动
  * 2. 运行: DATABASE_URL="..." pnpm vitest run src/__tests__/integration/modules/info-management/auth.routes.integration.test.ts
  */
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import request from 'supertest'
 import express, { type Express } from 'express'
 import { PrismaClient } from '@prisma/client'
@@ -17,6 +17,11 @@ import config from '../../../../config/index.js'
 import Redis from 'ioredis'
 import jwt from 'jsonwebtoken'
 import crypto from 'crypto'
+
+// Mock 邮件发送函数，避免测试环境需要 SMTP 服务器
+vi.mock('../../../../config/mail.js', () => ({
+  sendPasswordResetEmail: vi.fn().mockResolvedValue(undefined),
+}))
 
 // 直接使用 ioredis 清理测试数据（绕过自定义封装）
 const testRedis = new Redis.default(process.env.REDIS_URL || 'redis://localhost:6379/1')

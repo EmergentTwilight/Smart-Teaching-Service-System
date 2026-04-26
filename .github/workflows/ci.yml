@@ -79,13 +79,66 @@ jobs:
         run: cd backend && pnpm test:unit
 
       - name: Prepare test database
+        id: prepare-db
         run: cd backend && pnpm db:push && pnpm db:seed
         env:
           DATABASE_URL: postgresql://test:test@localhost:5432/stss_test?schema=public
           REDIS_URL: redis://localhost:6379/1
 
       - name: Run backend integration tests
+        id: backend-integration
         run: cd backend && pnpm test:integration
         env:
           DATABASE_URL: postgresql://test:test@localhost:5432/stss_test?schema=public
           REDIS_URL: redis://localhost:6379/1
+
+      - name: Install Playwright browsers
+        if: ${{ always() && steps.prepare-db.outcome == 'success' }}
+        run: cd frontend && npx playwright install --with-deps chromium
+
+      - name: Start backend for E2E
+        if: ${{ always() && steps.prepare-db.outcome == 'success' }}
+        run: |
+          cd backend
+          pnpm dev > ../backend-e2e.log 2>&1 &
+          echo $! > ../backend-e2e.pid
+
+          for i in {1..60}; do
+            if curl -fsS http://localhost:3000/api/health; then
+              exit 0
+            fi
+            sleep 2
+          done
+
+          cat ../backend-e2e.log
+          exit 1
+        env:
+          NODE_ENV: test
+          DATABASE_URL: postgresql://test:test@localhost:5432/stss_test?schema=public
+          REDIS_URL: redis://localhost:6379/1
+          JWT_SECRET: stss-test-key
+          JWT_ACCESS_TOKEN_EXPIRES_IN: 2h
+          JWT_REFRESH_TOKEN_EXPIRES_IN: 7d
+          PORT: 3000
+          CORS_ORIGIN: http://localhost:5173
+          FRONTEND_URL: http://localhost:5173
+
+      - name: Run frontend E2E tests
+        if: ${{ always() && steps.prepare-db.outcome == 'success' }}
+        run: cd frontend && pnpm test:e2e
+        env:
+          CI: true
+          VITE_API_URL: http://localhost:3000/api/v1
+          E2E_USERNAME: admin
+          E2E_PASSWORD: Admin123
+
+      - name: Upload E2E artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-artifacts
+          path: |
+            frontend/playwright-report/
+            frontend/test-results/
+            backend-e2e.log
+          if-no-files-found: ignore

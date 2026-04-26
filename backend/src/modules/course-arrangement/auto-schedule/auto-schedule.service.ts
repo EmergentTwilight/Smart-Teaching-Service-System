@@ -1,15 +1,25 @@
 import { v4 as uuidv4 } from 'uuid'
 import prisma from '../../../shared/prisma/client.js'
 import { ruleService } from '../rules/rule.service.js'
-import { AutoScheduleTask, CreateTaskInput } from './auto-schedule.types.js'
+import {
+  ScheduleFailure,
+  CreateTaskInput,
+  TaskIdInput,
+  AutoScheduleTaskResponse,
+  ApplyTaskResponse,
+  ScheduleSuccess,
+} from './auto-schedule.types.js'
+import { TimeSlot } from '../rules/rule.types.js'
+import { Classroom } from '@prisma/client'
+import { Schedule } from '../auto-schedule/auto-schedule.types.js'
 
-const taskMap = new Map<string, AutoScheduleTask>()
+const taskMap = new Map<string, AutoScheduleTaskResponse>()
 
 export class AutoScheduleService {
   // 6.4.1 创建排课任务
-  async createSchedulingTask(input: CreateTaskInput) {
+  async createSchedulingTask(input: CreateTaskInput): Promise<AutoScheduleTaskResponse> {
     const taskId = uuidv4()
-    const newTask: AutoScheduleTask = {
+    const newTask: AutoScheduleTaskResponse = {
       taskId,
       status: 'queued',
       progress: 0,
@@ -17,44 +27,41 @@ export class AutoScheduleService {
     }
     taskMap.set(taskId, newTask)
     this.runAlgorithm(taskId, input) // 异步启动
-    return taskId
+    return newTask
   }
   // 6.4.2 查询任务状态
-  getTaskStatus(taskId: string) {
-    const task = taskMap.get(taskId)
+  async getTaskStatus(input: TaskIdInput): Promise<AutoScheduleTaskResponse> {
+    const task = taskMap.get(input.taskId)
     if (!task) throw new Error('Task not found')
-    return { taskId: task.taskId, status: task.status, progress: task.progress }
+    return task
   }
   // 6.4.3 获取排课预览结果
-  getTaskPreview(taskId: string) {
-    const task = taskMap.get(taskId)
+  async getTaskPreview(input: TaskIdInput): Promise<AutoScheduleTaskResponse> {
+    const task = taskMap.get(input.taskId)
     if (!task || task.status !== 'completed') throw new Error('Task results not ready')
     // 返回 task.result 而不是整个 task 对象
-    return {
-      successRate: task.result?.successRate ?? 0,
-      schedules: task.result?.schedules ?? [],
-      failures: task.result?.failures ?? [],
-    }
+    return task
   }
   //6.4.4 应用排课结果
-  async applyResults(taskId: string) {
-    const task = taskMap.get(taskId)
+  async applyResults(input: TaskIdInput): Promise<ApplyTaskResponse> {
+    const task = taskMap.get(input.taskId)
     if (!task || !task.result) throw new Error('No results to apply')
 
     // 事务写入 Schedule 表
     const created = await prisma.schedule.createMany({
       data: task.result.schedules.map((s) => ({
-        courseOfferingId: s.courseOfferingId,
-        classroomId: s.classroomId,
-        dayOfWeek: s.dayOfWeek,
-        startPeriod: s.startPeriod,
-        endPeriod: s.endPeriod,
-        startWeek: s.startWeek,
-        endWeek: s.endWeek,
+        courseOfferingId: s.schedule.courseOfferingId,
+        classroomId: s.schedule.classroomId,
+        dayOfWeek: s.schedule.dayOfWeek,
+        startPeriod: s.schedule.startPeriod,
+        endPeriod: s.schedule.endPeriod,
+        startWeek: s.schedule.startWeek,
+        endWeek: s.schedule.endWeek,
+        notes: s.schedule.notes,
       })),
     })
 
-    taskMap.delete(taskId)
+    taskMap.delete(input.taskId)
     return { appliedCount: created.count, ignoredCount: task.result.failures.length }
   }
 
@@ -82,8 +89,8 @@ export class AutoScheduleService {
 
       task.progress = 15
 
-      const successResults: any[] = []
-      const failureResults: any[] = []
+      const successResults: ScheduleSuccess[] = []
+      const failureResults: ScheduleFailure[] = []
 
       // 时间段枚举 (1-5天, 1-11节，假设每课2节)我默认是单课 2 节（1-2, 3-4...），起始节次为 [1, 3, 5, 7, 9]。
       // 如果实际应用中学校有不同的排课规则（比如有的课 3 节连上），需要调整 periods 数组。
@@ -110,7 +117,7 @@ export class AutoScheduleService {
         const courseRule = rulesMap.get(`course:${off.courseId}`)
 
         // --- 核心优化：生成所有可能的候选组合并按“软约束”评分 ---
-        const candidates: any[] = []
+        const candidates: { day: number; period: number; room: Classroom; score: number }[] = []
         for (const day of days) {
           for (const period of periods) {
             for (const room of classrooms) {
@@ -125,15 +132,16 @@ export class AutoScheduleService {
               if (room.capacity < off.capacity) continue
               // 3. 教师时间避让
               const isTeacherBusy = teacherRule?.hardConstraints?.unavailableTimeSlots?.some(
-                (t: any) => t.dayOfWeek === day && period >= t.startPeriod && period <= t.endPeriod
+                (t: TimeSlot) =>
+                  t.dayOfWeek === day && period >= t.startPeriod && period <= t.endPeriod
               )
               if (isTeacherBusy) continue
               // 4. 实时冲突 (同一时间教师或教室已被占用)
               const isOccupied = successResults.some(
                 (s) =>
-                  (s.classroomId === room.id || s.teacherId === off.teacherId) &&
-                  s.dayOfWeek === day &&
-                  s.startPeriod === period
+                  (s.schedule.classroomId === room.id || s.teacherId === off.teacherId) &&
+                  s.schedule.dayOfWeek === day &&
+                  s.schedule.startPeriod === period
               )
               if (isOccupied) continue
 
@@ -144,7 +152,7 @@ export class AutoScheduleService {
                 // 1. 偏好时间段 (+10分)
                 if (
                   soft.preferredTimeSlots?.some(
-                    (p: any) => p.dayOfWeek === day && p.startPeriod === period
+                    (p: TimeSlot) => p.dayOfWeek === day && p.startPeriod === period
                   )
                 )
                   score += 10
@@ -162,20 +170,18 @@ export class AutoScheduleService {
 
         // III. 递归搜索
         for (const cand of candidates) {
-          const currentSchedule = {
-            courseOfferingId: off.id,
-            courseName: off.course.name,
-            // 由于teacher表没有name字段，从关联的user表拿name。
-            teacherName: off.teacher.user?.username,
+          const currentSchedule: Schedule = {
+            schedule: {
+              courseOfferingId: off.id,
+              classroomId: cand.room.id,
+              dayOfWeek: cand.day,
+              startWeek: 1,
+              endWeek: 16,
+              startPeriod: cand.period,
+              endPeriod: cand.period + 1,
+              notes: null,
+            },
             teacherId: off.teacherId,
-            classroomId: cand.room.id,
-            building: cand.room.building,
-            roomNumber: cand.room.roomNumber,
-            dayOfWeek: cand.day,
-            startWeek: 1,
-            endWeek: 16,
-            startPeriod: cand.period,
-            endPeriod: cand.period + 1,
           }
 
           successResults.push(currentSchedule)
@@ -203,8 +209,7 @@ export class AutoScheduleService {
       }
       task.status = 'completed'
       task.progress = 100
-    } catch  {
-      
+    } catch {
       task.status = 'failed'
     }
   }

@@ -7,8 +7,9 @@ import { Drawer, Form, Select, Button, Space, InputNumber, Alert, Input, Spin } 
 import { useDebounceFn } from 'ahooks'; // 需要安装 ahooks: pnpm add ahooks
 import { schedulesApi } from '../api/schedules';
 import { classroomsApi } from '../api/classrooms';
-import type { Schedule, ScheduleConflict } from '../types/schedule';
-import type { Classroom } from '../types/classroom';
+import type { } from '../types/auto-schedule';
+import type { ClassroomListResponse } from '../types/classroom';
+import { CreateScheduleInput } from '../types/schedule';
 
 const { Option } = Select;
 const { TextArea } = Input;
@@ -28,14 +29,14 @@ export const ScheduleEdit: React.FC<ScheduleEditProps> = ({
   onClose, 
   onSuccess 
 }) => {
-  const [form] = Form.useForm();
+  const [form] = Form.useForm<CreateScheduleInput>();
   
   // 状态管理
   const [submitting, setSubmitting] = useState(false);
   const [loadingForm, setLoadingForm] = useState(false);
-  const [availableClassrooms, setAvailableClassrooms] = useState<Classroom[]>([]);
+  const [availableClassrooms, setAvailableClassrooms] = useState<ClassroomListResponse>([]);
   const [loadingRooms, setLoadingRooms] = useState(false);
-  const [conflicts, setConflicts] = useState<ScheduleConflict[]>([]);
+  const [conflicts, setConflicts] = useState<{message: string;type: string;}[]>([]);
 
   const isEdit = !!id;
 
@@ -45,11 +46,11 @@ export const ScheduleEdit: React.FC<ScheduleEditProps> = ({
       if (isEdit) {
         // 编辑模式：获取排课详情并回填
         setLoadingForm(true);
-        schedulesApi.getById(id!).then(res => {
-          form.setFieldsValue(res);
+        schedulesApi.getById({id: id!}).then(res => {
+          if (res) {
+            form.setFieldsValue(res!.schedule);
           // 为了确保编辑时下拉框里有当前教室，我们可以在拉取详情后，直接把当前教室塞入候选项
-          if (res.classroom) {
-            setAvailableClassrooms([res.classroom as Classroom]);
+            setAvailableClassrooms([res.classroom])
           }
         }).catch(() => {
           // message.error('获取排课详情失败');
@@ -136,18 +137,19 @@ export const ScheduleEdit: React.FC<ScheduleEditProps> = ({
 
       // 预校验
       const validation = await schedulesApi.validate({
-        courseOfferingId: values.courseOfferingId,
         classroomId: values.classroomId,
+        courseOfferingId: values.courseOfferingId,
         dayOfWeek: values.dayOfWeek,
         startWeek: values.startWeek,
         endWeek: values.endWeek,
         startPeriod: values.startPeriod,
         endPeriod: values.endPeriod,
+        notes: null
       });
 
       // 处理校验结果
       if (!validation.valid) {
-        setConflicts(validation.conflicts || []);
+        setConflicts(validation.conflicts);
         // message.warning('排课存在冲突，请检查提示信息');
         setSubmitting(false);
         return;
@@ -155,10 +157,10 @@ export const ScheduleEdit: React.FC<ScheduleEditProps> = ({
 
       // 校验通过，执行写入操作
       if (isEdit) {
-        await schedulesApi.update(id!, values);
+        await schedulesApi.update({id:id!, data: {...values,}});
         // message.success('调整排课成功');
       } else {
-        await schedulesApi.create(values as Omit<Schedule, 'id'>);
+        await schedulesApi.create(values);
         // message.success('新增排课成功');
       }
       onSuccess();
@@ -261,7 +263,7 @@ export const ScheduleEdit: React.FC<ScheduleEditProps> = ({
             >
               {availableClassrooms.map(room => (
                 <Option key={room.id} value={room.id}>
-                  {room.building} - {room.roomNumber} (容量: {room.capacity})
+                  {room.classroom.building} - {room.classroom.roomNumber} (容量: {room.classroom.capacity})
                 </Option>
               ))}
             </Select>

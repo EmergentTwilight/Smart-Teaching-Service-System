@@ -4,9 +4,10 @@
  */
 import React, { useEffect, useState, useCallback } from 'react';
 import { Card, Table, Form, Select, Button, Space, Popconfirm } from 'antd';
+import type { TableColumnsType } from 'antd';
 import { PlusOutlined, SearchOutlined, DeleteOutlined } from '@ant-design/icons';
 import { schedulesApi } from '../api/schedules';
-import type { Schedule, ValidScheduleQueryParams } from '../types/schedule';
+import type { GetSchedulesInput, Schedule } from '../types/schedule';
 import { ScheduleEdit } from './schedule-edit';
 
 const { Option } = Select;
@@ -25,7 +26,7 @@ export const ScheduleList: React.FC = () => {
   const [drawerVisible, setDrawerVisible] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
 
-  const fetchSchedules = useCallback( async (values: ValidScheduleQueryParams = {}) => {
+  const fetchSchedules = useCallback( async (values: GetSchedulesInput) => {
     setLoading(true);
     try {
       const res = await schedulesApi.getList({
@@ -34,7 +35,7 @@ export const ScheduleList: React.FC = () => {
         pageSize: pagination.pageSize,
       });
       setData(res.items);
-      setTotal(res.pagination.total);
+      setTotal(res.total);
     } catch {
       // message.error('获取排课列表失败');
     } finally {
@@ -46,14 +47,14 @@ export const ScheduleList: React.FC = () => {
     fetchSchedules(form.getFieldsValue());
   }, [form, fetchSchedules]);
 
-  const handleSearch = (values: any) => {
+  const handleSearch = (values: GetSchedulesInput) => {
     setPagination({ ...pagination, page: 1 });
     fetchSchedules(values);
   };
 
   const handleDelete = async (id: string) => {
     try {
-      await schedulesApi.delete(id);
+      await schedulesApi.delete({id});
       // message.success('删除成功');
       fetchSchedules(form.getFieldsValue());
     } catch {
@@ -66,45 +67,41 @@ export const ScheduleList: React.FC = () => {
     setDrawerVisible(true);
   };
 
-  const columns = [
+  const columns: TableColumnsType<Schedule> = [
     {
       title: '课程开设',
       key: 'courseOffering',
-      render: (_: any, record: Schedule) => {
-        const courseName = record.courseOffering?.courseName;
-        const courseCode = record.courseOfferingId;
-        if (courseName) {
-          return courseCode ? `${courseName} (${courseCode})` : courseName;
-        }
-        return record.courseOfferingId; // 兜底显示 ID
+      render: (_, record) => {
+        const courseName = record.courseName;
+        const courseCode = record.schedule.courseOfferingId;
+        return courseCode ? `${courseName} (${courseCode})` : courseName;
       }
     },
     { 
       title: '上课教室', 
       key: 'classroom',
-      render: (_: any, record: Schedule) => 
-        record.classroom ? `${record.classroom.building}-${record.classroom.roomNumber}` : record.classroomId
+      render: (_, record) => 
+        `${record.classroom.classroom.building}-${record.classroom.classroom.roomNumber}`
     },
     { 
       title: '星期', 
-      dataIndex: 'dayOfWeek', 
       key: 'dayOfWeek',
-      render: (val: number) => DAY_OF_WEEK_MAP[val]
+      render: (_, record) => DAY_OF_WEEK_MAP[record.schedule.dayOfWeek] || '未知'
     },
     { 
       title: '周次', 
       key: 'weeks',
-      render: (_: any, record: Schedule) => `第 ${record.startWeek} - ${record.endWeek} 周`
+      render: (_, record) => `第 ${record.schedule.startWeek} - ${record.schedule.endWeek} 周`
     },
     { 
       title: '节次', 
       key: 'periods',
-      render: (_: any, record: Schedule) => `第 ${record.startPeriod} - ${record.endPeriod} 节`
+      render: (_, record) => `第 ${record.schedule.startPeriod} - ${record.schedule.endPeriod} 节`
     },
     {
       title: '操作',
       key: 'action',
-      render: (_: any, record: Schedule) => (
+      render: (_, record) => (
         <Space>
           <Button type="link" onClick={() => openDrawer(record.id)}>编辑</Button>
           <Popconfirm title="确定要删除这条排课记录吗？" onConfirm={() => handleDelete(record.id)}>

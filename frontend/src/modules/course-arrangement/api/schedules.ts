@@ -4,12 +4,24 @@
  */
 import request from '@/shared/utils/request'
 import type {
-  Schedule,
-  ValidScheduleQueryParams,
-  ValidateSchedulePayload,
-  ValidationResult,
+  CreateScheduleInput,
+  PagedGetSchedulesInput,
+  IdInput,
+  UpdateScheduleInput,
+  IdResponse,
+  PagedScheduleListResponse,
+  ValidateResponse,
+  NullableScheduleResponse,
 } from '../types/schedule'
-import { PaginatedData } from '@/shared/types'
+import {
+  createScheduleSchema,
+  pagedGetSchedulesSchema,
+  idSchema,
+  pagedScheduleListResponseSchema,
+  updateScheduleSchema,
+  validateResponseSchema,
+  nullableScheduleResponseSchema,
+} from '../types/schedule'
 
 const BASE_PATH = '/course-arrangement/schedules'
 
@@ -17,50 +29,54 @@ export const schedulesApi = {
   /**
    * 获取排课列表
    */
-  getList: async (params?: ValidScheduleQueryParams): Promise<PaginatedData<Schedule>> => {
-    return request.get(BASE_PATH, { params })
+  getList: async (input: PagedGetSchedulesInput): Promise<PagedScheduleListResponse> => {
+    const validatedInput = pagedGetSchedulesSchema.parse(input)
+    const result = await request.get(BASE_PATH, { params: validatedInput })
+    return pagedScheduleListResponseSchema.parse(result)
   },
 
   /**
    * 获取排课详情
    */
-  getById: async (id: string): Promise<Schedule> => {
-    return request.get(`${BASE_PATH}/${id}`)
+  getById: async (input: IdInput): Promise<NullableScheduleResponse> => {
+    const validatedInput = idSchema.parse(input)
+    const result = await request.get(`${BASE_PATH}/${validatedInput.id}`)
+    return nullableScheduleResponseSchema.parse(result)
   },
 
   /**
    * 预校验排课时间与教室冲突
    */
-  validate: async (data: ValidateSchedulePayload): Promise<ValidationResult> => {
-    try {
-      const res = await request.post<any, ValidationResult>(`${BASE_PATH}/validate`, data)
-      return res
-    } catch (error: any) {
-      if (error.response?.status === 409) {
-        return error.response.data.data
-      }
-      throw error
-    }
+  validate: async (input: CreateScheduleInput): Promise<ValidateResponse> => {
+    const validatedInput = createScheduleSchema.parse(input)
+    const result = await request.post(`${BASE_PATH}/validate`, validatedInput)
+    return validateResponseSchema.parse(result)
   },
 
   /**
    * 新增排课
    */
-  create: async (data: Partial<Schedule>): Promise<{ id: string }> => {
-    return request.post(BASE_PATH, data)
+  create: async (input: CreateScheduleInput): Promise<IdResponse> => {
+    const validatedInput = createScheduleSchema.parse(input)
+    const result = await request.post(BASE_PATH, validatedInput)
+    return idSchema.parse(result)
   },
 
   /**
    * 更新排课
    */
-  update: async (id: string, data: Partial<Schedule>): Promise<Schedule> => {
-    return request.patch(`${BASE_PATH}/${id}`, data)
+  update: async (input: UpdateScheduleInput): Promise<IdResponse> => {
+    const validatedInput = updateScheduleSchema.parse(input)
+    const result = await request.post(BASE_PATH, validatedInput)
+    return idSchema.parse(result)
   },
 
   /**
    * 删除排课
    */
-  delete: async (id: string): Promise<{ id: string }> => {
-    return request.delete(`${BASE_PATH}/${id}`)
+  delete: async (input: IdInput): Promise<IdResponse> => {
+    const validatedInput = idSchema.parse(input)
+    const result = await request.delete(`${BASE_PATH}/${validatedInput.id}`)
+    return idSchema.parse(result)
   },
 }

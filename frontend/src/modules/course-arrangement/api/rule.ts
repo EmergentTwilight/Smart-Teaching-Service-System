@@ -30,7 +30,7 @@ export const rulesApi = {
 
   getById: async (input: IdInput): Promise<RuleResponse> => {
     const validatedInput = idSchema.parse(input)
-    const data = await request.get(`${BASE_PATH}/${validatedInput}`)
+    const data = await request.get(`${BASE_PATH}/${validatedInput.id}`)
     return ruleResponseSchema.parse(data) // Zod 验证
   },
 

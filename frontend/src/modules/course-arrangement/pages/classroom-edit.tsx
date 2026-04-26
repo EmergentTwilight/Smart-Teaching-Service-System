@@ -5,7 +5,7 @@
 import React, { useEffect, useState } from 'react';
 import {Card, Drawer, Form, Input, Select, Button, InputNumber, Switch, Space, Spin } from 'antd';
 import { classroomsApi } from '../api/classrooms';
-import type { Classroom } from '../types/classroom';
+import type { ClassroomInput } from '../types/classroom';
 
 const { Option } = Select;
 
@@ -17,7 +17,7 @@ interface ClassroomEditProps {
 }
 
 export const ClassroomEdit: React.FC<ClassroomEditProps> = ({ visible, id, onClose, onSuccess }) => {
-  const [form] = Form.useForm();
+  const [form] = Form.useForm<ClassroomInput>();
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
@@ -29,11 +29,10 @@ export const ClassroomEdit: React.FC<ClassroomEditProps> = ({ visible, id, onClo
       const fetchDetail = async () => {
         setLoading(true);
         try {
-          const res = await classroomsApi.getById(id!);
+          const res = await classroomsApi.getById({id: id!});
           // 将 equipment 展平以便于 Form 直接绑定
           form.setFieldsValue({
-            ...res,
-            ...res.equipment,
+            ...res?.classroom
           });
         } catch {
           // message.error('获取教室详情失败');
@@ -53,18 +52,11 @@ export const ClassroomEdit: React.FC<ClassroomEditProps> = ({ visible, id, onClo
       const values = await form.validateFields();
       setSubmitting(true);
 
-      // 组装业务 payload, 提取 equipment 
-      const { projector, airConditioner, microphone, computerCount, ...baseInfo } = values;
-      const payload = {
-        ...baseInfo,
-        equipment: { projector, airConditioner, microphone, computerCount }
-      };
-
       if (isEdit) {
-        await classroomsApi.update(id!, payload);
+        await classroomsApi.update({ id: id!, data: values} );
         // message.success('更新成功');
       } else {
-        await classroomsApi.create(payload as Omit<Classroom, 'id'>);
+        await classroomsApi.create(values);
         // message.success('创建成功');
       }
       onSuccess();

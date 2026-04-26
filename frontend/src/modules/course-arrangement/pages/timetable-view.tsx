@@ -5,10 +5,11 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { Card, Select, Radio, Spin, Empty, Space, Button, Modal, Form, Input, InputNumber } from 'antd';
 import { DownloadOutlined } from '@ant-design/icons';
-import { timetablesApi, ExportTimetableParams } from '../api/timetables';
-import { autoScheduleApi } from '../api/auto-schedule';
+import { timetablesApi } from '../api/timetables';
+import { rulesApi } from '../api/rule.ts';
 import type { OverviewStatsResponse } from '../types/rule.ts';
 import type { Schedule } from '../types/schedule';
+import { ExportTimetableInput } from '../types/timetable.ts';
 
 const { Option } = Select;
 
@@ -35,7 +36,7 @@ export const TimetableView: React.FC = () => {
   // 导出功能状态
   const [exportModalVisible, setExportModalVisible] = useState(false);
   const [exporting, setExporting] = useState(false);
-  const [exportForm] = Form.useForm<ExportTimetableParams>();
+  const [exportForm] = Form.useForm<ExportTimetableInput>();
 
     // 概览统计数据
   const [overviewStats, setOverviewStats] = useState<OverviewStatsResponse | null>(null);
@@ -43,7 +44,7 @@ export const TimetableView: React.FC = () => {
   // 挂载时拉取基础字典数据
   useEffect(() => {
     Promise.all([
-      autoScheduleApi.getOverview().then(res => setOverviewStats(res)),
+      rulesApi.getOverview().then(res => setOverviewStats(res)),
     ]).catch(() => {
     });
   }, []);
@@ -74,6 +75,8 @@ export const TimetableView: React.FC = () => {
       let data: Schedule[] = [];
       if (viewMode === 'comprehensive') {
         const res = await timetablesApi.getBySemester({ 
+          page: 1,
+          pageSize:100, // 假的分页，之后可改进！
           semesterId: selectedSemester,
           classroomId: selectedClassroom,
           courseOfferingId: selectedCourse,
@@ -81,10 +84,10 @@ export const TimetableView: React.FC = () => {
         data = res.items
       } else if (viewMode === 'classroom') {
         if (selectedClassroom)
-          data = await timetablesApi.getByClassroom(selectedClassroom);
+          data = await timetablesApi.getByClassroom({classroomId: selectedClassroom, query: {}}); // 没有实现学期控制
       } else if (viewMode === 'course') {
         if (selectedCourse) {
-          data = await timetablesApi.getByCourseOffering(selectedCourse);
+          data = await timetablesApi.getByCourseOffering({courseOfferingId: selectedCourse});
         }
       }
       setSchedules(data);
@@ -97,12 +100,13 @@ export const TimetableView: React.FC = () => {
 
   // 当筛选条件变化时自动拉取
   useEffect(() => {
+    fetchTimetable();
     if ((viewMode === 'classroom' && selectedClassroom) || 
         (viewMode === 'course' && selectedCourse) ||
         viewMode === 'comprehensive') {
-      fetchTimetable();
+      // fetchTimetable();
     } else {
-      setSchedules([]); // 清空试图
+      // setSchedules([]); // 清空试图
     }
   }, [viewMode, selectedClassroom, selectedCourse, fetchTimetable]);
 
@@ -127,9 +131,9 @@ export const TimetableView: React.FC = () => {
       
       // message.success('导出成功');
       setExportModalVisible(false);
-    } catch (error) {
+    } catch (error: unknown) {
       // 若非表单校验错误，则提示网络异常
-      if (!(error as any).errorFields) {
+      if (error instanceof Error && !('errorFields' in error)) {
         // message.error('导出失败，请检查参数或稍后重试');
       }
     } finally {
@@ -157,8 +161,8 @@ export const TimetableView: React.FC = () => {
     );
 
     schedules.forEach(schedule => {
-      const dayIndex = schedule.dayOfWeek - 1; 
-      for (let p = schedule.startPeriod; p <= schedule.endPeriod; p++) {
+      const dayIndex = schedule.schedule.dayOfWeek - 1; 
+      for (let p = schedule.schedule.startPeriod; p <= schedule.schedule.endPeriod; p++) {
         const periodIndex = p - 1;
         if (periodIndex >= 0 && periodIndex < TOTAL_PERIODS) {
           matrix[periodIndex][dayIndex].push(schedule);
@@ -185,13 +189,13 @@ export const TimetableView: React.FC = () => {
         }}
       >
         <div style={{ fontWeight: 600, color: '#1f2937' }}>
-          {item.courseOffering?.courseName || item.courseOfferingId}
+          {item.courseName}
         </div>
         <div style={{ color: '#6b7280', marginTop: '2px' }}>
-          {item.classroom ? `${item.classroom.building}-${item.classroom.roomNumber}` : item.classroomId}
+          {`${item.classroom.classroom.building}-${item.classroom.classroom.roomNumber}`}
         </div>
         <div style={{ color: '#6b7280' }}>
-          第 {item.startWeek}-{item.endWeek} 周
+          第 {item.schedule.startWeek}-{item.schedule.endWeek} 周
         </div>
       </div>
     ));
@@ -301,7 +305,8 @@ export const TimetableView: React.FC = () => {
 
       <Card styles={{ body: { padding: 0 } }}>
         <Spin spinning={loading}>
-          {schedules.length === 0 && !loading ? (
+          {loading ? null : (
+          schedules.length === 0 && !loading ? (
             <Empty description="请选择筛选条件或当前维度下暂无课表" style={{ padding: '48px 0' }} />
           ) : (
             <div style={{ overflowX: 'auto' }}>
@@ -332,7 +337,7 @@ export const TimetableView: React.FC = () => {
                 </tbody>
               </table>
             </div>
-          )}
+          ))}
         </Spin>
       </Card>
 

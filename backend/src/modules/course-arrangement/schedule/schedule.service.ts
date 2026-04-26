@@ -1,13 +1,72 @@
 import prisma from '../../../shared/prisma/client.js'
-import { CreateScheduleDTO } from './schedule.schemas.js'
+import {
+  ScheduleInPrisma,
+  CreateScheduleInput,
+  UpdateScheduleInput,
+  IdInput,
+  PagedGetSchedulesInput,
+  ScheduleResponse,
+  PagedScheduleListResponse,
+  ValidateResponse,
+  IdResponse,
+  Schedule,
+  NullableScheduleResponse,
+} from './schedule.types.js'
+import { Prisma } from '@prisma/client'
+
+export const scheduleInclude = Prisma.validator<Prisma.ScheduleInclude>()({
+  classroom: {
+    select: {
+      building: true,
+      roomNumber: true,
+      campus: true,
+      status: true,
+      roomType: true,
+      capacity: true,
+    },
+  },
+  courseOffering: {
+    include: {
+      course: { select: { id: true, name: true, code: true } },
+      teacher: { include: { user: { select: { realName: true } } } },
+    },
+  },
+})
+export type ScheduleWithRelations = Prisma.ScheduleGetPayload<{ include: typeof scheduleInclude }>
+
+export function adaptToSchedule(schedule: ScheduleWithRelations): Schedule {
+  return {
+    id: schedule.id,
+    schedule: {
+      courseOfferingId: schedule.courseOfferingId,
+      classroomId: schedule.classroomId,
+      dayOfWeek: schedule.dayOfWeek,
+      startWeek: schedule.startWeek,
+      endWeek: schedule.endWeek,
+      startPeriod: schedule.startPeriod,
+      endPeriod: schedule.endPeriod,
+      notes: schedule.notes,
+    },
+    courseName: schedule.courseOffering.course.name,
+    teacherId: schedule.courseOffering.teacherId,
+    teacherName: schedule.courseOffering.teacher.user?.realName || '未知教师',
+    classroom: {
+      id: schedule.classroomId,
+      classroom: schedule.classroom,
+    },
+  }
+}
 
 export class ScheduleService {
   /**
    * 检测时间冲突
    * 返回值：如果有冲突返回冲突记录，没冲突返回 null
    */
-  async checkConflict(data: CreateScheduleDTO, excludeId?: string) {
-    return await prisma.schedule.findFirst({
+  async checkConflict(
+    data: CreateScheduleInput,
+    excludeId?: string
+  ): Promise<ScheduleInPrisma | null> {
+    return prisma.schedule.findFirst({
       where: {
         classroomId: data.classroomId,
         dayOfWeek: data.dayOfWeek,
@@ -30,26 +89,28 @@ export class ScheduleService {
     })
   }
 
-  async create(data: CreateScheduleDTO) {
+  async create(input: CreateScheduleInput): Promise<IdResponse> {
     // 1. 检查教室是否存在且可用
     const classroom = await prisma.classroom.findUnique({
-      where: { id: data.classroomId },
+      where: { id: input.classroomId },
     })
     if (!classroom || classroom.status !== 'AVAILABLE') {
       throw new Error('教室不存在或当前不可用')
     }
 
     // 2. 检查时间冲突
-    const conflict = await this.checkConflict(data)
+    const conflict = await this.checkConflict(input)
     if (conflict) {
       throw new Error('排课冲突：该教室内已有课程安排')
     }
 
     // 3. 写入排课
-    return await prisma.schedule.create({ data })
+    const result = await prisma.schedule.create({ data: input })
+
+    return { id: result.id }
   }
-  async validate(data: CreateScheduleDTO) {
-    const conflict = await this.checkConflict(data)
+  async validate(input: CreateScheduleInput): Promise<ValidateResponse> {
+    const conflict = await this.checkConflict(input)
     if (conflict) {
       return {
         valid: false,
@@ -58,59 +119,55 @@ export class ScheduleService {
     }
     return { valid: true, conflicts: [] }
   }
-  async findAll(query: any) {
-    const { page = 1, pageSize = 20, classroomId, courseOfferingId } = query
-    const where: any = {}
-    if (classroomId) where.classroomId = classroomId
-    if (courseOfferingId) where.courseOfferingId = courseOfferingId
+  async findAll(input: PagedGetSchedulesInput): Promise<PagedScheduleListResponse> {
+    const where: Prisma.ScheduleWhereInput = {}
+    if (input.classroomId) where.classroomId = input.classroomId
+    if (input.courseOfferingId) where.courseOfferingId = input.courseOfferingId
 
-    const [total, items] = await Promise.all([
+    const [total, rawItems] = await Promise.all([
       prisma.schedule.count({ where }),
       prisma.schedule.findMany({
         where,
-        skip: (Number(page) - 1) * Number(pageSize),
-        take: Number(pageSize),
-        include: {
-          classroom: { select: { building: true, roomNumber: true, campus: true, } },
-          courseOffering: {
-            include: {
-              course: { select: { id: true, name: true, code: true } },
-              teacher: { include: { user: { select: { realName: true } } } }
-            }
-          }
-        }
+        skip: (input.page - 1) * input.pageSize,
+        take: input.pageSize,
+        include: scheduleInclude,
       }),
     ])
-    return { total, page: Number(page), pageSize: Number(pageSize), items }
+    const items: ScheduleResponse[] = rawItems.map(adaptToSchedule)
+    return { items, page: input.page, pageSize: input.pageSize, total }
   }
-  async findById(id: string) {
-    return await prisma.schedule.findUnique({
-      where: { id },
-      include: { classroom: true },
+  async findById(input: IdInput): Promise<NullableScheduleResponse> {
+    const schedule = await prisma.schedule.findUnique({
+      where: { id: input.id },
+      include: scheduleInclude,
     })
+    if (!schedule) return null
+    return adaptToSchedule(schedule)
   }
-  async update(id: string, data: Partial<CreateScheduleDTO>) {
+  async update(input: UpdateScheduleInput): Promise<IdResponse> {
     // 1. 先查出原记录，获取当前信息
-    const current = await prisma.schedule.findUnique({ where: { id } })
+    const current = await prisma.schedule.findUnique({ where: { id: input.id } })
     if (!current) throw new Error('未找到排课记录')
 
     // 2. 构造完整的待校验数据（用新数据覆盖旧数据）
-    const checkData: any = { ...current, ...data }
+    const checkData: ScheduleInPrisma = { ...current, ...input.data }
 
     // 3. 执行冲突检测（传入 excludeId: id，避免和自己冲突）
-    const conflict = await this.checkConflict(checkData, id)
+    const conflict = await this.checkConflict(checkData, input.id)
     if (conflict) throw new Error('更新失败：该时段已有其他排课')
 
     // 4. 执行更新
-    return await prisma.schedule.update({
-      where: { id },
-      data,
+    await prisma.schedule.update({
+      where: { id: input.id },
+      data: input.data,
     })
+    return { id: input.id }
   }
-  async delete(id: string) {
+  async delete(input: IdInput): Promise<IdResponse> {
     // 按照文档建议，如果之后要做逻辑删除可以在这改，目前先物理删除
-    return await prisma.schedule.delete({
-      where: { id },
+    await prisma.schedule.delete({
+      where: { id: input.id },
     })
+    return { id: input.id }
   }
 }

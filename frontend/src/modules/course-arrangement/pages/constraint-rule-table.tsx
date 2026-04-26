@@ -120,47 +120,47 @@ export const ConstraintRuleTable: React.FC<ConstraintRuleTableProps> = ({
       render: (val: string) => val,
     },
     {
-  title: '时间约束',
-  key: 'rules',
-  render: (_: any, record: RuleResponse) => {
-    const { hardConstraints, softConstraints } = record.rules || {};
-    const hardSlots = hardConstraints?.unavailableTimeSlots || [];
-    const softSlots = softConstraints?.preferredTimeSlots || [];
+      title: '时间约束',
+      key: 'rules',
+      render: (record: RuleResponse) => {
+        const { hardConstraints, softConstraints } = record.rules || {};
+        const hardSlots = hardConstraints?.unavailableTimeSlots || [];
+        const softSlots = softConstraints?.preferredTimeSlots || [];
 
-    // 格式化单个时间槽为 Tag
-    const formatSlotTag = (slot: { dayOfWeek: number; startPeriod: number; endPeriod: number }, color: string) => (
-    <Tag color={color}>
-      {color === 'red' ? '× ' : ''}{DAY_MAP[slot.dayOfWeek]} 第{slot.startPeriod}-{slot.endPeriod}节
-    </Tag>
-  );
+        // 格式化单个时间槽为 Tag
+        const formatSlotTag = (slot: { dayOfWeek: number; startPeriod: number; endPeriod: number }, color: string) => (
+        <Tag color={color}>
+          {color === 'red' ? '× ' : ''}{DAY_MAP[slot.dayOfWeek]} 第{slot.startPeriod}-{slot.endPeriod}节
+        </Tag>
+      );
 
-    return (
-      <div style={{ maxWidth: 350 }}>
-        {hardSlots.length > 0 && (
-          <div style={{ marginBottom: 4 }}>
-            {hardSlots.map((slot, idx) => (
-              <span key={idx}>{formatSlotTag(slot, 'red')}</span>
-            ))}
+        return (
+          <div style={{ maxWidth: 350 }}>
+            {hardSlots.length > 0 && (
+              <div style={{ marginBottom: 4 }}>
+                {hardSlots.map((slot, idx) => (
+                  <span key={idx}>{formatSlotTag(slot, 'red')}</span>
+                ))}
+              </div>
+            )}
+            {softSlots.length > 0 && (
+              <div>
+                {softSlots.map((slot, idx) => (
+                  <span key={idx}>{formatSlotTag(slot, 'blue')}</span>
+                ))}
+              </div>
+            )}
+            {hardSlots.length === 0 && softSlots.length === 0 && (
+              <Text type="secondary">未配置</Text>
+            )}
           </div>
-        )}
-        {softSlots.length > 0 && (
-          <div>
-            {softSlots.map((slot, idx) => (
-              <span key={idx}>{formatSlotTag(slot, 'blue')}</span>
-            ))}
-          </div>
-        )}
-        {hardSlots.length === 0 && softSlots.length === 0 && (
-          <Text type="secondary">未配置</Text>
-        )}
-      </div>
-    );
-  },
-},
+        );
+      },
+    },
     {
       title: '教室/教学楼',
       key: 'roomAndBuilding',
-      render: (_: any, record: RuleResponse) => {
+      render: (record: RuleResponse) => {
         const hardRoom = record.rules?.hardConstraints?.requiredRoomType;
         const softBuilding = record.rules?.softConstraints?.preferredBuilding;
         return (
@@ -175,7 +175,7 @@ export const ConstraintRuleTable: React.FC<ConstraintRuleTableProps> = ({
     {
       title: '连续排课',
       key: 'continuousPeriods',
-      render: (_: any, record: RuleResponse) =>
+      render: (record: RuleResponse) =>
         record.rules?.softConstraints?.continuousPeriods === true
           ? <Tag color="green">是</Tag>
           : record.rules?.softConstraints?.continuousPeriods === false
@@ -186,7 +186,7 @@ export const ConstraintRuleTable: React.FC<ConstraintRuleTableProps> = ({
       title: '操作',
       key: 'action',
       width: 120,
-      render: (_: any, record: RuleResponse) => (
+      render: (record: RuleResponse) => (
         <Space>
           <Button type="link" icon={<EditOutlined />} onClick={() => openDrawer(record.id)}>
             编辑

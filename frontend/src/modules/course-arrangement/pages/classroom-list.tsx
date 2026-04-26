@@ -4,9 +4,10 @@
  */
 import React, { useEffect, useState, useCallback } from 'react';
 import { Card, Table, Form, Input, Select, Button, Space, Tag } from 'antd';
+import type { TableColumnsType } from 'antd';
 import { PlusOutlined, SearchOutlined } from '@ant-design/icons';
 import { classroomsApi } from '../api/classrooms';
-import type { Classroom, ClassroomQueryParams } from '../types/classroom';
+import type { ClassroomWithId, PagedClassroomListResponse, ClassroomQueryInput } from '../types/classroom';
 import { ClassroomEdit } from './classroom-edit';
 
 const { Option } = Select;
@@ -20,16 +21,16 @@ const STATUS_MAP: Record<string, { color: string; text: string }> = {
 
 // 教室类型映射字典
 const ROOM_TYPE_MAP: Record<string, string> = {
-  lecture: '普通教室',
-  lab: '实验室',
-  computer: '机房',
-  multimedia: '多媒体教室',
+  LECTURE: '普通教室',
+  LAB: '实验室',
+  COMPUTER: '机房',
+  MULTIMEDIA: '多媒体教室',
 };
 
 export const ClassroomList: React.FC = () => {
-  const [form] = Form.useForm();
+  const [form] = Form.useForm<ClassroomQueryInput>();
   const [loading, setLoading] = useState(false);
-  const [data, setData] = useState<Classroom[]>([]);
+  const [data, setData] = useState<PagedClassroomListResponse>();
   const [total, setTotal] = useState(0);
   
   // 分页状态 
@@ -39,7 +40,7 @@ export const ClassroomList: React.FC = () => {
   const [drawerVisible, setDrawerVisible] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
 
-  const fetchClassrooms = useCallback( async (values: ClassroomQueryParams = {}) => {
+  const fetchClassrooms = useCallback( async (values: ClassroomQueryInput) => {
     setLoading(true);
     try {
       const res = await classroomsApi.getList({
@@ -47,8 +48,8 @@ export const ClassroomList: React.FC = () => {
         page: pagination.page,
         pageSize: pagination.pageSize,
       });
-      setData(res.items);
-      setTotal(res.pagination.total);
+      setData(res);
+      setTotal(res.total);
     } catch {
       // message.error('获取教室列表失败');
     } finally {
@@ -61,7 +62,7 @@ export const ClassroomList: React.FC = () => {
     fetchClassrooms(values);
   }, [form, fetchClassrooms]);
 
-  const handleSearch = (values: any) => {
+  const handleSearch = (values: ClassroomQueryInput) => {
     setPagination({ ...pagination, page: 1 }); // 重置到第一页
     fetchClassrooms(values);
   };
@@ -71,31 +72,51 @@ export const ClassroomList: React.FC = () => {
     setDrawerVisible(true);
   };
 
-  const columns = [
-    { title: '教室号', dataIndex: 'roomNumber', key: 'roomNumber' },
-    { title: '教学楼', dataIndex: 'building', key: 'building' },
-    { title: '校区', dataIndex: 'campus', key: 'campus' },
+  const columns: TableColumnsType<ClassroomWithId> = [
+    { 
+      title: '教室号', 
+      key: 'roomNumber',
+      render: (_, record) => record.classroom.roomNumber
+    },
+    { 
+      title: '教学楼', 
+      key: 'building',
+      render: (_, record) => record.classroom.building
+    },
+    { 
+      title: '校区', 
+      key: 'campus',
+      render: (_, record) => record.classroom.campus
+    },
     { 
       title: '类型', 
-      dataIndex: 'roomType', 
       key: 'roomType',
-      render: (type: string) => ROOM_TYPE_MAP[type] || type
+      render: (_, record) => {
+        const type = record.classroom.roomType;
+        return ROOM_TYPE_MAP[type] || type;
+      }
     },
-    { title: '容量 (人)', dataIndex: 'capacity', key: 'capacity' },
+    { 
+      title: '容量 (人)', 
+      key: 'capacity',
+      render: (_, record) => record.classroom.capacity 
+    },
     {
       title: '状态',
-      dataIndex: 'status',
       key: 'status',
-      render: (status: string) => (
-        <Tag color={STATUS_MAP[status]?.color || 'default'}>
-          {STATUS_MAP[status]?.text || status}
-        </Tag>
-      ),
+      render: (_, record) => {
+        const status = record.classroom?.status;
+        return (
+          <Tag color={STATUS_MAP[status]?.color || 'default'}>
+            {STATUS_MAP[status]?.text || status || '-'}
+          </Tag>
+        );
+      },
     },
     {
       title: '操作',
       key: 'action',
-      render: (_: any, record: Classroom) => (
+      render: (_, record) => (
         <Button type="link" onClick={() => openDrawer(record.id)}>编辑</Button>
       ),
     },
@@ -138,7 +159,7 @@ export const ClassroomList: React.FC = () => {
         </div>
         <Table
           columns={columns}
-          dataSource={data}
+          dataSource={data?.items}
           rowKey="id"
           loading={loading}
           pagination={{

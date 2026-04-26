@@ -7,9 +7,9 @@ import { z } from 'zod'
 // --- Request Schemas ---
 
 export const timeSlotSchema = z.object({
-  dayOfWeek: z.number().int().min(1).max(7),
-  startPeriod: z.number().int().min(1),
-  endPeriod: z.number().int().min(1),
+  dayOfWeek: z.coerce.number().int().min(1).max(7),
+  startPeriod: z.coerce.number().int().min(1),
+  endPeriod: z.coerce.number().int().min(1),
 })
 
 export const setSchedulingRuleSchema = z.object({
@@ -70,9 +70,9 @@ export const ruleResponseSchema = z.object({
 export const ruleListResponseSchema = z.object({
   items: z.array(ruleResponseSchema),
   pagination: z.object({
-    page: z.number(),
-    pageSize: z.number(),
-    total: z.number(),
+    page: z.coerce.number(),
+    pageSize: z.coerce.number(),
+    total: z.coerce.number(),
   }),
 })
 

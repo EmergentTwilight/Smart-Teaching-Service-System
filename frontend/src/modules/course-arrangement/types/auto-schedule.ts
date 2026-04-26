@@ -1,40 +1,76 @@
-/**
- * 排课任务相关的类型定义
- */
+// COPIED from auto-schedule.types.ts in backend
+// auto-schedule.types.ts
+// if modified, it (the new one) should be copied to the frontend
 
-// 排课任务创建的 Payload
-export interface AutoScheduleTaskPayload {
-  semesterId: string
-  courseOfferingIds?: string[]
-}
+import { z } from 'zod'
+import { scheduleInPrismaSchema } from './schedule.js'
 
-// 排课任务状态
-export interface AutoScheduleTaskStatus {
-  taskId: string
-  status: 'queued' | 'processing' | 'completed' | 'failed'
-  progress: number
-}
+export const scheduleSchema = z.object({
+  schedule: scheduleInPrismaSchema,
+  teacherId: z.string().min(1),
+})
 
-// 排课失败明细
-export interface AutoScheduleFailure {
-  courseOfferingId: string
-  courseName: string
-  teacherName: string
-  reason: string
-  detail: string
-}
+export const scheduleSuccessSchema = z.object({
+  courseOfferingId: z.string(),
+  teacherId: z.string().min(1),
+  classroomId: z.string(),
+  dayOfWeek: z.coerce.number(),
+  startWeek: z.coerce.number(),
+  endWeek: z.coerce.number(),
+  startPeriod: z.coerce.number(),
+  endPeriod: z.coerce.number(),
+  notes: z.string().nullable(),
+})
 
-// 派克完成后生成的草稿与异常报告
-export interface AutoSchedulePreview {
-  taskId: string
-  status: string
-  successRate: number
-  schedules: any[] // 临时排课结果数组
-  failures: AutoScheduleFailure[]
-}
+export const scheduleFailureSchema = z.object({
+  courseOfferingId: z.string().min(1),
+  courseName: z.string().min(1),
+  teacherName: z.string().min(1),
+  reason: z.string(),
+  detail: z.string(),
+})
 
-// 结果统计
-export interface AutoScheduleApplyResult {
-  appliedCount: number
-  ignoredCount: number
-}
+// --- Request Schemas ---
+
+export const createTaskSchema = z.object({
+  semesterId: z.string().min(1, '学期ID不能为空'),
+  courseOfferingIds: z.array(z.string().min(1)).optional(),
+})
+
+// taskId: string
+export const taskIdSchema = z.object({
+  taskId: z.string().min(1, '任务ID不能为空'),
+})
+
+// --- Response Schemas ---
+
+export const autoScheduleTaskResponseSchema = z.object({
+  taskId: z.string().min(1),
+  status: z.enum(['queued', 'processing', 'completed', 'failed']),
+  progress: z.coerce.number().min(0).max(100),
+  semesterId: z.string().min(1),
+  result: z
+    .object({
+      successRate: z.coerce.number().min(0).max(100),
+      schedules: z.array(scheduleSchema),
+      failures: z.array(scheduleFailureSchema),
+    })
+    .optional(),
+})
+
+export const applyTaskResponseSchema = z.object({
+  appliedCount: z.coerce.number().int().min(0),
+  ignoredCount: z.coerce.number().int().min(0),
+})
+
+// --- infer ---
+
+export type Schedule = z.infer<typeof scheduleSchema>
+export type ScheduleSuccess = z.infer<typeof scheduleSchema>
+export type ScheduleFailure = z.infer<typeof scheduleFailureSchema>
+
+export type CreateTaskInput = z.infer<typeof createTaskSchema>
+export type TaskIdInput = z.infer<typeof taskIdSchema>
+
+export type AutoScheduleTaskResponse = z.infer<typeof autoScheduleTaskResponseSchema>
+export type ApplyTaskResponse = z.infer<typeof applyTaskResponseSchema>

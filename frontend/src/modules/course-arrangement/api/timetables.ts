@@ -3,19 +3,24 @@
  * 提供纯读视图数据，支持多维度（课程、教室、综合）检索以及课表的导出
  */
 import request from '@/shared/utils/request'
-import type { Schedule, ValidScheduleQueryParams } from '../types/schedule.js'
+import type {
+  ExportTimetableInput,
+  GetByClassroomInput,
+  PagedTimetableListResponse,
+  GetByCourseOfferingInput,
+  TimetableListResponse,
+  PagedGetTimetablesInputWithoutAuth,
+} from '../types/timetable.js'
+import {
+  getByCourseOfferingSchema,
+  getByClassroomSchema,
+  exportTimetableSchema,
+  pagedTimetableListResponseSchema,
+  timetableListResponseSchema,
+  pagedGetTimetablesWithoutAuthSchema,
+} from '../types/timetable.js'
 
 const BASE_PATH = '/course-arrangement/timetables'
-
-// 导出课表的请求参数类型
-export interface ExportTimetableParams {
-  semesterId: string
-  format?: 'pdf' | 'excel'
-  targetType: 'classroom' | 'teacher' | 'student' | 'global'
-  targetId: string
-  startWeek?: number
-  endWeek?: number
-}
 
 export const timetablesApi = {
   /**
@@ -23,8 +28,12 @@ export const timetablesApi = {
    * @param courseOfferingId 课程开设ID
    * @returns 已按星期和节次升序排列的排课数组
    */
-  getByCourseOffering: async (courseOfferingId: string): Promise<Schedule[]> => {
-    return request.get(`${BASE_PATH}/course-offerings/${courseOfferingId}`)
+  getByCourseOffering: async (input: GetByCourseOfferingInput): Promise<TimetableListResponse> => {
+    const validatedInput = getByCourseOfferingSchema.parse(input)
+    const result = await request.get(
+      `${BASE_PATH}/course-offerings/${validatedInput.courseOfferingId}`
+    )
+    return timetableListResponseSchema.parse(result)
   },
 
   /**
@@ -32,8 +41,12 @@ export const timetablesApi = {
    * @param classroomId 教室ID
    * @returns 已按星期和节次升序排列的排课数组
    */
-  getByClassroom: async (classroomId: string): Promise<Schedule[]> => {
-    return request.get(`${BASE_PATH}/classrooms/${classroomId}`)
+  getByClassroom: async (input: GetByClassroomInput): Promise<TimetableListResponse> => {
+    const validatedInput = getByClassroomSchema.parse(input)
+    const result = await request.get(`${BASE_PATH}/classrooms/${validatedInput.classroomId}`, {
+      params: validatedInput.query,
+    })
+    return timetableListResponseSchema.parse(result)
   },
 
   /**
@@ -41,8 +54,12 @@ export const timetablesApi = {
    * @param semesterId 学期ID
    * @returns 该学期所有排课记录
    */
-  getBySemester: async (params: ValidScheduleQueryParams): Promise<{ items: Schedule[]; total: number; page: number; pageSize: number; }> => {
-    return request.get(`${BASE_PATH}`, { params })
+  getBySemester: async (
+    input: PagedGetTimetablesInputWithoutAuth
+  ): Promise<PagedTimetableListResponse> => {
+    const validatedInput = pagedGetTimetablesWithoutAuthSchema.parse(input)
+    const result = await request.get(`${BASE_PATH}`, { params: validatedInput })
+    return pagedTimetableListResponseSchema.parse(result)
   },
 
   /**
@@ -50,9 +67,10 @@ export const timetablesApi = {
    * @param params 导出条件
    * @returns 二进制文件流
    */
-  exportTimetable: async (params: ExportTimetableParams): Promise<Blob> => {
+  exportTimetable: async (input: ExportTimetableInput): Promise<Blob> => {
+    const validatedInput = exportTimetableSchema.parse(input)
     return request.get(`${BASE_PATH}/export`, {
-      params,
+      params: validatedInput,
       responseType: 'blob', // 接收二进制数据
     })
   },

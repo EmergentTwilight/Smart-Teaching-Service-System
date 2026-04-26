@@ -1,10 +1,9 @@
-// COPIED from schedule.types.ts in backend
 // schedule.types.ts
 // if modified, it (the new one) should be copied to the frontend
 
 import { z } from 'zod'
 
-import { classroomInPrismaSchema } from './classroom.js'
+import { classroomInPrismaSchema } from '../classroom/classroom.types.js'
 
 export const scheduleInPrismaSchema = z
   .object({

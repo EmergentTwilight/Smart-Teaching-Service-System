@@ -6,7 +6,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Card, Button, Progress, Steps, Table, Alert, Space, Statistic, Row, Col, Select, Typography, Tag } from 'antd';
 import { RobotOutlined, CheckCircleOutlined, SyncOutlined, UnorderedListOutlined } from '@ant-design/icons';
 import { autoScheduleApi } from '../api/auto-schedule';
-import type { AutoScheduleTaskStatus, AutoSchedulePreview } from '../types/auto-schedule';
+import { rulesApi } from '../api/rule';
+import type { AutoScheduleTaskResponse } from '../types/auto-schedule';
 import { ConstraintRuleTable } from './constraint-rule-table';
 
 // const { Step } = Steps;
@@ -25,9 +26,7 @@ export const AutoScheduleManagement: React.FC = () => {
 
   // 任务状态
   const [taskId, setTaskId] = useState<string | null>(null);
-  const [taskStatus, setTaskStatus] = useState<AutoScheduleTaskStatus | null>(null);
-  const [previewData, setPreviewData] = useState<AutoSchedulePreview | null>(null);
-  
+  const [taskStatus, setTaskStatus] = useState<AutoScheduleTaskResponse | null>(null);
   // 交互状态
   const [loading, setLoading] = useState(false);
   const [applying, setApplying] = useState(false);
@@ -37,7 +36,7 @@ export const AutoScheduleManagement: React.FC = () => {
   const fetchOverview = useCallback(async () => {
     try {
       setClassroomLoading(true);
-      const res = await autoScheduleApi.getOverview(); // 假设 API 方法名
+      const res = await rulesApi.getOverview(); // 假设 API 方法名
       setSemesters(res.semesters.map(s => ({
         id: s.id,
         name: s.name,
@@ -73,7 +72,7 @@ export const AutoScheduleManagement: React.FC = () => {
     if (taskId && currentStep === 1) {
       timer = setInterval(async () => {
         try {
-          const res = await autoScheduleApi.getTaskStatus(taskId);
+          const res = await autoScheduleApi.getTaskStatus({ taskId: taskId });
           setTaskStatus(res);
           // 任务完成，进入预览阶段
           if (res.status === 'completed' || res.status === 'failed') {
@@ -87,6 +86,8 @@ export const AutoScheduleManagement: React.FC = () => {
           }
         } catch  {
           // ...
+          clearInterval(timer);
+          setCurrentStep(0); // 退回初始
         }
       }, 300); // 每0.3秒轮询一次
     }
@@ -94,11 +95,11 @@ export const AutoScheduleManagement: React.FC = () => {
   }, [taskId, currentStep]);
 
   // 获取预览数据
-  const fetchPreview = async (id: string) => {
+  const fetchPreview = async (taskId: string) => {
     try {
       setLoading(true);
-      const res = await autoScheduleApi.getTaskPreview(id);
-            setPreviewData(res);
+      const res = await autoScheduleApi.getTaskPreview({ taskId: taskId });
+            setTaskStatus(res);
       setCurrentStep(2);
     } catch {
       // message.error('获取排课预览结果失败');
@@ -117,7 +118,7 @@ export const AutoScheduleManagement: React.FC = () => {
         // courseOfferingIds: values.courseOfferingIds ? values.courseOfferingIds.split(',') : undefined
       });
       setTaskId(res.taskId);
-      setTaskStatus({ taskId: res.taskId, status: 'queued', progress: 0 });
+      setTaskStatus({ semesterId: selectedSemester, status: 'queued', taskId: res.taskId, progress: 0 });
       setCurrentStep(1);
       // message.success('排课任务已提交后台处理');
     } catch  {
@@ -132,7 +133,7 @@ export const AutoScheduleManagement: React.FC = () => {
     if (!taskId) return;
     try {
       setApplying(true);
-      await autoScheduleApi.applyTask(taskId);
+      await autoScheduleApi.applyTask({ taskId: taskId });
       // message.success(`排课结果应用成功！成功落库 ${res.appliedCount} 条，忽略 ${res.ignoredCount} 条。`);
       setCurrentStep(3);
     } catch {
@@ -147,7 +148,6 @@ export const AutoScheduleManagement: React.FC = () => {
     setCurrentStep(0);
     setTaskId(null);
     setTaskStatus(null);
-    setPreviewData(null);
     // form.resetFields();
   };
 
@@ -263,30 +263,30 @@ export const AutoScheduleManagement: React.FC = () => {
       )}
 
       {/* 预览草稿 */}
-      {currentStep === 2 && previewData && (
+      {currentStep === 2 && taskStatus && taskStatus.result && (
         <Space direction="vertical" size="large" style={{ width: '100%' }}>
           <Row gutter={16}>
             <Col span={8}>
               <Card>
-                <Statistic title="排课成功率" value={previewData.successRate} suffix="%" valueStyle={{ color: '#3f8600' }} />
+                <Statistic title="排课成功率" value={taskStatus.result.successRate} suffix="%" valueStyle={{ color: '#3f8600' }} />
               </Card>
             </Col>
             <Col span={8}>
               <Card>
-                <Statistic title="成功生成排课记录" value={previewData.schedules?.length || 0} suffix="条" />
+                <Statistic title="成功生成排课记录" value={taskStatus.result.schedules?.length || 0} suffix="条" />
               </Card>
             </Col>
             <Col span={8}>
               <Card>
-                <Statistic title="冲突/失败记录" value={previewData.failures?.length || 0} suffix="条" valueStyle={{ color: '#cf1322' }} />
+                <Statistic title="冲突/失败记录" value={taskStatus.result.failures?.length || 0} suffix="条" valueStyle={{ color: '#cf1322' }} />
               </Card>
             </Col>
           </Row>
 
           <Card title="冲突预警与失败详情">
-            {previewData.failures?.length > 0 ? (
+            {taskStatus.result.failures?.length > 0 ? (
               <Table 
-                dataSource={previewData.failures} 
+                dataSource={taskStatus.result.failures} 
                 columns={failureColumns} 
                 rowKey="courseOfferingId"
                 pagination={false}

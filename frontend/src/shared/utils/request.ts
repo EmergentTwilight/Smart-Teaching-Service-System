@@ -156,24 +156,32 @@ request.interceptors.request.use(
     if (token) {
       config.headers.Authorization = `Bearer ${token}`
     }
-    // 将请求体的 camelCase 转换为 snake_case
-    // 注意：跳过 FormData 对象，因为它不是普通对象
+
     if (config.data && typeof config.data === 'object' && !(config.data instanceof FormData)) {
-      console.log('=== [请求拦截器] 转换前数据:', JSON.stringify(config.data, null, 2))
-      console.log('=== [请求拦截器] 数据类型:', Object.prototype.toString.call(config.data))
-      console.log('=== [请求拦截器] 是否为 FormData:', config.data instanceof FormData)
-      config.data = convertKeysToSnakeCase(config.data)
-      console.log('=== [请求拦截器] 转换后数据:', JSON.stringify(config.data, null, 2))
-      // 处理枚举值：degree_type 需要转换为大写
-      if (typeof config.data === 'object' && 'degree_type' in config.data) {
-        config.data.degree_type = String(config.data.degree_type).toUpperCase()
-        console.log('=== [请求拦截器] degree_type 大写转换后:', config.data.degree_type)
+      // 根据 API 路径决定是否转换字段名
+      const url = config.url || ''
+
+      console.log(`=== [请求拦截器] URL: ${url}`)
+      console.log(`=== [请求拦截器] 转换前数据:`, JSON.stringify(config.data, null, 2))
+
+      // 专业相关接口使用 snake_case（匹配 /majors 或 /api/v1/majors）
+      if (url.includes('/majors')) {
+        console.log('=== [请求拦截器] 检测到专业接口，转换为 snake_case')
+        config.data = convertKeysToSnakeCase(config.data)
+        console.log('=== [请求拦截器] 转换后数据:', JSON.stringify(config.data, null, 2))
+        // 处理 degree_type 枚举值
+        if ('degree_type' in config.data) {
+          config.data.degree_type = String(config.data.degree_type).toUpperCase()
+          console.log('=== [请求拦截器] degree_type 大写转换:', config.data.degree_type)
+        }
+      } else {
+        console.log('=== [请求拦截器] 非专业接口，保持 camelCase')
+        // 处理 degreeType 枚举值（如果有的话）
+        if ('degreeType' in config.data) {
+          config.data.degreeType = String(config.data.degreeType).toUpperCase()
+        }
       }
-    } else if (config.data) {
-      console.log(
-        '=== [请求拦截器] 数据不是普通对象，跳过转换:',
-        Object.prototype.toString.call(config.data)
-      )
+      console.log(`=== [请求拦截器] 最终发送数据:`, JSON.stringify(config.data, null, 2))
     }
     return config
   },

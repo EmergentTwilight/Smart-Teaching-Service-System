@@ -63,7 +63,7 @@ async function cleanupDepartmentsData() {
 }
 
 // 辅助函数：创建测试用户
-async function createTestUser() {
+async function createTestUser(roleCode: string = 'student') {
   const username = `itest_dept_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`
   const hashedPassword = await bcrypt.hash('Password123', 10)
   const email = `itest_dept_${Date.now()}_${Math.random().toString(36).slice(2, 7)}@test.com`
@@ -78,16 +78,24 @@ async function createTestUser() {
     },
   })
 
-  // 分配学生角色
-  const studentRole = await prisma.role.findUnique({
-    where: { code: 'student' },
+  const role = await prisma.role.findUnique({
+    where: { code: roleCode },
   })
 
-  if (studentRole) {
+  if (role) {
     await prisma.userRole.create({
       data: {
         userId: user.id,
-        roleId: studentRole.id,
+        roleId: role.id,
+      },
+    })
+  }
+
+  if (roleCode === 'admin' || roleCode === 'super_admin') {
+    await prisma.admin.create({
+      data: {
+        userId: user.id,
+        adminType: roleCode === 'super_admin' ? 'SUPER' : 'ACADEMIC',
       },
     })
   }
@@ -204,6 +212,24 @@ describe('GET /api/v1/departments', () => {
 
     expect(Array.isArray(response.body.data)).toBe(true)
   })
+
+  it('应该按关键词搜索院系名称或代码', async () => {
+    const user = await createTestUser()
+    const token = generateTestToken(user.id, user.username)
+
+    await createTestDepartment({ name: 'itest_dept_搜索目标学院', code: 'ITD_SEARCH_HIT' })
+    await createTestDepartment({ name: 'itest_dept_搜索干扰学院', code: 'ITD_SEARCH_MISS' })
+
+    const response = await request(app)
+      .get('/api/v1/departments')
+      .query({ keyword: '目标' })
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200)
+
+    const names = response.body.data.map((item: { name: string }) => item.name)
+    expect(names).toContain('itest_dept_搜索目标学院')
+    expect(names).not.toContain('itest_dept_搜索干扰学院')
+  })
 })
 
 describe('GET /api/v1/departments/:id', () => {
@@ -308,6 +334,214 @@ describe('GET /api/v1/departments/:id', () => {
       .expect(200)
 
     expect(response.body.data.majors).toEqual([])
+  })
+})
+
+describe('POST /api/v1/departments', () => {
+  const app = createTestApp()
+
+  it('应该允许 super_admin 创建院系', async () => {
+    const admin = await createTestUser('super_admin')
+    const token = generateTestToken(admin.id, admin.username, ['super_admin'])
+
+    const response = await request(app)
+      .post('/api/v1/departments')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        name: 'itest_dept_新建学院',
+        code: 'ITD201',
+        description: '新建学院描述',
+      })
+      .expect(201)
+
+    expect(response.body.message).toBe('院系创建成功')
+    expect(response.body.data.name).toBe('itest_dept_新建学院')
+    expect(response.body.data.code).toBe('ITD201')
+
+    const created = await prisma.department.findUnique({ where: { code: 'ITD201' } })
+    expect(created?.description).toBe('新建学院描述')
+  })
+
+  it('应该拒绝 admin 创建院系', async () => {
+    const admin = await createTestUser('admin')
+    const token = generateTestToken(admin.id, admin.username, ['admin'])
+
+    const response = await request(app)
+      .post('/api/v1/departments')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        name: 'itest_dept_禁止创建学院',
+        code: 'ITD202',
+      })
+      .expect(403)
+
+    expect(response.body.message).toContain('权限不足')
+  })
+
+  it('缺少必填字段时应该返回 400', async () => {
+    const admin = await createTestUser('super_admin')
+    const token = generateTestToken(admin.id, admin.username, ['super_admin'])
+
+    const response = await request(app)
+      .post('/api/v1/departments')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ code: 'ITD203' })
+      .expect(400)
+
+    expect(response.body.message).toContain('验证失败')
+  })
+
+  it('重复部门代码时应该返回 409', async () => {
+    const admin = await createTestUser('super_admin')
+    const token = generateTestToken(admin.id, admin.username, ['super_admin'])
+
+    await createTestDepartment({ name: 'itest_dept_原学院', code: 'ITD_DUP_CODE' })
+
+    const response = await request(app)
+      .post('/api/v1/departments')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        name: 'itest_dept_新学院',
+        code: 'ITD_DUP_CODE',
+        description: '重复代码',
+      })
+      .expect(409)
+
+    expect(response.body.message).toContain('部门代码已存在')
+  })
+
+  it('重复部门名称时应该返回 409', async () => {
+    const admin = await createTestUser('super_admin')
+    const token = generateTestToken(admin.id, admin.username, ['super_admin'])
+
+    await createTestDepartment({ name: 'itest_dept_重复名称学院', code: 'ITD_DUP_NAME_1' })
+
+    const response = await request(app)
+      .post('/api/v1/departments')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        name: 'itest_dept_重复名称学院',
+        code: 'ITD_DUP_NAME_2',
+        description: '重复名称',
+      })
+      .expect(409)
+
+    expect(response.body.message).toContain('部门名称已存在')
+  })
+})
+
+describe('PUT /api/v1/departments/:id', () => {
+  const app = createTestApp()
+
+  it('应该允许 admin 更新院系', async () => {
+    const admin = await createTestUser('admin')
+    const token = generateTestToken(admin.id, admin.username, ['admin'])
+    const department = await createTestDepartment({
+      name: 'itest_dept_待更新学院',
+      code: 'ITD301',
+    })
+
+    const response = await request(app)
+      .put(`/api/v1/departments/${department.id}`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        name: 'itest_dept_更新后学院',
+        description: '更新后的描述',
+      })
+      .expect(200)
+
+    expect(response.body.message).toBe('院系更新成功')
+    expect(response.body.data.name).toBe('itest_dept_更新后学院')
+
+    const updated = await prisma.department.findUnique({ where: { id: department.id } })
+    expect(updated?.description).toBe('更新后的描述')
+  })
+
+  it('应该拒绝 student 更新院系', async () => {
+    const student = await createTestUser('student')
+    const token = generateTestToken(student.id, student.username, ['student'])
+    const department = await createTestDepartment()
+
+    await request(app)
+      .put(`/api/v1/departments/${department.id}`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ name: 'itest_dept_禁止更新' })
+      .expect(403)
+  })
+
+  it('院系不存在时应该返回 404', async () => {
+    const admin = await createTestUser('admin')
+    const token = generateTestToken(admin.id, admin.username, ['admin'])
+
+    const response = await request(app)
+      .put('/api/v1/departments/00000000-0000-0000-0000-000000000000')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        name: 'itest_dept_不存在院系',
+        description: '不存在院系描述',
+      })
+      .expect(404)
+
+    expect(response.body.message).toBeDefined()
+  })
+})
+
+describe('DELETE /api/v1/departments/:id', () => {
+  const app = createTestApp()
+
+  it('应该允许 super_admin 删除空院系', async () => {
+    const admin = await createTestUser('super_admin')
+    const token = generateTestToken(admin.id, admin.username, ['super_admin'])
+    const department = await createTestDepartment({
+      name: 'itest_dept_待删除学院',
+      code: 'ITD401',
+    })
+
+    const response = await request(app)
+      .delete(`/api/v1/departments/${department.id}`)
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200)
+
+    expect(response.body.message).toBe('院系删除成功')
+    const deleted = await prisma.department.findUnique({ where: { id: department.id } })
+    expect(deleted).toBeNull()
+  })
+
+  it('应该拒绝 admin 删除院系', async () => {
+    const admin = await createTestUser('admin')
+    const token = generateTestToken(admin.id, admin.username, ['admin'])
+    const department = await createTestDepartment()
+
+    await request(app)
+      .delete(`/api/v1/departments/${department.id}`)
+      .set('Authorization', `Bearer ${token}`)
+      .expect(403)
+  })
+
+  it('有关联专业时删除应该失败', async () => {
+    const admin = await createTestUser('super_admin')
+    const token = generateTestToken(admin.id, admin.username, ['super_admin'])
+    const department = await createTestDepartment({
+      name: 'itest_dept_有关联学院',
+      code: 'ITD402',
+    })
+    await prisma.major.create({
+      data: {
+        name: 'itest_dept_关联专业',
+        code: 'ITD_MAJOR_402',
+        departmentId: department.id,
+      },
+    })
+
+    const response = await request(app)
+      .delete(`/api/v1/departments/${department.id}`)
+      .set('Authorization', `Bearer ${token}`)
+      .expect(409)
+
+    expect(response.body.message).toContain('院系存在关联数据')
+
+    const existing = await prisma.department.findUnique({ where: { id: department.id } })
+    expect(existing).not.toBeNull()
   })
 })
 

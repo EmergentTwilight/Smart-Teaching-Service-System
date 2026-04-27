@@ -233,12 +233,37 @@ const DepartmentList: React.FC = () => {
     });
   }, []);
 
-  const departments = data || [];
+  const allDepartments = data || [];
+  
+  // 客户端搜索过滤
+  const filteredDepartments = useMemo(() => {
+    if (!params.keyword) return allDepartments;
+    const keyword = params.keyword.toLowerCase();
+    return allDepartments.filter(
+      (dept) =>
+        dept.name.toLowerCase().includes(keyword) ||
+        dept.code?.toLowerCase().includes(keyword)
+    );
+  }, [allDepartments, params.keyword]);
+
+  // 客户端分页
+  const { paginatedDepartments, total } = useMemo(() => {
+    const page = params.page || 1;
+    const pageSize = params.pageSize || 10;
+    const startIndex = (page - 1) * pageSize;
+    const endIndex = startIndex + pageSize;
+    return {
+      paginatedDepartments: filteredDepartments.slice(startIndex, endIndex),
+      total: filteredDepartments.length,
+    };
+  }, [filteredDepartments, params.page, params.pageSize]);
+
+  const departments = paginatedDepartments;
   const pagination = {
-    total: departments.length,
+    total,
     page: params.page,
     pageSize: params.pageSize || 10,
-    totalPages: Math.ceil(departments.length / (params.pageSize || 10)),
+    totalPages: Math.ceil(total / (params.pageSize || 10)),
   };
 
   return (

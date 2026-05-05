@@ -2,6 +2,7 @@
 // if modified, it (the new one) should be copied to the frontend
 
 import { z } from 'zod'
+import { RoomTypeEnum } from '../classroom/classroom.types.js'
 
 // --- Request Schemas ---
 
@@ -17,7 +18,7 @@ export const setSchedulingRuleSchema = z.object({
   rules: z.object({
     hardConstraints: z.object({
       unavailableTimeSlots: z.array(timeSlotSchema),
-      requiredRoomType: z.string().optional(),
+      requiredRoomType: RoomTypeEnum.optional(),
     }),
     softConstraints: z.object({
       preferredTimeSlots: z.array(timeSlotSchema),
@@ -47,7 +48,7 @@ export const batchDeleteSchema = z.object({
 const schedulingRuleSchema = z.object({
   hardConstraints: z.object({
     unavailableTimeSlots: z.array(timeSlotSchema),
-    requiredRoomType: z.string().optional(),
+    requiredRoomType: RoomTypeEnum.optional(),
   }),
   softConstraints: z.object({
     preferredTimeSlots: z.array(timeSlotSchema),

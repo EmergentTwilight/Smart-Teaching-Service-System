@@ -19,7 +19,7 @@ export const AutoScheduleManagement: React.FC = () => {
   const [currentStep, setCurrentStep] = useState(0);
 
   // 排课配置数据
-  const [selectedSemester, setSelectedSemester] = useState('2025-Fall');
+  const [selectedSemester, setSelectedSemester] = useState<string>();
   const [semesters, setSemesters] = useState<{id: string; name: string; courseCount: number}[]>([]);
   const [courseCount, setCourseCount] = useState(0);
   const [classroomCount, setClassroomCount] = useState(0);
@@ -110,6 +110,7 @@ export const AutoScheduleManagement: React.FC = () => {
 
   // 触发排课任务
   const handleStartTask = async () => {
+    if (!selectedSemester) return;
     try {
       // const values = await form.validateFields();
       setLoading(true);
@@ -237,6 +238,7 @@ export const AutoScheduleManagement: React.FC = () => {
                 size="large"
                 icon={<RobotOutlined />}
                 loading={loading}
+                disabled={classroomLoading || semesters.length === 0 || !selectedSemester}
                 onClick={handleStartTask}
               >
                 开始自动排课

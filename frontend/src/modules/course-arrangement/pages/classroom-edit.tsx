@@ -30,7 +30,6 @@ export const ClassroomEdit: React.FC<ClassroomEditProps> = ({ visible, id, onClo
         setLoading(true);
         try {
           const res = await classroomsApi.getById({id: id!});
-          // 将 equipment 展平以便于 Form 直接绑定
           form.setFieldsValue({
             ...res?.classroom
           });
@@ -115,24 +114,24 @@ export const ClassroomEdit: React.FC<ClassroomEditProps> = ({ visible, id, onClo
           <Form.Item name="status" label="当前状态" initialValue="AVAILABLE" rules={[{ required: true }]}>
             <Select>
               <Option value="AVAILABLE">可用</Option>
-              <Option value="MAINTENENCE">维护中</Option>
+              <Option value="MAINTENANCE">维护中</Option>
               <Option value="UNAVAILABLE">不可用</Option>
             </Select>
           </Form.Item>
 
           <Card size="small" title="设备信息" style={{ background: '#f8fafc' }}>
             <Space size="large" wrap>
-              <Form.Item name="projector" label="投影仪" valuePropName="checked" style={{ marginBottom: 0 }}>
+              <Form.Item name={['equipment', 'projector']} label="投影仪" valuePropName="checked" style={{ marginBottom: 0 }}>
                 <Switch />
               </Form.Item>
-              <Form.Item name="airConditioner" label="空调" valuePropName="checked" style={{ marginBottom: 0 }}>
+              <Form.Item name={['equipment', 'airConditioner']} label="空调" valuePropName="checked" style={{ marginBottom: 0 }}>
                 <Switch />
               </Form.Item>
-              <Form.Item name="microphone" label="麦克风" valuePropName="checked" style={{ marginBottom: 0 }}>
+              <Form.Item name={['equipment', 'microphone']} label="麦克风" valuePropName="checked" style={{ marginBottom: 0 }}>
                 <Switch />
               </Form.Item>
             </Space>
-            <Form.Item name="computerCount" label="电脑数量" style={{ marginTop: 16, marginBottom: 0 }}>
+            <Form.Item name={['equipment', 'computerCount']} label="电脑数量" style={{ marginTop: 16, marginBottom: 0 }}>
               <InputNumber min={0} />
             </Form.Item>
           </Card>

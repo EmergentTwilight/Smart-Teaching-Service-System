@@ -134,10 +134,10 @@ export const ConstraintRuleEditDrawer: React.FC<ConstraintRuleEditDrawerProps> =
             <TimeSlotList name={['rules', 'hardConstraints', 'unavailableTimeSlots']} form={form} />
             <Form.Item name={['rules', 'hardConstraints', 'requiredRoomType']} label="必须的教室类型">
               <Select allowClear placeholder="不限制">
-                <Option value="lecture">普通教室</Option>
-                <Option value="lab">实验室</Option>
-                <Option value="computer">机房</Option>
-                <Option value="multimedia">多媒体教室</Option>
+                <Option value="LECTURE">普通教室</Option>
+                <Option value="LAB">实验室</Option>
+                <Option value="COMPUTER">机房</Option>
+                <Option value="MULTIMEDIA">多媒体教室</Option>
               </Select>
             </Form.Item>
           </Card>

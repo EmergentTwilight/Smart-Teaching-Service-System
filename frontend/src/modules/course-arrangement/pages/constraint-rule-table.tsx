@@ -18,6 +18,13 @@ const TARGET_TYPE_MAP: Record<string, string> = {
   course: '课程',
 };
 
+const ROOM_TYPE_MAP: Record<string, string> = {
+  LECTURE: '普通教室',
+  LAB: '实验室',
+  COMPUTER: '机房',
+  MULTIMEDIA: '多媒体教室',
+};
+
 const DAY_MAP: Record<number, string> = {
   1: '周一',
   2: '周二',
@@ -165,7 +172,7 @@ export const ConstraintRuleTable: React.FC<ConstraintRuleTableProps> = ({
         const softBuilding = record.rules?.softConstraints?.preferredBuilding;
         return (
           <Space>
-            {hardRoom && <Tag color="red">{hardRoom}</Tag>}
+            {hardRoom && <Tag color="red">{ROOM_TYPE_MAP[hardRoom] || hardRoom}</Tag>}
             {softBuilding && <Tag color="blue">{softBuilding}</Tag>}
             {!hardRoom && !softBuilding && <Text type="secondary">-</Text>}
           </Space>
@@ -214,13 +221,6 @@ export const ConstraintRuleTable: React.FC<ConstraintRuleTableProps> = ({
         <Option value="">不限</Option>
         <Option value="teacher">教师</Option>
         <Option value="course">课程</Option>
-      </Select>
-    </Form.Item>
-    <Form.Item name="ruleType" label="约束强度" noStyle>
-      <Select placeholder="全部" allowClear style={{ width: 120 }}>
-        <Option value="">不限</Option>
-        <Option value="hard">硬约束</Option>
-        <Option value="soft">软约束</Option>
       </Select>
     </Form.Item>
   </Space>

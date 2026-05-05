@@ -68,6 +68,12 @@ export const TimetableView: React.FC = () => {
     return Array.from(courseMap.values());
   }, [overviewStats]);
 
+  const selectedSemesterCourseOptions = useMemo(() => {
+    if (!selectedSemester || !overviewStats?.semesters) return [];
+    const semester = overviewStats.semesters.find((sem) => sem.id === selectedSemester);
+    return semester?.courseOfferings || [];
+  }, [overviewStats, selectedSemester]);
+
   // 触发课表数据拉取
   const fetchTimetable = useCallback(async () => {
     setLoading(true);
@@ -84,7 +90,10 @@ export const TimetableView: React.FC = () => {
         data = res.items
       } else if (viewMode === 'classroom') {
         if (selectedClassroom)
-          data = await timetablesApi.getByClassroom({classroomId: selectedClassroom, query: {}}); // 没有实现学期控制
+          data = await timetablesApi.getByClassroom({
+            classroomId: selectedClassroom,
+            query: { semesterId: selectedSemester },
+          });
       } else if (viewMode === 'course') {
         if (selectedCourse) {
           data = await timetablesApi.getByCourseOffering({courseOfferingId: selectedCourse});
@@ -122,8 +131,7 @@ export const TimetableView: React.FC = () => {
       const url = window.URL.createObjectURL(new Blob([blob]));
       const link = document.createElement('a');
       link.href = url;
-      const extension = values.format === 'excel' ? 'xlsx' : 'pdf';
-      link.setAttribute('download', `timetable_${values.targetType}_${values.targetId}.${extension}`);
+      link.setAttribute('download', `timetable_${values.targetType}_${values.targetId}.csv`);
       document.body.appendChild(link);
       link.click();
       link.parentNode?.removeChild(link);
@@ -142,12 +150,17 @@ export const TimetableView: React.FC = () => {
   };
 
   const openExportModal = () => {
+    const defaultTargetType =
+      viewMode === 'classroom' && selectedClassroom ? 'classroom' : 'global';
+    const defaultTargetId =
+      viewMode === 'classroom' && selectedClassroom ? selectedClassroom : 'all';
+
     exportForm.resetFields();
     exportForm.setFieldsValue({
-      format: 'pdf',
-      semesterId: '2026-Spring', // 默认这学期
-      targetType: viewMode === 'course' ? 'global' : 'classroom',
-      targetId: viewMode === 'classroom' && selectedClassroom ? selectedClassroom : 'all',
+      format: 'csv',
+      semesterId: selectedSemester || semesterOptions[0]?.id,
+      targetType: defaultTargetType,
+      targetId: defaultTargetId,
     });
     setExportModalVisible(true);
   };
@@ -263,32 +276,61 @@ export const TimetableView: React.FC = () => {
 
   {/* 按教室查看：仅显示教室筛选 */}
   {viewMode === 'classroom' && (
-    <Select
-      showSearch
-      placeholder="请选择教室"
-      style={{ width: 240 }}
-      value={selectedClassroom}
-      onChange={setSelectedClassroom}
-    >
-      {overviewStats?.classrooms?.map(room => (
-        <Option key={room.id} value={room.id}>{room.name}</Option>
-      ))}
-    </Select>
+    <>
+      <Select
+        showSearch
+        placeholder="请选择学期"
+        style={{ width: 240 }}
+        value={selectedSemester}
+        onChange={setSelectedSemester}
+      >
+        {semesterOptions.map(sem => (
+          <Option key={sem.id} value={sem.id}>{sem.name}</Option>
+        ))}
+      </Select>
+      <Select
+        showSearch
+        placeholder="请选择教室"
+        style={{ width: 240 }}
+        value={selectedClassroom}
+        onChange={setSelectedClassroom}
+      >
+        {overviewStats?.classrooms?.map(room => (
+          <Option key={room.id} value={room.id}>{room.name}</Option>
+        ))}
+      </Select>
+    </>
   )}
 
   {/* 按课程查看：仅显示课程筛选（所有学期并集） */}
   {viewMode === 'course' && (
-    <Select
-      showSearch
-      placeholder="请选择课程"
-      style={{ width: 240 }}
-      value={selectedCourse}
-      onChange={setSelectedCourse}
-    >
-      {allCourseOptions.map(course => (
-        <Option key={course.id} value={course.id}>{course.name}</Option>
-      ))}
-    </Select>
+    <>
+      <Select
+        showSearch
+        placeholder="请选择学期"
+        style={{ width: 240 }}
+        value={selectedSemester}
+        onChange={(value) => {
+          setSelectedSemester(value);
+          setSelectedCourse(undefined);
+        }}
+      >
+        {semesterOptions.map(sem => (
+          <Option key={sem.id} value={sem.id}>{sem.name}</Option>
+        ))}
+      </Select>
+      <Select
+        showSearch
+        placeholder="请选择课程"
+        style={{ width: 240 }}
+        value={selectedCourse}
+        onChange={setSelectedCourse}
+      >
+        {selectedSemesterCourseOptions.map(course => (
+          <Option key={course.id} value={course.id}>{course.name}</Option>
+        ))}
+      </Select>
+    </>
   )}
 </Space>
           </Space>
@@ -381,8 +423,7 @@ export const TimetableView: React.FC = () => {
             </Form.Item>
             <Form.Item name="format" label="文件格式" rules={[{ required: true }]}>
               <Select style={{ width: 120 }}>
-                <Option value="pdf">PDF</Option>
-                <Option value="excel">Excel</Option>
+                <Option value="csv">CSV</Option>
               </Select>
             </Form.Item>
           </Space>

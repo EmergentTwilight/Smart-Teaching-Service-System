@@ -28,18 +28,19 @@ export const getByCourseOffering = async (req: Request, res: Response) => {
 // 6.3.2 按教室查询
 export const getByClassroom = async (req: Request, res: Response) => {
   try {
-    const validatedInput = getByClassroomSchema.parse({ id: req.params, query: req.query })
+    const validatedInput = getByClassroomSchema.parse({
+      classroomId: req.params.classroomId,
+      query: req.query,
+    })
     const data = await timetableService.getByClassroom(validatedInput)
     const validatedData = timetableListResponseSchema.parse(data)
     success(res, validatedData, '查询成功')
   } catch (err: unknown) {
     if (err instanceof ZodError) {
-      if (err.name === 'ZodError') {
-        error(res, '请求参数错误', 400, err.errors)
-      } else {
-        error(res, '服务器错误', 500)
-      }
+      error(res, '请求参数错误', 400, err.errors)
+      return
     }
+    error(res, err instanceof Error ? err.message : '服务器错误', 500)
   }
 }
 // 6.3.3 按学期查询
@@ -75,7 +76,11 @@ export const exportTimetable = async (req: Request, res: Response) => {
     res.setHeader('Content-Disposition', `attachment; filename="${validatedData.filename}"`)
 
     return res.status(200).send(validatedData.content)
-  } catch {
+  } catch (err: unknown) {
+    if (err instanceof ZodError) {
+      error(res, '请求参数错误', 400, err.errors)
+      return
+    }
     res.status(500).send('导出失败')
   }
 }

@@ -14,9 +14,21 @@ import {
   RuleResponse,
 } from './rule.types.js'
 
+function normalizeRule(rule: SchedulingRule): SchedulingRule {
+  const requiredRoomType = rule.hardConstraints.requiredRoomType
+  return {
+    ...rule,
+    hardConstraints: {
+      ...rule.hardConstraints,
+      requiredRoomType: requiredRoomType?.toUpperCase(),
+    },
+  }
+}
+
 export class RuleService {
   // rule.service.ts - saveRule 方法修改
   async saveRule(input: SetSchedulingRuleInput): Promise<SaveRuleResponse> {
+    const normalizedRules = normalizeRule(input.rules)
     const existing = await prisma.rule.findUnique({
       where: {
         targetType_targetId: {
@@ -33,12 +45,12 @@ export class RuleService {
           targetId: input.targetId,
         },
       },
-      update: { rules: input.rules as SchedulingRule },
+      update: { rules: normalizedRules as SchedulingRule },
       create: {
         id: uuidv4(),
         targetType: input.targetType,
         targetId: input.targetId,
-        rules: input.rules as SchedulingRule,
+        rules: normalizedRules as SchedulingRule,
       },
     })
 
@@ -50,7 +62,7 @@ export class RuleService {
     const allRules = await prisma.rule.findMany()
     const map = new Map<string, SchedulingRule>()
     allRules.forEach((r) => {
-      map.set(`${r.targetType}:${r.targetId}`, r.rules as SchedulingRule)
+      map.set(`${r.targetType}:${r.targetId}`, normalizeRule(r.rules as SchedulingRule))
     })
     return map
   }
@@ -76,14 +88,21 @@ export class RuleService {
       prisma.rule.count({ where }),
     ])
     return {
-      items: items as RuleResponse[],
+      items: items.map((item) => ({
+        ...item,
+        rules: normalizeRule(item.rules as SchedulingRule),
+      })) as RuleResponse[],
       pagination: { page: input.page, pageSize: input.pageSize, total },
     }
   }
 
   // 获取单条规则
   async getById(input: IdInput): Promise<RuleResponse> {
-    return prisma.rule.findUniqueOrThrow({ where: input }) as Promise<RuleResponse>
+    const rule = await prisma.rule.findUniqueOrThrow({ where: input })
+    return {
+      ...rule,
+      rules: normalizeRule(rule.rules as SchedulingRule),
+    } as RuleResponse
   }
 
   // 删除单条规则

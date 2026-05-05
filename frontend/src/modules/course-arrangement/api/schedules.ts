@@ -67,7 +67,7 @@ export const schedulesApi = {
    */
   update: async (input: UpdateScheduleInput): Promise<IdResponse> => {
     const validatedInput = updateScheduleSchema.parse(input)
-    const result = await request.post(BASE_PATH, validatedInput)
+    const result = await request.patch(`${BASE_PATH}/${validatedInput.id}`, validatedInput.data)
     return idSchema.parse(result)
   },
 

@@ -52,6 +52,13 @@ export const ScheduleList: React.FC = () => {
     fetchSchedules(values);
   };
 
+  const handleReset = () => {
+    form.resetFields();
+    const values = form.getFieldsValue();
+    setPagination((prev) => ({ ...prev, page: 1 }));
+    fetchSchedules(values);
+  };
+
   const handleDelete = async (id: string) => {
     try {
       await schedulesApi.delete({id});
@@ -127,7 +134,7 @@ export const ScheduleList: React.FC = () => {
           <Form.Item>
             <Space>
               <Button type="primary" htmlType="submit" icon={<SearchOutlined />}>搜索</Button>
-              <Button onClick={() => form.resetFields()}>重置</Button>
+              <Button onClick={handleReset}>重置</Button>
             </Space>
           </Form.Item>
         </Form>

@@ -14,9 +14,9 @@ const { Option } = Select;
 
 // 状态标签映射字典
 const STATUS_MAP: Record<string, { color: string; text: string }> = {
-  available: { color: 'success', text: '可用' },
-  maintenance: { color: 'warning', text: '维护中' },
-  unavailable: { color: 'error', text: '不可用' },
+  AVAILABLE: { color: 'success', text: '可用' },
+  MAINTENANCE: { color: 'warning', text: '维护中' },
+  UNAVAILABLE: { color: 'error', text: '不可用' },
 };
 
 // 教室类型映射字典
@@ -67,10 +67,21 @@ export const ClassroomList: React.FC = () => {
     fetchClassrooms(values);
   };
 
+  const handleReset = () => {
+    form.resetFields();
+    const values = form.getFieldsValue();
+    setPagination((prev) => ({ ...prev, page: 1 }));
+    fetchClassrooms(values);
+  };
+
   const openDrawer = (id?: string) => {
     setEditingId(id || null);
     setDrawerVisible(true);
   };
+
+  const campusOptions = Array.from(
+    new Set((data?.items || []).map((item) => item.classroom.campus).filter(Boolean))
+  );
 
   const columns: TableColumnsType<ClassroomWithId> = [
     { 
@@ -131,8 +142,9 @@ export const ClassroomList: React.FC = () => {
           </Form.Item>
           <Form.Item name="campus" label="校区">
             <Select placeholder="请选择" allowClear style={{ width: 120 }}>
-              <Option value="主校区">主校区</Option>
-              <Option value="东校区">东校区</Option>
+              {campusOptions.map((campus) => (
+                <Option key={campus} value={campus}>{campus}</Option>
+              ))}
             </Select>
           </Form.Item>
           <Form.Item name="roomType" label="类型">
@@ -145,7 +157,7 @@ export const ClassroomList: React.FC = () => {
           <Form.Item>
             <Space>
               <Button type="primary" htmlType="submit" icon={<SearchOutlined />}>搜索</Button>
-              <Button onClick={() => form.resetFields()}>重置</Button>
+              <Button onClick={handleReset}>重置</Button>
             </Space>
           </Form.Item>
         </Form>

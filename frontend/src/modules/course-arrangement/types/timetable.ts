@@ -41,7 +41,7 @@ export const pagedGetTimetablesSchema = z.object({
 
 export const exportTimetableSchema = z.object({
   // targetType: classroom | teacher | student
-  format: z.enum(['csv', 'excel', 'pdf']),
+  format: z.literal('csv'),
   targetType: z.enum(['classroom', 'teacher', 'student', 'global']),
   targetId: z.string().min(1, '目标 ID 不能为空'),
   semesterId: z.string().optional(),

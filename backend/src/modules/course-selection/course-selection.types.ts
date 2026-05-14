@@ -26,6 +26,109 @@ export interface BaseQuery {
   pageSize?: number
 }
 
+export interface CurriculumQuery extends BaseQuery {
+  includeCourses?: boolean
+  include_courses?: boolean
+  courseType?: string
+  course_type?: string
+}
+
+export interface CurriculumProgressQuery extends BaseQuery {
+  semesterId?: string
+  includeDropped?: boolean
+  include_dropped?: boolean
+}
+
+export interface CourseSearchQuery extends BaseQuery {
+  keyword?: string
+  teacher?: string
+  teacher_id?: string
+  semesterId?: string
+  semester_id?: string
+  courseType?: string
+  course_type?: string
+  offeringStatus?: string
+  offering_status?: string
+  includeUnavailable?: boolean
+  include_unavailable?: boolean
+}
+
+export interface AvailableOfferingsQuery extends BaseQuery {
+  keyword?: string
+  teacher?: string
+  teacher_id?: string
+  semesterId?: string
+  semester_id?: string
+  courseType?: string
+  course_type?: string
+  offeringStatus?: string
+  offering_status?: string
+  onlyAvailable?: boolean
+  only_available?: boolean
+  includeConflictReasons?: boolean
+  include_conflict_reasons?: boolean
+  includeUnavailable?: boolean
+  include_unavailable?: boolean
+}
+
+export interface EnrollmentQuery extends BaseQuery {
+  semesterId?: string
+  status?: string
+  keyword?: string
+}
+
+export interface CreateEnrollmentBody {
+  courseOfferingId: string
+  idempotencyKey?: string
+  reason?: string
+}
+
+export interface DropEnrollmentBody {
+  reason?: string
+}
+
+export interface SelectionPeriodQuery extends BaseQuery {
+  semesterId?: string
+  phase?: string
+  isActive?: boolean
+}
+
+export interface CreateSelectionPeriodBody {
+  semesterId: string
+  phase: string
+  startTime: string
+  endTime: string
+  maxCredits?: number
+  isActive: boolean
+}
+
+export interface UpdateSelectionPeriodBody {
+  semesterId?: string
+  phase?: string
+  startTime?: string
+  endTime?: string
+  maxCredits?: number
+  isActive?: boolean
+}
+
+export interface ManualEnrollmentBody {
+  studentId: string
+  courseOfferingId: string
+  reason?: string
+}
+
+export interface RosterQuery extends BaseQuery {
+  offeringId?: string
+  semesterId?: string
+  status?: string
+  keyword?: string
+}
+
+export interface TimetableQuery {
+  semesterId?: string
+  format?: 'grid' | 'list'
+}
+
 export interface TodoStatusPayload {
   module: `C${number}`
   fr: string[]

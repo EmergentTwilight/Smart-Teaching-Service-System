@@ -9,6 +9,23 @@ const booleanSchema = z.preprocess((v) => {
   return v
 }, z.boolean().optional())
 
+type PaginationInput = {
+  page?: number
+  pageSize?: number
+  page_size?: number
+}
+
+const normalizePaginationFields = <T extends PaginationInput>(
+  value: T
+): Omit<T, 'pageSize' | 'page_size'> & { page?: number; pageSize: number } => {
+  const { page, pageSize, page_size, ...rest } = value
+  return {
+    ...rest,
+    page,
+    pageSize: pageSize ?? page_size ?? 20,
+  }
+}
+
 const idSchema = z.object({
   id: z.string().uuid('参数应为 UUID'),
 })
@@ -17,16 +34,11 @@ const userIdSchema = z.object({
   userId: z.string().min(1, '用户ID不能为空'),
 })
 
-const paginationSchema = z
-  .object({
-    page: pageSchema.optional(),
-    pageSize: pageSizeSchema.optional(),
-    page_size: pageSizeSchema.optional(),
-  })
-  .transform(({ page, pageSize, page_size }) => ({
-    page,
-    pageSize: pageSize || page_size || 20,
-  }))
+const paginationSchema = z.object({
+  page: pageSchema.optional(),
+  pageSize: pageSizeSchema.optional(),
+  page_size: pageSizeSchema.optional(),
+})
 
 // TODO(C1, FR-C-01, FR-C-03, NFR-C-13): 规范课程与培养方案分页查询参数风格
 export const curriculumQuerySchema = paginationSchema.extend({
@@ -34,7 +46,7 @@ export const curriculumQuerySchema = paginationSchema.extend({
   include_courses: z.coerce.boolean().optional(),
   courseType: z.string().optional(),
   course_type: z.string().optional(),
-})
+}).transform(normalizePaginationFields)
 
 export type CurriculumQuery = z.infer<typeof curriculumQuerySchema>
 
@@ -46,6 +58,7 @@ export const curriculumProgressQuerySchema = z
     include_dropped: z.coerce.boolean().optional(),
   })
   .merge(paginationSchema.partial())
+  .transform(normalizePaginationFields)
 
 export type CurriculumProgressQuery = z.infer<typeof curriculumProgressQuerySchema>
 
@@ -65,6 +78,7 @@ export const courseSearchQuerySchema = z
     include_unavailable: z.boolean().optional(),
   })
   .merge(paginationSchema.partial())
+  .transform(normalizePaginationFields)
 
 export type CourseSearchQuery = z.infer<typeof courseSearchQuerySchema>
 
@@ -88,6 +102,7 @@ export const availableOfferingsQuerySchema = z
     include_unavailable: z.coerce.boolean().optional(),
   })
   .merge(paginationSchema.partial())
+  .transform(normalizePaginationFields)
 
 export type AvailableOfferingsQuery = z.infer<typeof availableOfferingsQuerySchema>
 
@@ -98,14 +113,60 @@ export type CourseOfferingParams = z.infer<typeof courseOfferingParamsSchema>
 
 // TODO(C3, FR-C-14, FR-C-16, NFR-C-04): 选课/退选前置参数应支持课程/阶段校验与幂等控制
 export const enrollmentQuerySchema = paginationSchema
+  .extend({
+    semesterId: z.string().uuid('semester_id 格式不正确').optional(),
+    semester_id: z.string().uuid('semester_id 格式不正确').optional(),
+    status: z.string().optional(),
+    keyword: z.string().max(128).trim().optional(),
+  })
+  .transform(({ semesterId, semester_id, ...rest }) => ({
+    ...normalizePaginationFields(rest),
+    semesterId: semesterId ?? semester_id,
+  }))
 
 export type EnrollmentQuery = z.infer<typeof enrollmentQuerySchema>
 
-// TODO(C3, FR-C-16, NFR-C-04): 强制校验课程开选、容量、重复和学分规则
-export const createEnrollmentBodySchema = z.object({
-  courseOfferingId: z.string().uuid('课程开设ID应为 UUID'),
+// TODO(C3, FR-C-16, FR-C-14, NFR-C-04): 兼容 snake_case 入参并统一落到 camelCase，保留幂等键透传给服务层
+const createEnrollmentBodyInputSchema = z.object({
+  courseOfferingId: z.string().uuid('课程开设ID应为 UUID').optional(),
+  course_offering_id: z.string().uuid('课程开设ID应为 UUID').optional(),
+  idempotencyKey: z.string().min(1).max(128).optional(),
+  idempotency_key: z.string().min(1).max(128).optional(),
   reason: z.string().max(200).optional(),
 })
+
+export const createEnrollmentBodySchema = createEnrollmentBodyInputSchema
+  .superRefine((value, ctx) => {
+    if (!value.courseOfferingId && !value.course_offering_id) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'courseOfferingId 或 course_offering_id 不能为空',
+        path: ['course_offering_id'],
+      })
+    }
+
+    if (
+      value.courseOfferingId &&
+      value.course_offering_id &&
+      value.courseOfferingId !== value.course_offering_id
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'courseOfferingId 与 course_offering_id 不一致',
+        path: ['course_offering_id'],
+      })
+    }
+  })
+  .transform((value) => ({
+    courseOfferingId: value.courseOfferingId ?? value.course_offering_id,
+    idempotencyKey: value.idempotencyKey ?? value.idempotency_key,
+    reason: value.reason,
+  }))
+  .pipe(z.object({
+    courseOfferingId: z.string().uuid('课程开设ID应为 UUID'),
+    idempotencyKey: z.string().min(1).max(128).optional(),
+    reason: z.string().max(200).optional(),
+  }))
 
 export type CreateEnrollmentBody = z.infer<typeof createEnrollmentBodySchema>
 
@@ -118,17 +179,112 @@ export type DropEnrollmentParams = z.infer<typeof dropEnrollmentParamsSchema>
 export type DropEnrollmentBody = z.infer<typeof dropEnrollmentBodySchema>
 
 // TODO(C5, FR-C-30, FR-C-35, NFR-C-14): 选课阶段接口需校验时间范围与阶段互斥规则
+// TODO(C5, FR-C-30, FR-C-31, FR-C-32, NFR-C-14): 列表查询支持按学期/阶段/状态过滤
 export const selectionPeriodQuerySchema = paginationSchema
-export const createSelectionPeriodBodySchema = z.object({
-  semesterId: z.string().uuid(),
-  phase: z.string(),
-  startTime: z.string().datetime(),
-  endTime: z.string().datetime(),
+  .extend({
+    semesterId: z.string().uuid().optional(),
+    semester_id: z.string().uuid().optional(),
+    phase: z.string().optional(),
+    isActive: booleanSchema,
+    is_active: booleanSchema,
+  })
+  .transform(({ semesterId, semester_id, isActive, is_active, ...rest }) => ({
+    ...normalizePaginationFields(rest),
+    semesterId: semesterId ?? semester_id,
+    isActive: isActive ?? is_active,
+  }))
+
+const selectionPeriodBodyInputSchema = z.object({
+  semesterId: z.string().uuid().optional(),
+  semester_id: z.string().uuid().optional(),
+  phase: z.string().optional(),
+  startTime: z.string().datetime().optional(),
+  start_time: z.string().datetime().optional(),
+  endTime: z.string().datetime().optional(),
+  end_time: z.string().datetime().optional(),
   maxCredits: z.coerce.number().min(0).optional(),
-  isActive: booleanSchema.default(false),
+  max_credits: z.coerce.number().min(0).optional(),
+  isActive: booleanSchema,
+  is_active: booleanSchema,
 })
 
-export const updateSelectionPeriodBodySchema = createSelectionPeriodBodySchema.partial()
+export const createSelectionPeriodBodySchema = selectionPeriodBodyInputSchema
+  .superRefine((value, ctx) => {
+    if (!value.semesterId && !value.semester_id) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'semesterId / semester_id 不能为空',
+        path: ['semesterId'],
+      })
+    }
+    if (!value.phase) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'phase 不能为空',
+        path: ['phase'],
+      })
+    }
+    if (!value.startTime && !value.start_time) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'startTime / start_time 不能为空',
+        path: ['startTime'],
+      })
+    }
+    if (!value.endTime && !value.end_time) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'endTime / end_time 不能为空',
+        path: ['endTime'],
+      })
+    }
+
+    if (
+      value.phase &&
+      !['first_round', 'second_round', 'adjustment'].includes(value.phase)
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'phase 应为 first_round / second_round / adjustment',
+        path: ['phase'],
+      })
+    }
+  })
+  .transform((value) => ({
+    semesterId: value.semesterId ?? value.semester_id,
+    phase: value.phase || '',
+    startTime: value.startTime ?? value.start_time ?? '',
+    endTime: value.endTime ?? value.end_time ?? '',
+    maxCredits: value.maxCredits ?? value.max_credits,
+    isActive: value.isActive ?? value.is_active ?? false,
+  }))
+  .pipe(z.object({
+    semesterId: z.string().uuid(),
+    phase: z.string(),
+    startTime: z.string().datetime(),
+    endTime: z.string().datetime(),
+    maxCredits: z.number().min(0).optional(),
+    isActive: z.boolean(),
+  }))
+
+export const updateSelectionPeriodBodySchema = selectionPeriodBodyInputSchema
+  .partial()
+  .transform((value) => ({
+    semesterId: value.semesterId ?? value.semester_id,
+    phase: value.phase,
+    startTime: value.startTime ?? value.start_time,
+    endTime: value.endTime ?? value.end_time,
+    maxCredits: value.maxCredits ?? value.max_credits,
+    isActive: value.isActive ?? value.is_active,
+  }))
+  .pipe(z.object({
+    semesterId: z.string().uuid().optional(),
+    phase: z.string().optional(),
+    startTime: z.string().datetime().optional(),
+    endTime: z.string().datetime().optional(),
+    maxCredits: z.number().min(0).optional(),
+    isActive: z.boolean().optional(),
+  }))
 export const selectionPeriodParamsSchema = idSchema
 
 export type SelectionPeriodQuery = z.infer<typeof selectionPeriodQuerySchema>
@@ -137,11 +293,67 @@ export type UpdateSelectionPeriodBody = z.infer<typeof updateSelectionPeriodBody
 export type SelectionPeriodParams = z.infer<typeof selectionPeriodParamsSchema>
 
 // TODO(C5, FR-C-33, FR-C-34, NFR-C-04): 手动加课输入需包括理由并默认执行完整校验
-export const manualEnrollmentBodySchema = z.object({
-  studentId: z.string().uuid('学生ID应为 UUID'),
-  courseOfferingId: z.string().uuid('课程开设ID应为 UUID'),
-  reason: z.string().min(1, '必须填写操作原因').max(500),
+const manualEnrollmentBodyInputSchema = z.object({
+  studentId: z.string().uuid('学生ID应为 UUID').optional(),
+  student_id: z.string().uuid('学生ID应为 UUID').optional(),
+  courseOfferingId: z.string().uuid('课程开设ID应为 UUID').optional(),
+  course_offering_id: z.string().uuid('课程开设ID应为 UUID').optional(),
+  reason: z.string().min(1, '必须填写操作原因').max(500).optional(),
+  notify_student: z.coerce.boolean().optional(),
 })
+
+export const manualEnrollmentBodySchema = manualEnrollmentBodyInputSchema
+  .superRefine((value, ctx) => {
+    if (!value.studentId && !value.student_id) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'studentId / student_id 不能为空',
+        path: ['student_id'],
+      })
+    }
+
+    if (!value.courseOfferingId && !value.course_offering_id) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'courseOfferingId / course_offering_id 不能为空',
+        path: ['course_offering_id'],
+      })
+    }
+
+    if (
+      value.studentId &&
+      value.student_id &&
+      value.studentId !== value.student_id
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'studentId 与 student_id 不一致',
+        path: ['student_id'],
+      })
+    }
+
+    if (
+      value.courseOfferingId &&
+      value.course_offering_id &&
+      value.courseOfferingId !== value.course_offering_id
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'courseOfferingId 与 course_offering_id 不一致',
+        path: ['course_offering_id'],
+      })
+    }
+  })
+  .transform((value) => ({
+    studentId: value.studentId ?? value.student_id,
+    courseOfferingId: value.courseOfferingId ?? value.course_offering_id,
+    reason: value.reason,
+  }))
+  .pipe(z.object({
+    studentId: z.string().uuid('学生ID应为 UUID'),
+    courseOfferingId: z.string().uuid('课程开设ID应为 UUID'),
+    reason: z.string().min(1, '必须填写操作原因').max(500).optional(),
+  }))
 export type ManualEnrollmentBody = z.infer<typeof manualEnrollmentBodySchema>
 
 // TODO(C4, FR-C-27, FR-C-28, NFR-C-06): 老师名单接口需提供筛选参数，保证导出口径一致
@@ -149,12 +361,27 @@ export const rosterQuerySchema = paginationSchema.extend({
   offeringId: z.string().uuid().optional(),
   semesterId: z.string().uuid().optional(),
   status: z.string().optional(),
-})
+  keyword: z.string().max(128).trim().optional(),
+}).transform(normalizePaginationFields)
 
 export type RosterQuery = z.infer<typeof rosterQuerySchema>
 
 export const rosterOfferingParamsSchema = idSchema
 export type RosterOfferingParams = z.infer<typeof rosterOfferingParamsSchema>
+
+// TODO(C4, FR-C-25, FR-C-08, NFR-C-08): 课表查询支持学期与输出格式开关
+export const timetableQuerySchema = z
+  .object({
+    semesterId: z.string().uuid().optional(),
+    semester_id: z.string().uuid().optional(),
+    format: z.enum(['grid', 'list']).optional(),
+  })
+  .transform(({ semesterId, semester_id, format }) => ({
+    semesterId: semesterId ?? semester_id,
+    format: format ?? 'grid',
+  }))
+
+export type TimetableQuery = z.infer<typeof timetableQuerySchema>
 
 // TODO(C6, FR-C-38, FR-C-42, NFR-C-09): AI 输入需支持课程/课表上下文，支持降级返回
 export const aiRecommendBodySchema = z.object({

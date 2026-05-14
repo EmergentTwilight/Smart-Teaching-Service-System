@@ -25,6 +25,7 @@ import {
   rosterQuerySchema,
   rosterOfferingParamsSchema,
   manualEnrollmentBodySchema,
+  timetableQuerySchema,
   aiRecommendBodySchema,
   aiExplainBodySchema,
 } from './course-selection.schemas.js'
@@ -52,7 +53,7 @@ router.get(
 )
 router.get(
   '/offerings/:id',
-  requireRoles('student'),
+  requireRoles('student', 'teacher', 'admin', 'super_admin'),
   validate(courseOfferingParamsSchema, 'params'),
   courseSearchController.getOfferingDetail
 )
@@ -75,7 +76,12 @@ router.patch(
   validate(dropEnrollmentBodySchema, 'body'),
   enrollmentController.dropEnrollment
 )
-router.get('/timetable/me', requireRoles('student'), timetableController.getMyTimetable)
+router.get(
+  '/timetable/me',
+  requireRoles('student'),
+  validate(timetableQuerySchema, 'query'),
+  timetableController.getMyTimetable
+)
 
 // ===== 教师端：名单与导出 =====
 router.get(

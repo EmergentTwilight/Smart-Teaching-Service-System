@@ -56,8 +56,12 @@ export const MENU_ITEMS: MenuProps['items'] = [
     label: '智能选课',
     children: [
       { key: '/selection/courses', icon: <BookOutlined />, label: '课程列表' },
-      { key: '/selection/my', icon: <UserOutlined />, label: '我的选课' },
+      { key: '/selection/curriculum', icon: <BookOutlined />, label: '培养方案' },
+      { key: '/selection/timetable', icon: <CalendarOutlined />, label: '我的课表' },
       { key: '/selection/ai', icon: <RobotOutlined />, label: 'AI 推荐' },
+      { key: '/selection/admin/periods', icon: <SettingOutlined />, label: '阶段管理' },
+      { key: '/selection/admin/manual-enrollment', icon: <UserOutlined />, label: '手动加课' },
+      { key: '/selection/teacher/roster', icon: <TeamOutlined />, label: '课程名单' },
     ],
   },
   {

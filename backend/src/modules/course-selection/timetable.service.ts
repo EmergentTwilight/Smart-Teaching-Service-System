@@ -1,0 +1,22 @@
+import type { TimetablePayload } from './course-selection.types.js'
+
+export const timetableService = {
+  // TODO(C4, FR-C-25, NFR-C-08): 生成本人课表
+  // - 汇总学生已选课程的 Schedule
+  // - 合并冲突课程并标注，供前端课表组件降序展示
+  // - 提供可打印字段：学期、星期、节次、周次、课程信息
+  async getMyTimetable(
+    studentId: string,
+    query: { semesterId?: string }
+  ): Promise<TimetablePayload> {
+    void studentId
+    void query
+
+    return {
+      semesterId: query.semesterId || 'TBD',
+      studentId,
+      semesterName: '待指定学期',
+      slots: [],
+    }
+  },
+}

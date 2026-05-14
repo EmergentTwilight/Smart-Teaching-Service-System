@@ -1159,27 +1159,19 @@ curl -X GET "https://stss.example.com/api/v1/course-selection/teacher/offerings/
   "code": 200,
   "message": "success",
   "data": {
-    "course_offering": {
-      "id": "8bb51f34-82a7-4e30-b89a-6326909d0001",
-      "course_code": "CS101",
+    "offering": {
+      "offering_id": "8bb51f34-82a7-4e30-b89a-6326909d0001",
       "course_name": "程序设计基础",
-      "semester_name": "2025-2026-1",
-      "capacity": 80,
-      "enrolled_count": 56
+      "teacher_name": "王老师"
     },
-    "items": [
+    "students": [
       {
-        "enrollment_id": "c9e15b80-9277-4f63-8f3b-8017be620001",
-        "student": {
-          "user_id": "df6c0d35-0d7f-4b4f-b338-78065bb10001",
-          "student_number": "2024001001",
-          "real_name": "张三",
-          "major_name": "计算机科学与技术",
-          "class_name": "计科 2401"
-        },
-        "status": "enrolled",
-        "enrolled_at": "2026-05-13T09:10:30+08:00",
-        "dropped_at": null
+        "student_number": "2024001001",
+        "student_name": "张三",
+        "major_name": "计算机科学与技术",
+        "class_name": "计科 2401",
+        "enrollment_status": "enrolled",
+        "enrolled_at": "2026-05-13T09:10:30+08:00"
       }
     ],
     "pagination": {

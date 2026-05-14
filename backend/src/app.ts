@@ -19,6 +19,7 @@ import config from './config/index.js'
 import { swaggerSpec } from './config/swagger.js'
 import swaggerUi from 'swagger-ui-express'
 import prisma from './shared/prisma/client.js'
+import courseSelectionRoutes from './modules/course-selection/course-selection.routes.js'
 
 const app: Application = express()
 const PORT = config.port
@@ -162,6 +163,7 @@ app.get('/api/health', async (req, res) => {
 app.use('/api/v1/auth', authRoutes)
 app.use('/api/v1/users', usersRoutes)
 app.use('/api/v1/departments', departmentsRoutes)
+app.use('/api/v1/course-selection', courseSelectionRoutes)
 
 // 404 处理
 app.use((req, res) => {

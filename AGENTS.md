@@ -24,7 +24,7 @@
 
 ```bash
 ./scripts/codex-docker-run.sh '<command>'
-````
+```
 
 ### 默认 Docker 服务
 
@@ -45,6 +45,16 @@ CODEX_DOCKER_WORKDIR=/app
 ```
 
 注意：`stss-test-server`、`stss-server`、`stss-web` 是容器名，不是 Docker Compose service 名。`docker compose exec` 和本项目 wrapper 应使用 service 名，例如 `test-server`、`server`、`web`。
+
+### Workspace 构建顺序要求
+
+后端 `@stss/server` 依赖 `@stss/shared` 的构建产物。运行后端 typecheck/build/test 前，Codex 必须先构建 shared：
+
+```bash
+./scripts/codex-docker-run.sh 'pnpm --filter @stss/shared build && pnpm --filter @stss/server typecheck'
+```
+
+如果出现 `Cannot find module '@stss/shared'`，优先判断为 `@stss/shared` 未 build，不要直接修改业务代码。
 
 ### 推荐命令
 
@@ -89,23 +99,10 @@ docker compose config --services
 
 ### 特殊情况
 
-默认使用 `test-server`：
-
-```bash
-./scripts/codex-docker-run.sh '<command>'
-```
-
-只有在明确需要前端运行服务环境时，才使用：
-
-```bash
-CODEX_DOCKER_SERVICE=web ./scripts/codex-docker-run.sh '<command>'
-```
-
-只有在明确需要后端运行服务环境时，才使用：
-
-```bash
-CODEX_DOCKER_SERVICE=server ./scripts/codex-docker-run.sh '<command>'
-```
+默认由 scripts/codex-docker-run.sh 自动选择服务：
+- 后端、Prisma、数据库、root workspace 检查默认使用 server；
+- 前端、Vite、@stss/web 检查默认使用 web；
+- test-server 仅在显式设置 CODEX_DOCKER_SERVICE=test-server 时使用。
 
 ### 失败处理
 

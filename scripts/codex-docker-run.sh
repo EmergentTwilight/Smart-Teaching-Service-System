@@ -4,16 +4,24 @@ set -euo pipefail
 if [ "$#" -lt 1 ]; then
   echo "Usage: $0 '<command to run inside docker>'" >&2
   echo "Example: $0 'pnpm --filter @stss/server typecheck'" >&2
+  echo "Example: $0 'pnpm --filter @stss/web typecheck'" >&2
   exit 2
 fi
 
 CMD="$*"
 
 # STSS Docker Compose services:
-# - server: backend dev server, localhost:3000
-# - web: frontend dev server, localhost:5173
-# - test-server: preferred service for Codex checks/typecheck/build/test
-SERVICE="${CODEX_DOCKER_SERVICE:-test-server}"
+# - server: backend dev server, localhost:3000; preferred for backend/typecheck/prisma/root workspace checks
+# - web: frontend dev server, localhost:5173; preferred for frontend/web checks
+# - test-server: test helper service; use only when explicitly requested
+#
+# Override when needed:
+#   CODEX_DOCKER_SERVICE=server ./scripts/codex-docker-run.sh 'pnpm --filter @stss/server typecheck'
+#   CODEX_DOCKER_SERVICE=web ./scripts/codex-docker-run.sh 'pnpm --filter @stss/web typecheck'
+#   CODEX_DOCKER_SERVICE=test-server ./scripts/codex-docker-run.sh 'pnpm test'
+#
+# Override workdir when needed:
+#   CODEX_DOCKER_WORKDIR=/workspace ./scripts/codex-docker-run.sh 'pwd'
 WORKDIR="${CODEX_DOCKER_WORKDIR:-/app}"
 
 if ! command -v docker >/dev/null 2>&1; then
@@ -24,6 +32,46 @@ fi
 if ! docker compose version >/dev/null 2>&1; then
   echo "docker compose is not available." >&2
   exit 127
+fi
+
+# Auto-select service unless explicitly overridden.
+if [ -n "${CODEX_DOCKER_SERVICE:-}" ]; then
+  SERVICE="$CODEX_DOCKER_SERVICE"
+  SERVICE_REASON="explicit CODEX_DOCKER_SERVICE"
+else
+  # If the command clearly targets the web package, use web.
+  # If it targets backend/server/prisma/db, use server.
+  # If both appear, prefer server because it is the safer root workspace/check environment.
+  CMD_LOWER="$(printf '%s' "$CMD" | tr '[:upper:]' '[:lower:]')"
+
+  IS_WEB=0
+  IS_SERVER=0
+
+  case "$CMD_LOWER" in
+    *"@stss/web"*|*"frontend"*|*"vite"*|*"src/modules/course-selection"*".tsx"*|*"src/modules/course-selection"*".jsx"*)
+      IS_WEB=1
+      ;;
+  esac
+
+  case "$CMD_LOWER" in
+    *"@stss/server"*|*"backend"*|*"prisma"*|*"migrate"*|*"migration"*|*"seed"*|*"express"*)
+      IS_SERVER=1
+      ;;
+  esac
+
+  if [ "$IS_WEB" -eq 1 ] && [ "$IS_SERVER" -eq 0 ]; then
+    SERVICE="web"
+    SERVICE_REASON="auto-selected web from command"
+  else
+    SERVICE="server"
+    if [ "$IS_WEB" -eq 1 ] && [ "$IS_SERVER" -eq 1 ]; then
+      SERVICE_REASON="auto-selected server because command mentions both web and server/backend"
+    elif [ "$IS_SERVER" -eq 1 ]; then
+      SERVICE_REASON="auto-selected server from command"
+    else
+      SERVICE_REASON="auto-selected server as default STSS check environment"
+    fi
+  fi
 fi
 
 SERVICES="$(docker compose config --services)"
@@ -68,6 +116,7 @@ sh -lc "$CODEX_INNER_CMD"
 '
 
 echo "[codex-docker-run] target service: $SERVICE"
+echo "[codex-docker-run] selection reason: $SERVICE_REASON"
 echo "[codex-docker-run] target workdir: $WORKDIR"
 
 if docker compose ps --services --filter status=running | grep -qx "$SERVICE"; then

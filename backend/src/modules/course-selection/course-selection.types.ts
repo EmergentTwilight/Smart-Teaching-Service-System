@@ -114,7 +114,7 @@ export interface UpdateSelectionPeriodBody {
 export interface ManualEnrollmentBody {
   studentId: string
   courseOfferingId: string
-  reason?: string
+  reason: string
 }
 
 export interface RosterQuery extends BaseQuery {

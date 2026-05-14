@@ -198,10 +198,10 @@ const selectionPeriodBodyInputSchema = z.object({
   semesterId: z.string().uuid().optional(),
   semester_id: z.string().uuid().optional(),
   phase: z.string().optional(),
-  startTime: z.string().datetime().optional(),
-  start_time: z.string().datetime().optional(),
-  endTime: z.string().datetime().optional(),
-  end_time: z.string().datetime().optional(),
+  startTime: z.string().datetime({ offset: true }).optional(),
+  start_time: z.string().datetime({ offset: true }).optional(),
+  endTime: z.string().datetime({ offset: true }).optional(),
+  end_time: z.string().datetime({ offset: true }).optional(),
   maxCredits: z.coerce.number().min(0).optional(),
   max_credits: z.coerce.number().min(0).optional(),
   isActive: booleanSchema,
@@ -261,8 +261,8 @@ export const createSelectionPeriodBodySchema = selectionPeriodBodyInputSchema
   .pipe(z.object({
     semesterId: z.string().uuid(),
     phase: z.string(),
-    startTime: z.string().datetime(),
-    endTime: z.string().datetime(),
+    startTime: z.string().datetime({ offset: true }),
+    endTime: z.string().datetime({ offset: true }),
     maxCredits: z.number().min(0).optional(),
     isActive: z.boolean(),
   }))
@@ -280,8 +280,8 @@ export const updateSelectionPeriodBodySchema = selectionPeriodBodyInputSchema
   .pipe(z.object({
     semesterId: z.string().uuid().optional(),
     phase: z.string().optional(),
-    startTime: z.string().datetime().optional(),
-    endTime: z.string().datetime().optional(),
+    startTime: z.string().datetime({ offset: true }).optional(),
+    endTime: z.string().datetime({ offset: true }).optional(),
     maxCredits: z.number().min(0).optional(),
     isActive: z.boolean().optional(),
   }))
@@ -298,7 +298,7 @@ const manualEnrollmentBodyInputSchema = z.object({
   student_id: z.string().uuid('学生ID应为 UUID').optional(),
   courseOfferingId: z.string().uuid('课程开设ID应为 UUID').optional(),
   course_offering_id: z.string().uuid('课程开设ID应为 UUID').optional(),
-  reason: z.string().min(1, '必须填写操作原因').max(500).optional(),
+  reason: z.string().trim().min(1, '必须填写操作原因').max(500),
   notify_student: z.coerce.boolean().optional(),
 })
 
@@ -352,7 +352,7 @@ export const manualEnrollmentBodySchema = manualEnrollmentBodyInputSchema
   .pipe(z.object({
     studentId: z.string().uuid('学生ID应为 UUID'),
     courseOfferingId: z.string().uuid('课程开设ID应为 UUID'),
-    reason: z.string().min(1, '必须填写操作原因').max(500).optional(),
+    reason: z.string().trim().min(1, '必须填写操作原因').max(500),
   }))
 export type ManualEnrollmentBody = z.infer<typeof manualEnrollmentBodySchema>
 

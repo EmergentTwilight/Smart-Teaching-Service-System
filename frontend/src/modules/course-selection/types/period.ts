@@ -1,8 +1,10 @@
+export type SelectionPhase = 'first_round' | 'second_round' | 'adjustment';
+
 export interface SelectionPeriodItem {
   id: string;
   semesterId: string;
   semesterName: string;
-  phase: 'FIRST_ROUND' | 'SECOND_ROUND' | 'ADJUSTMENT';
+  phase: SelectionPhase;
   startTime: string;
   endTime: string;
   maxCredits?: number;
@@ -17,7 +19,7 @@ export interface SelectionPeriodQuery {
 
 export interface SelectionPeriodPayload {
   semesterId: string;
-  phase: 'FIRST_ROUND' | 'SECOND_ROUND' | 'ADJUSTMENT';
+  phase: SelectionPhase;
   startTime: string;
   endTime: string;
   maxCredits?: number;

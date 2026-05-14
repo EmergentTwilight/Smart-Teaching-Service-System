@@ -76,13 +76,19 @@ export const courseSearchQuerySchema = z
     semester_id: z.string().optional(),
     courseType: z.string().optional(),
     course_type: z.string().optional(),
+    status: z.string().optional(),
     offeringStatus: z.string().optional(),
     offering_status: z.string().optional(),
+    availableOnly: z.coerce.boolean().optional(),
+    available_only: z.coerce.boolean().optional(),
     includeUnavailable: z.boolean().optional(),
     include_unavailable: z.boolean().optional(),
   })
   .merge(paginationSchema.partial())
-  .transform(normalizePaginationFields)
+  .transform(({ availableOnly, available_only, ...rest }) => ({
+    ...normalizePaginationFields(rest),
+    availableOnly: availableOnly ?? available_only,
+  }))
 
 export type CourseSearchQuery = z.infer<typeof courseSearchQuerySchema>
 

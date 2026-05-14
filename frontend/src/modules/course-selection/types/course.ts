@@ -1,10 +1,17 @@
 export interface CourseListItem {
-  id: string;
-  code: string;
-  name: string;
+  courseId: string;
+  courseCode: string;
+  courseName: string;
   credits: number;
-  courseType: 'REQUIRED' | 'ELECTIVE' | 'GENERAL';
-  status?: string;
+  courseType: 'required' | 'elective' | 'general';
+  category?: string;
+  assessmentMethod?: string;
+  status: 'active' | 'archived';
+  offeringSummary?: {
+    openCount: number;
+    plannedCount: number;
+    latestSemesterName?: string;
+  };
 }
 
 export interface CourseSearchParams {
@@ -12,7 +19,9 @@ export interface CourseSearchParams {
   teacher?: string;
   semesterId?: string;
   courseType?: string;
+  status?: string;
   offeringStatus?: string;
+  availableOnly?: boolean;
   page?: number;
   pageSize?: number;
 }

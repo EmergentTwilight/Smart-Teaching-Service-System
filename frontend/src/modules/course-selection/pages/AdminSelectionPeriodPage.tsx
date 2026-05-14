@@ -3,19 +3,19 @@ import { Button, Card, DatePicker, Form, Input, Select, Space, Table, Tag, Typog
 import dayjs, { Dayjs } from 'dayjs';
 import { useSelectionPeriods, useUpsertSelectionPeriod } from '../hooks/useSelectionPeriod';
 import { SelectionPeriodStatusTag } from '../components/SelectionPeriodStatusTag';
-import type { SelectionPeriodItem, SelectionPeriodPayload } from '../types/period';
+import type { SelectionPeriodItem, SelectionPeriodPayload, SelectionPhase } from '../types/period';
 
 const { Text } = Typography;
 
 const PHASE_OPTIONS = [
-  { label: '初选', value: 'FIRST_ROUND' },
-  { label: '补退选', value: 'SECOND_ROUND' },
-  { label: '调整期', value: 'ADJUSTMENT' },
+  { label: '初选', value: 'first_round' },
+  { label: '补退选', value: 'second_round' },
+  { label: '调整期', value: 'adjustment' },
 ];
 
 interface PeriodFormValues {
   semesterId: string;
-  phase: 'FIRST_ROUND' | 'SECOND_ROUND' | 'ADJUSTMENT';
+  phase: SelectionPhase;
   startTime: Dayjs;
   endTime: Dayjs;
   maxCredits?: number;

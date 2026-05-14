@@ -1,5 +1,6 @@
 import { courseSelectionRequest } from './client';
 import type {
+  CourseListItem,
   CourseSearchParams,
   CourseOfferingItem,
   CourseOfferingDetail,
@@ -9,7 +10,7 @@ import type { PaginatedResponse } from '../types/common';
 
 export const coursesApi = {
   listCourses: (params?: CourseSearchParams) => {
-    return courseSelectionRequest.get<PaginatedResponse<CourseOfferingItem>>('/course-selection/courses', {
+    return courseSelectionRequest.get<PaginatedResponse<CourseListItem>>('/course-selection/courses', {
       params,
     });
   },

@@ -3,9 +3,9 @@ import type {
   CourseSearchParams,
   CourseOfferingItem,
   CourseOfferingDetail,
-  PaginatedResponse,
   OfferingsAvailableQuery,
 } from '../types/course';
+import type { PaginatedResponse } from '../types/common';
 
 export const coursesApi = {
   listCourses: (params?: CourseSearchParams) => {

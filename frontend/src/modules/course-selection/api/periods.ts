@@ -4,8 +4,8 @@ import type {
   SelectionPeriodQuery,
   SelectionPeriodPayload,
   ManualEnrollmentPayload,
-  PaginatedResponse,
 } from '../types/period';
+import type { PaginatedResponse } from '../types/common';
 
 export const periodsApi = {
   listPeriods: (params?: SelectionPeriodQuery) =>

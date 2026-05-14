@@ -2,7 +2,6 @@ import { useMemo } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { periodsApi } from '../api/periods';
 import type {
-  SelectionPeriodItem,
   SelectionPeriodPayload,
   SelectionPeriodQuery,
   ManualEnrollmentPayload,

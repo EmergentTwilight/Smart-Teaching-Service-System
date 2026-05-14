@@ -4,9 +4,9 @@ import type {
   EnrollmentQuery,
   CreateEnrollmentPayload,
   DropEnrollmentPayload,
-  PaginatedResponse,
   TimetablePayload,
 } from '../types/enrollment';
+import type { PaginatedResponse } from '../types/common';
 
 export const enrollmentsApi = {
   listMyEnrollments: (params?: EnrollmentQuery) =>

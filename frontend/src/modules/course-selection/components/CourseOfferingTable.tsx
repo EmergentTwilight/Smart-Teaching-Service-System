@@ -1,4 +1,4 @@
-import { Button, Space, Table, Tag, type ColumnsType } from 'antd';
+import { Button, Space, Table, Tag, type TableProps } from 'antd';
 import { type FC } from 'react';
 import type { CourseOfferingItem } from '../types/course';
 
@@ -25,7 +25,7 @@ export const CourseOfferingTable: FC<CourseOfferingTableProps> = ({
   onEnroll,
   onViewDetail,
 }) => {
-  const columns: ColumnsType<CourseOfferingItem> = [
+  const columns: TableProps<CourseOfferingItem>['columns'] = [
     { title: '课程代码', dataIndex: 'courseCode', key: 'courseCode' },
     { title: '课程名称', dataIndex: 'courseName', key: 'courseName' },
     { title: '教师', dataIndex: 'teacherName', key: 'teacherName' },
@@ -33,17 +33,17 @@ export const CourseOfferingTable: FC<CourseOfferingTableProps> = ({
     {
       title: '容量',
       key: 'capacity',
-      render: (_, record) => `${record.enrolledCount}/${record.capacity}`,
+      render: (_value: unknown, record: CourseOfferingItem) => `${record.enrolledCount}/${record.capacity}`,
     },
     {
       title: '状态',
       key: 'offeringStatus',
-      render: (_, record) => <Tag color={record.offeringStatus === 'OPEN' ? 'green' : 'default'}>{statusLabel[record.offeringStatus]}</Tag>,
+      render: (_value: unknown, record: CourseOfferingItem) => <Tag color={record.offeringStatus === 'OPEN' ? 'green' : 'default'}>{statusLabel[record.offeringStatus]}</Tag>,
     },
     {
       title: '操作',
       key: 'action',
-      render: (_, record) => {
+      render: (_value: unknown, record: CourseOfferingItem) => {
         return onEnroll ? (
           <Space direction="vertical" size="small">
             <Button

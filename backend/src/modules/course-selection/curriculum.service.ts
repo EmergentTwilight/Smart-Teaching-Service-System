@@ -11,7 +11,7 @@ import type {
  * - 按当前用户 student.majorId + grade 查找 Curriculum
  * - 校验课程分类 required/elective/general 映射关系
  */
-function placeholderCurriculumFromSeed(studentId: string): CurriculumInfo {
+function placeholderCurriculumFromSeed(_studentId: string): CurriculumInfo {
   return {
     id: 'placeholder-curriculum-id',
     name: '待配置培养方案',

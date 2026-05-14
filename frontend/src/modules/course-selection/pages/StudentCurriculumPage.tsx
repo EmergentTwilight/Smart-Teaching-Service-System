@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { Card, Col, Empty, List, Row, Spin, Tag, Typography } from 'antd';
 import { curriculumApi } from '../api/curriculum';
 import type { CurriculumCourseItem } from '../types/curriculum';
@@ -6,6 +6,7 @@ import { CreditProgressCard } from '../components/CreditProgressCard';
 import { useQuery } from '@tanstack/react-query';
 
 const { Title, Text } = Typography;
+const EMPTY_COURSE_GROUPS: CurriculumCourseItem[] = [];
 
 /**
  * TODO(C1, FR-C-01, FR-C-02, FR-C-04, FR-C-05):
@@ -14,7 +15,7 @@ const { Title, Text } = Typography;
  * - 课程类型（必修/选修/公共课）展示与课程列表应与后端字段一致。
  */
 const StudentCurriculumPage: React.FC = () => {
-  const [includeCourses, setIncludeCourses] = useState(true);
+  const includeCourses = true;
 
   const curriculumQuery = useQuery({
     queryKey: ['course-selection', 'curriculum', 'me', { includeCourses }],
@@ -27,12 +28,12 @@ const StudentCurriculumPage: React.FC = () => {
   });
 
   const curriculum = curriculumQuery.data?.curriculum;
-  const courseGroups = curriculumQuery.data?.courseGroups || [];
+  const courseGroups = curriculumQuery.data?.courseGroups ?? EMPTY_COURSE_GROUPS;
   const progress = progressQuery.data?.progress || null;
 
   const groupedCourses = useMemo(() => {
     const grouped = new Map<string, CurriculumCourseItem[]>();
-    for (const course of courseGroups as CurriculumCourseItem[]) {
+    for (const course of courseGroups) {
       const key = course.courseType || 'GENERAL';
       const list = grouped.get(key) || [];
       grouped.set(key, [...list, course]);

@@ -1,3 +1,5 @@
+import type { PaginationMeta } from './common';
+
 export type EnrollmentStatus = 'ENROLLED' | 'DROPPED' | 'WITHDRAWN';
 
 export interface EnrollmentItem {
@@ -64,13 +66,6 @@ export interface RosterStudentItem {
 export interface RosterPayload {
   offering: RosterOfferingInfo;
   students: RosterStudentItem[];
-}
-
-export interface PaginationMeta {
-  page: number;
-  pageSize: number;
-  total: number;
-  totalPages: number;
 }
 
 export interface RosterOfferingInfo {

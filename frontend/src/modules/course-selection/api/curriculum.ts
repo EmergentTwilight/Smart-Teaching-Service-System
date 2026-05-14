@@ -5,7 +5,6 @@ import type {
   CurriculumQuery,
   CurriculumProgress,
   CurriculumProgressQuery,
-  PaginatedResponse,
 } from '../types/curriculum';
 
 export const curriculumApi = {

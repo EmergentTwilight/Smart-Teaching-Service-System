@@ -17,21 +17,25 @@ type PaginationInput = {
 
 const normalizePaginationFields = <T extends PaginationInput>(
   value: T
-): Omit<T, 'pageSize' | 'page_size'> & { page?: number; pageSize: number } => {
+): Omit<T, 'page' | 'pageSize' | 'page_size'> & { page?: number; pageSize: number } => {
   const { page, pageSize, page_size, ...rest } = value
-  return {
+  const normalized = {
     ...rest,
-    page,
     pageSize: pageSize ?? page_size ?? 20,
   }
+
+  if (page !== undefined) {
+    return {
+      ...normalized,
+      page,
+    }
+  }
+
+  return normalized
 }
 
 const idSchema = z.object({
   id: z.string().uuid('参数应为 UUID'),
-})
-
-const userIdSchema = z.object({
-  userId: z.string().min(1, '用户ID不能为空'),
 })
 
 const paginationSchema = z.object({

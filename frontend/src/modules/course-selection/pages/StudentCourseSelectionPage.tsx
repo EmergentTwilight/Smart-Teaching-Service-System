@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import {
   Alert,
   Button,
@@ -123,16 +123,13 @@ const StudentCourseSelectionPage: React.FC = () => {
   };
 
   const offeringTableLoading = availableOfferingsQuery.isLoading;
-  const courseOfferingTable = useMemo(
-    () => (
-      <CourseOfferingTable
-        offerings={offeringRows}
-        loading={offeringTableLoading}
-        onEnroll={handleEnroll}
-        onViewDetail={setOfferingIdInDrawer}
-      />
-    ),
-    [offeringRows, offeringTableLoading]
+  const courseOfferingTable = (
+    <CourseOfferingTable
+      offerings={offeringRows}
+      loading={offeringTableLoading}
+      onEnroll={handleEnroll}
+      onViewDetail={setOfferingIdInDrawer}
+    />
   );
 
   return (

@@ -142,6 +142,7 @@ const createEnrollmentBodyInputSchema = z.object({
   course_offering_id: z.string().uuid('课程开设ID应为 UUID').optional(),
   idempotencyKey: z.string().min(1).max(128).optional(),
   idempotency_key: z.string().min(1).max(128).optional(),
+  client_request_id: z.string().min(1).max(128).optional(),
   reason: z.string().max(200).optional(),
 })
 
@@ -166,10 +167,24 @@ export const createEnrollmentBodySchema = createEnrollmentBodyInputSchema
         path: ['course_offering_id'],
       })
     }
+
+    const idempotencyKeys = [
+      value.idempotencyKey,
+      value.idempotency_key,
+      value.client_request_id,
+    ].filter((key): key is string => key !== undefined)
+
+    if (new Set(idempotencyKeys).size > 1) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'idempotencyKey / idempotency_key / client_request_id 不一致',
+        path: ['client_request_id'],
+      })
+    }
   })
   .transform((value) => ({
     courseOfferingId: value.courseOfferingId ?? value.course_offering_id,
-    idempotencyKey: value.idempotencyKey ?? value.idempotency_key,
+    idempotencyKey: value.idempotencyKey ?? value.idempotency_key ?? value.client_request_id,
     reason: value.reason,
   }))
   .pipe(z.object({

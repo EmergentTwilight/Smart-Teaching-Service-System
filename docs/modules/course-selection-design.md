@@ -3,7 +3,7 @@
 > 模块：Smart Course Selection / 智能选课<br>
 > 代码目录：`backend/src/modules/course-selection/`、`frontend/src/modules/course-selection/`<br>
 > 适用分支：`dev/C`<br>
-> 本文用于指导 C 组负责人、组员和 coding agent 搭建与实现 C 组子模块。API 详细契约由后续 `docs/apis/course-selection-api.md` 生成；本文只规定架构、边界、硬性规则和实现约束。
+> 本文用于指导 C 组负责人、组员和 coding agent 搭建与实现 C 组子模块。API 详细契约由 `docs/apis/C-smart-course-selection.md` 维护；本文只规定架构、边界、硬性规则和实现约束。
 
 ## 1. 设计依据与优先级
 
@@ -150,7 +150,7 @@ frontend/src/modules/course-selection/
 
 ## 7. API 设计要求
 
-本文件不生成完整 API 契约。后续 `docs/apis/course-selection-api.md` 应由 Codex 根据 SRS 和本文生成，并至少覆盖以下 API 家族：
+本文件不生成完整 API 契约。`docs/apis/C-smart-course-selection.md` 应根据 SRS 和本文维护，并至少覆盖以下 API 家族：
 
 | API 家族 | 必须覆盖的能力 |
 |---|---|

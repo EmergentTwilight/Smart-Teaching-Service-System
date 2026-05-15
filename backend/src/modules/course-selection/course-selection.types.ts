@@ -1,9 +1,26 @@
-import {
-  CourseType,
-  EnrollmentStatus,
-  OfferingStatus,
-  SelectionPhase,
-} from '@prisma/client'
+export type CourseTypeValue = 'required' | 'elective' | 'general'
+export type CourseStatusValue = 'active' | 'archived'
+export type OfferingStatusValue = 'planned' | 'open' | 'closed' | 'cancelled'
+export type EnrollmentStatusValue = 'enrolled' | 'dropped' | 'withdrawn'
+export type SelectionPhaseValue = 'first_round' | 'second_round' | 'adjustment'
+
+const toLowercaseApiEnum = <T extends string>(value: T): Lowercase<T> =>
+  value.toLowerCase() as Lowercase<T>
+
+export const toCourseTypeValue = (value: string): CourseTypeValue =>
+  toLowercaseApiEnum(value) as CourseTypeValue
+
+export const toCourseStatusValue = (value: string): CourseStatusValue =>
+  toLowercaseApiEnum(value) as CourseStatusValue
+
+export const toOfferingStatusValue = (value: string): OfferingStatusValue =>
+  toLowercaseApiEnum(value) as OfferingStatusValue
+
+export const toEnrollmentStatusValue = (value: string): EnrollmentStatusValue =>
+  toLowercaseApiEnum(value) as EnrollmentStatusValue
+
+export const toSelectionPhaseValue = (value: string): SelectionPhaseValue =>
+  toLowercaseApiEnum(value) as SelectionPhaseValue
 
 export interface PaginationMeta {
   page: number
@@ -158,9 +175,9 @@ export interface CurriculumCourseItem {
   courseCode: string
   courseName: string
   credits: number
-  courseType: CourseType
+  courseType: CourseTypeValue
   semesterSuggestion?: number | null
-  status?: string
+  status?: CourseStatusValue
 }
 
 export interface CurriculumInfo {
@@ -186,8 +203,8 @@ export interface CourseListItem {
   code: string
   name: string
   credits: number
-  courseType: CourseType
-  status: string
+  courseType: CourseTypeValue
+  status: CourseStatusValue
 }
 
 export interface CourseOfferingItem {
@@ -198,12 +215,12 @@ export interface CourseOfferingItem {
   courseName: string
   courseCode: string
   credits: number
-  courseType: CourseType
+  courseType: CourseTypeValue
   teacherId: string
   teacherName: string
   capacity: number
   enrolledCount: number
-  offeringStatus: OfferingStatus
+  offeringStatus: OfferingStatusValue
   isAvailable: boolean
   hasConflictHint?: string
   prerequisiteHint?: string
@@ -230,7 +247,7 @@ export interface EnrollmentItem {
   id: string
   studentId: string
   courseOfferingId: string
-  status: EnrollmentStatus
+  status: EnrollmentStatusValue
   enrolledAt: string
   droppedAt?: string | null
   offering: {
@@ -265,7 +282,7 @@ export interface SelectionPeriodItem {
   id: string
   semesterId: string
   semesterName: string
-  phase: SelectionPhase
+  phase: SelectionPhaseValue
   startTime: string
   endTime: string
   maxCredits?: number
@@ -277,7 +294,7 @@ export interface RosterStudentItem {
   studentName: string
   majorName?: string
   className?: string
-  enrollmentStatus: EnrollmentStatus
+  enrollmentStatus: EnrollmentStatusValue
   enrolledAt: string
 }
 

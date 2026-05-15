@@ -15,7 +15,7 @@ docs/database-design.md
 docs/development-specifications.md
 ```
 
-当 `docs/apis/course-selection-api.md` 生成后，所有接口实现必须同时遵循该 API 文档。
+所有接口实现必须同时遵循 `docs/apis/C-smart-course-selection.md` API 文档。
 
 优先级规则：
 

@@ -82,7 +82,7 @@ git branch -r | grep 'origin/dev/C'
 ```text
 1. C 组 SRS 导入 docs/srs/C-smart-course-selection-srs.md。
 2. 生成模块设计、分工和 agent 指南。
-3. 由 Codex 生成 docs/apis/course-selection-api.md。
+3. 维护 docs/apis/C-smart-course-selection.md。
 4. 搭建 backend/src/modules/course-selection/ 和 frontend/src/modules/course-selection/ 骨架。
 5. 复杂业务保留可分配 TODO。
 ```

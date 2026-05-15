@@ -1,5 +1,5 @@
 import prisma from '../../shared/prisma/client.js'
-import { ForbiddenError, NotFoundError } from '@stss/shared'
+import { AppError, ForbiddenError, NotFoundError } from '@stss/shared'
 import type { PaginatedRosterPayload, RosterOfferingInfo, RosterQuery, RosterStudentItem } from './course-selection.types.js'
 
 const ROSTER_ADMIN_ROLES = new Set(['admin', 'super_admin'])
@@ -100,10 +100,12 @@ export const rosterService = {
   }> {
     await getOfferingRosterOwnership(requesterUserId, requesterRoles, offeringId)
 
-    return {
-      downloadToken: 'pending',
-      fileName: `roster-${offeringId}.xlsx`,
-      message: '导出暂未接入 Excel 依赖，当前返回导出任务占位信息',
-    }
+    // TODO(C4, FR-C-28, NFR-C-08):
+    // 接入 Excel 生成库并从 Enrollment 查询导出内容；在实现前不得返回伪造下载令牌。
+    throw new AppError(
+      'COURSE_SELECTION_ROSTER_EXPORT_NOT_IMPLEMENTED',
+      501,
+      '课程学生名单导出暂未实现，当前无法生成下载文件'
+    )
   },
 }

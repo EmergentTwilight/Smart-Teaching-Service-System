@@ -5,23 +5,80 @@ import type {
   CurriculumProgressQuery,
   CurriculumCourseItem,
 } from './course-selection.types.js'
+import {
+  toCourseStatusValue,
+  toCourseTypeValue,
+} from './course-selection.types.js'
+import prisma from '../../shared/prisma/client.js'
+import { AppError } from '@stss/shared'
 
-/**
- * TODO(C1, FR-C-01, FR-C-02, FR-C-03): 补充学生专业与年级匹配逻辑
- * - 按当前用户 student.majorId + grade 查找 Curriculum
- * - 校验课程分类 required/elective/general 映射关系
- */
-function placeholderCurriculumFromSeed(_studentId: string): CurriculumInfo {
-  return {
-    id: 'placeholder-curriculum-id',
-    name: '待配置培养方案',
-    year: new Date().getFullYear(),
-    majorName: '待绑定专业',
-    totalCredits: 0,
-    requiredCredits: 0,
-    electiveCredits: 0,
+const createCurriculumNotFoundError = () =>
+  new AppError(
+    'COURSE_SELECTION_CURRICULUM_NOT_FOUND',
+    422,
+    '当前学生暂无匹配培养方案，无法生成可选课程列表'
+  )
+
+const shouldIncludeCourses = (query: CurriculumQuery): boolean =>
+  query.includeCourses ?? query.include_courses ?? true
+
+const normalizeCourseTypeFilter = (query: CurriculumQuery): string | undefined =>
+  query.courseType?.toLowerCase() ?? query.course_type?.toLowerCase()
+
+async function findCurriculumForStudent(studentId: string) {
+  const student = await prisma.student.findUnique({
+    where: {
+      userId: studentId,
+    },
+    select: {
+      majorId: true,
+      grade: true,
+    },
+  })
+
+  if (!student?.majorId) {
+    throw createCurriculumNotFoundError()
   }
+
+  return prisma.curriculum.findFirst({
+    where: {
+      majorId: student.majorId,
+      year: student.grade,
+    },
+    include: {
+      major: {
+        select: {
+          name: true,
+        },
+      },
+      courses: {
+        include: {
+          course: {
+            select: {
+              id: true,
+              code: true,
+              name: true,
+              credits: true,
+              status: true,
+            },
+          },
+        },
+      },
+    },
+  })
 }
+
+type StudentCurriculumRecord = NonNullable<Awaited<ReturnType<typeof findCurriculumForStudent>>>
+
+const toCurriculumInfo = (curriculum: StudentCurriculumRecord): CurriculumInfo => ({
+  id: curriculum.id,
+  name: curriculum.name,
+  year: curriculum.year,
+  majorName: curriculum.major.name,
+  totalCredits: Number(curriculum.totalCredits),
+  requiredCredits: curriculum.requiredCredits === null ? undefined : Number(curriculum.requiredCredits),
+  electiveCredits: curriculum.electiveCredits === null ? undefined : Number(curriculum.electiveCredits),
+})
 
 /**
  * C1: 培养方案与学分进展服务
@@ -32,22 +89,32 @@ export const curriculumService = {
    */
   async getMyCurriculum(
     studentId: string,
-    _query: CurriculumQuery
+    query: CurriculumQuery
   ): Promise<{ studentId: string; curriculum: CurriculumInfo; courseGroups: CurriculumCourseItem[] }> {
-    const curriculum: CurriculumInfo = placeholderCurriculumFromSeed(studentId)
+    const curriculumRecord = await findCurriculumForStudent(studentId)
 
-    const courseGroups: CurriculumCourseItem[] = []
+    if (!curriculumRecord) {
+      throw createCurriculumNotFoundError()
+    }
 
-    // TODO(C1, FR-C-05, NFR-C-08): 根据课程类型聚合课程进度所需课程清单
-    // - 查询 CurriculumCourses，并补齐课程代码、名称和建议修读学期
-    // - 与课程类型分类(必须/选修/公共)一致输出 courseGroups
-
-    // TODO(C1, FR-C-06, NFR-C-06): 学生无匹配培养方案时返回拒绝提示，不允许进入自动选课列表
-    // - 若 student.majorId/grade 与现有 Curriculum 不匹配，返回可见且可操作的错误提示
+    const courseTypeFilter = normalizeCourseTypeFilter(query)
+    const courseGroups: CurriculumCourseItem[] = shouldIncludeCourses(query)
+      ? curriculumRecord.courses
+        .filter((item) => !courseTypeFilter || toCourseTypeValue(item.courseType) === courseTypeFilter)
+        .map((item) => ({
+          courseId: item.course.id,
+          courseCode: item.course.code,
+          courseName: item.course.name,
+          credits: Number(item.course.credits),
+          courseType: toCourseTypeValue(item.courseType),
+          semesterSuggestion: item.semesterSuggestion,
+          status: toCourseStatusValue(item.course.status),
+        }))
+      : []
 
     return {
       studentId,
-      curriculum,
+      curriculum: toCurriculumInfo(curriculumRecord),
       courseGroups,
     }
   },

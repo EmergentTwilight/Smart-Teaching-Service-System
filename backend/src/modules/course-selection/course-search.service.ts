@@ -6,7 +6,12 @@ import type {
   CourseOfferingItem,
   CourseOfferingDetail,
 } from './course-selection.types.js'
-import { CourseType, OfferingStatus } from '@prisma/client'
+import {
+  toCourseTypeValue,
+  toOfferingStatusValue,
+} from './course-selection.types.js'
+import prisma from '../../shared/prisma/client.js'
+import { NotFoundError } from '@stss/shared'
 
 const emptyPagination = {
   page: 1,
@@ -61,27 +66,93 @@ export const courseSearchService = {
     }
   },
 
-  // TODO(C2, FR-C-11, FR-C-19, FR-C-18, NFR-C-07): 实现课程详情和依赖信息聚合
-  // - 读取课程、开课、教师、课表、先修列表
-  // - 不在详情内篡改容量和状态
+  // TODO(C2, C3, FR-C-18, FR-C-19, NFR-C-07):
+  // 在详情中补充当前学生的可选性原因，不能绕过容量、课表冲突、培养方案和先修校验。
   async getOfferingDetail(offeringId: string, _studentId: string): Promise<CourseOfferingDetail> {
+    const offering = await prisma.courseOffering.findUnique({
+      where: {
+        id: offeringId,
+      },
+      include: {
+        course: {
+          include: {
+            prerequisites: {
+              include: {
+                prerequisite: {
+                  select: {
+                    code: true,
+                    name: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+        semester: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        teacher: {
+          select: {
+            user: {
+              select: {
+                realName: true,
+              },
+            },
+          },
+        },
+        schedules: {
+          include: {
+            classroom: {
+              select: {
+                building: true,
+                roomNumber: true,
+                campus: true,
+              },
+            },
+          },
+        },
+      },
+    })
+
+    if (!offering) {
+      throw new NotFoundError('课程开设', offeringId)
+    }
+
     return {
-      id: offeringId,
-      courseId: 'placeholder-course-id',
-      semesterId: 'placeholder-semester-id',
-      semesterName: '未开启',
-      courseName: '待配置课程',
-      courseCode: 'CUR-0000',
-      credits: 0,
-      courseType: CourseType.ELECTIVE,
-      teacherId: 'placeholder-teacher-id',
-      teacherName: '待绑定教师',
-      capacity: 0,
-      enrolledCount: 0,
-      offeringStatus: OfferingStatus.PLANNED,
-      isAvailable: false,
-      schedules: [],
-      prerequisites: [],
+      id: offering.id,
+      courseId: offering.courseId,
+      semesterId: offering.semester.id,
+      semesterName: offering.semester.name,
+      courseName: offering.course.name,
+      courseCode: offering.course.code,
+      credits: Number(offering.course.credits),
+      courseType: toCourseTypeValue(offering.course.courseType),
+      teacherId: offering.teacherId,
+      teacherName: offering.teacher.user.realName,
+      capacity: offering.capacity,
+      enrolledCount: offering.enrolledCount,
+      offeringStatus: toOfferingStatusValue(offering.status),
+      isAvailable:
+        offering.status === 'OPEN' &&
+        offering.course.status === 'ACTIVE' &&
+        offering.enrolledCount < offering.capacity,
+      description: offering.course.description ?? undefined,
+      assessmentMethod: offering.course.assessmentMethod ?? undefined,
+      schedules: offering.schedules.map((schedule) => ({
+        dayOfWeek: schedule.dayOfWeek,
+        startWeek: schedule.startWeek,
+        endWeek: schedule.endWeek,
+        startPeriod: schedule.startPeriod,
+        endPeriod: schedule.endPeriod,
+        classroomName: `${schedule.classroom.campus} ${schedule.classroom.building} ${schedule.classroom.roomNumber}`,
+      })),
+      prerequisites: offering.course.prerequisites.map((item) => ({
+        courseCode: item.prerequisite.code,
+        courseName: item.prerequisite.name,
+      })),
     }
   },
 }

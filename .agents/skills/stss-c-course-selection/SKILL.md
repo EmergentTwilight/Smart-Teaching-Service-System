@@ -12,13 +12,13 @@ description: STSS C 组“智能选课 Smart Course Selection”模块开发、�
 处理 C 组任务前，必须优先阅读或对照以下文档：
 
 1. `docs/srs/C-smart-course-selection-srs.md`
-2. `docs/apis/course-selection-api.md`
+2. `docs/apis/C-smart-course-selection.md`
 3. `docs/modules/course-selection-design.md`
 4. `docs/tasks/C-work-breakdown.md`
 5. `docs/agent-guides/C-coding-agent-guidelines.md`
 6. `docs/database-design.md`
 7. `docs/project-requirements.md`
-8. `docs/development-specification.md`
+8. `docs/development-specifications.md`
 8. `AGENTS.md`
 9. `README.md` 
 

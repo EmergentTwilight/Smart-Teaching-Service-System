@@ -13,7 +13,7 @@ export interface CurriculumCourseItem {
   courseCode: string;
   courseName: string;
   credits: number;
-  courseType: 'REQUIRED' | 'ELECTIVE' | 'GENERAL';
+  courseType: 'required' | 'elective' | 'general';
   semesterSuggestion?: number | null;
   status?: string;
 }
@@ -21,7 +21,7 @@ export interface CurriculumCourseItem {
 export interface CurriculumQuery {
   includeCourses?: boolean;
   include_courses?: boolean;
-  courseType?: 'REQUIRED' | 'ELECTIVE' | 'GENERAL';
+  courseType?: 'required' | 'elective' | 'general';
   page?: number;
   pageSize?: number;
 }

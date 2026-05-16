@@ -1,5 +1,5 @@
 import { Request, Response } from 'express'
-import { success } from '../../shared/utils/response.js'
+import { error, success } from '../../shared/utils/response.js'
 import { courseSearchService } from './course-search.service.js'
 import {
   availableOfferingsQuerySchema,
@@ -44,6 +44,10 @@ export const courseSearchController = {
     }
 
     const result = await courseSearchService.getOfferingDetail(id, studentId)
+    if (!result) {
+      return error(res, '功能待实现：C2 FR-C-11 FR-C-18 FR-C-19 NFR-C-07', 501)
+    }
+
     return success(res, result)
   },
 }

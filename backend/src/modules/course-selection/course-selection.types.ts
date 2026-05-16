@@ -64,8 +64,11 @@ export interface CourseSearchQuery extends BaseQuery {
   semester_id?: string
   courseType?: string
   course_type?: string
+  status?: string
   offeringStatus?: string
   offering_status?: string
+  availableOnly?: boolean
+  available_only?: boolean
   includeUnavailable?: boolean
   include_unavailable?: boolean
 }

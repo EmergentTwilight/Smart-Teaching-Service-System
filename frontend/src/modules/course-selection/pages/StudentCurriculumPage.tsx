@@ -34,7 +34,7 @@ const StudentCurriculumPage: React.FC = () => {
   const groupedCourses = useMemo(() => {
     const grouped = new Map<string, CurriculumCourseItem[]>();
     for (const course of courseGroups) {
-      const key = course.courseType || 'GENERAL';
+      const key = course.courseType || 'general';
       const list = grouped.get(key) || [];
       grouped.set(key, [...list, course]);
     }
@@ -43,9 +43,9 @@ const StudentCurriculumPage: React.FC = () => {
 
   const renderGroupTitle = (type: string) =>
     ({
-      REQUIRED: '专业必修',
-      ELECTIVE: '专业选修',
-      GENERAL: '公共课程',
+      required: '专业必修',
+      elective: '专业选修',
+      general: '公共课程',
     })[type] || type;
 
   if (curriculumQuery.isLoading || progressQuery.isLoading) {

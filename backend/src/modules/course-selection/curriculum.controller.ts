@@ -1,5 +1,5 @@
 import { Request, Response } from 'express'
-import { success } from '../../shared/utils/response.js'
+import { error, success } from '../../shared/utils/response.js'
 import { curriculumService } from './curriculum.service.js'
 import {
   curriculumQuerySchema,
@@ -20,6 +20,10 @@ export const curriculumController = {
     }
 
     const result = await curriculumService.getMyCurriculum(studentId, query)
+    if (!result) {
+      return error(res, '功能待实现：C1 FR-C-01~FR-C-06 NFR-C-13', 501)
+    }
+
     return success(res, result)
   },
 

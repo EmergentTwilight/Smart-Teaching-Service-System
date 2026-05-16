@@ -1,6 +1,6 @@
 import type { PaginationMeta } from './common';
 
-export type EnrollmentStatus = 'ENROLLED' | 'DROPPED' | 'WITHDRAWN';
+export type EnrollmentStatus = 'enrolled' | 'dropped' | 'withdrawn';
 
 export interface EnrollmentItem {
   id: string;

@@ -409,16 +409,63 @@ export const timetableQuerySchema = z
 export type TimetableQuery = z.infer<typeof timetableQuerySchema>
 
 // TODO(C6, FR-C-38, FR-C-42, NFR-C-09): AI 输入需支持课程/课表上下文，支持降级返回
-export const aiRecommendBodySchema = z.object({
-  maxRecommendations: z.coerce.number().min(1).max(20).default(6),
+const aiRecommendBodyInputSchema = z.object({
+  maxRecommendations: z.coerce.number().min(1).max(20).optional(),
+  max_recommendations: z.coerce.number().min(1).max(20).optional(),
   includeConflicts: z.coerce.boolean().optional(),
+  include_conflicts: z.coerce.boolean().optional(),
   constraints: z.record(z.unknown()).optional(),
 })
 
-export const aiExplainBodySchema = z.object({
-  offeringId: z.string().uuid('课程开设ID应为 UUID'),
+export const aiRecommendBodySchema = aiRecommendBodyInputSchema
+  .transform((value) => ({
+    maxRecommendations: value.maxRecommendations ?? value.max_recommendations ?? 6,
+    includeConflicts: value.includeConflicts ?? value.include_conflicts,
+    constraints: value.constraints,
+  }))
+  .pipe(z.object({
+    maxRecommendations: z.number().min(1).max(20),
+    includeConflicts: z.boolean().optional(),
+    constraints: z.record(z.unknown()).optional(),
+  }))
+
+const aiExplainBodyInputSchema = z.object({
+  offeringId: z.string().uuid('课程开设ID应为 UUID').optional(),
+  course_offering_id: z.string().uuid('课程开设ID应为 UUID').optional(),
   studentContext: z.record(z.unknown()).optional(),
+  student_context: z.record(z.unknown()).optional(),
 })
+
+export const aiExplainBodySchema = aiExplainBodyInputSchema
+  .superRefine((value, ctx) => {
+    if (!value.offeringId && !value.course_offering_id) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'offeringId / course_offering_id 不能为空',
+        path: ['course_offering_id'],
+      })
+    }
+
+    if (
+      value.offeringId &&
+      value.course_offering_id &&
+      value.offeringId !== value.course_offering_id
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'offeringId 与 course_offering_id 不一致',
+        path: ['course_offering_id'],
+      })
+    }
+  })
+  .transform((value) => ({
+    offeringId: value.offeringId ?? value.course_offering_id,
+    studentContext: value.studentContext ?? value.student_context,
+  }))
+  .pipe(z.object({
+    offeringId: z.string().uuid('课程开设ID应为 UUID'),
+    studentContext: z.record(z.unknown()).optional(),
+  }))
 
 export type AiRecommendBody = z.infer<typeof aiRecommendBodySchema>
 export type AiExplainBody = z.infer<typeof aiExplainBodySchema>

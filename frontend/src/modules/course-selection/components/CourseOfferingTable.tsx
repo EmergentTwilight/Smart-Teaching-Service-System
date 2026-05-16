@@ -13,10 +13,10 @@ interface CourseOfferingTableProps {
 }
 
 const statusLabel: Record<CourseOfferingItem['offeringStatus'], string> = {
-  PLANNED: '未开课',
-  OPEN: '可选',
-  CLOSED: '已关闭',
-  CANCELLED: '已取消',
+  planned: '未开课',
+  open: '可选',
+  closed: '已关闭',
+  cancelled: '已取消',
 };
 
 export const CourseOfferingTable: FC<CourseOfferingTableProps> = ({
@@ -38,7 +38,7 @@ export const CourseOfferingTable: FC<CourseOfferingTableProps> = ({
     {
       title: '状态',
       key: 'offeringStatus',
-      render: (_value: unknown, record: CourseOfferingItem) => <Tag color={record.offeringStatus === 'OPEN' ? 'green' : 'default'}>{statusLabel[record.offeringStatus]}</Tag>,
+      render: (_value: unknown, record: CourseOfferingItem) => <Tag color={record.offeringStatus === 'open' ? 'green' : 'default'}>{statusLabel[record.offeringStatus]}</Tag>,
     },
     {
       title: '操作',

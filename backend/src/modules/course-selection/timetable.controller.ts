@@ -1,5 +1,5 @@
 import { Request, Response } from 'express'
-import { success, error } from '../../shared/utils/response.js'
+import { error, success } from '../../shared/utils/response.js'
 import { timetableService } from './timetable.service.js'
 import { timetableQuerySchema } from './course-selection.schemas.js'
 
@@ -13,6 +13,10 @@ export const timetableController = {
     }
 
     const result = await timetableService.getMyTimetable(studentId, query)
+    if (!result) {
+      return error(res, '功能待实现：C4 FR-C-25 FR-C-26 NFR-C-08', 501)
+    }
+
     return success(res, result)
   },
 }

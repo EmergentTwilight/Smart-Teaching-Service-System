@@ -9,15 +9,10 @@ export const timetableService = {
   async getMyTimetable(
     studentId: string,
     query: TimetableQuery
-  ): Promise<TimetablePayload> {
+  ): Promise<TimetablePayload | null> {
     void studentId
     void query
 
-    return {
-      semesterId: query.semesterId || 'TBD',
-      studentId,
-      semesterName: '待指定学期',
-      slots: [],
-    }
+    return null
   },
 }

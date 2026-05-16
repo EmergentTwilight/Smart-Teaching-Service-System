@@ -6,12 +6,6 @@ import type {
   CourseOfferingItem,
   CourseOfferingDetail,
 } from './course-selection.types.js'
-import {
-  toCourseTypeValue,
-  toOfferingStatusValue,
-} from './course-selection.types.js'
-import prisma from '../../shared/prisma/client.js'
-import { NotFoundError } from '@stss/shared'
 
 const emptyPagination = {
   page: 1,
@@ -68,91 +62,13 @@ export const courseSearchService = {
 
   // TODO(C2, C3, FR-C-18, FR-C-19, NFR-C-07):
   // 在详情中补充当前学生的可选性原因，不能绕过容量、课表冲突、培养方案和先修校验。
-  async getOfferingDetail(offeringId: string, _studentId: string): Promise<CourseOfferingDetail> {
-    const offering = await prisma.courseOffering.findUnique({
-      where: {
-        id: offeringId,
-      },
-      include: {
-        course: {
-          include: {
-            prerequisites: {
-              include: {
-                prerequisite: {
-                  select: {
-                    code: true,
-                    name: true,
-                  },
-                },
-              },
-            },
-          },
-        },
-        semester: {
-          select: {
-            id: true,
-            name: true,
-          },
-        },
-        teacher: {
-          select: {
-            user: {
-              select: {
-                realName: true,
-              },
-            },
-          },
-        },
-        schedules: {
-          include: {
-            classroom: {
-              select: {
-                building: true,
-                roomNumber: true,
-                campus: true,
-              },
-            },
-          },
-        },
-      },
-    })
+  // TODO(C2, FR-C-11, FR-C-18, FR-C-19, NFR-C-07):
+  // 由 C2 成员按 API 文档返回 course_offering_id 以及 nested course/semester/teacher/eligibility。
+  // 负责人骨架不得提前实现 Prisma 详情查询或返回与文档不一致的扁平 DTO。
+  async getOfferingDetail(offeringId: string, studentId: string): Promise<CourseOfferingDetail | null> {
+    void offeringId
+    void studentId
 
-    if (!offering) {
-      throw new NotFoundError('课程开设', offeringId)
-    }
-
-    return {
-      id: offering.id,
-      courseId: offering.courseId,
-      semesterId: offering.semester.id,
-      semesterName: offering.semester.name,
-      courseName: offering.course.name,
-      courseCode: offering.course.code,
-      credits: Number(offering.course.credits),
-      courseType: toCourseTypeValue(offering.course.courseType),
-      teacherId: offering.teacherId,
-      teacherName: offering.teacher.user.realName,
-      capacity: offering.capacity,
-      enrolledCount: offering.enrolledCount,
-      offeringStatus: toOfferingStatusValue(offering.status),
-      isAvailable:
-        offering.status === 'OPEN' &&
-        offering.course.status === 'ACTIVE' &&
-        offering.enrolledCount < offering.capacity,
-      description: offering.course.description ?? undefined,
-      assessmentMethod: offering.course.assessmentMethod ?? undefined,
-      schedules: offering.schedules.map((schedule) => ({
-        dayOfWeek: schedule.dayOfWeek,
-        startWeek: schedule.startWeek,
-        endWeek: schedule.endWeek,
-        startPeriod: schedule.startPeriod,
-        endPeriod: schedule.endPeriod,
-        classroomName: `${schedule.classroom.campus} ${schedule.classroom.building} ${schedule.classroom.roomNumber}`,
-      })),
-      prerequisites: offering.course.prerequisites.map((item) => ({
-        courseCode: item.prerequisite.code,
-        courseName: item.prerequisite.name,
-      })),
-    }
+    return null
   },
 }

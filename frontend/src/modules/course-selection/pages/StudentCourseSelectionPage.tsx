@@ -66,7 +66,7 @@ const StudentCourseSelectionPage: React.FC = () => {
   const studentProgress = curriculumProgressQuery.data?.progress ?? null;
 
   const enrollments = myEnrollmentsQuery.data?.items || [];
-  const hasActiveEnrollments = enrollments.some((item) => item.status === 'ENROLLED');
+  const hasActiveEnrollments = enrollments.some((item) => item.status === 'enrolled');
 
   const handleSearch = async () => {
     const values = await filterForm.validateFields().catch(() => null);
@@ -168,16 +168,16 @@ const StudentCourseSelectionPage: React.FC = () => {
               </Form.Item>
               <Form.Item name="courseType">
                 <Select placeholder="课程类型" style={{ width: 160 }} allowClear>
-                  <Select.Option value="REQUIRED">必修</Select.Option>
-                  <Select.Option value="ELECTIVE">选修</Select.Option>
-                  <Select.Option value="GENERAL">公共课</Select.Option>
+                  <Select.Option value="required">必修</Select.Option>
+                  <Select.Option value="elective">选修</Select.Option>
+                  <Select.Option value="general">公共课</Select.Option>
                 </Select>
               </Form.Item>
               <Form.Item name="offeringStatus" style={{ minWidth: 160 }}>
                 <Select placeholder="课程状态" allowClear>
-                  <Select.Option value="OPEN">开放</Select.Option>
-                  <Select.Option value="PLANNED">未开课</Select.Option>
-                  <Select.Option value="CLOSED">已关闭</Select.Option>
+                  <Select.Option value="open">开放</Select.Option>
+                  <Select.Option value="planned">未开课</Select.Option>
+                  <Select.Option value="closed">已关闭</Select.Option>
                 </Select>
               </Form.Item>
               <Form.Item name="onlyAvailable" valuePropName="checked">
@@ -239,7 +239,7 @@ const StudentCourseSelectionPage: React.FC = () => {
               {enrollments.slice(0, 4).map((item) => (
                 <li key={item.id}>
                   {item.offering.courseName}（{item.status}）
-                  {item.status === 'ENROLLED' ? (
+                  {item.status === 'enrolled' ? (
                     <Button
                       size="small"
                       style={{ marginLeft: 8 }}

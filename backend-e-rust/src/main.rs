@@ -13,7 +13,7 @@ use poem_openapi::{
     payload::Json,
     Enum, Object, OpenApi, OpenApiService, SecurityScheme,
 };
-use std::{env, sync::Arc};
+use std::{collections::HashSet, env, sync::Arc};
 use tokio_postgres::{types::ToSql, Client, NoTls};
 use url::Url;
 use uuid::Uuid;
@@ -200,11 +200,16 @@ struct DeleteQuestionResponse {
 }
 
 #[derive(Object)]
-#[oai(rename_all = "camelCase")]
-struct QuestionOptionInput {
-    option_text: String,
-    option_order: i32,
-    is_correct: bool,
+struct QuestionBankData {
+    id: String,
+    name: String,
+}
+
+#[derive(Object)]
+struct QuestionBankListResponse {
+    code: u16,
+    message: String,
+    data: Vec<QuestionBankData>,
 }
 
 #[derive(Object)]
@@ -213,12 +218,14 @@ struct CreateQuestionInput {
     bank_id: String,
     question_type: QuestionTypeDto,
     content: String,
-    answer: String,
     explanation: Option<String>,
     default_points: String,
     difficulty: Option<DifficultyDto>,
     knowledge_point: Option<String>,
-    options: Option<Vec<QuestionOptionInput>>,
+    answer: Option<String>,
+    option_count: i32,
+    option_texts: Vec<String>,
+    correct_option_orders: Vec<i32>,
 }
 
 #[derive(Object)]
@@ -227,12 +234,14 @@ struct UpdateQuestionInput {
     bank_id: String,
     question_type: QuestionTypeDto,
     content: String,
-    answer: String,
     explanation: Option<String>,
     default_points: String,
     difficulty: Option<DifficultyDto>,
     knowledge_point: Option<String>,
-    options: Option<Vec<QuestionOptionInput>>,
+    answer: Option<String>,
+    option_count: i32,
+    option_texts: Vec<String>,
+    correct_option_orders: Vec<i32>,
 }
 
 fn internal_error(err: impl std::fmt::Display) -> Error {
@@ -240,6 +249,75 @@ fn internal_error(err: impl std::fmt::Display) -> Error {
         format!("数据库操作失败: {err}"),
         StatusCode::INTERNAL_SERVER_ERROR,
     )
+}
+
+fn bad_request_error(message: &str) -> Error {
+    Error::from_string(message.to_string(), StatusCode::BAD_REQUEST)
+}
+
+fn build_answer_and_options(
+    question_type: &QuestionTypeDto,
+    option_count: i32,
+    option_texts: &[String],
+    correct_option_orders: &[i32],
+) -> poem::Result<(String, Vec<(i32, String, bool)>)> {
+    if option_count < 2 || option_count > 8 {
+        return Err(bad_request_error("选项数量必须在 2 到 8 之间"));
+    }
+    if matches!(question_type, QuestionTypeDto::TrueFalse) && option_count != 2 {
+        return Err(bad_request_error("判断题固定为 2 个选项"));
+    }
+    if option_texts.len() != option_count as usize {
+        return Err(bad_request_error("选项文本数量与选项数量不一致"));
+    }
+
+    let mut options = Vec::with_capacity(option_count as usize);
+    for (idx, text) in option_texts.iter().enumerate() {
+        let trimmed = text.trim();
+        if trimmed.is_empty() {
+            return Err(bad_request_error("选项文本不能为空"));
+        }
+        options.push(((idx + 1) as i32, trimmed.to_string(), false));
+    }
+
+    if correct_option_orders.is_empty() {
+        return Err(bad_request_error("请至少选择一个正确选项"));
+    }
+
+    let mut seen = HashSet::new();
+    for order in correct_option_orders {
+        if !seen.insert(*order) {
+            return Err(bad_request_error("正确选项序号不能重复"));
+        }
+        if *order < 1 || *order > option_count {
+            return Err(bad_request_error("正确选项序号超出选项范围"));
+        }
+    }
+
+    match question_type {
+        QuestionTypeDto::SingleChoice | QuestionTypeDto::TrueFalse if correct_option_orders.len() != 1 => {
+            return Err(bad_request_error("单选/判断题只能有一个正确选项"));
+        }
+        _ => {}
+    }
+
+    for (order, _, is_correct) in &mut options {
+        *is_correct = seen.contains(order);
+    }
+
+    let answer = if matches!(question_type, QuestionTypeDto::MultiChoice) {
+        let mut sorted = correct_option_orders.to_vec();
+        sorted.sort_unstable();
+        sorted
+            .into_iter()
+            .map(|value| value.to_string())
+            .collect::<Vec<_>>()
+            .join(",")
+    } else {
+        correct_option_orders[0].to_string()
+    };
+
+    Ok((answer, options))
 }
 
 async fn query_question_options(
@@ -335,6 +413,39 @@ impl Api {
                 status: "ok".to_string(),
             },
         })
+    }
+
+    /// 题库列表（用于题目创建表单）
+    #[oai(path = "/online-testing/question-banks", method = "get")]
+    async fn list_question_banks(
+        &self,
+        state: Data<&AppState>,
+        _auth: BearerAuth,
+    ) -> poem::Result<Json<QuestionBankListResponse>> {
+        let rows = state
+            .db
+            .query(
+                "SELECT id, name \
+                 FROM question_banks \
+                 ORDER BY name ASC",
+                &[],
+            )
+            .await
+            .map_err(internal_error)?;
+
+        let data = rows
+            .into_iter()
+            .map(|row| QuestionBankData {
+                id: row.get::<_, String>("id"),
+                name: row.get::<_, String>("name"),
+            })
+            .collect::<Vec<_>>();
+
+        Ok(Json(QuestionBankListResponse {
+            code: 200,
+            message: "success".to_string(),
+            data,
+        }))
     }
 
     /// 题目列表（分页）
@@ -445,19 +556,26 @@ impl Api {
     ) -> poem::Result<Json<QuestionDetailResponse>> {
         ensure_roles(&auth.0, &["super_admin", "admin"])?;
 
+        let (computed_answer, options) = build_answer_and_options(
+            &input.question_type,
+            input.option_count,
+            &input.option_texts,
+            &input.correct_option_orders,
+        )?;
         let question_type = input.question_type.as_db_value().to_string();
         let difficulty = input
             .difficulty
             .as_ref()
             .map(DifficultyDto::as_db_value)
             .map(str::to_string);
+        let answer = input.answer.clone().unwrap_or(computed_answer);
         let question_id = Uuid::new_v4().to_string();
         let params: [&(dyn ToSql + Sync); 9] = [
             &question_id,
             &input.bank_id,
             &question_type,
             &input.content,
-            &input.answer,
+            &answer,
             &input.explanation,
             &input.default_points,
             &difficulty,
@@ -478,15 +596,14 @@ impl Api {
             .await
             .map_err(internal_error)?;
 
-        if let Some(options) = &input.options {
-            for option in options {
+        for (option_order, option_text, is_correct) in options {
                 let option_id = Uuid::new_v4().to_string();
                 let option_params: [&(dyn ToSql + Sync); 5] = [
                     &option_id,
                     &question_id,
-                    &option.option_text,
-                    &option.option_order,
-                    &option.is_correct,
+                    &option_text,
+                    &option_order,
+                    &is_correct,
                 ];
                 state
                     .db
@@ -497,7 +614,6 @@ impl Api {
                 )
                 .await
                 .map_err(internal_error)?;
-            }
         }
 
         let data = map_question_row(state.db.as_ref(), question).await?;
@@ -519,18 +635,25 @@ impl Api {
     ) -> poem::Result<Json<QuestionDetailResponse>> {
         ensure_roles(&auth.0, &["super_admin", "admin"])?;
 
+        let (computed_answer, options) = build_answer_and_options(
+            &input.question_type,
+            input.option_count,
+            &input.option_texts,
+            &input.correct_option_orders,
+        )?;
         let question_type = input.question_type.as_db_value().to_string();
         let difficulty = input
             .difficulty
             .as_ref()
             .map(DifficultyDto::as_db_value)
             .map(str::to_string);
+        let answer = input.answer.clone().unwrap_or(computed_answer);
         let params: [&(dyn ToSql + Sync); 9] = [
             &id.0,
             &input.bank_id,
             &question_type,
             &input.content,
-            &input.answer,
+            &answer,
             &input.explanation,
             &input.default_points,
             &difficulty,
@@ -562,24 +685,23 @@ impl Api {
         let updated =
             updated.ok_or_else(|| Error::from_string("题目不存在", StatusCode::NOT_FOUND))?;
 
-        if let Some(options) = &input.options {
-            let delete_params: [&(dyn ToSql + Sync); 1] = [&id.0];
-            state
-                .db
-                .execute(
-                    "DELETE FROM question_options WHERE question_id = $1",
-                    &delete_params,
-                )
-                .await
-                .map_err(internal_error)?;
-            for option in options {
+        let delete_params: [&(dyn ToSql + Sync); 1] = [&id.0];
+        state
+            .db
+            .execute(
+                "DELETE FROM question_options WHERE question_id = $1",
+                &delete_params,
+            )
+            .await
+            .map_err(internal_error)?;
+        for (option_order, option_text, is_correct) in options {
                 let option_id = Uuid::new_v4().to_string();
                 let option_params: [&(dyn ToSql + Sync); 5] = [
                     &option_id,
                     &id.0,
-                    &option.option_text,
-                    &option.option_order,
-                    &option.is_correct,
+                    &option_text,
+                    &option_order,
+                    &is_correct,
                 ];
                 state
                     .db
@@ -590,7 +712,6 @@ impl Api {
                 )
                 .await
                 .map_err(internal_error)?;
-            }
         }
 
         let data = map_question_row(state.db.as_ref(), updated).await?;

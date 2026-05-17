@@ -1,5 +1,20 @@
 import React, { useEffect, useState } from 'react';
-import { Button, Card, Form, Input, InputNumber, Modal, Popconfirm, Select, Space, Table, Tag, Typography, message } from 'antd';
+import {
+  Button,
+  Card,
+  Form,
+  Input,
+  InputNumber,
+  Modal,
+  Popconfirm,
+  Radio,
+  Select,
+  Space,
+  Table,
+  Tag,
+  Typography,
+  message,
+} from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import request from '@/shared/utils/request';
 
@@ -19,6 +34,12 @@ interface QuestionItem {
   difficulty?: Difficulty;
   knowledgePoint?: string;
   createdAt: string;
+  options: Array<{
+    id: string;
+    optionText: string;
+    optionOrder: number;
+    isCorrect: boolean;
+  }>;
 }
 
 interface QuestionListData {
@@ -35,23 +56,45 @@ interface QuestionFormValues {
   bankId: string;
   questionType: QuestionType;
   content: string;
-  answer: string;
   explanation?: string;
   defaultPoints: number;
   difficulty?: Difficulty;
   knowledgePoint?: string;
+  optionCount: number;
+  optionTexts: string[];
+  correctOptionOrders: number[] | number;
+}
+
+interface QuestionBankItem {
+  id: string;
+  name: string;
 }
 
 const OnlineTestingQuestionsPage: React.FC = () => {
   const [form] = Form.useForm<QuestionFormValues>();
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [banks, setBanks] = useState<QuestionBankItem[]>([]);
   const [data, setData] = useState<QuestionListData>({
     items: [],
     pagination: { page: 1, pageSize: 10, total: 0, totalPages: 0 },
   });
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<QuestionItem | null>(null);
+  const currentType = Form.useWatch('questionType', form) || 'singleChoice';
+  const optionCount = Form.useWatch('optionCount', form) || 2;
+
+  const normalizeOptionTexts = (raw: string[] | undefined, count: number): string[] => {
+    const source = raw ?? [];
+    return Array.from({ length: count }, (_, idx) => source[idx] ?? '');
+  };
+
+  const parseAnswerOrders = (answer: string): number[] => {
+    return answer
+      .split(',')
+      .map((value) => Number(value.trim()))
+      .filter((value) => Number.isInteger(value) && value > 0);
+  };
 
   const fetchQuestions = async (page = 1, pageSize = 10) => {
     setLoading(true);
@@ -68,28 +111,73 @@ const OnlineTestingQuestionsPage: React.FC = () => {
     }
   };
 
+  const fetchQuestionBanks = async () => {
+    const result = await request.get<QuestionBankItem[], QuestionBankItem[]>('/online-testing/question-banks');
+    setBanks(result);
+    return result;
+  };
+
   useEffect(() => {
-    fetchQuestions();
+    const bootstrap = async () => {
+      try {
+        const fetchedBanks = await fetchQuestionBanks();
+        if (fetchedBanks.length > 0) {
+          form.setFieldValue('bankId', fetchedBanks[0].id);
+        }
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : '加载题库失败';
+        message.error(msg);
+      } finally {
+        fetchQuestions();
+      }
+    };
+    bootstrap();
   }, []);
 
   const openCreate = () => {
     setEditing(null);
     form.resetFields();
-    form.setFieldsValue({ questionType: 'singleChoice', defaultPoints: 2 });
+    form.setFieldsValue({
+      bankId: banks[0]?.id,
+      questionType: 'singleChoice',
+      defaultPoints: 2,
+      optionCount: 4,
+      optionTexts: ['', '', '', ''],
+      correctOptionOrders: 1,
+    });
     setModalOpen(true);
   };
 
   const openEdit = (item: QuestionItem) => {
+    const sortedOptions = [...item.options].sort((a, b) => a.optionOrder - b.optionOrder);
+    const fallbackCount = item.questionType === 'trueFalse' ? 2 : 4;
+    const count = sortedOptions.length > 0 ? sortedOptions.length : fallbackCount;
+    const optionTexts =
+      sortedOptions.length > 0
+        ? sortedOptions.map((option) => option.optionText)
+        : item.questionType === 'trueFalse'
+          ? ['正确', '错误']
+          : Array.from({ length: count }, () => '');
+    const parsedAnswerOrders = parseAnswerOrders(item.answer);
+    const correctOptionOrders =
+      sortedOptions.length > 0
+        ? sortedOptions.filter((option) => option.isCorrect).map((option) => option.optionOrder)
+        : parsedAnswerOrders.length > 0
+          ? parsedAnswerOrders
+          : [1];
+
     setEditing(item);
     form.setFieldsValue({
       bankId: item.bankId,
       questionType: item.questionType,
       content: item.content,
-      answer: item.answer,
       explanation: item.explanation,
       defaultPoints: Number(item.defaultPoints),
       difficulty: item.difficulty,
       knowledgePoint: item.knowledgePoint,
+      optionCount: count,
+      optionTexts,
+      correctOptionOrders: item.questionType === 'multiChoice' ? correctOptionOrders : correctOptionOrders[0] ?? 1,
     });
     setModalOpen(true);
   };
@@ -109,9 +197,22 @@ const OnlineTestingQuestionsPage: React.FC = () => {
     const values = await form.validateFields();
     setSubmitting(true);
     try {
+      const count = values.questionType === 'trueFalse' ? 2 : values.optionCount;
+      const optionTexts = normalizeOptionTexts(values.optionTexts, count).map((value) => value.trim());
+      const correctOptionOrders = Array.isArray(values.correctOptionOrders)
+        ? values.correctOptionOrders
+        : [values.correctOptionOrders];
       const payload = {
-        ...values,
+        bankId: values.bankId,
+        questionType: values.questionType,
+        content: values.content,
+        explanation: values.explanation,
         defaultPoints: values.defaultPoints.toString(),
+        difficulty: values.difficulty,
+        knowledgePoint: values.knowledgePoint,
+        optionCount: count,
+        optionTexts,
+        correctOptionOrders,
       };
       if (editing) {
         await request.put(`/online-testing/questions/${editing.id}`, payload);
@@ -128,6 +229,52 @@ const OnlineTestingQuestionsPage: React.FC = () => {
       setSubmitting(false);
     }
   };
+
+  const handleQuestionTypeChange = (questionType: QuestionType) => {
+    if (questionType === 'trueFalse') {
+      form.setFieldsValue({
+        questionType,
+        optionCount: 2,
+        optionTexts: ['正确', '错误'],
+        correctOptionOrders: 1,
+      });
+      return;
+    }
+
+    const currentCount = Number(form.getFieldValue('optionCount')) || 4;
+    const normalizedCount = Math.max(2, currentCount);
+    const normalizedTexts = normalizeOptionTexts(form.getFieldValue('optionTexts'), normalizedCount);
+    const currentCorrect = form.getFieldValue('correctOptionOrders');
+    const normalizedCorrect = Array.isArray(currentCorrect) ? currentCorrect : [Number(currentCorrect || 1)];
+
+    form.setFieldsValue({
+      questionType,
+      optionCount: normalizedCount,
+      optionTexts: normalizedTexts,
+      correctOptionOrders: questionType === 'multiChoice' ? normalizedCorrect : normalizedCorrect[0] ?? 1,
+    });
+  };
+
+  const handleOptionCountChange = (nextCount?: number | null) => {
+    const count = Math.max(2, Number(nextCount || 2));
+    const normalizedTexts = normalizeOptionTexts(form.getFieldValue('optionTexts'), count);
+    const currentCorrect = form.getFieldValue('correctOptionOrders');
+    const correctList = (Array.isArray(currentCorrect) ? currentCorrect : [Number(currentCorrect || 1)]).filter(
+      (value) => value >= 1 && value <= count
+    );
+    const fallbackCorrect = correctList.length > 0 ? correctList : [1];
+
+    form.setFieldsValue({
+      optionCount: count,
+      optionTexts: normalizedTexts,
+      correctOptionOrders: currentType === 'multiChoice' ? fallbackCorrect : fallbackCorrect[0],
+    });
+  };
+
+  const optionOrderOptions = Array.from({ length: Math.max(2, optionCount) }, (_, idx) => ({
+    label: `第 ${idx + 1} 项`,
+    value: idx + 1,
+  }));
 
   const columns: ColumnsType<QuestionItem> = [
     {
@@ -164,6 +311,24 @@ const OnlineTestingQuestionsPage: React.FC = () => {
         if (!value) return '-';
         const map: Record<Difficulty, string> = { easy: '简单', medium: '中等', hard: '困难' };
         return map[value];
+      },
+    },
+    {
+      title: '选项数',
+      key: 'optionCount',
+      width: 90,
+      render: (_, record) => record.options.length || '-',
+    },
+    {
+      title: '正确序号',
+      key: 'correctOrders',
+      width: 120,
+      render: (_, record) => {
+        const orders = record.options
+          .filter((option) => option.isCorrect)
+          .map((option) => option.optionOrder)
+          .sort((a, b) => a - b);
+        return orders.length ? orders.join(',') : '-';
       },
     },
     {
@@ -229,11 +394,18 @@ const OnlineTestingQuestionsPage: React.FC = () => {
         destroyOnClose
       >
         <Form form={form} layout="vertical">
-          <Form.Item name="bankId" label="题库 ID" rules={[{ required: true, message: '请输入题库 ID' }]}>
-            <Input placeholder="请输入题库ID" />
+          <Form.Item name="bankId" label="题库" rules={[{ required: true, message: '请选择题库' }]}>
+            <Select
+              placeholder="请选择题库"
+              options={banks.map((bank) => ({
+                label: `${bank.name} (${bank.id.slice(0, 8)}...)`,
+                value: bank.id,
+              }))}
+            />
           </Form.Item>
           <Form.Item name="questionType" label="题型" rules={[{ required: true }]}>
             <Select
+              onChange={handleQuestionTypeChange}
               options={[
                 { value: 'singleChoice', label: '单选' },
                 { value: 'multiChoice', label: '多选' },
@@ -241,12 +413,63 @@ const OnlineTestingQuestionsPage: React.FC = () => {
               ]}
             />
           </Form.Item>
+          <Form.Item
+            name="optionCount"
+            label="选项数量"
+            rules={[{ required: true, message: '请输入选项数量' }]}
+            extra={currentType === 'trueFalse' ? '判断题固定 2 个选项' : undefined}
+          >
+            <InputNumber
+              min={2}
+              max={8}
+              disabled={currentType === 'trueFalse'}
+              onChange={handleOptionCountChange}
+              style={{ width: '100%' }}
+            />
+          </Form.Item>
           <Form.Item name="content" label="题干" rules={[{ required: true, message: '请输入题干' }]}>
             <Input.TextArea rows={3} />
           </Form.Item>
-          <Form.Item name="answer" label="答案" rules={[{ required: true, message: '请输入答案' }]}>
-            <Input />
-          </Form.Item>
+          <Form.List name="optionTexts">
+            {(fields) => (
+              <>
+                {fields.slice(0, Math.max(2, optionCount)).map((field, idx) => {
+                  const { key, ...restField } = field;
+                  return (
+                    <Form.Item
+                      key={key}
+                      {...restField}
+                      label={`选项 ${idx + 1}`}
+                      rules={[{ required: true, message: `请输入选项 ${idx + 1} 文本` }]}
+                    >
+                      <Input placeholder={`请输入选项 ${idx + 1} 文本`} />
+                    </Form.Item>
+                  );
+                })}
+              </>
+            )}
+          </Form.List>
+          {currentType === 'multiChoice' ? (
+            <Form.Item
+              name="correctOptionOrders"
+              label="正确选项序号"
+              rules={[{ required: true, message: '请选择正确选项序号' }]}
+            >
+              <Select mode="multiple" options={optionOrderOptions} placeholder="请选择正确选项（可多选）" />
+            </Form.Item>
+          ) : (
+            <Form.Item
+              name="correctOptionOrders"
+              label="正确选项序号"
+              rules={[{ required: true, message: '请选择正确选项序号' }]}
+            >
+              <Radio.Group
+                options={optionOrderOptions}
+                optionType="button"
+                buttonStyle="solid"
+              />
+            </Form.Item>
+          )}
           <Form.Item name="defaultPoints" label="分值" rules={[{ required: true, message: '请输入分值' }]}>
             <InputNumber min={0.5} max={100} step={0.5} style={{ width: '100%' }} />
           </Form.Item>

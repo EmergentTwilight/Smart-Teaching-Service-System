@@ -523,26 +523,378 @@ flowchart TB
 
 # C 模块：智能选课（Smart Course Selection）
 
-## 智能选课设计要点
+## 智能选课组的定位
 
-- 需求边界：培养方案约束使用、课程搜索、选课退选、结果查询、选课管理、AI 辅助
-- 核心对象：Curriculum、Course、CourseOffering、SelectionPeriod、Enrollment
-- 关键约束：课程容量、时间冲突、培养方案、至少 200 名在线用户并发服务
-- 接口设计：课程检索、可选课程列表、选课、退选、选课结果、AI 推荐/解释
+- C 模块负责把培养方案、开课安排、课程容量和学生选课行为连接成统一的选课服务
+- 学生端覆盖培养方案查看、课程搜索、可选课程、选课退选、结果课表和 AI 辅助建议
+- 教师端覆盖本人课程学生名单查询与导出，教务端覆盖选课阶段管理与特殊加课入口
+- 当前 C 组已围绕 `FR-C-01` 至 `FR-C-43` 完成 SRS、API 契约、模块设计、前后端目录和路由页面框架的对齐
+- 设计重点是后端硬性规则裁决：前端只做展示和预提示，最终选课结果必须经过服务端权限、阶段、容量、冲突和事务一致性校验
+
+> 讲稿：C 模块是教学业务链路中“学生真正形成课程参与关系”的关键环节。它不是单纯的课程列表页面，而是要把 A 模块的学生、课程和培养方案数据，B 模块的排课结果，以及后续 D、E、F 模块需要使用的选课结果连接起来。我们在设计上已经先固定了需求编号、API 口径、前后端构件和关键约束，保证后续实现可以沿着同一套契约推进。
+
+---
+
+# C 模块需求边界与角色
+
+| 角色 | 主要能力 | 权限边界 |
+| --- | --- | --- |
+| 学生 | 查看本人培养方案、搜索课程、查看可选课程、选课、退选、查看结果和课表、请求 AI 辅助建议 | 只能读取和操作当前登录学生本人的选课数据，不信任前端传入的 `student_id` |
+| 教师 | 查看本人任课课程学生名单、导出名单 | 只能访问本人作为任课教师的 `CourseOffering` 名单，管理员例外需明确授权 |
+| 教务管理人员 | 管理初选、补退选、调整阶段，执行特殊手动加课 | 限定在教务管理角色范围内，手动加课必须提供原因并保留审计入口 |
+| 系统管理员 | 参与系统级准入控制、异常处理和审计支撑 | 不替代教务业务判断，不绕过选课硬性规则 |
+| AI 辅助能力 | 推荐课程、解释冲突、说明学分影响 | 只推荐和解释，不直接创建、修改或删除 `Enrollment` |
+
+- 范围内：培养方案查看、课程搜索与详情、可选课程列表、选课退选、结果课表、教师名单、阶段管理、手动加课、并发准入预留、AI 推荐解释
+- 范围外：账号权限主数据、课程和培养方案主数据维护、自动排课、论坛内容、在线测试、正式成绩录入和 GPA 计算
+- 数据边界：只使用现有 `Student`、`Teacher`、`Course`、`CourseOffering`、`Schedule`、`Curriculum`、`CurriculumCourse`、`CoursePrerequisite`、`Enrollment`、`SelectionPeriod`、`Semester` 等对象，不新增 C 组业务表
+
+> 讲稿：C 模块的边界非常清楚。A 模块负责身份、课程和培养方案主数据，B 模块负责形成课表，C 模块基于这些数据形成选课结果。学生不能通过请求参数伪造身份，教师不能通过猜测课程开设 ID 获取他人课程名单，AI 也不能跳过系统规则直接写入选课记录。这些边界已经写入 C 组 SRS、API 文档和前后端框架说明。
+
+---
+
+# C 模块核心流程：约束选课与 AI 辅助
+
+```mermaid
+sequenceDiagram
+    participant S as 学生
+    participant FE as C 前端页面
+    participant API as /api/v1/course-selection
+    participant Service as C 模块 Service
+    participant DB as PostgreSQL
+    participant AI as AI 辅助能力
+
+    S->>FE: 查看培养方案与可选课程
+    FE->>API: GET /curriculum/me, /offerings/available
+    API->>Service: 解析当前登录学生与筛选条件
+    Service->>DB: 读取 Curriculum、CourseOffering、Schedule、Enrollment
+    Service-->>API: 返回课程、容量、冲突和学分提示
+    API-->>FE: 展示可选课程与风险说明
+    S->>FE: 请求 AI 推荐或解释
+    FE->>API: POST /ai-advisor/recommend
+    API->>Service: 组装学生可见上下文
+    Service->>AI: 请求推荐与解释
+    AI-->>Service: 推荐理由与风险提示
+    Service-->>FE: 返回仅供参考的建议
+    S->>FE: 主动提交选课
+    FE->>API: POST /enrollments
+    API->>Service: 执行后端硬性校验
+    Service->>DB: 事务写入 Enrollment 并同步 enrolled_count
+    Service-->>API: 返回选课结果或明确失败原因
+```
+
+> 讲稿：这条流程体现了 C 模块的核心设计原则：AI 和前端都可以帮助学生理解课程，但最后选课一定走后端事务。后端会统一校验选课阶段、课程状态、容量、重复选课、时间冲突、最大学分、培养方案和先修课，成功后才写入 Enrollment，并保持 CourseOffering 的已选人数一致。
+
+---
+
+# C 模块数据流图
+
+```mermaid
+flowchart LR
+    subgraph Input["外部输入"]
+        Student["学生"]
+        Teacher["教师"]
+        Admin["教务管理人员"]
+        Upstream["A/B/F 主数据与结果"]
+        AiProvider["AI 辅助能力"]
+    end
+
+    subgraph Process["C 模块处理过程"]
+        P1(("培养方案与学分进展"))
+        P2(("课程搜索与详情"))
+        P3(("选课约束校验"))
+        P4(("选课退选事务"))
+        P5(("结果课表与名单导出"))
+        P6(("阶段管理与准入控制"))
+        P7(("AI 推荐与解释"))
+    end
+
+    subgraph Store["数据存储"]
+        D1[("Curriculum / CurriculumCourse")]
+        D2[("Course / CourseOffering")]
+        D3[("Schedule")]
+        D4[("Enrollment")]
+        D5[("SelectionPeriod")]
+        D6[("CoursePrerequisite")]
+    end
+
+    Student --> P1
+    Student --> P2
+    Student --> P3
+    Student --> P7
+    Teacher --> P5
+    Admin --> P6
+    Upstream --> P1
+    Upstream --> P2
+    Upstream --> P3
+    Upstream --> P5
+
+    P1 <--> D1
+    P1 --> D4
+    P2 <--> D2
+    P2 --> D3
+    P3 --> D1
+    P3 --> D2
+    P3 --> D3
+    P3 --> D5
+    P3 --> D6
+    P3 --> P4
+    P4 <--> D4
+    P4 --> D2
+    P5 --> D2
+    P5 --> D3
+    P5 --> D4
+    P6 <--> D5
+    P6 --> D4
+    P7 --> D1
+    P7 --> D2
+    P7 --> D3
+    P7 --> D4
+    P7 <--> AiProvider
+```
+
+- 培养方案和课程主数据来自 A 模块，排课时间来自 B 模块，先修课通过情况可与 F 模块联动
+- C 模块写入的核心业务结果是 `Enrollment`，后续 D、E、F 模块据此判断课程参与范围
+- 选课阶段、手动加课和异常强退等关键操作需要保留可追踪记录入口
+
+> 讲稿：C 模块的数据流分为七类处理过程。左侧是学生、教师、教务和外部模块输入，中间是 C 模块处理过程，右侧是数据库对象。这里最重要的是 Enrollment，它是学生和课程开设之间的正式参与关系，也是后续论坛、测试和成绩模块判断参与范围的基础。
+
+---
+
+# C 模块领域模型
+
+```mermaid
+classDiagram
+    direction LR
+    class Student {
+      +userId
+      +studentNumber
+      +majorId
+      +grade
+      +className
+    }
+    class Teacher {
+      +userId
+      +teacherNumber
+      +departmentId
+    }
+    class Course {
+      +code
+      +name
+      +credits
+      +courseType
+      +status
+    }
+    class CourseOffering {
+      +semesterId
+      +teacherId
+      +capacity
+      +enrolledCount
+      +status
+    }
+    class Schedule {
+      +dayOfWeek
+      +startWeek
+      +endWeek
+      +startPeriod
+      +endPeriod
+    }
+    class Curriculum {
+      +majorId
+      +year
+      +totalCredits
+      +requiredCredits
+      +electiveCredits
+    }
+    class CurriculumCourse {
+      +courseType
+      +semesterSuggestion
+    }
+    class CoursePrerequisite {
+      +courseId
+      +prerequisiteId
+    }
+    class Enrollment {
+      +studentId
+      +courseOfferingId
+      +status
+      +enrolledAt
+      +droppedAt
+    }
+    class SelectionPeriod {
+      +semesterId
+      +phase
+      +startTime
+      +endTime
+      +maxCredits
+      +isActive
+    }
+    class AISelectionAssistant {
+      +recommend()
+      +explain()
+      +summarizeCredits()
+    }
+
+    Student "1" --> "0..*" Enrollment
+    CourseOffering "1" --> "0..*" Enrollment
+    Course "1" --> "0..*" CourseOffering
+    Teacher "1" --> "0..*" CourseOffering
+    CourseOffering "1" --> "0..*" Schedule
+    Curriculum "1" --> "0..*" CurriculumCourse
+    Course "1" --> "0..*" CurriculumCourse
+    Course "1" --> "0..*" CoursePrerequisite
+    SelectionPeriod "1" ..> Enrollment
+    AISelectionAssistant ..> Student
+    AISelectionAssistant ..> Curriculum
+    AISelectionAssistant ..> CourseOffering
+    AISelectionAssistant ..> Enrollment
+```
+
+> 讲稿：领域模型中，CourseOffering 是某学期某门课程的具体开课实例，Enrollment 是学生选课结果，SelectionPeriod 控制选课阶段，Schedule 支撑课表和冲突判断。AISelectionAssistant 只是分析层能力，不是数据库表，也不拥有写入选课记录的权限。
+
+---
+
+# C 模块接口设计
+
+| 能力 | 接口方向 | 权限控制 |
+| --- | --- | --- |
+| 培养方案与进度 | `GET /api/v1/course-selection/curriculum/me`、`/curriculum/me/progress` | `student`，只读取当前登录学生 |
+| 课程搜索与详情 | `GET /courses`、`/offerings`、`/offerings/available`、`/offerings/:id` | 登录用户按角色只读访问，学生个性化可选性只从登录态计算 |
+| 选课与退选 | `GET /enrollments/me`、`POST /enrollments`、`PATCH /enrollments/:id/drop` | `student`，后端执行完整约束与事务 |
+| 课表结果 | `GET /timetable/me` | `student`，只返回本人有效选课相关课表 |
+| 教师名单 | `GET /teacher/offerings/:id/roster`、`/roster/export` | `teacher`、`admin`、`super_admin`，教师需校验任课关系 |
+| 选课管理 | `GET/POST/PATCH /admin/periods`、`POST /admin/enrollments` | `admin`、`super_admin`，手动加课要求 `reason` |
+| AI 辅助 | `POST /ai-advisor/recommend`、`/ai-advisor/explain` | `student`，只返回建议和解释 |
+
+- C 组 Base URL 统一为 `/api/v1/course-selection`
+- 请求与响应字段统一使用 `snake_case`，服务层内部可以使用 camelCase
+- API 文档已经固化分页、错误响应、角色边界、枚举值和跨接口事务规则
+- 路由框架已挂载到后端应用，前端 API client 已按 `curriculum`、`courses`、`enrollments`、`periods`、`roster`、`ai-advisor` 拆分
+
+> 讲稿：接口设计是 C 组目前最重要的协作契约。学生端接口不允许传 student_id 来决定身份，教师名单必须校验任课教师，教务手动加课虽然可以传 student_id，但必须在 admin 路径下并提供 reason。通过这些规则，前后端和组员之间可以并行开发，而不会出现每个分支各自发明接口的问题。
+
+---
+
+# C 模块构件设计
 
 ```mermaid
 flowchart TB
-    Curriculum["培养方案"] --> Candidate["可选课程生成"]
-    Schedule["课表安排"] --> Candidate
-    Candidate --> AI["AI 辅助建议"]
-    AI --> Decision["学生选课 / 退选"]
-    Decision --> Enrollment["选课记录"]
-    Enrollment --> Result["课表与结果查询"]
+    subgraph FE["前端构件"]
+        Pages["StudentCourseSelection / StudentCurriculum / StudentTimetable / TeacherRoster / AdminPeriod / AdminManualEnrollment / AiPage"]
+        Components["CourseOfferingTable / CourseDetailDrawer / CreditProgressCard / TimetableGrid / AiAdvisorPanel / StatusTag"]
+        Hooks["useAvailableOfferings / useMyEnrollments / useSelectionPeriod / useAiAdvisor"]
+        ApiClient["curriculum.ts / courses.ts / enrollments.ts / periods.ts / roster.ts / ai-advisor.ts"]
+        Types["course / curriculum / enrollment / period / ai types"]
+    end
+
+    subgraph BE["后端构件"]
+        Routes["course-selection.routes.ts"]
+        Schemas["course-selection.schemas.ts"]
+        TypesBE["course-selection.types.ts"]
+        Controllers["curriculum / course-search / enrollment / timetable / roster / selection-period / ai-advisor controllers"]
+        Services["curriculum / course-search / enrollment / timetable / roster / selection-period / ai-advisor services"]
+        Middleware["auth / requireRoles / validate"]
+    end
+
+    DB[("PostgreSQL")]
+    Shared["@stss/shared 错误与响应约定"]
+
+    Pages --> Components
+    Pages --> Hooks
+    Hooks --> ApiClient
+    ApiClient --> Routes
+    Routes --> Middleware
+    Routes --> Schemas
+    Routes --> Controllers
+    Controllers --> Services
+    Services --> DB
+    Types --> ApiClient
+    TypesBE --> Controllers
+    Shared --> ApiClient
+    Shared --> Controllers
 ```
 
-[图片占位：C 组课程列表、AI 推荐、我的选课页面截图]
+> 讲稿：C 组已经按照项目既有工程风格完成前后端构件拆分。后端有统一 routes、schemas、types、controller 和 service 入口；前端有 API client、hooks、types、页面和组件。这样的结构使 C1 到 C6 可以分别在培养方案、课程搜索、选课事务、结果名单、阶段管理和 AI 辅助上并行推进，同时保持统一入口和权限控制。
 
-> 讲稿：C 模块要突出“智能”和“约束”两个关键词。选课不是简单点按钮，而是要综合培养方案、容量、时间冲突和学生已修情况。AI 能力建议定位为辅助建议和解释，不应替代系统约束校验。
+---
+
+# C 模块状态设计与约束策略
+
+```mermaid
+stateDiagram-v2
+    [*] --> Scheduled: 创建并配置时间段
+    Scheduled --> Active: 到达开始时间且 is_active=true
+    Active --> Closed: 到达结束时间
+    Active --> Disabled: 管理员停用
+    Disabled --> Scheduled: 重新启用且未开始
+    Disabled --> Active: 重新启用且仍在时间范围内
+    Closed --> Archived: 学期归档
+    Archived --> [*]
+```
+
+```mermaid
+stateDiagram-v2
+    [*] --> NotEnrolled: 尚未选课
+    NotEnrolled --> Checking: 提交选课
+    Checking --> Rejected: 阶段/容量/冲突/学分/先修不通过
+    Checking --> Enrolled: 校验通过并写入
+    Enrolled --> Dropping: 提交退选
+    Dropping --> Dropped: 退选成功
+    Dropping --> Enrolled: 退选失败
+    Enrolled --> Withdrawn: 管理处理
+    Dropped --> Checking: 重新选课
+```
+
+| 约束类别 | C 模块策略 |
+| --- | --- |
+| 身份权限 | 学生从 JWT 登录态解析，教师校验任课关系，教务接口限制管理角色 |
+| 时间阶段 | 以服务端时间判断 `SelectionPeriod.start_time`、`end_time` 和 `is_active` |
+| 容量一致性 | `Enrollment` 写入和 `CourseOffering.enrolled_count` 更新必须同事务完成 |
+| 课表冲突 | 基于 `Schedule` 的周次、星期和节次判断课程重叠 |
+| 学分限制 | 使用当前阶段 `max_credits` 控制本阶段可选学分 |
+| 历史保留 | 退选更新为 `dropped` 并记录时间，不直接删除历史记录 |
+| AI 安全 | AI 输出仅作建议，最终选课仍走常规接口和硬性校验 |
+
+> 讲稿：C 模块的两个关键状态分别是选课时间段和选课记录。时间段决定学生是否能操作，选课记录决定学生与课程开设之间的有效关系。我们把这些状态和约束写入 API 文档、schema 和 service TODO 中，确保后续实现不会只依赖前端判断，也不会在并发场景中破坏容量一致性。
+
+---
+
+# C 模块设计模式与质量保证
+
+| 设计点 | 采用方式 | 价值 |
+| --- | --- | --- |
+| 分层架构 | Route → Schema → Controller → Service → Prisma | 保持接口、校验、业务规则和数据访问边界清晰 |
+| 角色隔离 | `authMiddleware` + `requireRoles` + 资源归属校验 | 防止学生越权、教师越权和教务接口误用 |
+| DTO / Schema Validation | Zod schema 统一接收 query、params、body | 固定 `snake_case` API 口径和分页筛选参数 |
+| 事务设计 | 选课、退选、手动加课集中在服务层事务中处理 | 保证 `Enrollment` 与容量计数一致 |
+| 错误可解释 | 错误码覆盖阶段关闭、容量满、重复、冲突、最大学分、先修不满足和 AI 不可用 | 前端可以给出明确失败原因 |
+| AI 降级 | AI 推荐与普通选课流程解耦 | AI 异常不影响课程搜索、选课和课表基础能力 |
+| 需求追踪 | `FR-C`、`NFR-C`、`VC-C` 贯穿 SRS、API、TODO 和构件 | 支撑负责人 review、组员分工和验收检查 |
+
+> 讲稿：C 模块的质量保证不是等功能写完才补测试，而是先把需求编号、API、状态、错误码和验证标准固定下来。C 组的验证标准覆盖培养方案、课程搜索、选课事务、并发容量、教师名单、手动加课、AI 安全和权限隔离。后续每个 PR 都可以按这些编号追踪到对应需求和验收标准。
+
+---
+
+# C 模块实现范围与演示素材
+
+| 类别 | 当前设计与框架范围 |
+| --- | --- |
+| 文档与契约 | C 组 SRS、API 文档、模块设计、分工计划和 agent 指南已形成统一口径 |
+| 后端框架 | `course-selection.routes.ts` 已统一挂载 `/api/v1/course-selection`；`schemas/types/controllers/services` 覆盖 C1-C6 入口 |
+| 前端框架 | `api/pages/components/hooks/types` 已按学生端、教师端、教务端和 AI 页面完成模块化拆分 |
+| 权限边界 | 路由层已区分 `student`、`teacher`、`admin`、`super_admin`，学生端不以请求参数决定身份 |
+| 事务与安全口径 | 选课、退选、手动加课、AI 辅助和名单导出的硬性规则已写入 API 契约、README 和 TODO |
+| 验证口径 | SRS 中已定义 `VC-C-01` 至 `VC-C-17`，覆盖功能、权限、并发、AI 和数据一致性验证 |
+| 协作基础 | C1-C6 子模块文件入口和 TODO 已清晰绑定需求编号，便于组员继续实现和负责人 review |
+
+[图片占位：C 模块学生培养方案与学分进展页面截图]
+[图片占位：C 模块可选课程列表与课程详情抽屉截图]
+[图片占位：C 模块我的选课结果与课表页面截图]
+[图片占位：C 模块教师名单查询与导出页面截图]
+[图片占位：C 模块教务选课阶段管理和手动加课页面截图]
+[图片占位：C 模块 AI 推荐与解释面板截图]
+
+> 讲稿：C 组当前交付的重点是把智能选课模块的工程骨架和协作契约完整落地。后端已经具备统一路由、权限、schema、types、controller 和 service 入口；前端已经具备页面、组件、hooks、API client 和类型目录。这样 C1 到 C6 的实现可以继续在既定边界内推进，最终演示也能围绕学生选课、教师名单、教务管理和 AI 辅助四类角色场景展开。
 
 ---
 

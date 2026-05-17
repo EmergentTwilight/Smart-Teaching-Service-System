@@ -535,7 +535,7 @@ flowchart TB
 
 ---
 
-# C 模块需求边界与角色
+## C 模块需求边界与角色
 
 | 角色 | 主要能力 | 权限边界 |
 | --- | --- | --- |
@@ -553,7 +553,7 @@ flowchart TB
 
 ---
 
-# C 模块核心流程：约束选课与 AI 辅助
+## C 模块核心流程：约束选课与 AI 辅助
 
 ```mermaid
 sequenceDiagram
@@ -587,7 +587,7 @@ sequenceDiagram
 
 ---
 
-# C 模块数据流图
+## C 模块数据流图
 
 ```mermaid
 flowchart LR
@@ -661,7 +661,7 @@ flowchart LR
 
 ---
 
-# C 模块领域模型
+## C 模块领域模型
 
 ```mermaid
 classDiagram
@@ -754,7 +754,7 @@ classDiagram
 
 ---
 
-# C 模块接口设计
+## C 模块接口设计
 
 | 能力 | 接口方向 | 权限控制 |
 | --- | --- | --- |
@@ -775,7 +775,7 @@ classDiagram
 
 ---
 
-# C 模块构件设计
+## C 模块构件设计
 
 ```mermaid
 flowchart TB
@@ -818,7 +818,7 @@ flowchart TB
 
 ---
 
-# C 模块状态设计与约束策略
+## C 模块状态设计与约束策略
 
 ```mermaid
 stateDiagram-v2
@@ -859,7 +859,7 @@ stateDiagram-v2
 
 ---
 
-# C 模块设计模式与质量保证
+## C 模块设计模式与质量保证
 
 | 设计点 | 采用方式 | 价值 |
 | --- | --- | --- |
@@ -875,7 +875,7 @@ stateDiagram-v2
 
 ---
 
-# C 模块实现范围与演示素材
+## C 模块实现范围与演示素材
 
 | 类别 | 当前设计与框架范围 |
 | --- | --- |
@@ -887,12 +887,15 @@ stateDiagram-v2
 | 验证口径 | SRS 中已定义 `VC-C-01` 至 `VC-C-17`，覆盖功能、权限、并发、AI 和数据一致性验证 |
 | 协作基础 | C1-C6 子模块文件入口和 TODO 已清晰绑定需求编号，便于组员继续实现和负责人 review |
 
-[图片占位：C 模块学生培养方案与学分进展页面截图]
-[图片占位：C 模块可选课程列表与课程详情抽屉截图]
-[图片占位：C 模块我的选课结果与课表页面截图]
-[图片占位：C 模块教师名单查询与导出页面截图]
-[图片占位：C 模块教务选课阶段管理和手动加课页面截图]
-[图片占位：C 模块 AI 推荐与解释面板截图]
+| 图编号 | 页面内容 | 访问路径 | 建议账号 | 图片占位 |
+| --- | --- | --- | --- | --- |
+| C-IMG-01 | 学生选课 | `http://localhost:5173/selection/courses` | `student` | [图片占位：C 模块学生选课页面截图，展示课程筛选、课程列表、学分进展和选课说明] |
+| C-IMG-02 | AI 课程推荐 | `http://localhost:5173/selection/ai` | `student` | [图片占位：C 模块 AI 课程推荐页面截图，展示推荐参数、课程上下文和 AI 辅助建议面板] |
+| C-IMG-03 | 我的当前选课 / 我的课表 | `http://localhost:5173/selection/timetable` | `student` | [图片占位：C 模块我的课表页面截图，展示学期筛选、课表结果和当前选课辅助信息] |
+| C-IMG-04 | 选课阶段管理 | `http://localhost:5173/selection/admin/periods` | `admin` | [图片占位：C 模块选课阶段管理页面截图，展示阶段类型、起止时间、最大学分、启用状态和阶段列表] |
+| C-IMG-05 | 教师课程名单 | `http://localhost:5173/selection/teacher/roster` | `teacher` | [图片占位：C 模块教师课程名单页面截图，展示课程开设查询、状态筛选、名单表格和导出入口] |
+| C-IMG-06 | 手动加课 | `http://localhost:5173/selection/admin/manual-enrollment` | `admin` | [图片占位：C 模块手动加课页面截图，展示学生 ID、课程开设 ID、加课原因和提交入口] |
+| C-IMG-07 | 培养方案 | `http://localhost:5173/selection/curriculum` | `student` | [图片占位：C 模块培养方案页面截图，展示培养方案、课程分类、建议学期和学分进展] |
 
 > 讲稿：C 组当前交付的重点是把智能选课模块的工程骨架和协作契约完整落地。后端已经具备统一路由、权限、schema、types、controller 和 service 入口；前端已经具备页面、组件、hooks、API client 和类型目录。这样 C1 到 C6 的实现可以继续在既定边界内推进，最终演示也能围绕学生选课、教师名单、教务管理和 AI 辅助四类角色场景展开。
 

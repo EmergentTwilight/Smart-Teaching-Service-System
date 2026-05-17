@@ -216,6 +216,68 @@ struct QuestionBankListResponse {
 }
 
 #[derive(Object)]
+struct TestPaperData {
+    id: String,
+    course_offering_id: String,
+    creator_id: String,
+    title: String,
+    description: Option<String>,
+    total_points: String,
+    duration_minutes: i32,
+    start_time: Option<String>,
+    end_time: Option<String>,
+    is_random: bool,
+    status: String,
+    question_count: i64,
+}
+
+#[derive(Object)]
+struct TestPaperDetailResponse {
+    code: u16,
+    message: String,
+    data: TestPaperData,
+}
+
+#[derive(Object)]
+struct TestPaperListResponse {
+    code: u16,
+    message: String,
+    data: Vec<TestPaperData>,
+}
+
+#[derive(Object)]
+struct TestPaperQuestionData {
+    test_question_id: String,
+    question_id: String,
+    bank_id: String,
+    question_type: QuestionTypeDto,
+    content: String,
+    points: String,
+    order_num: i32,
+    difficulty: Option<DifficultyDto>,
+}
+
+#[derive(Object)]
+struct TestPaperEditorData {
+    paper: TestPaperData,
+    questions: Vec<TestPaperQuestionData>,
+}
+
+#[derive(Object)]
+struct TestPaperEditorResponse {
+    code: u16,
+    message: String,
+    data: TestPaperEditorData,
+}
+
+#[derive(Object)]
+struct AddQuestionsResponse {
+    code: u16,
+    message: String,
+    added_count: i32,
+}
+
+#[derive(Object)]
 struct QuestionBankDetailResponse {
     code: u16,
     message: String,
@@ -233,6 +295,49 @@ struct BasicResponse {
 struct CreateQuestionBankInput {
     name: String,
     description: Option<String>,
+}
+
+#[derive(Object)]
+#[oai(rename_all = "camelCase")]
+struct CreateTestPaperInput {
+    bank_id: Option<String>,
+    title: String,
+    description: Option<String>,
+    total_points: String,
+    duration_minutes: i32,
+    is_random: Option<bool>,
+    start_time: Option<String>,
+    end_time: Option<String>,
+}
+
+#[derive(Object)]
+#[oai(rename_all = "camelCase")]
+struct UpdateTestPaperInput {
+    title: String,
+    description: Option<String>,
+    total_points: String,
+    duration_minutes: i32,
+    is_random: Option<bool>,
+    start_time: Option<String>,
+    end_time: Option<String>,
+}
+
+#[derive(Object)]
+#[oai(rename_all = "camelCase")]
+struct AddPaperQuestionsInput {
+    question_ids: Vec<String>,
+    points_per_question: Option<String>,
+}
+
+#[derive(Object)]
+#[oai(rename_all = "camelCase")]
+struct AutoGeneratePaperQuestionsInput {
+    bank_id: String,
+    question_type: Option<QuestionTypeDto>,
+    difficulty: Option<DifficultyDto>,
+    keyword: Option<String>,
+    count: i32,
+    points_per_question: Option<String>,
 }
 
 #[derive(Object)]
@@ -388,6 +493,189 @@ async fn map_question_row(client: &Client, row: tokio_postgres::Row) -> poem::Re
         updated_at: row.get::<_, Option<String>>("updated_at"),
         options,
     })
+}
+
+fn map_test_paper_row(row: &tokio_postgres::Row) -> TestPaperData {
+    TestPaperData {
+        id: row.get::<_, String>("id"),
+        course_offering_id: row.get::<_, String>("course_offering_id"),
+        creator_id: row.get::<_, String>("creator_id"),
+        title: row.get::<_, String>("title"),
+        description: row.get::<_, Option<String>>("description"),
+        total_points: row.get::<_, String>("total_points"),
+        duration_minutes: row.get::<_, i32>("duration_minutes"),
+        start_time: row.get::<_, Option<String>>("start_time"),
+        end_time: row.get::<_, Option<String>>("end_time"),
+        is_random: row.get::<_, bool>("is_random"),
+        status: row.get::<_, String>("status").to_lowercase(),
+        question_count: row.get::<_, i64>("question_count"),
+    }
+}
+
+async fn query_test_paper_questions(
+    client: &Client,
+    paper_id: &str,
+) -> poem::Result<Vec<TestPaperQuestionData>> {
+    let rows = client
+        .query(
+            "SELECT tq.id AS test_question_id, tq.question_id, tq.order_num, tq.points::text AS points, \
+                    q.bank_id, q.question_type::text AS question_type, q.content, q.difficulty::text AS difficulty \
+             FROM test_questions tq \
+             JOIN questions q ON q.id = tq.question_id \
+             WHERE tq.test_paper_id = $1 \
+             ORDER BY tq.order_num ASC, tq.id ASC",
+            &[&paper_id],
+        )
+        .await
+        .map_err(internal_error)?;
+
+    Ok(rows
+        .into_iter()
+        .map(|row| TestPaperQuestionData {
+            test_question_id: row.get::<_, String>("test_question_id"),
+            question_id: row.get::<_, String>("question_id"),
+            bank_id: row.get::<_, String>("bank_id"),
+            question_type: parse_question_type(&row.get::<_, String>("question_type")),
+            content: row.get::<_, String>("content"),
+            points: row.get::<_, String>("points"),
+            order_num: row.get::<_, i32>("order_num"),
+            difficulty: parse_difficulty(row.get::<_, Option<String>>("difficulty")),
+        })
+        .collect())
+}
+
+async fn reorder_test_questions(client: &Client, paper_id: &str) -> poem::Result<()> {
+    client
+        .execute(
+            "WITH ordered AS ( \
+                SELECT id, ROW_NUMBER() OVER (ORDER BY order_num ASC, id ASC) AS rn \
+                FROM test_questions \
+                WHERE test_paper_id = $1 \
+             ) \
+             UPDATE test_questions t \
+             SET order_num = ordered.rn \
+             FROM ordered \
+             WHERE t.id = ordered.id",
+            &[&paper_id],
+        )
+        .await
+        .map_err(internal_error)?;
+    Ok(())
+}
+
+async fn resolve_or_create_course_offering(
+    client: &Client,
+    bank_id: Option<&str>,
+) -> poem::Result<(String, String)> {
+    let base_pair = if let Some(bank_id) = bank_id {
+        let bank = client
+            .query_opt(
+                "SELECT course_id, creator_id \
+                 FROM question_banks \
+                 WHERE id = $1",
+                &[&bank_id],
+            )
+            .await
+            .map_err(internal_error)?
+            .ok_or_else(|| Error::from_string("题库不存在", StatusCode::NOT_FOUND))?;
+        Some((
+            bank.get::<_, String>("course_id"),
+            bank.get::<_, String>("creator_id"),
+        ))
+    } else {
+        None
+    };
+
+    let (course_id, creator_id) = if let Some(pair) = base_pair {
+        pair
+    } else if let Some(row) = client
+        .query_opt(
+            "SELECT course_id, creator_id \
+             FROM question_banks \
+             ORDER BY id ASC \
+             LIMIT 1",
+            &[],
+        )
+        .await
+        .map_err(internal_error)?
+    {
+        (
+            row.get::<_, String>("course_id"),
+            row.get::<_, String>("creator_id"),
+        )
+    } else if let Some(row) = client
+        .query_opt(
+            "SELECT c.id AS course_id, c.teacher_id AS creator_id \
+             FROM courses c \
+             WHERE c.teacher_id IS NOT NULL \
+             ORDER BY c.id ASC \
+             LIMIT 1",
+            &[],
+        )
+        .await
+        .map_err(internal_error)?
+    {
+        (
+            row.get::<_, String>("course_id"),
+            row.get::<_, String>("creator_id"),
+        )
+    } else {
+        return Err(bad_request_error("缺少教师/课程基础数据，无法创建试卷"));
+    };
+
+    let existing = client
+        .query_opt(
+            "SELECT id \
+             FROM course_offerings \
+             WHERE course_id = $1 AND teacher_id = $2 \
+             ORDER BY id ASC \
+             LIMIT 1",
+            &[&course_id, &creator_id],
+        )
+        .await
+        .map_err(internal_error)?;
+
+    if let Some(row) = existing {
+        return Ok((row.get::<_, String>("id"), creator_id));
+    }
+
+    let semester_id = if let Some(row) = client
+        .query_opt(
+            "SELECT id \
+             FROM semesters \
+             WHERE status IN ('CURRENT'::\"SemesterStatus\", 'UPCOMING'::\"SemesterStatus\") \
+             ORDER BY start_date ASC \
+             LIMIT 1",
+            &[],
+        )
+        .await
+        .map_err(internal_error)?
+    {
+        row.get::<_, String>("id")
+    } else {
+        let semester_id = Uuid::new_v4().to_string();
+        client
+            .execute(
+                "INSERT INTO semesters (id, name, start_date, end_date, status) \
+                 VALUES ($1, '默认学期', CURRENT_DATE, (CURRENT_DATE + INTERVAL '120 day')::date, 'CURRENT'::\"SemesterStatus\")",
+                &[&semester_id],
+            )
+            .await
+            .map_err(internal_error)?;
+        semester_id
+    };
+
+    let offering_id = Uuid::new_v4().to_string();
+    client
+        .execute(
+            "INSERT INTO course_offerings (id, course_id, semester_id, teacher_id, capacity, enrolled_count, status) \
+             VALUES ($1, $2, $3, $4, 100, 0, 'PLANNED'::\"OfferingStatus\")",
+            &[&offering_id, &course_id, &semester_id, &creator_id],
+        )
+        .await
+        .map_err(internal_error)?;
+
+    Ok((offering_id, creator_id))
 }
 
 #[OpenApi(prefix_path = "/api/v1")]
@@ -656,6 +944,415 @@ impl Api {
                     total_pages,
                 },
             },
+        }))
+    }
+
+    /// 创建试卷草稿
+    #[oai(path = "/online-testing/test-papers", method = "post")]
+    async fn create_test_paper(
+        &self,
+        state: Data<&AppState>,
+        auth: BearerAuth,
+        input: Json<CreateTestPaperInput>,
+    ) -> poem::Result<Json<TestPaperDetailResponse>> {
+        ensure_roles(&auth.0, &["super_admin", "admin"])?;
+
+        let title = input.title.trim();
+        if title.is_empty() {
+            return Err(bad_request_error("试卷标题不能为空"));
+        }
+        if input.duration_minutes <= 0 {
+            return Err(bad_request_error("考试时长必须大于 0"));
+        }
+        if input.total_points.trim().is_empty() {
+            return Err(bad_request_error("试卷总分不能为空"));
+        }
+
+        let (course_offering_id, creator_id) =
+            resolve_or_create_course_offering(state.db.as_ref(), input.bank_id.as_deref()).await?;
+
+        let paper_id = Uuid::new_v4().to_string();
+        let is_random = input.is_random.unwrap_or(false);
+        let row = state
+            .db
+            .query_one(
+                "INSERT INTO test_papers \
+                    (id, course_offering_id, creator_id, title, description, total_points, duration_minutes, start_time, end_time, is_random, status) \
+                 VALUES \
+                    ($1, $2, $3, $4, $5, $6::text::numeric, $7, $8::text::timestamp, $9::text::timestamp, $10, 'DRAFT'::\"PaperStatus\") \
+                 RETURNING id, course_offering_id, creator_id, title, description, total_points::text AS total_points, \
+                           duration_minutes, start_time::text AS start_time, end_time::text AS end_time, \
+                          is_random, status::text AS status, 0::bigint AS question_count",
+                &[
+                    &paper_id,
+                    &course_offering_id,
+                    &creator_id,
+                    &title,
+                    &input.description,
+                    &input.total_points,
+                    &input.duration_minutes,
+                    &input.start_time,
+                    &input.end_time,
+                    &is_random,
+                ],
+            )
+            .await
+            .map_err(internal_error)?;
+
+        Ok(Json(TestPaperDetailResponse {
+            code: 200,
+            message: "created".to_string(),
+            data: map_test_paper_row(&row),
+        }))
+    }
+
+    /// 试卷列表
+    #[oai(path = "/online-testing/test-papers", method = "get")]
+    async fn list_test_papers(
+        &self,
+        state: Data<&AppState>,
+        _auth: BearerAuth,
+    ) -> poem::Result<Json<TestPaperListResponse>> {
+        let rows = state
+            .db
+            .query(
+                "SELECT tp.id, tp.course_offering_id, tp.creator_id, tp.title, tp.description, \
+                        tp.total_points::text AS total_points, tp.duration_minutes, tp.start_time::text AS start_time, \
+                        tp.end_time::text AS end_time, tp.is_random, tp.status::text AS status, \
+                        COUNT(tq.id)::bigint AS question_count \
+                 FROM test_papers tp \
+                 LEFT JOIN test_questions tq ON tq.test_paper_id = tp.id \
+                 GROUP BY tp.id, tp.course_offering_id, tp.creator_id, tp.title, tp.description, tp.total_points, \
+                          tp.duration_minutes, tp.start_time, tp.end_time, tp.is_random, tp.status \
+                 ORDER BY tp.id DESC",
+                &[],
+            )
+            .await
+            .map_err(internal_error)?;
+
+        let data = rows.iter().map(map_test_paper_row).collect::<Vec<_>>();
+
+        Ok(Json(TestPaperListResponse {
+            code: 200,
+            message: "success".to_string(),
+            data,
+        }))
+    }
+
+    /// 试卷详情（含已配置题目）
+    #[oai(path = "/online-testing/test-papers/:id", method = "get")]
+    async fn get_test_paper(
+        &self,
+        state: Data<&AppState>,
+        _auth: BearerAuth,
+        id: Path<String>,
+    ) -> poem::Result<Json<TestPaperEditorResponse>> {
+        let row = state
+            .db
+            .query_opt(
+                "SELECT tp.id, tp.course_offering_id, tp.creator_id, tp.title, tp.description, \
+                        tp.total_points::text AS total_points, tp.duration_minutes, tp.start_time::text AS start_time, \
+                        tp.end_time::text AS end_time, tp.is_random, tp.status::text AS status, \
+                        COUNT(tq.id)::bigint AS question_count \
+                 FROM test_papers tp \
+                 LEFT JOIN test_questions tq ON tq.test_paper_id = tp.id \
+                 WHERE tp.id = $1 \
+                 GROUP BY tp.id, tp.course_offering_id, tp.creator_id, tp.title, tp.description, tp.total_points, \
+                          tp.duration_minutes, tp.start_time, tp.end_time, tp.is_random, tp.status",
+                &[&id.0],
+            )
+            .await
+            .map_err(internal_error)?
+            .ok_or_else(|| Error::from_string("试卷不存在", StatusCode::NOT_FOUND))?;
+
+        let paper = map_test_paper_row(&row);
+        let questions = query_test_paper_questions(state.db.as_ref(), &id.0).await?;
+
+        Ok(Json(TestPaperEditorResponse {
+            code: 200,
+            message: "success".to_string(),
+            data: TestPaperEditorData { paper, questions },
+        }))
+    }
+
+    /// 编辑试卷基础信息
+    #[oai(path = "/online-testing/test-papers/:id", method = "put")]
+    async fn update_test_paper(
+        &self,
+        state: Data<&AppState>,
+        auth: BearerAuth,
+        id: Path<String>,
+        input: Json<UpdateTestPaperInput>,
+    ) -> poem::Result<Json<TestPaperDetailResponse>> {
+        ensure_roles(&auth.0, &["super_admin", "admin"])?;
+
+        let title = input.title.trim();
+        if title.is_empty() {
+            return Err(bad_request_error("试卷标题不能为空"));
+        }
+        if input.duration_minutes <= 0 {
+            return Err(bad_request_error("考试时长必须大于 0"));
+        }
+        if input.total_points.trim().is_empty() {
+            return Err(bad_request_error("试卷总分不能为空"));
+        }
+
+        let row = state
+            .db
+            .query_opt(
+                "UPDATE test_papers \
+                 SET title = $2, \
+                     description = $3, \
+                     total_points = $4::text::numeric, \
+                     duration_minutes = $5, \
+                     is_random = $6, \
+                     start_time = $7::text::timestamp, \
+                     end_time = $8::text::timestamp \
+                 WHERE id = $1 \
+                 RETURNING id, course_offering_id, creator_id, title, description, total_points::text AS total_points, \
+                           duration_minutes, start_time::text AS start_time, end_time::text AS end_time, \
+                           is_random, status::text AS status, 0::bigint AS question_count",
+                &[
+                    &id.0,
+                    &title,
+                    &input.description,
+                    &input.total_points,
+                    &input.duration_minutes,
+                    &input.is_random.unwrap_or(false),
+                    &input.start_time,
+                    &input.end_time,
+                ],
+            )
+            .await
+            .map_err(internal_error)?
+            .ok_or_else(|| Error::from_string("试卷不存在", StatusCode::NOT_FOUND))?;
+
+        let question_count = state
+            .db
+            .query_one(
+                "SELECT COUNT(*)::bigint AS total FROM test_questions WHERE test_paper_id = $1",
+                &[&id.0],
+            )
+            .await
+            .map_err(internal_error)?
+            .get::<_, i64>("total");
+
+        let mut data = map_test_paper_row(&row);
+        data.question_count = question_count;
+
+        Ok(Json(TestPaperDetailResponse {
+            code: 200,
+            message: "updated".to_string(),
+            data,
+        }))
+    }
+
+    /// 手动从题库添加题目到试卷
+    #[oai(path = "/online-testing/test-papers/:id/questions", method = "post")]
+    async fn add_questions_to_test_paper(
+        &self,
+        state: Data<&AppState>,
+        auth: BearerAuth,
+        id: Path<String>,
+        input: Json<AddPaperQuestionsInput>,
+    ) -> poem::Result<Json<AddQuestionsResponse>> {
+        ensure_roles(&auth.0, &["super_admin", "admin"])?;
+        if input.question_ids.is_empty() {
+            return Err(bad_request_error("请至少选择一道题目"));
+        }
+
+        let paper_exists = state
+            .db
+            .query_opt("SELECT id FROM test_papers WHERE id = $1", &[&id.0])
+            .await
+            .map_err(internal_error)?;
+        if paper_exists.is_none() {
+            return Err(Error::from_string("试卷不存在", StatusCode::NOT_FOUND));
+        }
+
+        let mut max_order = state
+            .db
+            .query_one(
+                "SELECT COALESCE(MAX(order_num), 0) AS max_order FROM test_questions WHERE test_paper_id = $1",
+                &[&id.0],
+            )
+            .await
+            .map_err(internal_error)?
+            .get::<_, i32>("max_order");
+
+        let mut seen = HashSet::new();
+        let mut added_count = 0;
+        for question_id in &input.question_ids {
+            if !seen.insert(question_id.clone()) {
+                continue;
+            }
+
+            let exists_in_paper = state
+                .db
+                .query_opt(
+                    "SELECT id FROM test_questions WHERE test_paper_id = $1 AND question_id = $2",
+                    &[&id.0, question_id],
+                )
+                .await
+                .map_err(internal_error)?;
+            if exists_in_paper.is_some() {
+                continue;
+            }
+
+            max_order += 1;
+            let test_question_id = Uuid::new_v4().to_string();
+            let inserted = state
+                .db
+                .execute(
+                    "INSERT INTO test_questions (id, test_paper_id, question_id, order_num, points) \
+                     SELECT $1, $2, q.id, $3, COALESCE($4::text::numeric, q.default_points) \
+                     FROM questions q \
+                     WHERE q.id = $5",
+                    &[&test_question_id, &id.0, &max_order, &input.points_per_question, question_id],
+                )
+                .await
+                .map_err(internal_error)?;
+            if inserted > 0 {
+                added_count += 1;
+            }
+        }
+
+        Ok(Json(AddQuestionsResponse {
+            code: 200,
+            message: "added".to_string(),
+            added_count,
+        }))
+    }
+
+    /// 按条件从题库批量抽题并加入试卷
+    #[oai(path = "/online-testing/test-papers/:id/auto-generate", method = "post")]
+    async fn auto_generate_questions_for_test_paper(
+        &self,
+        state: Data<&AppState>,
+        auth: BearerAuth,
+        id: Path<String>,
+        input: Json<AutoGeneratePaperQuestionsInput>,
+    ) -> poem::Result<Json<AddQuestionsResponse>> {
+        ensure_roles(&auth.0, &["super_admin", "admin"])?;
+        if input.count <= 0 || input.count > 200 {
+            return Err(bad_request_error("批量生成数量必须在 1 到 200 之间"));
+        }
+
+        let paper_exists = state
+            .db
+            .query_opt("SELECT id FROM test_papers WHERE id = $1", &[&id.0])
+            .await
+            .map_err(internal_error)?;
+        if paper_exists.is_none() {
+            return Err(Error::from_string("试卷不存在", StatusCode::NOT_FOUND));
+        }
+
+        let question_type = input
+            .question_type
+            .as_ref()
+            .map(QuestionTypeDto::as_db_value)
+            .map(str::to_string);
+        let difficulty = input
+            .difficulty
+            .as_ref()
+            .map(DifficultyDto::as_db_value)
+            .map(str::to_string);
+        let limit = i64::from(input.count);
+
+        let candidates = state
+            .db
+            .query(
+                "SELECT q.id \
+                 FROM questions q \
+                 WHERE q.bank_id = $1 \
+                   AND ($2::text IS NULL OR q.question_type = $2::text::\"QuestionType\") \
+                   AND ($3::text IS NULL OR q.difficulty = $3::text::\"Difficulty\") \
+                   AND ($4::text IS NULL OR q.content ILIKE '%' || $4 || '%') \
+                   AND NOT EXISTS ( \
+                     SELECT 1 FROM test_questions tq \
+                     WHERE tq.test_paper_id = $5 AND tq.question_id = q.id \
+                   ) \
+                 ORDER BY RANDOM() \
+                 LIMIT $6",
+                &[&input.bank_id, &question_type, &difficulty, &input.keyword, &id.0, &limit],
+            )
+            .await
+            .map_err(internal_error)?;
+
+        if candidates.is_empty() {
+            return Err(bad_request_error("没有可加入试卷的题目（可能已全部加入或筛选条件过严）"));
+        }
+
+        let mut max_order = state
+            .db
+            .query_one(
+                "SELECT COALESCE(MAX(order_num), 0) AS max_order FROM test_questions WHERE test_paper_id = $1",
+                &[&id.0],
+            )
+            .await
+            .map_err(internal_error)?
+            .get::<_, i32>("max_order");
+
+        let mut added_count = 0;
+        for row in candidates {
+            let question_id = row.get::<_, String>("id");
+            max_order += 1;
+            let test_question_id = Uuid::new_v4().to_string();
+            state
+                .db
+                .execute(
+                    "INSERT INTO test_questions (id, test_paper_id, question_id, order_num, points) \
+                     SELECT $1, $2, q.id, $3, COALESCE($4::text::numeric, q.default_points) \
+                     FROM questions q \
+                     WHERE q.id = $5",
+                    &[&test_question_id, &id.0, &max_order, &input.points_per_question, &question_id],
+                )
+                .await
+                .map_err(internal_error)?;
+            added_count += 1;
+        }
+
+        let message = if added_count < input.count {
+            format!("部分生成：请求 {} 题，实际加入 {} 题", input.count, added_count)
+        } else {
+            "generated".to_string()
+        };
+
+        Ok(Json(AddQuestionsResponse {
+            code: 200,
+            message,
+            added_count,
+        }))
+    }
+
+    /// 从试卷移除已配置题目
+    #[oai(path = "/online-testing/test-papers/:id/questions/:test_question_id", method = "delete")]
+    async fn remove_question_from_test_paper(
+        &self,
+        state: Data<&AppState>,
+        auth: BearerAuth,
+        id: Path<String>,
+        test_question_id: Path<String>,
+    ) -> poem::Result<Json<BasicResponse>> {
+        ensure_roles(&auth.0, &["super_admin", "admin"])?;
+
+        let deleted = state
+            .db
+            .execute(
+                "DELETE FROM test_questions WHERE id = $1 AND test_paper_id = $2",
+                &[&test_question_id.0, &id.0],
+            )
+            .await
+            .map_err(internal_error)?;
+        if deleted == 0 {
+            return Err(Error::from_string("试卷题目不存在", StatusCode::NOT_FOUND));
+        }
+
+        reorder_test_questions(state.db.as_ref(), &id.0).await?;
+
+        Ok(Json(BasicResponse {
+            code: 200,
+            message: "deleted".to_string(),
         }))
     }
 

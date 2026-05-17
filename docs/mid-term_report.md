@@ -575,7 +575,8 @@ sequenceDiagram
     API->>Service: 组装学生可见上下文
     Service->>AI: 请求推荐与解释
     AI-->>Service: 推荐理由与风险提示
-    Service-->>FE: 返回仅供参考的建议
+    Service-->>API: 返回仅供参考的建议
+    API-->>FE: 展示 AI 建议与风险说明
     S->>FE: 主动提交选课
     FE->>API: POST /enrollments
     API->>Service: 执行后端硬性校验
@@ -828,8 +829,7 @@ stateDiagram-v2
     Active --> Disabled: 管理员停用
     Disabled --> Scheduled: 重新启用且未开始
     Disabled --> Active: 重新启用且仍在时间范围内
-    Closed --> Archived: 学期归档
-    Archived --> [*]
+    Closed --> [*]
 ```
 
 ```mermaid

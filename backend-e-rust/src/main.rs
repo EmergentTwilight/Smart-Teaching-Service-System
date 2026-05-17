@@ -203,6 +203,9 @@ struct DeleteQuestionResponse {
 struct QuestionBankData {
     id: String,
     name: String,
+    description: Option<String>,
+    status: String,
+    question_count: i64,
 }
 
 #[derive(Object)]
@@ -210,6 +213,26 @@ struct QuestionBankListResponse {
     code: u16,
     message: String,
     data: Vec<QuestionBankData>,
+}
+
+#[derive(Object)]
+struct QuestionBankDetailResponse {
+    code: u16,
+    message: String,
+    data: QuestionBankData,
+}
+
+#[derive(Object)]
+struct BasicResponse {
+    code: u16,
+    message: String,
+}
+
+#[derive(Object)]
+#[oai(rename_all = "camelCase")]
+struct CreateQuestionBankInput {
+    name: String,
+    description: Option<String>,
 }
 
 #[derive(Object)]
@@ -425,9 +448,12 @@ impl Api {
         let rows = state
             .db
             .query(
-                "SELECT id, name \
-                 FROM question_banks \
-                 ORDER BY name ASC",
+                "SELECT qb.id, qb.name, qb.description, qb.status::text AS status, \
+                        COUNT(q.id)::bigint AS question_count \
+                 FROM question_banks qb \
+                 LEFT JOIN questions q ON q.bank_id = qb.id \
+                 GROUP BY qb.id, qb.name, qb.description, qb.status \
+                 ORDER BY qb.name ASC",
                 &[],
             )
             .await
@@ -438,6 +464,9 @@ impl Api {
             .map(|row| QuestionBankData {
                 id: row.get::<_, String>("id"),
                 name: row.get::<_, String>("name"),
+                description: row.get::<_, Option<String>>("description"),
+                status: row.get::<_, String>("status").to_lowercase(),
+                question_count: row.get::<_, i64>("question_count"),
             })
             .collect::<Vec<_>>();
 
@@ -445,6 +474,121 @@ impl Api {
             code: 200,
             message: "success".to_string(),
             data,
+        }))
+    }
+
+    /// 创建题库
+    #[oai(path = "/online-testing/question-banks", method = "post")]
+    async fn create_question_bank(
+        &self,
+        state: Data<&AppState>,
+        auth: BearerAuth,
+        input: Json<CreateQuestionBankInput>,
+    ) -> poem::Result<Json<QuestionBankDetailResponse>> {
+        ensure_roles(&auth.0, &["super_admin", "admin"])?;
+
+        let name = input.name.trim();
+        if name.is_empty() {
+            return Err(bad_request_error("题库名称不能为空"));
+        }
+
+        let fallback = state
+            .db
+            .query_opt(
+                "SELECT course_id, creator_id FROM question_banks LIMIT 1",
+                &[],
+            )
+            .await
+            .map_err(internal_error)?;
+
+        let (course_id, creator_id) = if let Some(row) = fallback {
+            (
+                row.get::<_, String>("course_id"),
+                row.get::<_, String>("creator_id"),
+            )
+        } else {
+            let row = state
+                .db
+                .query_opt(
+                    "SELECT c.id AS course_id, c.teacher_id AS creator_id \
+                     FROM courses c \
+                     WHERE c.teacher_id IS NOT NULL \
+                     LIMIT 1",
+                    &[],
+                )
+                .await
+                .map_err(internal_error)?
+                .ok_or_else(|| bad_request_error("缺少教师/课程基础数据，无法创建题库"))?;
+            (
+                row.get::<_, String>("course_id"),
+                row.get::<_, String>("creator_id"),
+            )
+        };
+
+        let bank_id = Uuid::new_v4().to_string();
+        let description = input.description.clone();
+        let row = state
+            .db
+            .query_one(
+                "INSERT INTO question_banks (id, course_id, creator_id, name, description, status) \
+                 VALUES ($1, $2, $3, $4, $5, 'ACTIVE'::\"BankStatus\") \
+                 RETURNING id, name, description, status::text AS status",
+                &[&bank_id, &course_id, &creator_id, &name, &description],
+            )
+            .await
+            .map_err(internal_error)?;
+
+        Ok(Json(QuestionBankDetailResponse {
+            code: 200,
+            message: "created".to_string(),
+            data: QuestionBankData {
+                id: row.get::<_, String>("id"),
+                name: row.get::<_, String>("name"),
+                description: row.get::<_, Option<String>>("description"),
+                status: row.get::<_, String>("status").to_lowercase(),
+                question_count: 0,
+            },
+        }))
+    }
+
+    /// 删除题库（题库下仍有题目时禁止删除）
+    #[oai(path = "/online-testing/question-banks/:id", method = "delete")]
+    async fn delete_question_bank(
+        &self,
+        state: Data<&AppState>,
+        auth: BearerAuth,
+        id: Path<String>,
+    ) -> poem::Result<Json<BasicResponse>> {
+        ensure_roles(&auth.0, &["super_admin", "admin"])?;
+
+        let question_count = state
+            .db
+            .query_one(
+                "SELECT COUNT(*)::bigint AS total FROM questions WHERE bank_id = $1",
+                &[&id.0],
+            )
+            .await
+            .map_err(internal_error)?
+            .get::<_, i64>("total");
+        if question_count > 0 {
+            return Err(Error::from_string(
+                "该题库下仍有题目，请先删除题目后再删除题库",
+                StatusCode::CONFLICT,
+            ));
+        }
+
+        let deleted = state
+            .db
+            .execute("DELETE FROM question_banks WHERE id = $1", &[&id.0])
+            .await
+            .map_err(internal_error)?;
+        if deleted == 0 {
+            return Err(Error::from_string("题库不存在", StatusCode::NOT_FOUND));
+        }
+
+        Ok(Json(BasicResponse {
+            code: 200,
+            message: "deleted".to_string(),
         }))
     }
 

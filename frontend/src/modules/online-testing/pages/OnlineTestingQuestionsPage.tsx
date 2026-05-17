@@ -68,13 +68,25 @@ interface QuestionFormValues {
 interface QuestionBankItem {
   id: string;
   name: string;
+  description?: string;
+  status: string;
+  questionCount: number;
+}
+
+interface QuestionBankFormValues {
+  name: string;
+  description?: string;
 }
 
 const OnlineTestingQuestionsPage: React.FC = () => {
   const [form] = Form.useForm<QuestionFormValues>();
+  const [bankForm] = Form.useForm<QuestionBankFormValues>();
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [bankSubmitting, setBankSubmitting] = useState(false);
+  const [bankModalOpen, setBankModalOpen] = useState(false);
   const [banks, setBanks] = useState<QuestionBankItem[]>([]);
+  const [selectedBankId, setSelectedBankId] = useState<string | undefined>(undefined);
   const [data, setData] = useState<QuestionListData>({
     items: [],
     pagination: { page: 1, pageSize: 10, total: 0, totalPages: 0 },
@@ -96,11 +108,11 @@ const OnlineTestingQuestionsPage: React.FC = () => {
       .filter((value) => Number.isInteger(value) && value > 0);
   };
 
-  const fetchQuestions = async (page = 1, pageSize = 10) => {
+  const fetchQuestions = async (page = 1, pageSize = 10, bankId = selectedBankId) => {
     setLoading(true);
     try {
       const result = await request.get<QuestionListData, QuestionListData>('/online-testing/questions', {
-        params: { page, pageSize },
+        params: { page, page_size: pageSize, bank_id: bankId },
       });
       setData(result);
     } catch (err) {
@@ -114,6 +126,10 @@ const OnlineTestingQuestionsPage: React.FC = () => {
   const fetchQuestionBanks = async () => {
     const result = await request.get<QuestionBankItem[], QuestionBankItem[]>('/online-testing/question-banks');
     setBanks(result);
+    setSelectedBankId((prev) => {
+      if (prev && result.some((bank) => bank.id === prev)) return prev;
+      return result[0]?.id;
+    });
     return result;
   };
 
@@ -127,18 +143,32 @@ const OnlineTestingQuestionsPage: React.FC = () => {
       } catch (err) {
         const msg = err instanceof Error ? err.message : '加载题库失败';
         message.error(msg);
-      } finally {
-        fetchQuestions();
       }
     };
     bootstrap();
   }, []);
 
+  useEffect(() => {
+    if (selectedBankId) {
+      fetchQuestions(1, data.pagination.pageSize, selectedBankId);
+    } else {
+      setData((prev) => ({
+        ...prev,
+        items: [],
+        pagination: { ...prev.pagination, page: 1, total: 0, totalPages: 0 },
+      }));
+    }
+  }, [selectedBankId]);
+
   const openCreate = () => {
     setEditing(null);
+    if (!banks.length) {
+      message.warning('请先创建题库');
+      return;
+    }
     form.resetFields();
     form.setFieldsValue({
-      bankId: banks[0]?.id,
+      bankId: selectedBankId ?? banks[0]?.id,
       questionType: 'singleChoice',
       defaultPoints: 2,
       optionCount: 4,
@@ -189,6 +219,41 @@ const OnlineTestingQuestionsPage: React.FC = () => {
       fetchQuestions(data.pagination.page, data.pagination.pageSize);
     } catch (err) {
       const msg = err instanceof Error ? err.message : '删除失败';
+      message.error(msg);
+    }
+  };
+
+  const openCreateBank = () => {
+    bankForm.resetFields();
+    setBankModalOpen(true);
+  };
+
+  const handleCreateBank = async () => {
+    const values = await bankForm.validateFields();
+    setBankSubmitting(true);
+    try {
+      const created = await request.post<QuestionBankItem, QuestionBankItem>('/online-testing/question-banks', values);
+      message.success('题库创建成功');
+      setBankModalOpen(false);
+      const latest = await fetchQuestionBanks();
+      setSelectedBankId(created.id ?? latest[0]?.id);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : '创建题库失败';
+      message.error(msg);
+    } finally {
+      setBankSubmitting(false);
+    }
+  };
+
+  const handleDeleteBank = async () => {
+    if (!selectedBankId) return;
+    try {
+      await request.delete(`/online-testing/question-banks/${selectedBankId}`);
+      message.success('题库删除成功');
+      const latest = await fetchQuestionBanks();
+      setSelectedBankId(latest[0]?.id);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : '删除题库失败';
       message.error(msg);
     }
   };
@@ -361,11 +426,41 @@ const OnlineTestingQuestionsPage: React.FC = () => {
 
       <Card style={{ borderRadius: 12 }}>
         <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+          <Space align="start" style={{ width: '100%', justifyContent: 'space-between' }}>
+            <Space direction="vertical" size={4}>
+              <Text strong>题库管理</Text>
+              <Space>
+                <Select
+                  style={{ width: 360 }}
+                  placeholder="请选择题库"
+                  value={selectedBankId}
+                  onChange={setSelectedBankId}
+                  options={banks.map((bank) => ({
+                    label: `${bank.name}（${bank.questionCount} 题）`,
+                    value: bank.id,
+                  }))}
+                />
+                <Button onClick={openCreateBank}>新建题库</Button>
+                <Popconfirm
+                  title="确认删除当前题库？"
+                  description="若题库下有题目将无法删除"
+                  onConfirm={handleDeleteBank}
+                  okButtonProps={{ danger: true }}
+                >
+                  <Button danger disabled={!selectedBankId}>
+                    删除题库
+                  </Button>
+                </Popconfirm>
+                <Button onClick={() => fetchQuestionBanks()}>刷新题库</Button>
+              </Space>
+            </Space>
+          </Space>
+
           <Space>
             <Button type="primary" onClick={openCreate}>
               新建题目
             </Button>
-            <Button onClick={() => fetchQuestions(data.pagination.page, data.pagination.pageSize)}>
+            <Button onClick={() => fetchQuestions(data.pagination.page, data.pagination.pageSize, selectedBankId)}>
               刷新
             </Button>
           </Space>
@@ -379,7 +474,7 @@ const OnlineTestingQuestionsPage: React.FC = () => {
               current: data.pagination.page,
               pageSize: data.pagination.pageSize,
               total: data.pagination.total,
-              onChange: (page, pageSize) => fetchQuestions(page, pageSize),
+              onChange: (page, pageSize) => fetchQuestions(page, pageSize, selectedBankId),
             }}
           />
         </Space>
@@ -488,6 +583,24 @@ const OnlineTestingQuestionsPage: React.FC = () => {
           </Form.Item>
           <Form.Item name="explanation" label="解析">
             <Input.TextArea rows={2} />
+          </Form.Item>
+        </Form>
+      </Modal>
+
+      <Modal
+        title="新建题库"
+        open={bankModalOpen}
+        onCancel={() => setBankModalOpen(false)}
+        onOk={handleCreateBank}
+        confirmLoading={bankSubmitting}
+        destroyOnClose
+      >
+        <Form form={bankForm} layout="vertical">
+          <Form.Item name="name" label="题库名称" rules={[{ required: true, message: '请输入题库名称' }]}>
+            <Input maxLength={100} placeholder="请输入题库名称" />
+          </Form.Item>
+          <Form.Item name="description" label="题库描述">
+            <Input.TextArea rows={3} placeholder="可选" />
           </Form.Item>
         </Form>
       </Modal>

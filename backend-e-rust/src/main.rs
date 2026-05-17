@@ -16,6 +16,7 @@ use poem_openapi::{
 use std::{env, sync::Arc};
 use tokio_postgres::{types::ToSql, Client, NoTls};
 use url::Url;
+use uuid::Uuid;
 
 // --- 模型定义 (使用 poem_openapi::Object 代替单纯的 Serialize) ---
 // Object 宏会自动生成 OpenAPI 的 Schema 定义
@@ -87,6 +88,7 @@ async fn check_bearer(req: &Request, bearer: Bearer) -> poem::Result<JwtPayload>
 }
 
 #[derive(Enum, Debug, Clone, Eq, PartialEq)]
+#[oai(rename_all = "camelCase")]
 enum QuestionTypeDto {
     SingleChoice,
     MultiChoice,
@@ -104,6 +106,7 @@ impl QuestionTypeDto {
 }
 
 #[derive(Enum, Debug, Clone, Eq, PartialEq)]
+#[oai(rename_all = "camelCase")]
 enum DifficultyDto {
     Easy,
     Medium,
@@ -197,6 +200,7 @@ struct DeleteQuestionResponse {
 }
 
 #[derive(Object)]
+#[oai(rename_all = "camelCase")]
 struct QuestionOptionInput {
     option_text: String,
     option_order: i32,
@@ -204,6 +208,7 @@ struct QuestionOptionInput {
 }
 
 #[derive(Object)]
+#[oai(rename_all = "camelCase")]
 struct CreateQuestionInput {
     bank_id: String,
     question_type: QuestionTypeDto,
@@ -217,6 +222,7 @@ struct CreateQuestionInput {
 }
 
 #[derive(Object)]
+#[oai(rename_all = "camelCase")]
 struct UpdateQuestionInput {
     bank_id: String,
     question_type: QuestionTypeDto,
@@ -445,7 +451,9 @@ impl Api {
             .as_ref()
             .map(DifficultyDto::as_db_value)
             .map(str::to_string);
-        let params: [&(dyn ToSql + Sync); 8] = [
+        let question_id = Uuid::new_v4().to_string();
+        let params: [&(dyn ToSql + Sync); 9] = [
+            &question_id,
             &input.bank_id,
             &question_type,
             &input.content,
@@ -459,9 +467,9 @@ impl Api {
             .db
             .query_one(
                 "INSERT INTO questions \
-                    (bank_id, question_type, content, answer, explanation, default_points, difficulty, knowledge_point, created_at, updated_at) \
+                    (id, bank_id, question_type, content, answer, explanation, default_points, difficulty, knowledge_point, created_at, updated_at) \
                  VALUES \
-                    ($1, $2::\"QuestionType\", $3, $4, $5, $6::numeric, $7::\"Difficulty\", $8, NOW(), NOW()) \
+                    ($1, $2, $3::text::\"QuestionType\", $4, $5, $6, $7::text::numeric, $8::text::\"Difficulty\", $9, NOW(), NOW()) \
                  RETURNING id, bank_id, question_type::text AS question_type, content, answer, explanation, \
                            default_points::text AS default_points, difficulty::text AS difficulty, \
                            knowledge_point, created_at::text AS created_at, updated_at::text AS updated_at",
@@ -470,10 +478,11 @@ impl Api {
             .await
             .map_err(internal_error)?;
 
-        let question_id: String = question.get("id");
         if let Some(options) = &input.options {
             for option in options {
-                let option_params: [&(dyn ToSql + Sync); 4] = [
+                let option_id = Uuid::new_v4().to_string();
+                let option_params: [&(dyn ToSql + Sync); 5] = [
+                    &option_id,
                     &question_id,
                     &option.option_text,
                     &option.option_order,
@@ -482,8 +491,8 @@ impl Api {
                 state
                     .db
                     .execute(
-                    "INSERT INTO question_options (question_id, option_text, option_order, is_correct) \
-                     VALUES ($1, $2, $3, $4)",
+                    "INSERT INTO question_options (id, question_id, option_text, option_order, is_correct) \
+                     VALUES ($1, $2, $3, $4, $5)",
                     &option_params,
                 )
                 .await
@@ -533,12 +542,12 @@ impl Api {
             .query_opt(
                 "UPDATE questions \
                  SET bank_id = $2, \
-                     question_type = $3::\"QuestionType\", \
+                     question_type = $3::text::\"QuestionType\", \
                      content = $4, \
                      answer = $5, \
                      explanation = $6, \
-                     default_points = $7::numeric, \
-                     difficulty = $8::\"Difficulty\", \
+                     default_points = $7::text::numeric, \
+                     difficulty = $8::text::\"Difficulty\", \
                      knowledge_point = $9, \
                      updated_at = NOW() \
                  WHERE id = $1 \
@@ -564,7 +573,9 @@ impl Api {
                 .await
                 .map_err(internal_error)?;
             for option in options {
-                let option_params: [&(dyn ToSql + Sync); 4] = [
+                let option_id = Uuid::new_v4().to_string();
+                let option_params: [&(dyn ToSql + Sync); 5] = [
+                    &option_id,
                     &id.0,
                     &option.option_text,
                     &option.option_order,
@@ -573,8 +584,8 @@ impl Api {
                 state
                     .db
                     .execute(
-                    "INSERT INTO question_options (question_id, option_text, option_order, is_correct) \
-                     VALUES ($1, $2, $3, $4)",
+                    "INSERT INTO question_options (id, question_id, option_text, option_order, is_correct) \
+                     VALUES ($1, $2, $3, $4, $5)",
                     &option_params,
                 )
                 .await

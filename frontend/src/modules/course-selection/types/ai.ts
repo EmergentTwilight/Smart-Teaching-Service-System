@@ -18,6 +18,7 @@ export interface AiAdvicePayload {
 
 export interface AiExplainPayload {
   offeringId: string;
+  question?: string;
   studentContext?: Record<string, unknown>;
 }
 
@@ -28,7 +29,7 @@ export interface AiExplainPayloadResult {
 }
 
 export interface AiRecommendPayload {
-  maxRecommendations: number;
-  includeConflicts?: boolean;
-  constraints?: Record<string, unknown>;
+  semesterId?: string;
+  preferences?: Record<string, unknown>;
+  maxRecommendations?: number;
 }

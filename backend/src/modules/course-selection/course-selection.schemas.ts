@@ -45,12 +45,18 @@ const paginationSchema = z.object({
 })
 
 // TODO(C1, FR-C-01, FR-C-03, NFR-C-13): 规范课程与培养方案分页查询参数风格
-export const curriculumQuerySchema = paginationSchema.extend({
-  includeCourses: z.coerce.boolean().optional(),
-  include_courses: z.coerce.boolean().optional(),
-  courseType: z.string().optional(),
-  course_type: z.string().optional(),
-}).transform(normalizePaginationFields)
+export const curriculumQuerySchema = paginationSchema
+  .extend({
+    includeCourses: booleanSchema,
+    include_courses: booleanSchema,
+    courseType: z.string().optional(),
+    course_type: z.string().optional(),
+  })
+  .transform(({ includeCourses, include_courses, courseType, course_type, ...rest }) => ({
+    ...normalizePaginationFields(rest),
+    includeCourses: includeCourses ?? include_courses,
+    courseType: courseType ?? course_type,
+  }))
 
 export type CurriculumQuery = z.infer<typeof curriculumQuerySchema>
 
@@ -58,11 +64,16 @@ export type CurriculumQuery = z.infer<typeof curriculumQuerySchema>
 export const curriculumProgressQuerySchema = z
   .object({
     semesterId: z.string().uuid().optional(),
-    includeDropped: z.coerce.boolean().optional(),
-    include_dropped: z.coerce.boolean().optional(),
+    semester_id: z.string().uuid().optional(),
+    includeDropped: booleanSchema,
+    include_dropped: booleanSchema,
   })
   .merge(paginationSchema.partial())
-  .transform(normalizePaginationFields)
+  .transform(({ semesterId, semester_id, includeDropped, include_dropped, ...rest }) => ({
+    ...normalizePaginationFields(rest),
+    semesterId: semesterId ?? semester_id,
+    includeDropped: includeDropped ?? include_dropped,
+  }))
 
 export type CurriculumProgressQuery = z.infer<typeof curriculumProgressQuerySchema>
 
@@ -79,15 +90,33 @@ export const courseSearchQuerySchema = z
     status: z.string().optional(),
     offeringStatus: z.string().optional(),
     offering_status: z.string().optional(),
-    availableOnly: z.coerce.boolean().optional(),
-    available_only: z.coerce.boolean().optional(),
-    includeUnavailable: z.boolean().optional(),
-    include_unavailable: z.boolean().optional(),
+    availableOnly: booleanSchema,
+    available_only: booleanSchema,
+    includeUnavailable: booleanSchema,
+    include_unavailable: booleanSchema,
   })
   .merge(paginationSchema.partial())
-  .transform(({ availableOnly, available_only, ...rest }) => ({
+  .transform(({
+    teacher_id,
+    semesterId,
+    semester_id,
+    courseType,
+    course_type,
+    offeringStatus,
+    offering_status,
+    availableOnly,
+    available_only,
+    includeUnavailable,
+    include_unavailable,
+    ...rest
+  }) => ({
     ...normalizePaginationFields(rest),
+    teacherId: teacher_id,
+    semesterId: semesterId ?? semester_id,
+    courseType: courseType ?? course_type,
+    offeringStatus: offeringStatus ?? offering_status,
     availableOnly: availableOnly ?? available_only,
+    includeUnavailable: includeUnavailable ?? include_unavailable,
   }))
 
 export type CourseSearchQuery = z.infer<typeof courseSearchQuerySchema>
@@ -104,15 +133,39 @@ export const availableOfferingsQuerySchema = z
     course_type: z.string().optional(),
     offeringStatus: z.string().optional(),
     offering_status: z.string().optional(),
-    onlyAvailable: z.coerce.boolean().optional(),
-    only_available: z.coerce.boolean().optional(),
-    includeConflictReasons: z.coerce.boolean().optional(),
-    include_conflict_reasons: z.coerce.boolean().optional(),
-    includeUnavailable: z.coerce.boolean().optional(),
-    include_unavailable: z.coerce.boolean().optional(),
+    onlyAvailable: booleanSchema,
+    only_available: booleanSchema,
+    includeConflictReasons: booleanSchema,
+    include_conflict_reasons: booleanSchema,
+    includeUnavailable: booleanSchema,
+    include_unavailable: booleanSchema,
   })
   .merge(paginationSchema.partial())
-  .transform(normalizePaginationFields)
+  .transform(({
+    teacher_id,
+    semesterId,
+    semester_id,
+    courseType,
+    course_type,
+    offeringStatus,
+    offering_status,
+    onlyAvailable,
+    only_available,
+    includeConflictReasons,
+    include_conflict_reasons,
+    includeUnavailable,
+    include_unavailable,
+    ...rest
+  }) => ({
+    ...normalizePaginationFields(rest),
+    teacherId: teacher_id,
+    semesterId: semesterId ?? semester_id,
+    courseType: courseType ?? course_type,
+    offeringStatus: offeringStatus ?? offering_status,
+    onlyAvailable: onlyAvailable ?? only_available,
+    includeConflictReasons: includeConflictReasons ?? include_conflict_reasons,
+    includeUnavailable: includeUnavailable ?? include_unavailable,
+  }))
 
 export type AvailableOfferingsQuery = z.infer<typeof availableOfferingsQuerySchema>
 
@@ -324,7 +377,8 @@ const manualEnrollmentBodyInputSchema = z.object({
   courseOfferingId: z.string().uuid('课程开设ID应为 UUID').optional(),
   course_offering_id: z.string().uuid('课程开设ID应为 UUID').optional(),
   reason: z.string().trim().min(1, '必须填写操作原因').max(500),
-  notify_student: z.coerce.boolean().optional(),
+  notifyStudent: booleanSchema,
+  notify_student: booleanSchema,
 })
 
 export const manualEnrollmentBodySchema = manualEnrollmentBodyInputSchema
@@ -373,11 +427,13 @@ export const manualEnrollmentBodySchema = manualEnrollmentBodyInputSchema
     studentId: value.studentId ?? value.student_id,
     courseOfferingId: value.courseOfferingId ?? value.course_offering_id,
     reason: value.reason,
+    notifyStudent: value.notifyStudent ?? value.notify_student ?? false,
   }))
   .pipe(z.object({
     studentId: z.string().uuid('学生ID应为 UUID'),
     courseOfferingId: z.string().uuid('课程开设ID应为 UUID'),
     reason: z.string().trim().min(1, '必须填写操作原因').max(500),
+    notifyStudent: z.boolean(),
   }))
 export type ManualEnrollmentBody = z.infer<typeof manualEnrollmentBodySchema>
 
@@ -410,28 +466,34 @@ export type TimetableQuery = z.infer<typeof timetableQuerySchema>
 
 // TODO(C6, FR-C-38, FR-C-42, NFR-C-09): AI 输入需支持课程/课表上下文，支持降级返回
 const aiRecommendBodyInputSchema = z.object({
-  maxRecommendations: z.coerce.number().min(1).max(20).optional(),
-  max_recommendations: z.coerce.number().min(1).max(20).optional(),
-  includeConflicts: z.coerce.boolean().optional(),
-  include_conflicts: z.coerce.boolean().optional(),
+  semesterId: z.string().uuid().optional(),
+  semester_id: z.string().uuid().optional(),
+  preferences: z.record(z.unknown()).optional(),
+  maxRecommendations: z.coerce.number().int().min(1).max(10).optional(),
+  max_recommendations: z.coerce.number().int().min(1).max(10).optional(),
+  includeConflicts: booleanSchema,
+  include_conflicts: booleanSchema,
   constraints: z.record(z.unknown()).optional(),
 })
 
 export const aiRecommendBodySchema = aiRecommendBodyInputSchema
   .transform((value) => ({
-    maxRecommendations: value.maxRecommendations ?? value.max_recommendations ?? 6,
+    semesterId: value.semesterId ?? value.semester_id,
+    preferences: value.preferences ?? value.constraints,
+    maxRecommendations: value.maxRecommendations ?? value.max_recommendations ?? 5,
     includeConflicts: value.includeConflicts ?? value.include_conflicts,
-    constraints: value.constraints,
   }))
   .pipe(z.object({
-    maxRecommendations: z.number().min(1).max(20),
+    semesterId: z.string().uuid().optional(),
+    preferences: z.record(z.unknown()).optional(),
+    maxRecommendations: z.number().int().min(1).max(10),
     includeConflicts: z.boolean().optional(),
-    constraints: z.record(z.unknown()).optional(),
   }))
 
 const aiExplainBodyInputSchema = z.object({
   offeringId: z.string().uuid('课程开设ID应为 UUID').optional(),
   course_offering_id: z.string().uuid('课程开设ID应为 UUID').optional(),
+  question: z.string().max(500).optional(),
   studentContext: z.record(z.unknown()).optional(),
   student_context: z.record(z.unknown()).optional(),
 })
@@ -460,10 +522,12 @@ export const aiExplainBodySchema = aiExplainBodyInputSchema
   })
   .transform((value) => ({
     offeringId: value.offeringId ?? value.course_offering_id,
+    question: value.question,
     studentContext: value.studentContext ?? value.student_context,
   }))
   .pipe(z.object({
     offeringId: z.string().uuid('课程开设ID应为 UUID'),
+    question: z.string().max(500).optional(),
     studentContext: z.record(z.unknown()).optional(),
   }))
 

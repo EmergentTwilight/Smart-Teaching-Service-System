@@ -59,6 +59,7 @@ export interface CurriculumProgressQuery extends BaseQuery {
 export interface CourseSearchQuery extends BaseQuery {
   keyword?: string
   teacher?: string
+  teacherId?: string
   teacher_id?: string
   semesterId?: string
   semester_id?: string
@@ -76,6 +77,7 @@ export interface CourseSearchQuery extends BaseQuery {
 export interface AvailableOfferingsQuery extends BaseQuery {
   keyword?: string
   teacher?: string
+  teacherId?: string
   teacher_id?: string
   semesterId?: string
   semester_id?: string
@@ -135,6 +137,7 @@ export interface ManualEnrollmentBody {
   studentId: string
   courseOfferingId: string
   reason: string
+  notifyStudent?: boolean
 }
 
 export interface RosterQuery extends BaseQuery {

@@ -4,9 +4,12 @@ import type { AiAdvicePayload, AiExplainPayload, AiExplainPayloadResult, AiRecom
 export const aiAdvisorApi = {
   recommend: (payload: AiRecommendPayload) =>
     courseSelectionRequest.post<AiAdvicePayload>('/course-selection/ai-advisor/recommend', payload),
-  explain: (payload: AiExplainPayload) =>
+  explain: ({ offeringId, ...payload }: AiExplainPayload) =>
     courseSelectionRequest.post<AiExplainPayloadResult>(
       '/course-selection/ai-advisor/explain',
-      payload
+      {
+        ...payload,
+        courseOfferingId: offeringId,
+      }
     ),
 };

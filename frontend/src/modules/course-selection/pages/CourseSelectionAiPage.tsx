@@ -43,8 +43,10 @@ const CourseSelectionAiPage: React.FC = () => {
     }
 
     const payload: AiRecommendPayload = {
-      maxRecommendations: values.maxRecommendations || 6,
-      includeConflicts: values.includeConflicts,
+      maxRecommendations: values.maxRecommendations || 5,
+      preferences: {
+        includeConflicts: values.includeConflicts,
+      },
     };
 
     aiAdvisor.recommend.mutate(payload, {
@@ -88,14 +90,14 @@ const CourseSelectionAiPage: React.FC = () => {
           form={recommendForm}
           layout="inline"
           onFinish={handleRecommend}
-          initialValues={{ maxRecommendations: 6, includeConflicts: true }}
+          initialValues={{ maxRecommendations: 5, includeConflicts: true }}
         >
           <Form.Item
             name="maxRecommendations"
             label="返回数量"
             rules={[{ required: true, message: '请输入返回数量' }]}
           >
-            <InputNumber min={1} max={20} />
+            <InputNumber min={1} max={10} />
           </Form.Item>
           <Form.Item name="includeConflicts" label="附带冲突提示" valuePropName="checked" initialValue>
             <Checkbox />

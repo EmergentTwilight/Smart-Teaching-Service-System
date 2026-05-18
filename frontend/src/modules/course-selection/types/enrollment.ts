@@ -3,19 +3,55 @@ import type { PaginationMeta } from './common';
 export type EnrollmentStatus = 'enrolled' | 'dropped' | 'withdrawn';
 
 export interface EnrollmentItem {
-  id: string;
-  studentId: string;
-  courseOfferingId: string;
+  enrollmentId: string;
   status: EnrollmentStatus;
   enrolledAt: string;
   droppedAt?: string | null;
-  offering: {
+  courseOffering: {
+    id: string;
     courseName: string;
     courseCode: string;
     credits: number;
+    courseType: 'required' | 'elective' | 'general';
     teacherName: string;
     semesterName: string;
   };
+}
+
+export interface EnrollmentSummary {
+  enrolledCount: number;
+  enrolledCredits: number;
+}
+
+export interface EnrollmentListPayload {
+  items: EnrollmentItem[];
+  summary: EnrollmentSummary;
+  pagination: PaginationMeta;
+}
+
+export interface EnrollmentMutationCourseOffering {
+  id: string;
+  courseCode: string;
+  courseName: string;
+  capacity: number;
+  enrolledCount: number;
+  remainingCapacity: number;
+}
+
+export interface EnrollmentCreditSummary {
+  currentSelectedCredits: number;
+  maxCredits: number;
+}
+
+export interface EnrollmentMutationPayload {
+  enrollment: {
+    id: string;
+    status: EnrollmentStatus;
+    enrolledAt: string;
+    droppedAt?: string | null;
+  };
+  courseOffering: EnrollmentMutationCourseOffering;
+  creditSummary?: EnrollmentCreditSummary;
 }
 
 export interface EnrollmentQuery {
@@ -38,22 +74,34 @@ export interface DropEnrollmentPayload {
 }
 
 export interface TimetableSlot {
+  enrollmentId: string;
   courseOfferingId: string;
   courseName: string;
   courseCode: string;
   teacherName: string;
+  credits: number;
   dayOfWeek: number;
   startWeek: number;
   endWeek: number;
   startPeriod: number;
   endPeriod: number;
+  classroom?: string | null;
+}
+
+export interface MissingScheduleItem {
+  courseOfferingId: string;
+  courseName: string;
+  message: string;
 }
 
 export interface TimetablePayload {
-  semesterId: string;
-  studentId: string;
-  semesterName: string;
-  slots: TimetableSlot[];
+  semester: {
+    id: string;
+    name: string;
+  };
+  printable: boolean;
+  items: TimetableSlot[];
+  missingScheduleItems: MissingScheduleItem[];
 }
 
 export interface RosterStudentItem {

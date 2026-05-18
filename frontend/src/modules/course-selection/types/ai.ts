@@ -37,7 +37,6 @@ export interface AiAdvicePayload {
 export interface AiExplainPayload {
   offeringId: string;
   question?: string;
-  studentContext?: Record<string, unknown>;
 }
 
 export interface AiExplainPayloadResult {

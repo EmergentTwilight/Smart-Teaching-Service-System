@@ -92,7 +92,7 @@ description: STSS C 组负责人专用 skill。适用于 C 组负责人进行框
 ```text
 docs/srs/C-smart-course-selection-srs.md
 docs/apis/C-smart-course-selection.md
-docs/apis/course-selection-api.md
+docs/apis/shared.md
 docs/modules/course-selection-design.md
 docs/tasks/C-work-breakdown.md
 docs/agent-guides/C-coding-agent-guidelines.md
@@ -157,7 +157,7 @@ C 组负责人负责：
 ```text
 docs/srs/C-smart-course-selection-srs.md
 docs/apis/C-smart-course-selection.md
-docs/apis/course-selection-api.md
+docs/apis/shared.md
 docs/modules/course-selection-design.md
 docs/tasks/C-work-breakdown.md
 docs/agent-guides/C-coding-agent-guidelines.md

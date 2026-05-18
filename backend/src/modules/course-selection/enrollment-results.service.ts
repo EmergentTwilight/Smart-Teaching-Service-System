@@ -1,7 +1,6 @@
 import type {
-  EnrollmentItem,
+  EnrollmentListPayload,
   EnrollmentQuery,
-  PaginatedItems,
 } from './course-selection.types.js'
 
 export const enrollmentResultsService = {
@@ -9,7 +8,7 @@ export const enrollmentResultsService = {
   async listMyEnrollments(
     studentId: string,
     query: EnrollmentQuery
-  ): Promise<PaginatedItems<EnrollmentItem> | null> {
+  ): Promise<EnrollmentListPayload | null> {
     void studentId
     void query
 

@@ -2,7 +2,11 @@ export interface CurriculumInfo {
   id: string;
   name: string;
   year: number;
-  majorName: string;
+  major: {
+    id: string;
+    name: string;
+    code: string;
+  };
   totalCredits: number;
   requiredCredits?: number;
   electiveCredits?: number;
@@ -32,10 +36,48 @@ export interface CurriculumProgressQuery {
   include_dropped?: boolean;
 }
 
+export interface CurriculumCourseGroup {
+  courseType: 'required' | 'elective' | 'general';
+  courseTypeName: string;
+  courses: CurriculumCourseItem[];
+}
+
+export interface CurriculumConfirmation {
+  requiredBeforeSelection: boolean;
+  confirmed: boolean;
+  message?: string;
+}
+
+export interface CurriculumPayload {
+  curriculum: CurriculumInfo;
+  courseGroups: CurriculumCourseGroup[];
+  confirmation: CurriculumConfirmation;
+}
+
+export interface CurriculumCreditSummary {
+  totalCredits: number;
+  requiredCredits: number;
+  electiveCredits: number;
+  generalCredits?: number | null;
+}
+
+export interface CurriculumCourseTypeProgress {
+  courseType: 'required' | 'elective' | 'general';
+  selectedCredits: number;
+  requirementCredits?: number | null;
+  courseCount: number;
+}
+
+export interface CurriculumProgressWarning {
+  code: string;
+  message: string;
+}
+
 export interface CurriculumProgress {
-  totalSelectedCredits: number;
-  requiredSelectedCredits: number;
-  electiveSelectedCredits: number;
-  generalSelectedCredits: number;
-  totalCreditRatio: number;
+  curriculumId: string;
+  requirements: CurriculumCreditSummary;
+  selected: CurriculumCreditSummary;
+  remaining: Partial<CurriculumCreditSummary>;
+  byCourseType: CurriculumCourseTypeProgress[];
+  warnings: CurriculumProgressWarning[];
 }

@@ -1,7 +1,6 @@
 import { courseSelectionRequest } from './client';
 import type {
-  CurriculumInfo,
-  CurriculumCourseItem,
+  CurriculumPayload,
   CurriculumQuery,
   CurriculumProgress,
   CurriculumProgressQuery,
@@ -9,16 +8,12 @@ import type {
 
 export const curriculumApi = {
   getMyCurriculum: (params?: CurriculumQuery) =>
-    courseSelectionRequest.get<{
-      curriculum: CurriculumInfo;
-      courseGroups: CurriculumCourseItem[];
-      studentId: string;
-    }>(
+    courseSelectionRequest.get<CurriculumPayload>(
       '/course-selection/curriculum/me',
       { params }
     ),
   getMyCurriculumProgress: (params?: CurriculumProgressQuery) =>
-    courseSelectionRequest.get<{ progress: CurriculumProgress; studentId: string }>(
+    courseSelectionRequest.get<CurriculumProgress>(
       '/course-selection/curriculum/me/progress',
       { params }
     ),

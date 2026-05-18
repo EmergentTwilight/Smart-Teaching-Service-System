@@ -20,10 +20,12 @@ export const aiAdvisorService = {
   // - AI 不可用时返回降级提示，前端可继续选课
   async explain(
     studentId: string,
-    offeringId: string
+    offeringId: string,
+    question?: string
   ): Promise<AiExplainResult | null> {
     void studentId
     void offeringId
+    void question
 
     return null
   },

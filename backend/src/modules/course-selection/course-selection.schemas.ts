@@ -171,8 +171,17 @@ export type AvailableOfferingsQuery = z.infer<typeof availableOfferingsQuerySche
 
 // TODO(C2, FR-C-11, FR-C-19, NFR-C-07): 课程详情可扩展包含先修与排课信息
 export const courseOfferingParamsSchema = idSchema
+export const courseOfferingDetailQuerySchema = z
+  .object({
+    includeEligibility: booleanSchema,
+    include_eligibility: booleanSchema,
+  })
+  .transform(({ includeEligibility, include_eligibility }) => ({
+    includeEligibility: includeEligibility ?? include_eligibility ?? true,
+  }))
 
 export type CourseOfferingParams = z.infer<typeof courseOfferingParamsSchema>
+export type CourseOfferingDetailQuery = z.infer<typeof courseOfferingDetailQuerySchema>
 
 // TODO(C3, FR-C-14, FR-C-16, NFR-C-04): 选课/退选前置参数应支持课程/阶段校验与幂等控制
 export const enrollmentQuerySchema = paginationSchema
@@ -487,7 +496,7 @@ export type RosterExportQuery = z.infer<typeof rosterExportQuerySchema>
 export const rosterOfferingParamsSchema = idSchema
 export type RosterOfferingParams = z.infer<typeof rosterOfferingParamsSchema>
 
-// TODO(C4, FR-C-25, FR-C-08, NFR-C-08): 课表查询支持学期与输出格式开关
+// TODO(C4, FR-C-25, FR-C-26, NFR-C-08): 课表查询支持学期与输出格式开关
 export const timetableQuerySchema = z
   .object({
     semesterId: z.string().uuid().optional(),
@@ -508,31 +517,24 @@ const aiRecommendBodyInputSchema = z.object({
   preferences: z.record(z.unknown()).optional(),
   maxRecommendations: z.coerce.number().int().min(1).max(10).optional(),
   max_recommendations: z.coerce.number().int().min(1).max(10).optional(),
-  includeConflicts: booleanSchema,
-  include_conflicts: booleanSchema,
-  constraints: z.record(z.unknown()).optional(),
 })
 
 export const aiRecommendBodySchema = aiRecommendBodyInputSchema
   .transform((value) => ({
     semesterId: value.semesterId ?? value.semester_id,
-    preferences: value.preferences ?? value.constraints,
+    preferences: value.preferences,
     maxRecommendations: value.maxRecommendations ?? value.max_recommendations ?? 5,
-    includeConflicts: value.includeConflicts ?? value.include_conflicts,
   }))
   .pipe(z.object({
     semesterId: z.string().uuid().optional(),
     preferences: z.record(z.unknown()).optional(),
     maxRecommendations: z.number().int().min(1).max(10),
-    includeConflicts: z.boolean().optional(),
   }))
 
 const aiExplainBodyInputSchema = z.object({
   offeringId: z.string().uuid('课程开设ID应为 UUID').optional(),
   course_offering_id: z.string().uuid('课程开设ID应为 UUID').optional(),
   question: z.string().max(500).optional(),
-  studentContext: z.record(z.unknown()).optional(),
-  student_context: z.record(z.unknown()).optional(),
 })
 
 export const aiExplainBodySchema = aiExplainBodyInputSchema
@@ -560,12 +562,10 @@ export const aiExplainBodySchema = aiExplainBodyInputSchema
   .transform((value) => ({
     offeringId: value.offeringId ?? value.course_offering_id,
     question: value.question,
-    studentContext: value.studentContext ?? value.student_context,
   }))
   .pipe(z.object({
     offeringId: z.string().uuid('课程开设ID应为 UUID'),
     question: z.string().max(500).optional(),
-    studentContext: z.record(z.unknown()).optional(),
   }))
 
 export type AiRecommendBody = z.infer<typeof aiRecommendBodySchema>

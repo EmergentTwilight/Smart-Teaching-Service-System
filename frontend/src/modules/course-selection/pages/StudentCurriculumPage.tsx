@@ -1,12 +1,11 @@
-import { useMemo } from 'react';
 import { Card, Col, Empty, List, Row, Spin, Tag, Typography } from 'antd';
 import { curriculumApi } from '../api/curriculum';
-import type { CurriculumCourseItem } from '../types/curriculum';
+import type { CurriculumCourseGroup } from '../types/curriculum';
 import { CreditProgressCard } from '../components/CreditProgressCard';
 import { useQuery } from '@tanstack/react-query';
 
 const { Title, Text } = Typography;
-const EMPTY_COURSE_GROUPS: CurriculumCourseItem[] = [];
+const EMPTY_COURSE_GROUPS: CurriculumCourseGroup[] = [];
 
 /**
  * TODO(C1, FR-C-01, FR-C-02, FR-C-04, FR-C-05):
@@ -29,24 +28,7 @@ const StudentCurriculumPage: React.FC = () => {
 
   const curriculum = curriculumQuery.data?.curriculum;
   const courseGroups = curriculumQuery.data?.courseGroups ?? EMPTY_COURSE_GROUPS;
-  const progress = progressQuery.data?.progress || null;
-
-  const groupedCourses = useMemo(() => {
-    const grouped = new Map<string, CurriculumCourseItem[]>();
-    for (const course of courseGroups) {
-      const key = course.courseType || 'general';
-      const list = grouped.get(key) || [];
-      grouped.set(key, [...list, course]);
-    }
-    return grouped;
-  }, [courseGroups]);
-
-  const renderGroupTitle = (type: string) =>
-    ({
-      required: '专业必修',
-      elective: '专业选修',
-      general: '公共课程',
-    })[type] || type;
+  const progress = progressQuery.data || null;
 
   if (curriculumQuery.isLoading || progressQuery.isLoading) {
     return (
@@ -68,7 +50,7 @@ const StudentCurriculumPage: React.FC = () => {
       <Row gutter={[24, 24]}>
         <Col xs={24} lg={16}>
           <Card
-            title={curriculum ? `${curriculum.name}（${curriculum.majorName}）` : '培养方案'}
+            title={curriculum ? `${curriculum.name}（${curriculum.major.name}）` : '培养方案'}
             extra={
               <Tag color={curriculum ? 'blue' : 'default'}>
                 {curriculum ? `年度：${curriculum.year}` : '待加载'}
@@ -78,15 +60,15 @@ const StudentCurriculumPage: React.FC = () => {
             {curriculum ? (
               <List
                 size="small"
-                dataSource={Array.from(groupedCourses.entries())}
-                renderItem={([type, courses]) => (
+                dataSource={courseGroups}
+                renderItem={(group) => (
                   <List.Item>
                     <div style={{ width: '100%' }}>
-                      <Text strong>{renderGroupTitle(type)}</Text>
+                      <Text strong>{group.courseTypeName}</Text>
                       {includeCourses ? (
                         <List
                           size="small"
-                          dataSource={courses}
+                          dataSource={group.courses}
                           renderItem={(course) => (
                             <List.Item>
                               <Text>

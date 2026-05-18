@@ -1,5 +1,5 @@
 import { Request, Response } from 'express'
-import { error, paginated } from '../../shared/utils/response.js'
+import { error, success } from '../../shared/utils/response.js'
 import { enrollmentResultsService } from './enrollment-results.service.js'
 import { enrollmentQuerySchema } from './course-selection.schemas.js'
 
@@ -23,6 +23,6 @@ export const enrollmentResultsController = {
       return todoResponse(res, 'C4, FR-C-24, FR-C-26, FR-C-29: 本人选课记录查询未实现')
     }
 
-    return paginated(res, result.items, result.pagination)
+    return success(res, result)
   },
 }

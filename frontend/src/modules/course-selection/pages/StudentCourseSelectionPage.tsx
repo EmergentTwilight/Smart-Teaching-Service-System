@@ -58,7 +58,7 @@ const StudentCourseSelectionPage: React.FC = () => {
 
   const offeringRows = availableOfferingsQuery.data?.items || [];
 
-  const studentProgress = curriculumProgressQuery.data?.progress ?? null;
+  const studentProgress = curriculumProgressQuery.data ?? null;
 
   const enrollments = myEnrollmentsQuery.data?.items || [];
   const hasActiveEnrollments = enrollments.some((item) => item.status === 'enrolled');
@@ -207,8 +207,8 @@ const StudentCourseSelectionPage: React.FC = () => {
           ) : (
             <ul style={{ margin: 0, paddingLeft: 18 }}>
               {enrollments.slice(0, 4).map((item) => (
-                <li key={item.id}>
-                  {item.offering.courseName}（{item.status}）
+                <li key={item.enrollmentId}>
+                  {item.courseOffering.courseName}（{item.status}）
                 </li>
               ))}
             </ul>

@@ -40,7 +40,7 @@ export const TimetableGrid: FC<TimetableGridProps> = ({ slots = [], semesterName
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                       {daySlots.map((slot) => (
                         <div
-                          key={slot.courseOfferingId}
+                          key={`${slot.enrollmentId}-${slot.dayOfWeek}-${slot.startPeriod}`}
                           style={{
                             padding: '8px 10px',
                             borderRadius: 8,
@@ -54,6 +54,7 @@ export const TimetableGrid: FC<TimetableGridProps> = ({ slots = [], semesterName
                           <Tag style={{ marginTop: 6 }}>
                             {slot.startWeek}-{slot.endWeek} 周 / {slot.startPeriod}-{slot.endPeriod} 节
                           </Tag>
+                          {slot.classroom ? <Tag style={{ marginTop: 6 }}>{slot.classroom}</Tag> : null}
                         </div>
                       ))}
                     </div>

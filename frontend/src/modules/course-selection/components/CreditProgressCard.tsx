@@ -20,16 +20,18 @@ export const CreditProgressCard: FC<CreditProgressCardProps> = ({ progress }) =>
     );
   }
 
-  const totalRatio = Math.round(progress.totalCreditRatio * 100);
+  const totalRequired = progress.requirements.totalCredits || 0;
+  const totalSelected = progress.selected.totalCredits || 0;
+  const totalRatio = totalRequired > 0 ? Math.round((totalSelected / totalRequired) * 100) : 0;
   return (
     <Card title="学分进展">
       <List
         size="small"
         dataSource={[
-          { label: '总学分', value: progress.totalSelectedCredits },
-          { label: '必修', value: progress.requiredSelectedCredits },
-          { label: '选修', value: progress.electiveSelectedCredits },
-          { label: '公共课', value: progress.generalSelectedCredits },
+          { label: '总学分', value: progress.selected.totalCredits },
+          { label: '必修', value: progress.selected.requiredCredits },
+          { label: '选修', value: progress.selected.electiveCredits },
+          { label: '公共课', value: progress.selected.generalCredits ?? 0 },
         ]}
         renderItem={(item) => (
           <List.Item>

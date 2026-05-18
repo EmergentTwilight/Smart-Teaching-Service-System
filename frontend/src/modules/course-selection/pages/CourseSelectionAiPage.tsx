@@ -1,4 +1,4 @@
-import { Button, Card, Checkbox, Form, Input, InputNumber, Space, Typography, message } from 'antd';
+import { Button, Card, Form, Input, InputNumber, Space, Typography, message } from 'antd';
 import { useAiAdvisor } from '../hooks/useAiAdvisor';
 import { AiAdvisorPanel } from '../components/AiAdvisorPanel';
 import { useQuery } from '@tanstack/react-query';
@@ -11,7 +11,6 @@ const { Text } = Typography;
 
 interface RecommendFormValues {
   maxRecommendations: number;
-  includeConflicts: boolean;
 }
 
 /**
@@ -44,9 +43,6 @@ const CourseSelectionAiPage: React.FC = () => {
 
     const payload: AiRecommendPayload = {
       maxRecommendations: values.maxRecommendations || 5,
-      preferences: {
-        includeConflicts: values.includeConflicts,
-      },
     };
 
     aiAdvisor.recommend.mutate(payload, {
@@ -60,9 +56,6 @@ const CourseSelectionAiPage: React.FC = () => {
     aiAdvisor.explain.mutate(
       {
         offeringId,
-        studentContext: {
-          source: 'course_selection_ai_page',
-        },
       },
       {
         onError: (error) => {
@@ -90,7 +83,7 @@ const CourseSelectionAiPage: React.FC = () => {
           form={recommendForm}
           layout="inline"
           onFinish={handleRecommend}
-          initialValues={{ maxRecommendations: 5, includeConflicts: true }}
+          initialValues={{ maxRecommendations: 5 }}
         >
           <Form.Item
             name="maxRecommendations"
@@ -98,9 +91,6 @@ const CourseSelectionAiPage: React.FC = () => {
             rules={[{ required: true, message: '请输入返回数量' }]}
           >
             <InputNumber min={1} max={10} />
-          </Form.Item>
-          <Form.Item name="includeConflicts" label="附带冲突提示" valuePropName="checked" initialValue>
-            <Checkbox />
           </Form.Item>
           <Form.Item>
             <Button type="primary" htmlType="submit" loading={aiAdvisor.recommend.isPending}>

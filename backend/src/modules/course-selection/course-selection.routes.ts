@@ -15,6 +15,7 @@ import {
   courseSearchQuerySchema,
   availableOfferingsQuerySchema,
   courseOfferingParamsSchema,
+  courseOfferingDetailQuerySchema,
   enrollmentQuerySchema,
   createEnrollmentBodySchema,
   dropEnrollmentParamsSchema,
@@ -45,8 +46,8 @@ router.get(
   validate(curriculumProgressQuerySchema, 'query'),
   curriculumController.getMyCurriculumProgress
 )
-router.get('/courses', validate(courseSearchQuerySchema, 'query'), courseSearchController.searchCourses)
-router.get('/offerings', validate(courseSearchQuerySchema, 'query'), courseSearchController.listOfferings)
+router.get('/courses', requireRoles('student', 'teacher', 'admin', 'super_admin'), validate(courseSearchQuerySchema, 'query'), courseSearchController.searchCourses)
+router.get('/offerings', requireRoles('student', 'teacher', 'admin', 'super_admin'), validate(courseSearchQuerySchema, 'query'), courseSearchController.listOfferings)
 router.get(
   '/offerings/available',
   requireRoles('student'),
@@ -57,6 +58,7 @@ router.get(
   '/offerings/:id',
   requireRoles('student', 'teacher', 'admin', 'super_admin'),
   validate(courseOfferingParamsSchema, 'params'),
+  validate(courseOfferingDetailQuerySchema, 'query'),
   courseSearchController.getOfferingDetail
 )
 router.get(

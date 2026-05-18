@@ -26,7 +26,7 @@ const StudentTimetablePage: React.FC = () => {
   });
 
   const timetable = timetableQuery.data;
-  const slots = timetable?.slots || [];
+  const slots = timetable?.items || [];
   const hasSelection = (enrollmentsQuery.data?.items || []).length > 0;
 
   const handleSearch = () => {
@@ -79,7 +79,7 @@ const StudentTimetablePage: React.FC = () => {
         ) : timetableQuery.isLoading ? (
           <Text type="secondary">查询中...</Text>
         ) : (
-          <TimetableGrid slots={slots} semesterName={timetable?.semesterName} />
+          <TimetableGrid slots={slots} semesterName={timetable?.semester.name} />
         )}
       </Card>
 
@@ -87,7 +87,10 @@ const StudentTimetablePage: React.FC = () => {
         {!hasSelection ? (
           <Empty description="当前无选课记录，课表暂时为空。请先完成课程选择。" />
         ) : (
-          <Text>当前查询到 {slots.length} 条课表记录。</Text>
+          <Text>
+            当前查询到 {slots.length} 条课表记录，
+            {timetable?.missingScheduleItems.length ?? 0} 条课程暂无排课。
+          </Text>
         )}
       </Card>
     </div>

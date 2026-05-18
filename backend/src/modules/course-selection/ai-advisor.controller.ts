@@ -28,7 +28,7 @@ export const aiAdvisorController = {
       return error(res, '未认证', 401)
     }
 
-    const result = await aiAdvisorService.explain(studentId, body.offeringId)
+    const result = await aiAdvisorService.explain(studentId, body.offeringId, body.question)
     if (!result) {
       return error(res, '功能待实现：C6 FR-C-38~FR-C-43 NFR-C-09~NFR-C-11', 501)
     }

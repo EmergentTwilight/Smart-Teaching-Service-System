@@ -1,9 +1,8 @@
 import type {
-  CurriculumInfo,
+  CurriculumPayload,
   CurriculumProgress,
   CurriculumQuery,
   CurriculumProgressQuery,
-  CurriculumCourseItem,
 } from './course-selection.types.js'
 
 /**
@@ -16,7 +15,7 @@ export const curriculumService = {
   async getMyCurriculum(
     studentId: string,
     query: CurriculumQuery
-  ): Promise<{ studentId: string; curriculum: CurriculumInfo; courseGroups: CurriculumCourseItem[] } | null> {
+  ): Promise<CurriculumPayload | null> {
     void studentId
     void query
 
@@ -32,7 +31,7 @@ export const curriculumService = {
   async getMyCurriculumProgress(
     studentId: string,
     query: CurriculumProgressQuery
-  ): Promise<{ progress: CurriculumProgress; studentId: string } | null> {
+  ): Promise<CurriculumProgress | null> {
     void studentId
     void query
 

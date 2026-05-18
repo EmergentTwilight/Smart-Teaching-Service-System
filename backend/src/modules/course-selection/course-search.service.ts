@@ -44,9 +44,14 @@ export const courseSearchService = {
   // TODO(C2, FR-C-11, FR-C-18, FR-C-19, NFR-C-07):
   // 由 C2 成员按 API 文档返回 course_offering_id 以及 nested course/semester/teacher/eligibility。
   // 负责人骨架不得提前实现 Prisma 详情查询或返回与文档不一致的扁平 DTO。
-  async getOfferingDetail(offeringId: string, studentId: string): Promise<CourseOfferingDetail | null> {
+  async getOfferingDetail(
+    offeringId: string,
+    requesterUserId: string,
+    includeEligibility: boolean
+  ): Promise<CourseOfferingDetail | null> {
     void offeringId
-    void studentId
+    void requesterUserId
+    void includeEligibility
 
     return null
   },

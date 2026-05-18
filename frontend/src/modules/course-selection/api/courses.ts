@@ -26,7 +26,9 @@ export const coursesApi = {
       { params }
     );
   },
-  getOfferingDetail: (offeringId: string) => {
-    return courseSelectionRequest.get<CourseOfferingDetail>(`/course-selection/offerings/${offeringId}`);
+  getOfferingDetail: (offeringId: string, includeEligibility = true) => {
+    return courseSelectionRequest.get<CourseOfferingDetail>(`/course-selection/offerings/${offeringId}`, {
+      params: { includeEligibility },
+    });
   },
 };

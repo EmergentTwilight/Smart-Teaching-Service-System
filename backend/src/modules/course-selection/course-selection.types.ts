@@ -196,18 +196,60 @@ export interface CurriculumInfo {
   id: string
   name: string
   year: number
-  majorName: string
+  major: {
+    id: string
+    name: string
+    code: string
+  }
   totalCredits: number
   requiredCredits?: number
   electiveCredits?: number
 }
 
+export interface CurriculumCourseGroup {
+  courseType: CourseTypeValue
+  courseTypeName: string
+  courses: CurriculumCourseItem[]
+}
+
+export interface CurriculumConfirmation {
+  requiredBeforeSelection: boolean
+  confirmed: boolean
+  message?: string
+}
+
+export interface CurriculumPayload {
+  curriculum: CurriculumInfo
+  courseGroups: CurriculumCourseGroup[]
+  confirmation: CurriculumConfirmation
+}
+
+export interface CurriculumCreditSummary {
+  totalCredits: number
+  requiredCredits: number
+  electiveCredits: number
+  generalCredits?: number | null
+}
+
+export interface CurriculumCourseTypeProgress {
+  courseType: CourseTypeValue
+  selectedCredits: number
+  requirementCredits?: number | null
+  courseCount: number
+}
+
+export interface CurriculumProgressWarning {
+  code: string
+  message: string
+}
+
 export interface CurriculumProgress {
-  totalSelectedCredits: number
-  requiredSelectedCredits: number
-  electiveSelectedCredits: number
-  generalSelectedCredits: number
-  totalCreditRatio: number
+  curriculumId: string
+  requirements: CurriculumCreditSummary
+  selected: CurriculumCreditSummary
+  remaining: Partial<CurriculumCreditSummary>
+  byCourseType: CurriculumCourseTypeProgress[]
+  warnings: CurriculumProgressWarning[]
 }
 
 export interface CourseListItem {
@@ -327,38 +369,86 @@ export interface CourseOfferingDetail {
 }
 
 export interface EnrollmentItem {
-  id: string
-  studentId: string
-  courseOfferingId: string
+  enrollmentId: string
   status: EnrollmentStatusValue
   enrolledAt: string
   droppedAt?: string | null
-  offering: {
+  courseOffering: {
+    id: string
     courseName: string
     courseCode: string
     credits: number
+    courseType: CourseTypeValue
     teacherName: string
     semesterName: string
   }
 }
 
+export interface EnrollmentSummary {
+  enrolledCount: number
+  enrolledCredits: number
+}
+
+export interface EnrollmentListPayload {
+  items: EnrollmentItem[]
+  summary: EnrollmentSummary
+  pagination: PaginationMeta
+}
+
+export interface EnrollmentMutationCourseOffering {
+  id: string
+  courseCode: string
+  courseName: string
+  capacity: number
+  enrolledCount: number
+  remainingCapacity: number
+}
+
+export interface EnrollmentCreditSummary {
+  currentSelectedCredits: number
+  maxCredits: number
+}
+
+export interface EnrollmentMutationPayload {
+  enrollment: {
+    id: string
+    status: EnrollmentStatusValue
+    enrolledAt: string
+    droppedAt?: string | null
+  }
+  courseOffering: EnrollmentMutationCourseOffering
+  creditSummary?: EnrollmentCreditSummary
+}
+
 export interface TimetableSlot {
+  enrollmentId: string
   courseOfferingId: string
   courseName: string
   courseCode: string
   teacherName: string
+  credits: number
   dayOfWeek: number
   startWeek: number
   endWeek: number
   startPeriod: number
   endPeriod: number
+  classroom?: string | null
+}
+
+export interface MissingScheduleItem {
+  courseOfferingId: string
+  courseName: string
+  message: string
 }
 
 export interface TimetablePayload {
-  semesterId: string
-  studentId: string
-  semesterName: string
-  slots: TimetableSlot[]
+  semester: {
+    id: string
+    name: string
+  }
+  printable: boolean
+  items: TimetableSlot[]
+  missingScheduleItems: MissingScheduleItem[]
 }
 
 export interface SelectionPeriodItem {

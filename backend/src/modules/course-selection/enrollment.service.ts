@@ -1,5 +1,5 @@
 import type {
-  EnrollmentItem,
+  EnrollmentMutationPayload,
   CreateEnrollmentBody,
   DropEnrollmentBody,
 } from './course-selection.types.js'
@@ -9,7 +9,7 @@ export const enrollmentService = {
   // - 校验启用的 SelectionPeriod（服务端时间）
   // - 校验 CourseOffering 状态、容量、重复、冲突、学分与先修
   // - 事务内创建/更新 Enrollment 并更新 CourseOffering.enrolledCount
-  async createEnrollment(studentId: string, body: CreateEnrollmentBody): Promise<EnrollmentItem | null> {
+  async createEnrollment(studentId: string, body: CreateEnrollmentBody): Promise<EnrollmentMutationPayload | null> {
     void studentId
     void body
 
@@ -25,7 +25,7 @@ export const enrollmentService = {
     studentId: string,
     enrollmentId: string,
     _body: DropEnrollmentBody
-  ): Promise<EnrollmentItem | null> {
+  ): Promise<EnrollmentMutationPayload | null> {
     void studentId
     void enrollmentId
 

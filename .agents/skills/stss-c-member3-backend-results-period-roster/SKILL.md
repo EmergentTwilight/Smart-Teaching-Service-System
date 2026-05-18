@@ -13,15 +13,22 @@ Codex 必须严格限制在成员 3 的后端范围内，不得越界完成 C1/C
 执行任务前必须对照：
 
 1. `docs/srs/C-smart-course-selection-srs.md`
-2. `docs/apis/C-smart-course-selection.md`
-3. `docs/modules/course-selection-design.md`
-4. `docs/tasks/C-work-breakdown.md`
-5. `docs/agent-guides/C-coding-agent-guidelines.md`
-6. `docs/database-design.md`
-7. `docs/project-requirements.md`
-8. `docs/development-specifications.md`
-9. `AGENTS.md`
-10. `README.md`
+2. `docs/apis/shared.md`
+3. `docs/apis/C-smart-course-selection.md`
+4. `docs/modules/course-selection-design.md`
+5. `docs/tasks/C-work-breakdown.md`
+6. `docs/agent-guides/C-coding-agent-guidelines.md`
+7. `docs/database-design.md`
+8. `docs/project-requirements.md`
+9. `docs/development-specifications.md`
+10. `AGENTS.md`
+11. `README.md`
+
+冲突处理优先级：
+
+```text
+项目要求/数据库设计 > C 组 SRS > shared/C 组 API 文档 > 模块设计 > 分工文档 > agent guidelines > 当前代码
+```
 
 ## 2. 成员 3 责任范围
 
@@ -81,7 +88,7 @@ backend/src/modules/course-selection/curriculum.service.ts
 4. 阶段时间 start_time/end_time、max_credits、is_active。
 5. 教务手动加课接口。
 6. 手动加课 reason 必填和 SystemLog 审计。
-7. 手动加课事务内校验学生、课程开设、容量、重复选课、课表冲突，并同步 Enrollment 与 CourseOffering.enrolled_count。
+7. 手动加课事务内校验学生、课程开设存在且课程未取消、容量、重复选课、课表冲突和默认 max_credits，并同步 Enrollment 与 CourseOffering.enrolled_count。
 8. 连接数控制和长时间无操作强制退出的后端预留或 TODO。
 ```
 
@@ -99,7 +106,7 @@ backend/src/modules/course-selection/curriculum.service.ts
 ```
 
 手动加课属于 academic_admin 特殊操作，不等同于普通学生选课。
-成员 3 实现手动加课时可以调用或复用 C3 的校验能力，但不得重写 C3 普通选课事务。手动加课可不要求当前处于学生选课开放时间段，但仍必须在事务内校验容量、重复选课和课表冲突，并写入 `SystemLog`。
+成员 3 实现手动加课时可以调用或复用 C3 的校验能力，但不得重写 C3 普通选课事务。手动加课可不要求当前处于学生选课开放时间段，但仍必须在事务内校验学生、课程开设存在且课程未取消、容量、重复选课、课表冲突和默认 max_credits，并写入 `SystemLog`。培养方案适配和先修课是否允许例外必须按 API TODO-C-21 或负责人确认口径处理。
 
 ## 6. 权限边界
 
@@ -222,8 +229,10 @@ CourseSelectionQueue
 
 ```ts
 // TODO(C5, FR-C-33, FR-C-34, FR-C-37):
-// 实现教务手动加课事务：校验 academic_admin、reason、学生、课程开设、容量、重复选课和课表冲突。
+// 实现教务手动加课事务：校验 academic_admin、reason、学生、课程开设存在且课程未取消、
+// 容量、重复选课、课表冲突和默认 max_credits。
 // 创建或恢复 Enrollment、更新 CourseOffering.enrolled_count、写入 SystemLog 必须在同一事务内完成。
+// 培养方案适配和先修课是否允许例外必须按 TODO-C-21 或负责人确认口径处理。
 ```
 
 ## 10. Docker 校验

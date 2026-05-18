@@ -67,7 +67,8 @@ C 组任务通常只允许修改：
 
 - `backend/src/modules/course-selection/**`
 - `frontend/src/modules/course-selection/**`
-- `docs/apis/course-selection-api.md`
+- `docs/apis/shared.md`
+- `docs/apis/C-smart-course-selection.md`
 - `docs/srs/C-smart-course-selection-srs.md`
 - `docs/modules/course-selection-design.md`
 - `docs/tasks/C-work-breakdown.md`
@@ -103,6 +104,7 @@ C 组只能使用数据库设计中已有的核心对象或项目中已有等价
 - `Enrollment`
 - `SelectionPeriod`
 - `Semester`
+- `SystemLog`
 
 不得新增未在 SRS 或数据库设计中出现的业务表，例如：
 
@@ -174,15 +176,17 @@ controller/schema 层负责做 snake_case 到 camelCase 的转换。
 * 必须登录；
 * 教师名单查询和导出必须校验当前教师是否为该 `CourseOffering` 的任课教师；
 * 任课教师可以查看本人课程名单；
-* admin/super_admin 可在授权范围内查看；
+* `academic_admin` 如需查看必须由 API 文档明确授权；
+* `system_admin` 不默认替代教务权限，必须先获得明确的 `academic_admin` 授权；
 * 非任课教师不得通过猜测 offeringId 查看或导出他人课程学生名单。
 
 教务管理端接口：
 
 * 必须登录；
-* 必须使用项目已有角色机制限制为 admin/super_admin 或等价教务管理角色；
-* 手动加课接口可以接收 `student_id`，但只能出现在 admin 接口；
-* 手动加课必须要求 `reason`，且 reason 必须是非空字符串，用于审计。
+* 必须使用项目已有角色机制限制为 `academic_admin`；
+* `system_admin` 不默认替代教务权限，必须先获得明确的 `academic_admin` 授权；
+* 手动加课接口可以接收 `student_id`，但只能出现在 `academic_admin` 接口；
+* 手动加课必须要求 `reason`，且 reason 必须是非空字符串，用于 `SystemLog` 审计。
 
 AI 接口：
 
@@ -387,4 +391,3 @@ Review C 组提交时，重点检查：
 8. 后端 typecheck 结果；
 9. 前端 typecheck 结果；
 10. 剩余 TODO 和风险。
-

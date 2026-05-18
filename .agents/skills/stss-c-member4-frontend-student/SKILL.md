@@ -13,15 +13,22 @@ Codex 必须只实现学生端前端范围内的页面、组件、hooks、api cl
 执行任务前必须对照：
 
 1. `docs/srs/C-smart-course-selection-srs.md`
-2. `docs/apis/C-smart-course-selection.md`
-3. `docs/modules/course-selection-design.md`
-4. `docs/tasks/C-work-breakdown.md`
-5. `docs/agent-guides/C-coding-agent-guidelines.md`
-6. `docs/database-design.md`
-7. `docs/project-requirements.md`
-8. `docs/development-specifications.md`
-9. `AGENTS.md`
-10. `README.md`
+2. `docs/apis/shared.md`
+3. `docs/apis/C-smart-course-selection.md`
+4. `docs/modules/course-selection-design.md`
+5. `docs/tasks/C-work-breakdown.md`
+6. `docs/agent-guides/C-coding-agent-guidelines.md`
+7. `docs/database-design.md`
+8. `docs/project-requirements.md`
+9. `docs/development-specifications.md`
+10. `AGENTS.md`
+11. `README.md`
+
+冲突处理优先级：
+
+```text
+项目要求/数据库设计 > C 组 SRS > shared/C 组 API 文档 > 模块设计 > 分工文档 > agent guidelines > 当前代码
+```
 
 ## 2. 成员 4 责任范围
 

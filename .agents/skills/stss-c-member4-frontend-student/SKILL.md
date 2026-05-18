@@ -175,8 +175,8 @@ studentId
 
 ```ts
 // TODO(C2, FR-C-13, FR-C-15, NFR-C-07):
-// 需要 GET /offerings/available 返回 unavailable_reason 字段，用于展示课程不可选原因。
-// 前端暂时只展示后端已有字段，不自行计算最终可选状态。
+// 使用 GET /offerings/available 返回的 eligibility.reasons 字段展示课程不可选原因。
+// 前端暂时只展示后端已有 eligibility 字段，不自行计算最终可选状态，也不要求新增额外不可选原因字段。
 ```
 
 不要为了前端展示而直接修改后端复杂逻辑。

@@ -135,7 +135,7 @@ backend/src/modules/course-selection/ai-advisor.service.ts
 
 ## 6. 退选事务硬规则
 
-`PATCH /enrollments/:id/drop` 必须以后端事务为准。前端只能提交退选请求和可选 reason，不能决定退选成功。
+`PATCH /enrollments/:id/drop` 必须以后端事务为准。前端只能提交退选请求和可选 reason，不能决定退选成功。当前 `Enrollment` 模型不持久化退选原因，退选事务不得新增或写入退选原因字段。
 
 退选逻辑必须检查：
 
@@ -144,7 +144,7 @@ backend/src/modules/course-selection/ai-advisor.service.ts
 2. 学生身份必须来自认证上下文，只能退选自己的 Enrollment。
 3. 当前选课阶段必须允许退选，且以服务端时间判断。
 4. 目标 Enrollment 必须存在且 status 为 enrolled。
-5. 退选只能更新 status=dropped、dropped_at 和必要 reason，不得删除 Enrollment。
+5. 退选只能更新 status=dropped 和 dropped_at，不得删除 Enrollment。
 6. CourseOffering.enrolled_count 必须在同一事务内同步减少，并保证不小于 0。
 7. 退选接口的幂等字段使用 client_request_id。
 ```

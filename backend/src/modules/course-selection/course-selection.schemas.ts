@@ -2,6 +2,7 @@ import { z } from 'zod'
 
 const pageSchema = z.coerce.number().int().min(1).default(1)
 const pageSizeSchema = z.coerce.number().int().min(1).max(100).default(20)
+const rosterPageSizeSchema = z.coerce.number().int().min(1).max(100).default(50)
 const booleanSchema = z.preprocess((v) => {
   if (typeof v === 'boolean') return v
   if (v === 'true' || v === '1') return true
@@ -471,7 +472,11 @@ export const manualEnrollmentBodySchema = manualEnrollmentBodyInputSchema
 export type ManualEnrollmentBody = z.infer<typeof manualEnrollmentBodySchema>
 
 // TODO(C4, FR-C-27, FR-C-28, NFR-C-06): 老师名单接口需提供筛选参数，保证导出口径一致
-export const rosterQuerySchema = paginationSchema
+export const rosterQuerySchema = z.object({
+  page: pageSchema.optional(),
+  pageSize: rosterPageSizeSchema.optional(),
+  page_size: rosterPageSizeSchema.optional(),
+})
   .extend({
     offeringId: z.string().uuid().optional(),
     semesterId: z.string().uuid().optional(),
@@ -479,8 +484,10 @@ export const rosterQuerySchema = paginationSchema
     status: z.string().optional(),
     keyword: z.string().max(128).trim().optional(),
   })
-  .transform(({ semesterId, semester_id, ...rest }) => ({
-    ...normalizePaginationFields(rest),
+  .transform(({ semesterId, semester_id, page, pageSize, page_size, ...rest }) => ({
+    ...rest,
+    page: page ?? 1,
+    pageSize: pageSize ?? page_size ?? 50,
     semesterId: semesterId ?? semester_id,
   }))
 

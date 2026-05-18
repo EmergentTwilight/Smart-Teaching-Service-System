@@ -1,6 +1,7 @@
 import prisma from '../../shared/prisma/client.js'
 import { AppError, ForbiddenError, NotFoundError } from '@stss/shared'
 import type {
+  RosterExportPayload,
   PaginatedRosterPayload,
   RosterExportQuery,
   RosterOfferingInfo,
@@ -74,11 +75,7 @@ export const rosterService = {
     requesterUserId: string,
     offeringId: string,
     query: RosterExportQuery
-  ): Promise<{
-    downloadToken: string
-    fileName: string
-    message: string
-  }> {
+  ): Promise<RosterExportPayload | null> {
     await getOfferingRosterOwnership(requesterUserId, offeringId)
     void query
 

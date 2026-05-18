@@ -5,6 +5,7 @@ import type {
   CreateSelectionPeriodBody,
   UpdateSelectionPeriodBody,
   ManualEnrollmentBody,
+  ManualEnrollmentResult,
 } from './course-selection.types.js'
 
 export const selectionPeriodService = {
@@ -58,7 +59,7 @@ export const selectionPeriodService = {
   async manualEnroll(
     operatorUserId: string,
     body: ManualEnrollmentBody
-  ): Promise<{ success: boolean; enrollmentId: string } | null> {
+  ): Promise<ManualEnrollmentResult | null> {
     void operatorUserId
     void body
 

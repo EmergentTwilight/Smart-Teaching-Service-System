@@ -66,10 +66,11 @@ link: https://tcncx9czflpz.feishu.cn/wiki/BgpmwKkYqifNkjk1Psdc0gitn2b
 
 ```json
 {
-  "code": 42201,
+  "code": 422,
   "message": "课程容量已满",
   "errors": [
     {
+      "code": "CS_OFFERING_FULL",
       "field": "course_offering_id",
       "message": "当前课程开设已达到容量上限"
     }
@@ -87,6 +88,8 @@ link: https://tcncx9czflpz.feishu.cn/wiki/BgpmwKkYqifNkjk1Psdc0gitn2b
 | 系统管理员 | `system_admin` | 仅负责系统级权限、连接控制、异常审计等，不替代教务业务审批 |
 
 学生端接口必须从当前登录用户解析 `student_id`，不得由前端传入 `student_id`。教师端接口必须校验当前教师是目标 `CourseOffering.teacher_id`。教务端接口必须校验 `academic_admin` 权限，并对关键操作写入 `SystemLog`。
+
+角色映射说明：`academic_admin` 是 C API 的业务语义角色。当前项目已有鉴权角色码为 `admin`、`super_admin`，在没有独立 `academic_admin` role code 前，路由层可暂以 `admin`/`super_admin` 作为入口保护；C5 服务层必须进一步映射到 `Admin.adminType = ACADEMIC` 或等价教务授权，不能把系统管理员默认等同为教务管理员。
 
 ### 1.4 C 模块枚举
 
@@ -808,10 +811,11 @@ curl -X POST "https://stss.example.com/api/v1/course-selection/enrollments" \
 
 ```json
 {
-  "code": 42203,
+  "code": 422,
   "message": "选课失败：存在课表冲突",
   "errors": [
     {
+      "code": "CS_SCHEDULE_CONFLICT",
       "field": "course_offering_id",
       "message": "与已选课程 数据结构 在第 1-16 周、星期一、第 1-2 节冲突"
     }
@@ -1234,10 +1238,11 @@ Content-Disposition: attachment; filename="CS101-2025-2026-1-roster.xlsx"
 
 ```json
 {
-  "code": 40301,
+  "code": 403,
   "message": "无权导出该课程学生名单",
   "errors": [
     {
+      "code": "CS_FORBIDDEN",
       "field": "id",
       "message": "当前教师不是该课程开设的任课教师"
     }
@@ -1368,12 +1373,16 @@ curl -X POST "https://stss.example.com/api/v1/course-selection/admin/periods" \
   "message": "创建成功",
   "data": {
     "id": "5fd9ab57-93db-4c1d-b9f2-86f208e70001",
-    "semester_id": "2b5741c4-40c4-4c7f-990e-cc880a9f0001",
+    "semester": {
+      "id": "2b5741c4-40c4-4c7f-990e-cc880a9f0001",
+      "name": "2025-2026-1"
+    },
     "phase": "first_round",
     "start_time": "2026-05-13T08:00:00+08:00",
     "end_time": "2026-05-20T18:00:00+08:00",
     "max_credits": 28.0,
-    "is_active": true
+    "is_active": true,
+    "server_status": "open"
   }
 }
 ```
@@ -1436,12 +1445,16 @@ curl -X PATCH "https://stss.example.com/api/v1/course-selection/admin/periods/5f
   "message": "修改成功",
   "data": {
     "id": "5fd9ab57-93db-4c1d-b9f2-86f208e70001",
-    "semester_id": "2b5741c4-40c4-4c7f-990e-cc880a9f0001",
+    "semester": {
+      "id": "2b5741c4-40c4-4c7f-990e-cc880a9f0001",
+      "name": "2025-2026-1"
+    },
     "phase": "first_round",
     "start_time": "2026-05-13T08:00:00+08:00",
     "end_time": "2026-05-21T18:00:00+08:00",
     "max_credits": 30.0,
-    "is_active": true
+    "is_active": true,
+    "server_status": "open"
   }
 }
 ```
@@ -1520,10 +1533,11 @@ curl -X POST "https://stss.example.com/api/v1/course-selection/admin/enrollments
 
 ```json
 {
-  "code": 42204,
+  "code": 422,
   "message": "手动加课失败：课程容量已满",
   "errors": [
     {
+      "code": "CS_OFFERING_FULL",
       "field": "course_offering_id",
       "message": "当前课程开设已达到容量上限，请先调整容量或处理退选后再加课"
     }
@@ -1543,22 +1557,22 @@ curl -X POST "https://stss.example.com/api/v1/course-selection/admin/enrollments
 
 ## 六、错误码建议
 
-| 错误码 | HTTP 状态 | 含义 |
-| ------ | --------- | ---- |
-| `40001` | 400 | 参数校验失败 |
-| `40101` | 401 | 未认证或 Token 失效 |
-| `40301` | 403 | 当前角色无权访问 |
-| `40302` | 403 | 访问非本人资源或非本人授课课程 |
-| `40401` | 404 | 资源不存在 |
-| `40901` | 409 | 重复有效选课 |
-| `42201` | 422 | 课程容量已满 |
-| `42202` | 422 | 当前不在有效选课时间段 |
-| `42203` | 422 | 课表冲突 |
-| `42204` | 422 | 业务约束不满足 |
-| `42205` | 422 | 超过当前阶段最大学分 |
-| `42206` | 422 | 不满足培养方案或先修课程要求 |
-| `42901` | 429 | 选课核心流程达到准入上限，请稍后重试 |
-| `50301` | 503 | AI 辅助服务暂不可用 |
+C 模块错误响应的顶层 `code` 使用 HTTP 状态码；业务错误码放在 `errors[].code` 或 `errors.code` 中，保持与共享 `error()` 响应工具一致。
+
+| 业务错误码 | HTTP 状态 | 含义 |
+| ---------- | --------- | ---- |
+| `CS_VALIDATION_FAILED` | 400 | 参数校验失败 |
+| `CS_UNAUTHORIZED` | 401 | 未认证或 Token 失效 |
+| `CS_FORBIDDEN` | 403 | 当前角色无权访问，或访问非本人资源/非本人授课课程 |
+| `CS_NOT_FOUND` | 404 | 资源不存在 |
+| `CS_DUPLICATE_ENROLLMENT` | 409 | 重复有效选课 |
+| `CS_OFFERING_FULL` | 422 | 课程容量已满 |
+| `CS_PERIOD_CLOSED` | 422 | 当前不在有效选课时间段 |
+| `CS_SCHEDULE_CONFLICT` | 422 | 课表冲突 |
+| `CS_MAX_CREDITS_EXCEEDED` | 422 | 超过当前阶段最大学分 |
+| `CS_PREREQUISITE_NOT_MET` | 422 | 不满足培养方案或先修课程要求 |
+| `CS_ADMISSION_LIMITED` | 429 | 选课核心流程达到准入上限，请稍后重试 |
+| `CS_AI_UNAVAILABLE` | 503 | AI 辅助服务暂不可用 |
 
 ---
 

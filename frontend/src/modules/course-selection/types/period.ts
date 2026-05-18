@@ -35,3 +35,23 @@ export interface ManualEnrollmentPayload {
   courseOfferingId: string;
   reason: string;
 }
+
+export interface ManualEnrollmentResult {
+  enrollment: {
+    id: string;
+    studentId: string;
+    courseOfferingId: string;
+    status: 'enrolled' | 'dropped' | 'withdrawn';
+    enrolledAt: string;
+  };
+  courseOffering: {
+    id: string;
+    capacity: number;
+    enrolledCount: number;
+    remainingCapacity: number;
+  };
+  audit: {
+    logged: boolean;
+    action: string;
+  };
+}

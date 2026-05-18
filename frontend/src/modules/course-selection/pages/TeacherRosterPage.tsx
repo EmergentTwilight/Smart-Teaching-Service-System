@@ -53,11 +53,11 @@ const TeacherRosterPage: React.FC = () => {
     }
 
     try {
-      const result = await rosterApi.exportOfferingRoster(offeringId, {
+      await rosterApi.exportOfferingRoster(offeringId, {
         status: query.status,
         format: 'xlsx',
       });
-      message.success(`${result.fileName}：${result.message}`);
+      message.success('名单导出请求已完成');
     } catch (error) {
       message.error(extractErrorMessage(error, '导出失败，请重试'));
     }

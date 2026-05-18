@@ -1,3 +1,5 @@
+import type { Buffer } from 'node:buffer'
+
 export type CourseTypeValue = 'required' | 'elective' | 'general'
 export type CourseStatusValue = 'active' | 'archived'
 export type OfferingStatusValue = 'planned' | 'open' | 'closed' | 'cancelled'
@@ -142,6 +144,26 @@ export interface ManualEnrollmentBody {
   notifyStudent?: boolean
 }
 
+export interface ManualEnrollmentResult {
+  enrollment: {
+    id: string
+    studentId: string
+    courseOfferingId: string
+    status: EnrollmentStatusValue
+    enrolledAt: string
+  }
+  courseOffering: {
+    id: string
+    capacity: number
+    enrolledCount: number
+    remainingCapacity: number
+  }
+  audit: {
+    logged: boolean
+    action: string
+  }
+}
+
 export interface RosterQuery extends BaseQuery {
   offeringId?: string
   semesterId?: string
@@ -152,6 +174,12 @@ export interface RosterQuery extends BaseQuery {
 export interface RosterExportQuery {
   status?: string
   format: 'xlsx'
+}
+
+export interface RosterExportPayload {
+  content: Buffer
+  fileName: string
+  contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
 }
 
 export interface TimetableQuery {
@@ -167,7 +195,10 @@ export interface TodoStatusPayload {
 }
 
 export const COURSE_SELECTION_ERROR_CODES = {
+  VALIDATION_FAILED: 'CS_VALIDATION_FAILED',
+  UNAUTHORIZED: 'CS_UNAUTHORIZED',
   PERIOD_CLOSED: 'CS_PERIOD_CLOSED',
+  NOT_FOUND: 'CS_NOT_FOUND',
   OFFERING_NOT_FOUND: 'CS_OFFERING_NOT_FOUND',
   OFFERING_CLOSED: 'CS_OFFERING_CLOSED',
   OFFERING_FULL: 'CS_OFFERING_FULL',
@@ -177,6 +208,7 @@ export const COURSE_SELECTION_ERROR_CODES = {
   PREREQUISITE_NOT_MET: 'CS_PREREQUISITE_NOT_MET',
   ENROLLMENT_NOT_FOUND: 'CS_ENROLLMENT_NOT_FOUND',
   FORBIDDEN: 'CS_FORBIDDEN',
+  ADMISSION_LIMITED: 'CS_ADMISSION_LIMITED',
   AI_UNAVAILABLE: 'CS_AI_UNAVAILABLE',
 } as const
 

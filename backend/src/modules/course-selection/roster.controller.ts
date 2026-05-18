@@ -38,6 +38,12 @@ export const rosterController = {
     }
 
     const result = await rosterService.exportOfferingRoster(user.userId, id, query)
-    return success(res, result)
+    if (!result) {
+      return error(res, '功能待实现：C4 FR-C-28 NFR-C-08', 501)
+    }
+
+    res.setHeader('Content-Type', result.contentType)
+    res.setHeader('Content-Disposition', `attachment; filename="${result.fileName}"`)
+    return res.status(200).send(result.content)
   },
 }

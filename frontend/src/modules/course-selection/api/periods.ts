@@ -4,6 +4,7 @@ import type {
   SelectionPeriodQuery,
   SelectionPeriodPayload,
   ManualEnrollmentPayload,
+  ManualEnrollmentResult,
 } from '../types/period';
 import type { PaginatedResponse } from '../types/common';
 
@@ -17,7 +18,7 @@ export const periodsApi = {
   updatePeriod: (periodId: string, payload: SelectionPeriodPayload) =>
     courseSelectionRequest.patch<SelectionPeriodItem>(`/course-selection/admin/periods/${periodId}`, payload),
   manualEnroll: (payload: ManualEnrollmentPayload) =>
-    courseSelectionRequest.post<{ success: boolean }>(
+    courseSelectionRequest.post<ManualEnrollmentResult>(
       '/course-selection/admin/enrollments',
       payload
     ),

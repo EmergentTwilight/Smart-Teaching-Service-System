@@ -146,7 +146,7 @@ GET /api/v1/course-selection/offerings/available
 GET /api/v1/course-selection/offerings/:id
 ```
 
-对外字段遵循 API 文档，以 snake_case 为主。
+对外请求与响应字段必须遵循 API 文档并统一使用 snake_case。
 内部 service 可以使用 camelCase。schema/controller 层负责转换。
 
 `GET /offerings/available` 必须由后端根据当前登录学生计算只读可选性和原因。成员 1 可以实现 eligibility 展示计算，但最终选课成功、容量扣减和事务一致性仍由 C3 后端事务决定。

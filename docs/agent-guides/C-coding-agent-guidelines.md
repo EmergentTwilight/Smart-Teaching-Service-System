@@ -9,19 +9,24 @@
 
 ```text
 docs/srs/C-smart-course-selection-srs.md
+docs/apis/shared.md
+docs/apis/C-smart-course-selection.md
 docs/modules/course-selection-design.md
 docs/tasks/C-work-breakdown.md
 docs/database-design.md
+docs/project-requirements.md
 docs/development-specifications.md
 ```
 
-所有接口实现必须同时遵循 `docs/apis/C-smart-course-selection.md` API 文档。
+所有接口实现必须同时遵循 `docs/apis/shared.md` 与 `docs/apis/C-smart-course-selection.md` API 文档。
 
 优先级规则：
 
 ```text
-C 组 SRS > 数据库设计 > API 文档 > 模块设计 > 当前代码风格 > agent 自身建议
+项目要求/数据库设计 > C 组 SRS > shared/C 组 API 文档 > 模块设计 > 分工文档 > agent guidelines > 当前代码
 ```
+
+业务需求以 C 组 SRS 为准，但不得擅自突破数据库设计新增表或字段；接口字段、权限和错误结构以 shared/C 组 API 文档为准。
 
 ## 2. Agent 的正确工作模式
 
@@ -157,7 +162,7 @@ types：定义 DTO、错误码和共享类型
 // By default, still check duplicate enrollment, capacity, schedule conflict, max credits, and prerequisites.
 ```
 
-若业务要求允许管理员覆盖某些限制，必须由负责人确认，并在文档中写明覆盖范围和审计要求。
+若业务要求允许 `academic_admin` 覆盖某些限制，必须由负责人确认，并在文档中写明覆盖范围和审计要求。`system_admin` 不默认替代教务权限，如需操作 C5 管理接口必须先获得明确的 `academic_admin` 授权。
 
 ## 10. 教师名单导出 TODO 模板
 

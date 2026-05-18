@@ -50,7 +50,7 @@ export const CourseOfferingTable: FC<CourseOfferingTableProps> = ({
               size="small"
               type="primary"
               disabled={!record.isAvailable}
-              onClick={() => onEnroll(record.id)}
+              onClick={() => onEnroll(record.courseOfferingId)}
             >
               选课
             </Button>
@@ -63,7 +63,7 @@ export const CourseOfferingTable: FC<CourseOfferingTableProps> = ({
 
   return (
     <Table<CourseOfferingItem>
-      rowKey="id"
+      rowKey="courseOfferingId"
       columns={columns}
       dataSource={offerings}
       loading={loading}
@@ -71,7 +71,7 @@ export const CourseOfferingTable: FC<CourseOfferingTableProps> = ({
       onRow={(record) =>
         onViewDetail
           ? {
-              onClick: () => onViewDetail(record.id),
+              onClick: () => onViewDetail(record.courseOfferingId),
             }
           : {}
       }

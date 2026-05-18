@@ -126,14 +126,14 @@ const CourseSelectionAiPage: React.FC = () => {
         ) : (
           <div>
             {candidateCourses.slice(0, 6).map((course) => (
-              <Space key={course.id} style={{ marginBottom: 8, width: '100%' }} direction="vertical">
+              <Space key={course.courseOfferingId} style={{ marginBottom: 8, width: '100%' }} direction="vertical">
                 <Space>
                   <Text>
                     {course.courseCode} - {course.courseName}
                   </Text>
                   <Text type="secondary">[{course.offeringStatus}]</Text>
                 </Space>
-                <Button size="small" onClick={() => handleExplain(course.id)}>
+                <Button size="small" onClick={() => handleExplain(course.courseOfferingId)}>
                   解释课程可行性
                 </Button>
               </Space>

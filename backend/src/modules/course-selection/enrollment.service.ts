@@ -6,13 +6,6 @@ import type {
   PaginatedItems,
 } from './course-selection.types.js'
 
-const emptyPagination = {
-  page: 1,
-  pageSize: 20,
-  total: 0,
-  totalPages: 0,
-}
-
 export const enrollmentService = {
   // TODO(C3, FR-C-14, FR-C-16, FR-C-17, NFR-C-04, NFR-C-05): 实现选课事务
   // - 校验启用的 SelectionPeriod（服务端时间）
@@ -46,17 +39,13 @@ export const enrollmentService = {
   async listMyEnrollments(
     studentId: string,
     query: EnrollmentQuery
-  ): Promise<PaginatedItems<EnrollmentItem>> {
+  ): Promise<PaginatedItems<EnrollmentItem> | null> {
     void studentId
     void query
 
-    return {
-      items: [],
-      pagination: {
-        ...emptyPagination,
-        page: query.page ?? 1,
-        pageSize: query.pageSize || 20,
-      },
-    }
+    // TODO(C4, FR-C-24, FR-C-26, FR-C-29):
+    // 由 C4 成员实现基于当前学生 Enrollment 的真实分页查询。
+    // 负责人 scaffold 不返回 200 空列表，避免把未实现误判为“暂无选课记录”。
+    return null
   },
 }

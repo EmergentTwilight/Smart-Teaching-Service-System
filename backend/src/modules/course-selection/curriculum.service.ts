@@ -31,26 +31,17 @@ export const curriculumService = {
    */
   async getMyCurriculumProgress(
     studentId: string,
-    _query: CurriculumProgressQuery
-  ): Promise<{ progress: CurriculumProgress; studentId: string }> {
-    const progress: CurriculumProgress = {
-      totalSelectedCredits: 0,
-      requiredSelectedCredits: 0,
-      electiveSelectedCredits: 0,
-      generalSelectedCredits: 0,
-      totalCreditRatio: 0,
-    }
+    query: CurriculumProgressQuery
+  ): Promise<{ progress: CurriculumProgress; studentId: string } | null> {
+    void studentId
+    void query
 
-    // TODO(C1, FR-C-05, NFR-C-07): 由有效 Enrollment 汇总进度
+    // TODO(C1, FR-C-05, NFR-C-07): 由有效 Enrollment 汇总真实学分进度
     // - 读取学生 ENROLLED/非 DROPPED 记录
     // - 按课程类型聚合已选学分
     // - 计算与 Curriculum 目标学分的比例
-
     // TODO(C1, FR-C-05, NFR-C-12): 进度统计结果与后续选课/退课事务需保持一致
-
-    return {
-      studentId,
-      progress,
-    }
+    // 负责人 scaffold 不返回 200 全零进度，避免把未实现误判为真实统计结果。
+    return null
   },
 }

@@ -24,6 +24,10 @@ export const enrollmentController = {
     }
 
     const result = await enrollmentService.listMyEnrollments(studentId, query)
+    if (!result) {
+      return todoResponse(res, 'C4, FR-C-24, FR-C-26, FR-C-29: 本人选课记录查询未实现')
+    }
+
     return paginated(res, result.items, result.pagination)
   },
 

@@ -13,6 +13,10 @@ export const selectionPeriodController = {
   async listPeriods(req: Request, res: Response) {
     const query = selectionPeriodQuerySchema.parse(req.query)
     const result = await selectionPeriodService.listPeriods(query)
+    if (!result) {
+      return error(res, '功能待实现：C5 FR-C-30~FR-C-32 NFR-C-14', 501)
+    }
+
     return paginated(res, result.items, result.pagination)
   },
 

@@ -1,20 +1,11 @@
 import prisma from '../../shared/prisma/client.js'
 import { AppError, ForbiddenError, NotFoundError } from '@stss/shared'
-import type { PaginatedRosterPayload, RosterOfferingInfo, RosterQuery, RosterStudentItem } from './course-selection.types.js'
+import type { PaginatedRosterPayload, RosterOfferingInfo, RosterQuery } from './course-selection.types.js'
 
 const ROSTER_ADMIN_ROLES = new Set(['admin', 'super_admin'])
 
 function hasRosterAdminRole(roles: string[]): boolean {
   return roles.some((role) => ROSTER_ADMIN_ROLES.has(role))
-}
-
-function buildPagination(page = 1, pageSize = 20) {
-  return {
-    page,
-    pageSize,
-    total: 0,
-    totalPages: 0,
-  }
 }
 
 async function getOfferingRosterOwnership(
@@ -67,23 +58,17 @@ export const rosterService = {
     requesterRoles: string[],
     offeringId: string,
     query: RosterQuery
-  ): Promise<PaginatedRosterPayload> {
-    const offering = await getOfferingRosterOwnership(requesterUserId, requesterRoles, offeringId)
-    const page = query.page ?? 1
-    const pageSize = query.pageSize ?? 20
+  ): Promise<PaginatedRosterPayload | null> {
+    await getOfferingRosterOwnership(requesterUserId, requesterRoles, offeringId)
+    void query
 
     // TODO(C4, FR-C-27, NFR-C-06): 替换为真实分页查询
     // - 过滤 enrollment.status
     // - 加关键字检索（学号/姓名/专业/班级）
     // - 支持 status 与 page/pageSize 分页
     // - 查询结果需与导出条件一致
-    const students: RosterStudentItem[] = []
-
-    return {
-      offering,
-      students,
-      pagination: buildPagination(page, pageSize),
-    }
+    // 负责人 scaffold 保留任课教师/教务权限校验，但不返回 200 空名单。
+    return null
   },
 
   // TODO(C4, FR-C-28, NFR-C-08): 导出接口返回可落盘结构

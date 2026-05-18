@@ -17,6 +17,10 @@ export const rosterController = {
     }
 
     const result = await rosterService.getOfferingRoster(user.userId, user.roles || [], id, query)
+    if (!result) {
+      return error(res, '功能待实现：C4 FR-C-27 NFR-C-06', 501)
+    }
+
     return success(res, result)
   },
 

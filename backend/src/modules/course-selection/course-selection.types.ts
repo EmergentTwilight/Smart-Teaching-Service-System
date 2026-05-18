@@ -221,7 +221,7 @@ export interface CourseListItem {
 }
 
 export interface CourseOfferingItem {
-  id: string
+  courseOfferingId: string
   courseId: string
   semesterId: string
   semesterName: string

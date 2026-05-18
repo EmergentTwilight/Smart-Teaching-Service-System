@@ -27,7 +27,7 @@ export interface CourseSearchParams {
 }
 
 export interface CourseOfferingItem {
-  id: string;
+  courseOfferingId: string;
   courseId: string;
   semesterId: string;
   semesterName: string;
@@ -59,7 +59,7 @@ export interface OfferingsAvailableQuery {
 }
 
 export interface CourseOfferingDetail {
-  id: string;
+  courseOfferingId: string;
   courseId: string;
   semesterId: string;
   semesterName: string;

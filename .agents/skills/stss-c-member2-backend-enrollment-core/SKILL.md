@@ -68,19 +68,18 @@ backend/src/modules/course-selection/ai-advisor.service.ts
 ```text
 1. POST /api/v1/course-selection/enrollments。
 2. PATCH /api/v1/course-selection/enrollments/:id/drop。
-3. 为 C4 的 GET /api/v1/course-selection/enrollments/me 提供可复用 enrollment 读取能力时，只维护字段兼容和本人权限，不扩展 C4 结果展示职责。
-4. SelectionPeriod 有效性校验。
-5. CourseOffering 开放状态校验。
-6. Course.status = active 校验。
-7. 容量校验。
-8. 重复选课校验。
-9. Schedule 时间冲突校验。
-10. 当前阶段 max_credits 校验。
-11. 培养方案适配性校验。
-12. CoursePrerequisite 先修课校验。
-13. Enrollment 与 CourseOffering.enrolled_count 的事务一致性。
-14. PostgreSQL 行锁、条件更新或等价并发安全策略。
-15. 明确错误码和错误原因。
+3. SelectionPeriod 有效性校验。
+4. CourseOffering 开放状态校验。
+5. Course.status = active 校验。
+6. 容量校验。
+7. 重复选课校验。
+8. Schedule 时间冲突校验。
+9. 当前阶段 max_credits 校验。
+10. 培养方案适配性校验。
+11. CoursePrerequisite 先修课校验。
+12. Enrollment 与 CourseOffering.enrolled_count 的事务一致性。
+13. PostgreSQL 行锁、条件更新或等价并发安全策略。
+14. 明确错误码和错误原因。
 ```
 
 ## 4. 禁止越界
@@ -178,7 +177,7 @@ POST /api/v1/course-selection/enrollments
 PATCH /api/v1/course-selection/enrollments/:id/drop
 ```
 
-`GET /api/v1/course-selection/enrollments/me` 属于 C4 结果查询契约。若当前代码结构由 `enrollment.controller.ts` 或 `enrollment.service.ts` 承载该只读接口，成员 2 只能保持本人权限、字段和状态过滤与 API 文档兼容，不得把 C4 结果展示、课表或名单导出扩展为自己的职责。
+`GET /api/v1/course-selection/enrollments/me` 属于 C4 结果查询契约，由 `enrollment-results.controller.ts` 和 `enrollment-results.service.ts` 承载，成员 2 不应在 C3 事务文件中实现该只读接口。若 C3 事务需要为 C4 提供可复用字段，应先与成员 3/负责人确认共享类型，不得把 C4 结果展示、课表或名单导出扩展为自己的职责。
 
 请求体必须遵循 API 文档：
 

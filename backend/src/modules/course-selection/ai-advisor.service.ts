@@ -1,4 +1,4 @@
-import type { AiAdvicePayload, AiRecommendationItem } from './course-selection.types.js'
+import type { AiAdvicePayload, AiExplainResult } from './course-selection.types.js'
 import type { AiRecommendBody } from './course-selection.schemas.js'
 
 export const aiAdvisorService = {
@@ -21,7 +21,7 @@ export const aiAdvisorService = {
   async explain(
     studentId: string,
     offeringId: string
-  ): Promise<{ advice: string; recommendations: AiRecommendationItem[]; fallback: string } | null> {
+  ): Promise<AiExplainResult | null> {
     void studentId
     void offeringId
 

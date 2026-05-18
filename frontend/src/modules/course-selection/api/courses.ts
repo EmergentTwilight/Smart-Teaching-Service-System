@@ -2,7 +2,8 @@ import { courseSelectionRequest } from './client';
 import type {
   CourseListItem,
   CourseSearchParams,
-  CourseOfferingItem,
+  CourseOfferingListItem,
+  AvailableOfferingItem,
   CourseOfferingDetail,
   OfferingsAvailableQuery,
 } from '../types/course';
@@ -15,12 +16,12 @@ export const coursesApi = {
     });
   },
   listOfferings: (params?: CourseSearchParams) => {
-    return courseSelectionRequest.get<PaginatedResponse<CourseOfferingItem>>('/course-selection/offerings', {
+    return courseSelectionRequest.get<PaginatedResponse<CourseOfferingListItem>>('/course-selection/offerings', {
       params,
     });
   },
   listAvailableOfferings: (params?: OfferingsAvailableQuery) => {
-    return courseSelectionRequest.get<PaginatedResponse<CourseOfferingItem>>(
+    return courseSelectionRequest.get<PaginatedResponse<AvailableOfferingItem>>(
       '/course-selection/offerings/available',
       { params }
     );

@@ -1,12 +1,12 @@
 ---
 name: stss-c-member5-frontend-admin-teacher-ai
-description: STSS C 组成员 5 专用 skill。负责教师/教务端前端与 AI 面板：教师名单、名单导出、阶段管理、手动加课、AI 推荐展示。Codex 不得实现学生端完整页面、后端业务事务、AI 后端算法或其他组模块。
+description: STSS C 组成员 5 专用 skill。负责教师/教务端前端与 AI 面板：教师名单、名单导出、阶段管理、手动加课、AI 推荐展示；在单独 C6 后端任务中可维护 ai-advisor.* 的接口契约和兜底模板。Codex 不得实现学生端完整页面、C3/C5 后端业务事务、完整 AI 推荐算法或其他组模块。
 ---
 
 # STSS C 组成员 5 Skill：教师/教务端前端 + AI 面板
 
-本 skill 用于约束成员 5 的 Codex 任务。成员 5 负责 C 组 **教师端、教务端前端，以及 AI 辅助选课展示面板**。
-Codex 必须只在成员 5 的前端范围内工作，不得越界实现后端业务、学生端完整页面或 AI 后端算法。
+本 skill 用于约束成员 5 的 Codex 任务。成员 5 负责 C 组 **教师端、教务端前端、AI 辅助选课展示面板，以及单独分配时的 C6 后端接口契约和兜底模板**。
+Codex 必须只在成员 5 的任务范围内工作，不得越界实现 C3/C5 后端业务事务、学生端完整页面或完整 AI 后端算法。
 
 ## 1. 必读文档
 
@@ -56,6 +56,16 @@ frontend/src/modules/course-selection/types/enrollment.ts
 frontend/src/modules/course-selection/README.md（仅限教师/教务/AI 前端说明）
 ```
 
+仅当任务明确写明“C6 后端”或负责人指派时，可以修改：
+
+```text
+backend/src/modules/course-selection/ai-advisor.controller.ts
+backend/src/modules/course-selection/ai-advisor.service.ts
+backend/src/modules/course-selection/course-selection.schemas.ts（仅限 AI 入参）
+backend/src/modules/course-selection/course-selection.types.ts（仅限 AI DTO）
+backend/src/modules/course-selection/README.md（仅限 C6 说明）
+```
+
 必要时可以读取：
 
 ```text
@@ -65,7 +75,7 @@ frontend/src/modules/course-selection/api/enrollments.ts
 backend/src/modules/course-selection/**
 ```
 
-但不得主动实现这些模块业务。
+除上述明确分配的 C6 后端接口契约任务外，不得主动实现这些模块业务。
 
 ## 3. 具体任务
 
@@ -83,6 +93,7 @@ backend/src/modules/course-selection/**
 9. AI 推荐理由、冲突风险、学分影响说明展示。
 10. AI 服务失败时的降级提示。
 11. 教师/教务/AI 相关 API client 和类型。
+12. 在单独 C6 后端任务中维护 AI 推荐/解释接口 DTO、兜底模板和“不写 Enrollment”的服务边界 TODO。
 ```
 
 ## 4. 禁止越界
@@ -94,7 +105,7 @@ backend/src/modules/course-selection/**
 2. 后端 roster ownership 逻辑。
 3. 后端 SelectionPeriod 业务逻辑。
 4. 后端手动加课业务逻辑。
-5. 后端 AI 推荐算法或模型接入。
+5. 未经负责人确认的完整 AI 推荐算法或模型接入。
 6. C3 选课/退选事务。
 7. A/B/D/E/F 组业务逻辑。
 8. Prisma schema 或数据库业务表。

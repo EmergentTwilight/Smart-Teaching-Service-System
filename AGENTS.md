@@ -32,7 +32,7 @@
 
 * `server`：后端开发服务，暴露 `localhost:3000`
 * `web`：前端开发服务，暴露 `localhost:5173`
-* `test-server`：Codex 校验、typecheck、build、test 的默认服务
+* `test-server`：可显式选择的 Codex 校验、typecheck、build、test 服务
 * `postgres`：PostgreSQL
 * `redis`：Redis
 * `adminer`：数据库管理界面，暴露 `localhost:8080`

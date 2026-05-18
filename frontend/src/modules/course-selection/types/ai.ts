@@ -1,19 +1,37 @@
 export interface AiRecommendation {
-  offeringId: string;
+  courseOfferingId: string;
   courseCode: string;
   courseName: string;
+  credits: number;
   teacherName: string;
-  score: number;
-  reason: string;
-  riskLevel: 'low' | 'medium' | 'high';
+  recommendationScore: number;
+  reasons: string[];
+  risks: string[];
+  eligibilitySnapshot: {
+    isAvailable: boolean;
+    remainingCapacity?: number;
+    hasTimeConflict?: boolean;
+    prerequisiteSatisfied?: boolean;
+  };
+}
+
+export interface AiCreditProgressSummary {
+  currentSelectedCredits: number;
+  targetCredits: number;
+  maxCredits: number;
+}
+
+export interface AiConflictNote {
+  courseOfferingId: string;
+  courseName: string;
+  message: string;
 }
 
 export interface AiAdvicePayload {
+  disclaimer: string;
+  creditProgressSummary: AiCreditProgressSummary;
   recommendations: AiRecommendation[];
-  creditImpactSummary: string;
-  conflictWarnings: string[];
-  explanation: string;
-  isDraftAdviceOnly: boolean;
+  conflictNotes: AiConflictNote[];
 }
 
 export interface AiExplainPayload {
@@ -23,9 +41,14 @@ export interface AiExplainPayload {
 }
 
 export interface AiExplainPayloadResult {
-  advice: string;
-  recommendations: AiRecommendation[];
-  fallback: string;
+  courseOfferingId: string;
+  courseName: string;
+  explanation: string;
+  hardRuleResult: {
+    isSelectableNow: boolean;
+    reasons: string[];
+  };
+  disclaimer: string;
 }
 
 export interface AiRecommendPayload {

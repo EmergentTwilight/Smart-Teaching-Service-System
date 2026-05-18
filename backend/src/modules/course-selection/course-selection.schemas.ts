@@ -193,8 +193,7 @@ export type EnrollmentQuery = z.infer<typeof enrollmentQuerySchema>
 const createEnrollmentBodyInputSchema = z.object({
   courseOfferingId: z.string().uuid('课程开设ID应为 UUID').optional(),
   course_offering_id: z.string().uuid('课程开设ID应为 UUID').optional(),
-  idempotencyKey: z.string().min(1).max(128).optional(),
-  idempotency_key: z.string().min(1).max(128).optional(),
+  clientRequestId: z.string().min(1).max(128).optional(),
   client_request_id: z.string().min(1).max(128).optional(),
   reason: z.string().max(200).optional(),
 })
@@ -221,28 +220,26 @@ export const createEnrollmentBodySchema = createEnrollmentBodyInputSchema
       })
     }
 
-    const idempotencyKeys = [
-      value.idempotencyKey,
-      value.idempotency_key,
-      value.client_request_id,
-    ].filter((key): key is string => key !== undefined)
-
-    if (new Set(idempotencyKeys).size > 1) {
+    if (
+      value.clientRequestId &&
+      value.client_request_id &&
+      value.clientRequestId !== value.client_request_id
+    ) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: 'idempotencyKey / idempotency_key / client_request_id 不一致',
+        message: 'clientRequestId 与 client_request_id 不一致',
         path: ['client_request_id'],
       })
     }
   })
   .transform((value) => ({
     courseOfferingId: value.courseOfferingId ?? value.course_offering_id,
-    idempotencyKey: value.idempotencyKey ?? value.idempotency_key ?? value.client_request_id,
+    clientRequestId: value.clientRequestId ?? value.client_request_id,
     reason: value.reason,
   }))
   .pipe(z.object({
     courseOfferingId: z.string().uuid('课程开设ID应为 UUID'),
-    idempotencyKey: z.string().min(1).max(128).optional(),
+    clientRequestId: z.string().min(1).max(128).optional(),
     reason: z.string().max(200).optional(),
   }))
 
@@ -250,9 +247,29 @@ export type CreateEnrollmentBody = z.infer<typeof createEnrollmentBodySchema>
 
 // TODO(C3, FR-C-21, NFR-C-04): 退选仅允许修改状态，不允许删除历史记录
 export const dropEnrollmentParamsSchema = idSchema
-export const dropEnrollmentBodySchema = z.object({
-  reason: z.string().max(200).optional(),
-})
+export const dropEnrollmentBodySchema = z
+  .object({
+    reason: z.string().max(200).optional(),
+    clientRequestId: z.string().min(1).max(128).optional(),
+    client_request_id: z.string().min(1).max(128).optional(),
+  })
+  .superRefine((value, ctx) => {
+    if (
+      value.clientRequestId &&
+      value.client_request_id &&
+      value.clientRequestId !== value.client_request_id
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'clientRequestId 与 client_request_id 不一致',
+        path: ['client_request_id'],
+      })
+    }
+  })
+  .transform((value) => ({
+    reason: value.reason,
+    clientRequestId: value.clientRequestId ?? value.client_request_id,
+  }))
 export type DropEnrollmentParams = z.infer<typeof dropEnrollmentParamsSchema>
 export type DropEnrollmentBody = z.infer<typeof dropEnrollmentBodySchema>
 
@@ -316,6 +333,13 @@ export const createSelectionPeriodBodySchema = selectionPeriodBodyInputSchema
         path: ['endTime'],
       })
     }
+    if (value.isActive === undefined && value.is_active === undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'isActive / is_active 不能为空',
+        path: ['is_active'],
+      })
+    }
 
     if (
       value.phase &&
@@ -334,7 +358,7 @@ export const createSelectionPeriodBodySchema = selectionPeriodBodyInputSchema
     startTime: value.startTime ?? value.start_time ?? '',
     endTime: value.endTime ?? value.end_time ?? '',
     maxCredits: value.maxCredits ?? value.max_credits,
-    isActive: value.isActive ?? value.is_active ?? false,
+    isActive: value.isActive ?? value.is_active,
   }))
   .pipe(z.object({
     semesterId: z.string().uuid(),
@@ -438,14 +462,27 @@ export const manualEnrollmentBodySchema = manualEnrollmentBodyInputSchema
 export type ManualEnrollmentBody = z.infer<typeof manualEnrollmentBodySchema>
 
 // TODO(C4, FR-C-27, FR-C-28, NFR-C-06): 老师名单接口需提供筛选参数，保证导出口径一致
-export const rosterQuerySchema = paginationSchema.extend({
-  offeringId: z.string().uuid().optional(),
-  semesterId: z.string().uuid().optional(),
-  status: z.string().optional(),
-  keyword: z.string().max(128).trim().optional(),
-}).transform(normalizePaginationFields)
+export const rosterQuerySchema = paginationSchema
+  .extend({
+    offeringId: z.string().uuid().optional(),
+    semesterId: z.string().uuid().optional(),
+    semester_id: z.string().uuid().optional(),
+    status: z.string().optional(),
+    keyword: z.string().max(128).trim().optional(),
+  })
+  .transform(({ semesterId, semester_id, ...rest }) => ({
+    ...normalizePaginationFields(rest),
+    semesterId: semesterId ?? semester_id,
+  }))
 
 export type RosterQuery = z.infer<typeof rosterQuerySchema>
+
+export const rosterExportQuerySchema = z.object({
+  status: z.string().optional(),
+  format: z.enum(['xlsx']).default('xlsx'),
+})
+
+export type RosterExportQuery = z.infer<typeof rosterExportQuerySchema>
 
 export const rosterOfferingParamsSchema = idSchema
 export type RosterOfferingParams = z.infer<typeof rosterOfferingParamsSchema>

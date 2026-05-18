@@ -34,10 +34,10 @@
 - 依赖对象：`Enrollment`、`CourseOffering`、`SelectionPeriod`、`Schedule`。
 
 ### C4 结果查询与教师名单
-- 文件：`timetable.controller.ts`、`timetable.service.ts`、`roster.controller.ts`、`roster.service.ts`
+- 文件：`enrollment-results.controller.ts`、`enrollment-results.service.ts`、`timetable.controller.ts`、`timetable.service.ts`、`roster.controller.ts`、`roster.service.ts`
 - 职责：`GET /enrollments/me`、本人课表、教师课程名单、名单导出接口（`FR-C-24` ~ `FR-C-29`）。
 - 权限：
-  - 学生只能查本人；教师仅查本人任课课程；管理员按授权范围访问。
+  - 学生只能查本人；教师仅查本人任课课程；名单接口当前不提供管理员例外。
 - 事务要求：读取类；导出必须与后台 `Enrollment` 状态一致。
 - 依赖对象：`Enrollment`、`CourseOffering`、`Schedule`、`Student`、`Course`。
 
@@ -87,7 +87,7 @@
   - 输出明确错误码与失败原因，不能退化到前端校验。
 
 ### 成员 3（C4 + C5）
-- 负责：`selection-period.*`、`roster.*`、`timetable.*`
+- 负责：`enrollment-results.*`、`selection-period.*`、`roster.*`、`timetable.*`
 - 目标：
   - `FR-C-24 ~ FR-C-29`（结果与名单）
   - `FR-C-30 ~ FR-C-37`（阶段与手动加课）
@@ -101,7 +101,7 @@
   - 选课、退选、课表和结果页面的完整交互以 `docs/tasks/C-work-breakdown.md` 为准。
 
 ### 成员 5（教师/教务前端 + AI 面板）
-- 负责：教师名单、教务阶段管理、手动加课、AI 推荐展示的前端文件；后端 C6 接口骨架由负责人预留，具体实现按成员任务拆分。
+- 负责：教师名单、教务阶段管理、手动加课、AI 推荐展示的前端文件；C6 后端 `ai-advisor.*` 的接口契约和兜底模板由成员 5 在单独 AI 后端任务中承接，完整模型算法或外部 AI 服务接入需负责人另行确认。
 - 目标：
   - 对接 C4/C5/C6 后端接口；
   - AI 仅展示“解释与建议”，不参与 Enrollment 写入；

@@ -35,17 +35,20 @@ export const AiAdvisorPanel: FC<AiAdvisorPanelProps> = ({ advice, loading, onExp
       }
     >
       <Space direction="vertical" size="middle" style={{ width: '100%' }}>
-        <Alert message={advice.explanation} type="info" />
-        <Text type="secondary">学分说明：{advice.creditImpactSummary}</Text>
+        <Alert message={advice.disclaimer} type="info" />
+        <Text type="secondary">
+          学分说明：当前 {advice.creditProgressSummary.currentSelectedCredits} / 目标{' '}
+          {advice.creditProgressSummary.targetCredits} / 上限 {advice.creditProgressSummary.maxCredits}
+        </Text>
         <div>
           <Text strong>冲突/风险提示：</Text>
-          {advice.conflictWarnings.length === 0 ? (
+          {advice.conflictNotes.length === 0 ? (
             <div style={{ color: '#52c41a', marginTop: 8 }}>当前无显式冲突风险</div>
           ) : (
             <List
               size="small"
-              dataSource={advice.conflictWarnings}
-              renderItem={(item) => <List.Item>{item}</List.Item>}
+              dataSource={advice.conflictNotes}
+              renderItem={(item) => <List.Item>{item.courseName}：{item.message}</List.Item>}
             />
           )}
         </div>
@@ -56,14 +59,18 @@ export const AiAdvisorPanel: FC<AiAdvisorPanelProps> = ({ advice, loading, onExp
           renderItem={(item) => (
             <List.Item
               actions={[
-                <Button key={item.offeringId} size="small" onClick={() => onExplain(item.offeringId)}>
+                <Button
+                  key={item.courseOfferingId}
+                  size="small"
+                  onClick={() => onExplain(item.courseOfferingId)}
+                >
                   查看解释
                 </Button>,
               ]}
             >
               <List.Item.Meta
                 title={`${item.courseCode} ${item.courseName}`}
-                description={`${item.teacherName} · 分数 ${item.score.toFixed(2)} · ${item.reason}`}
+                description={`${item.teacherName} · 分数 ${item.recommendationScore.toFixed(2)} · ${item.reasons.join('；')}`}
               />
             </List.Item>
           )}

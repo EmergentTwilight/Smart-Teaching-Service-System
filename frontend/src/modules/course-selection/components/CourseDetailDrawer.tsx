@@ -49,9 +49,12 @@ export const CourseDetailDrawer: FC<CourseDetailDrawerProps> = ({
   }, [open, offeringId, loadDetail]);
 
   const scheduleText = detail?.schedules
-    ?.map(
-      (item) => `周${item.dayOfWeek} ${item.startWeek}-${item.endWeek}周 ${item.startPeriod}-${item.endPeriod}节`
-    )
+    ?.map((item) => {
+      const room = item.classroom
+        ? [item.classroom.building, item.classroom.roomNumber].filter(Boolean).join(' ')
+        : '';
+      return `周${item.dayOfWeek} ${item.startWeek}-${item.endWeek}周 ${item.startPeriod}-${item.endPeriod}节${room ? ` ${room}` : ''}`;
+    })
     .join('；');
 
   return (
@@ -82,21 +85,21 @@ export const CourseDetailDrawer: FC<CourseDetailDrawerProps> = ({
           {errorMessage && <Alert type="error" message={errorMessage} showIcon />}
           {detail ? (
             <Descriptions size="small" column={1}>
-              <Descriptions.Item label="课程名称">{detail.courseName}</Descriptions.Item>
-              <Descriptions.Item label="课程代码">{detail.courseCode}</Descriptions.Item>
-              <Descriptions.Item label="学分">{detail.credits}</Descriptions.Item>
-              <Descriptions.Item label="教师">{detail.teacherName}</Descriptions.Item>
+              <Descriptions.Item label="课程名称">{detail.course.name}</Descriptions.Item>
+              <Descriptions.Item label="课程代码">{detail.course.code}</Descriptions.Item>
+              <Descriptions.Item label="学分">{detail.course.credits}</Descriptions.Item>
+              <Descriptions.Item label="教师">{detail.teacher.realName}</Descriptions.Item>
               <Descriptions.Item label="状态">
-                {detail.offeringStatus}
+                {detail.status}
               </Descriptions.Item>
               <Descriptions.Item label="容量">
                 {detail.enrolledCount} / {detail.capacity}
               </Descriptions.Item>
               <Descriptions.Item label="是否可选">
-                {detail.isAvailable ? '可选' : '不可选'}
+                {detail.eligibility ? (detail.eligibility.isAvailable ? '可选' : '不可选') : '未返回'}
               </Descriptions.Item>
-              {detail.description ? (
-                <Descriptions.Item label="课程说明">{detail.description}</Descriptions.Item>
+              {detail.course.description ? (
+                <Descriptions.Item label="课程说明">{detail.course.description}</Descriptions.Item>
               ) : null}
               {scheduleText ? <Descriptions.Item label="课表">{scheduleText}</Descriptions.Item> : null}
               {detail.prerequisites.length ? (

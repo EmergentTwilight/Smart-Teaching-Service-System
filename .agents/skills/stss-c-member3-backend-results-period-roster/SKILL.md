@@ -44,6 +44,8 @@ C5 选课管理与并发控制
 ```text
 backend/src/modules/course-selection/timetable.controller.ts
 backend/src/modules/course-selection/timetable.service.ts
+backend/src/modules/course-selection/enrollment-results.controller.ts
+backend/src/modules/course-selection/enrollment-results.service.ts
 backend/src/modules/course-selection/roster.controller.ts
 backend/src/modules/course-selection/roster.service.ts
 backend/src/modules/course-selection/selection-period.controller.ts
@@ -57,6 +59,7 @@ backend/src/modules/course-selection/README.md（仅限 C4/C5 说明）
 
 ```text
 backend/src/modules/course-selection/enrollment.service.ts
+backend/src/modules/course-selection/enrollment.controller.ts
 backend/src/modules/course-selection/course-search.service.ts
 backend/src/modules/course-selection/curriculum.service.ts
 ```
@@ -123,8 +126,9 @@ backend/src/modules/course-selection/curriculum.service.ts
 ```text
 1. 教师只能查看和导出本人任课 CourseOffering 的名单。
 2. 必须校验 CourseOffering.teacher_id 与当前教师身份。
-3. `academic_admin` 是 API 语义角色；当前代码层可由 `admin`/`super_admin` 入口保护，但服务层应收紧到 `Admin.adminType = ACADEMIC` 或等价授权。
-4. 非任课教师不得通过猜测 offeringId 访问名单。
+3. 当前 API 仅开放给任课教师，不提供 admin/super_admin 例外。
+4. 如未来新增 `academic_admin` 查看或导出名单，必须先由负责人同步 API 文档、权限映射和审计要求。
+5. 非任课教师不得通过猜测 offeringId 访问名单。
 ```
 
 教务管理：

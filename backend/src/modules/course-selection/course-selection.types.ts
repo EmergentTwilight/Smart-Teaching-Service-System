@@ -101,12 +101,13 @@ export interface EnrollmentQuery extends BaseQuery {
 
 export interface CreateEnrollmentBody {
   courseOfferingId: string
-  idempotencyKey?: string
+  clientRequestId?: string
   reason?: string
 }
 
 export interface DropEnrollmentBody {
   reason?: string
+  clientRequestId?: string
 }
 
 export interface SelectionPeriodQuery extends BaseQuery {
@@ -145,6 +146,11 @@ export interface RosterQuery extends BaseQuery {
   semesterId?: string
   status?: string
   keyword?: string
+}
+
+export interface RosterExportQuery {
+  status?: string
+  format: 'xlsx'
 }
 
 export interface TimetableQuery {
@@ -220,40 +226,104 @@ export interface CourseListItem {
   }
 }
 
-export interface CourseOfferingItem {
+export interface CourseOfferingScheduleItem {
+  id?: string
+  dayOfWeek: number
+  startWeek: number
+  endWeek: number
+  startPeriod: number
+  endPeriod: number
+  classroom?: {
+    building?: string | null
+    roomNumber?: string | null
+    campus?: string | null
+  } | null
+  notes?: string | null
+}
+
+export interface CourseOfferingListItem {
   courseOfferingId: string
-  courseId: string
-  semesterId: string
-  semesterName: string
-  courseName: string
+  course: {
+    id: string
+    code: string
+    name: string
+    credits: number
+    courseType: CourseTypeValue
+  }
+  semester: {
+    id: string
+    name: string
+  }
+  teacher: {
+    id: string
+    realName: string
+    teacherNumber?: string | null
+  }
+  capacity: number
+  enrolledCount: number
+  remainingCapacity: number
+  status: OfferingStatusValue
+  schedules: CourseOfferingScheduleItem[]
+}
+
+export interface CourseEligibilitySnapshot {
+  isAvailable: boolean
+  isEnrolled?: boolean
+  isFull?: boolean
+  hasTimeConflict?: boolean
+  prerequisiteSatisfied?: boolean
+  withinCurriculum?: boolean
+  reasons: string[]
+}
+
+export interface AvailableOfferingItem {
+  courseOfferingId: string
   courseCode: string
+  courseName: string
   credits: number
   courseType: CourseTypeValue
-  teacherId: string
   teacherName: string
   capacity: number
   enrolledCount: number
-  offeringStatus: OfferingStatusValue
-  isAvailable: boolean
-  hasConflictHint?: string
-  prerequisiteHint?: string
+  remainingCapacity: number
+  status: OfferingStatusValue
+  eligibility: CourseEligibilitySnapshot
 }
 
-export interface CourseOfferingDetail extends CourseOfferingItem {
-  description?: string
-  assessmentMethod?: string
-  schedules: Array<{
-    dayOfWeek: number
-    startWeek: number
-    endWeek: number
-    startPeriod: number
-    endPeriod: number
-    classroomName?: string
-  }>
+export interface CourseOfferingDetail {
+  courseOfferingId: string
+  course: {
+    id: string
+    code: string
+    name: string
+    credits: number
+    courseType: CourseTypeValue
+    category?: string | null
+    description?: string | null
+    assessmentMethod?: string | null
+    status: CourseStatusValue
+  }
+  semester: {
+    id: string
+    name: string
+  }
+  teacher: {
+    id: string
+    realName: string
+    teacherNumber?: string | null
+    title?: string | null
+  }
+  capacity: number
+  enrolledCount: number
+  remainingCapacity: number
+  status: OfferingStatusValue
   prerequisites: Array<{
+    courseId?: string
     courseCode: string
     courseName: string
   }>
+  schedules: CourseOfferingScheduleItem[]
+  eligibility?: Pick<CourseEligibilitySnapshot, 'isAvailable' | 'reasons'>
 }
 
 export interface EnrollmentItem {
@@ -327,19 +397,44 @@ export interface PaginatedRosterPayload extends RosterPayload {
 }
 
 export interface AiRecommendationItem {
-  offeringId: string
+  courseOfferingId: string
   courseCode: string
   courseName: string
+  credits: number
   teacherName: string
-  score: number
-  reason: string
-  riskLevel: 'low' | 'medium' | 'high'
+  recommendationScore: number
+  reasons: string[]
+  risks: string[]
+  eligibilitySnapshot: {
+    isAvailable: boolean
+    remainingCapacity?: number
+    hasTimeConflict?: boolean
+    prerequisiteSatisfied?: boolean
+  }
 }
 
 export interface AiAdvicePayload {
+  disclaimer: string
+  creditProgressSummary: {
+    currentSelectedCredits: number
+    targetCredits: number
+    maxCredits: number
+  }
   recommendations: AiRecommendationItem[]
-  creditImpactSummary: string
-  conflictWarnings: string[]
+  conflictNotes: Array<{
+    courseOfferingId: string
+    courseName: string
+    message: string
+  }>
+}
+
+export interface AiExplainResult {
+  courseOfferingId: string
+  courseName: string
   explanation: string
-  isDraftAdviceOnly: boolean
+  hardRuleResult: {
+    isSelectableNow: boolean
+    reasons: string[]
+  }
+  disclaimer: string
 }

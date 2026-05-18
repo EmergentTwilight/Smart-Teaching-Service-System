@@ -67,9 +67,9 @@ git branch -r | grep 'origin/dev/C'
 | C 组负责人 | 需求、文档、API 口径、事务规则、PR Review、最终联调。 | `docs/srs/`、`docs/modules/`、`docs/tasks/`、`docs/agent-guides/`、C 组 README。 |
 | 成员 1 | C1 + C2 后端：培养方案、学分进展、课程搜索、课程详情、可选课程列表。 | `curriculum.*`、`course-search.*`、`course-selection.types.ts`、`course-selection.schemas.ts`。 |
 | 成员 2 | C3 后端：选课/退选核心事务。 | `enrollment.controller.ts`、`enrollment.service.ts`、相关 schema/types。 |
-| 成员 3 | C4 + C5 后端：选课阶段、手动加课、教师名单导出。 | `selection-period.*`、`roster.*`、`timetable.*`。 |
+| 成员 3 | C4 + C5 后端：选课结果、课表、选课阶段、手动加课、教师名单导出。 | `enrollment-results.*`、`selection-period.*`、`roster.*`、`timetable.*`。 |
 | 成员 4 | 学生端前端：培养方案、课程搜索、选课、结果、课表页面。 | `StudentCourseSelectionPage.tsx`、`StudentCurriculumPage.tsx`、`StudentTimetablePage.tsx`、学生端 components/hooks/api。 |
-| 成员 5 | 教师/教务端前端 + AI 面板：名单导出、阶段管理、手动加课、AI 推荐展示。 | `TeacherRosterPage.tsx`、`AdminSelectionPeriodPage.tsx`、`AdminManualEnrollmentPage.tsx`、`CourseSelectionAiPage.tsx`、`AiAdvisorPanel.tsx`。 |
+| 成员 5 | 教师/教务端前端 + AI 面板；C6 后端接口契约和兜底模板由成员 5 在单独 AI 后端任务中承接，完整模型算法或外部 AI 服务接入需负责人另行确认。 | `TeacherRosterPage.tsx`、`AdminSelectionPeriodPage.tsx`、`AdminManualEnrollmentPage.tsx`、`CourseSelectionAiPage.tsx`、`AiAdvisorPanel.tsx`、`ai-advisor.*`。 |
 
 若组员数量或能力分布变化，优先保证 C3 选课事务和 C5 阶段管理有人负责，因为这两部分最容易影响数据一致性。
 
@@ -222,12 +222,19 @@ git branch -r | grep 'origin/dev/C'
 4. 教师导出 Excel。
 ```
 
+文件边界：
+
+```text
+1. /enrollments/me 由 C4 的 enrollment-results.controller.ts / enrollment-results.service.ts 承载。
+2. C3 的 enrollment.controller.ts / enrollment.service.ts 仅承载 POST 选课与 PATCH 退选事务。
+```
+
 权限要求：
 
 ```text
 1. 学生只能查本人。
 2. 教师只能查本人任课课程。
-3. 管理员可按授权范围查看。
+3. 名单查询与导出当前仅开放给任课教师；如需 academic_admin 例外，必须先同步更新 API 文档、权限映射和审计要求。
 ```
 
 ### C5 选课管理与并发控制

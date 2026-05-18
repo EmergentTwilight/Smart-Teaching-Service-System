@@ -1,16 +1,14 @@
 import prisma from '../../shared/prisma/client.js'
 import { AppError, ForbiddenError, NotFoundError } from '@stss/shared'
-import type { PaginatedRosterPayload, RosterOfferingInfo, RosterQuery } from './course-selection.types.js'
-
-const ROSTER_ADMIN_ROLES = new Set(['admin', 'super_admin'])
-
-function hasRosterAdminRole(roles: string[]): boolean {
-  return roles.some((role) => ROSTER_ADMIN_ROLES.has(role))
-}
+import type {
+  PaginatedRosterPayload,
+  RosterExportQuery,
+  RosterOfferingInfo,
+  RosterQuery,
+} from './course-selection.types.js'
 
 async function getOfferingRosterOwnership(
   requesterUserId: string,
-  requesterRoles: string[],
   offeringId: string
 ): Promise<RosterOfferingInfo> {
   const offering = await prisma.courseOffering.findUnique({
@@ -37,7 +35,7 @@ async function getOfferingRosterOwnership(
     throw new NotFoundError('课程开设')
   }
 
-  if (!hasRosterAdminRole(requesterRoles) && offering.teacherId !== requesterUserId) {
+  if (offering.teacherId !== requesterUserId) {
     throw new ForbiddenError('无权查看该课程学生名单')
   }
 
@@ -50,16 +48,14 @@ async function getOfferingRosterOwnership(
 
 export const rosterService = {
   // TODO(C4, FR-C-27, FR-C-28, NFR-C-06): 列出并导出任课教师名单
-  // - 仅允许 teacher/admin/super_admin 访问 roster 与 export
-  // - admin/super_admin 可访问任意 offering；teacher 只能访问本课程
+  // - 仅允许任课教师访问 roster 与 export
   // - 基于 CourseOffering.teacherId 与数据库关系校验，禁止信任前端 teacherId
   async getOfferingRoster(
     requesterUserId: string,
-    requesterRoles: string[],
     offeringId: string,
     query: RosterQuery
   ): Promise<PaginatedRosterPayload | null> {
-    await getOfferingRosterOwnership(requesterUserId, requesterRoles, offeringId)
+    await getOfferingRosterOwnership(requesterUserId, offeringId)
     void query
 
     // TODO(C4, FR-C-27, NFR-C-06): 替换为真实分页查询
@@ -67,7 +63,7 @@ export const rosterService = {
     // - 加关键字检索（学号/姓名/专业/班级）
     // - 支持 status 与 page/pageSize 分页
     // - 查询结果需与导出条件一致
-    // 负责人 scaffold 保留任课教师/教务权限校验，但不返回 200 空名单。
+    // 负责人 scaffold 保留任课教师 ownership 校验，但不返回 200 空名单。
     return null
   },
 
@@ -76,17 +72,19 @@ export const rosterService = {
   // - 与查询结果一致，不来自前端缓存
   async exportOfferingRoster(
     requesterUserId: string,
-    requesterRoles: string[],
-    offeringId: string
+    offeringId: string,
+    query: RosterExportQuery
   ): Promise<{
     downloadToken: string
     fileName: string
     message: string
   }> {
-    await getOfferingRosterOwnership(requesterUserId, requesterRoles, offeringId)
+    await getOfferingRosterOwnership(requesterUserId, offeringId)
+    void query
 
     // TODO(C4, FR-C-28, NFR-C-08):
-    // 接入 Excel 生成库并从 Enrollment 查询导出内容；在实现前不得返回伪造下载令牌。
+    // 接入 Excel 生成库并按 query.status/query.format 从 Enrollment 查询导出内容；
+    // 在实现前不得返回伪造下载令牌。
     throw new AppError(
       'COURSE_SELECTION_ROSTER_EXPORT_NOT_IMPLEMENTED',
       501,

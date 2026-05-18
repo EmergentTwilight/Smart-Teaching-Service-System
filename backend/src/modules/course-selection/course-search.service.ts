@@ -3,7 +3,8 @@ import type {
   AvailableOfferingsQuery,
   PaginatedItems,
   CourseListItem,
-  CourseOfferingItem,
+  CourseOfferingListItem,
+  AvailableOfferingItem,
   CourseOfferingDetail,
 } from './course-selection.types.js'
 
@@ -21,7 +22,7 @@ export const courseSearchService = {
   // - 基于 CourseOffering 返回课程容量/已选人数/教师
   // - 与课程状态变更一致，不依赖前端过滤
   // - 负责人 scaffold 不返回 200 空列表，避免把未实现误判为无数据
-  async listOfferings(query: CourseSearchQuery): Promise<PaginatedItems<CourseOfferingItem> | null> {
+  async listOfferings(query: CourseSearchQuery): Promise<PaginatedItems<CourseOfferingListItem> | null> {
     void query
     return null
   },
@@ -32,7 +33,7 @@ export const courseSearchService = {
   async listAvailableOfferings(
     studentId: string,
     query: AvailableOfferingsQuery
-  ): Promise<PaginatedItems<CourseOfferingItem> | null> {
+  ): Promise<PaginatedItems<AvailableOfferingItem> | null> {
     void studentId
     void query
     return null

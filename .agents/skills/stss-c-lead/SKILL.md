@@ -280,6 +280,8 @@ C3 是最容易被 Codex 抢做的模块。负责人模式遇到 C3 时必须优
 组员负责：
 
 ```text
+enrollment-results.controller.ts
+enrollment-results.service.ts
 timetable.controller.ts
 timetable.service.ts
 roster.controller.ts
@@ -361,6 +363,8 @@ backend/src/modules/course-selection/
 ├── curriculum.service.ts
 ├── enrollment.controller.ts
 ├── enrollment.service.ts
+├── enrollment-results.controller.ts
+├── enrollment-results.service.ts
 ├── selection-period.controller.ts
 ├── selection-period.service.ts
 ├── timetable.controller.ts

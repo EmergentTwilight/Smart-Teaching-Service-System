@@ -1,11 +1,10 @@
 import { Request, Response } from 'express'
-import { error, paginated, success } from '../../shared/utils/response.js'
+import { error, success } from '../../shared/utils/response.js'
 import { enrollmentService } from './enrollment.service.js'
 import {
   createEnrollmentBodySchema,
   dropEnrollmentBodySchema,
   dropEnrollmentParamsSchema,
-  enrollmentQuerySchema,
 } from './course-selection.schemas.js'
 
 const todoResponse = (res: Response, todo: string) =>
@@ -15,22 +14,6 @@ const todoResponse = (res: Response, todo: string) =>
  * 选课与退选控制器
  */
 export const enrollmentController = {
-  async listMyEnrollments(req: Request, res: Response) {
-    const query = enrollmentQuerySchema.parse(req.query)
-    const studentId = req.user?.userId
-
-    if (!studentId) {
-      return error(res, '未认证', 401)
-    }
-
-    const result = await enrollmentService.listMyEnrollments(studentId, query)
-    if (!result) {
-      return todoResponse(res, 'C4, FR-C-24, FR-C-26, FR-C-29: 本人选课记录查询未实现')
-    }
-
-    return paginated(res, result.items, result.pagination)
-  },
-
   async createEnrollment(req: Request, res: Response) {
     const studentId = req.user?.userId
     const body = createEnrollmentBodySchema.parse(req.body)

@@ -4,6 +4,7 @@ import { validate } from '../../shared/middleware/validate.js'
 import { curriculumController } from './curriculum.controller.js'
 import { courseSearchController } from './course-search.controller.js'
 import { enrollmentController } from './enrollment.controller.js'
+import { enrollmentResultsController } from './enrollment-results.controller.js'
 import { timetableController } from './timetable.controller.js'
 import { rosterController } from './roster.controller.js'
 import { selectionPeriodController } from './selection-period.controller.js'
@@ -23,6 +24,7 @@ import {
   updateSelectionPeriodBodySchema,
   selectionPeriodParamsSchema,
   rosterQuerySchema,
+  rosterExportQuerySchema,
   rosterOfferingParamsSchema,
   manualEnrollmentBodySchema,
   timetableQuerySchema,
@@ -61,7 +63,7 @@ router.get(
   '/enrollments/me',
   requireRoles('student'),
   validate(enrollmentQuerySchema, 'query'),
-  enrollmentController.listMyEnrollments
+  enrollmentResultsController.listMyEnrollments
 )
 router.post(
   '/enrollments',
@@ -86,15 +88,16 @@ router.get(
 // ===== 教师端：名单与导出 =====
 router.get(
   '/teacher/offerings/:id/roster',
-  requireRoles('teacher', 'admin', 'super_admin'),
+  requireRoles('teacher'),
   validate(rosterOfferingParamsSchema, 'params'),
   validate(rosterQuerySchema, 'query'),
   rosterController.getOfferingRoster
 )
 router.get(
   '/teacher/offerings/:id/roster/export',
-  requireRoles('teacher', 'admin', 'super_admin'),
+  requireRoles('teacher'),
   validate(rosterOfferingParamsSchema, 'params'),
+  validate(rosterExportQuerySchema, 'query'),
   rosterController.exportOfferingRoster
 )
 

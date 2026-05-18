@@ -1,9 +1,7 @@
 import type {
   EnrollmentItem,
-  EnrollmentQuery,
   CreateEnrollmentBody,
   DropEnrollmentBody,
-  PaginatedItems,
 } from './course-selection.types.js'
 
 export const enrollmentService = {
@@ -32,20 +30,6 @@ export const enrollmentService = {
     void enrollmentId
 
     // TODO(C3, FR-C-23): 返回 null 表示当前未实现，请补齐历史记录保留逻辑
-    return null
-  },
-
-  // TODO(C4, FR-C-24, FR-C-29, NFR-C-06): 列出本人选课记录并支持分页/筛选
-  async listMyEnrollments(
-    studentId: string,
-    query: EnrollmentQuery
-  ): Promise<PaginatedItems<EnrollmentItem> | null> {
-    void studentId
-    void query
-
-    // TODO(C4, FR-C-24, FR-C-26, FR-C-29):
-    // 由 C4 成员实现基于当前学生 Enrollment 的真实分页查询。
-    // 负责人 scaffold 不返回 200 空列表，避免把未实现误判为“暂无选课记录”。
     return null
   },
 }

@@ -176,7 +176,7 @@ controller/schema 层负责做 snake_case 到 camelCase 的转换。
 * 必须登录；
 * 教师名单查询和导出必须校验当前教师是否为该 `CourseOffering` 的任课教师；
 * 任课教师可以查看本人课程名单；
-* `academic_admin` 是 C API/SRS 的语义角色；当前代码层可由既有 `admin`/`super_admin` 角色作为入口保护；
+* 名单查询和导出当前仅开放给任课教师；`academic_admin` 例外必须先由 API 文档明确授权；
 * C5/管理服务层后续必须映射到 `Admin.adminType = ACADEMIC` 或等价教务授权，不得把系统管理员默认等同为教务管理员；
 * 非任课教师不得通过猜测 offeringId 查看或导出他人课程学生名单。
 
@@ -245,6 +245,8 @@ C3 选课/退选核心事务：
 
 C4 选课结果、课表、名单导出：
 
+* `enrollment-results.controller.ts`
+* `enrollment-results.service.ts`
 * `timetable.controller.ts`
 * `timetable.service.ts`
 * `roster.controller.ts`

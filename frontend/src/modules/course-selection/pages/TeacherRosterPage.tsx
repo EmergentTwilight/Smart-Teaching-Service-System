@@ -18,7 +18,7 @@ interface RosterFormValues {
 
 /**
  * TODO(C4, FR-C-27, FR-C-28, NFR-C-06, NFR-C-08):
- * - 教师/管理员仅可查看/导出本人相关课程的名单；
+ * - 教师仅可查看/导出本人任课课程的名单；
  * - 导出内容应来自 Enrollment 实体查询，不能使用前端缓存计算；
  * - 列表/导出失败须返回明确错误并可重试。
  */
@@ -53,7 +53,10 @@ const TeacherRosterPage: React.FC = () => {
     }
 
     try {
-      const result = await rosterApi.exportOfferingRoster(offeringId);
+      const result = await rosterApi.exportOfferingRoster(offeringId, {
+        status: query.status,
+        format: 'xlsx',
+      });
       message.success(`${result.fileName}：${result.message}`);
     } catch (error) {
       message.error(extractErrorMessage(error, '导出失败，请重试'));

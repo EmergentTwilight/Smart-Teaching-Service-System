@@ -28,11 +28,13 @@ export interface EnrollmentQuery {
 
 export interface CreateEnrollmentPayload {
   courseOfferingId: string;
+  clientRequestId?: string;
   reason?: string;
 }
 
 export interface DropEnrollmentPayload {
   reason?: string;
+  clientRequestId?: string;
 }
 
 export interface TimetableSlot {
@@ -84,4 +86,9 @@ export interface RosterQuery {
   status?: EnrollmentStatus;
   page?: number;
   pageSize?: number;
+}
+
+export interface RosterExportQuery {
+  status?: EnrollmentStatus;
+  format?: 'xlsx';
 }

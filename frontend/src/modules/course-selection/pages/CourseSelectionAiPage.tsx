@@ -131,7 +131,7 @@ const CourseSelectionAiPage: React.FC = () => {
                   <Text>
                     {course.courseCode} - {course.courseName}
                   </Text>
-                  <Text type="secondary">[{course.offeringStatus}]</Text>
+                  <Text type="secondary">[{course.status}]</Text>
                 </Space>
                 <Button size="small" onClick={() => handleExplain(course.courseOfferingId)}>
                   解释课程可行性
@@ -152,10 +152,10 @@ const CourseSelectionAiPage: React.FC = () => {
 
       {aiAdvisor.explain.data ? (
         <Card title="AI 课程解释" style={{ marginTop: 16 }}>
-          <Text>{aiAdvisor.explain.data.advice}</Text>
-          {aiAdvisor.explain.data.fallback ? (
+          <Text>{aiAdvisor.explain.data.explanation}</Text>
+          {aiAdvisor.explain.data.disclaimer ? (
             <div style={{ marginTop: 12 }}>
-              <Text type="secondary">{aiAdvisor.explain.data.fallback}</Text>
+              <Text type="secondary">{aiAdvisor.explain.data.disclaimer}</Text>
             </div>
           ) : null}
         </Card>

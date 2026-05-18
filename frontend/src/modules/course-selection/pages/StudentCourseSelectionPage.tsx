@@ -12,7 +12,6 @@ import {
   Select,
   Space,
   Typography,
-  message,
 } from 'antd';
 import type { OfferingsAvailableQuery } from '../types/course';
 import { coursesApi } from '../api/courses';
@@ -49,11 +48,7 @@ const StudentCourseSelectionPage: React.FC = () => {
     pageSize: 20,
   });
 
-  const {
-    available: availableOfferingsQuery,
-    enroll: enrollMutation,
-    drop: dropMutation,
-  } = useAvailableOfferings(search);
+  const { available: availableOfferingsQuery } = useAvailableOfferings(search);
 
   const myEnrollmentsQuery = useMyEnrollments({ page: 1, pageSize: 20 });
   const curriculumProgressQuery = useQuery({
@@ -95,39 +90,14 @@ const StudentCourseSelectionPage: React.FC = () => {
     return coursesApi.getOfferingDetail(id);
   };
 
-  const handleEnroll = (offeringId: string) => {
-    enrollMutation.mutate(offeringId, {
-      onSuccess: () => {
-        void curriculumProgressQuery.refetch();
-        void message.success('选课请求已提交，等待后端校验返回结果');
-      },
-      onError: (error) => {
-        message.error(extractErrorMessage(error, '选课失败，请重试'));
-      },
-    });
-  };
-
-  // TODO(C4, FR-C-24): 当前仅作为教学性展示，退课入口应复用学生“我的结果/课表”页执行
-  const handleDrop = (enrollmentId: string) => {
-    dropMutation.mutate(
-      { enrollmentId },
-      {
-        onSuccess: () => {
-          void message.success('退课请求已提交');
-        },
-        onError: (error) => {
-          message.error(extractErrorMessage(error, '退课失败，请重试'));
-        },
-      }
-    );
-  };
-
   const offeringTableLoading = availableOfferingsQuery.isLoading;
+  // TODO(C3/C4 frontend, FR-C-16, FR-C-21, FR-C-24, NFR-C-13):
+  // 成员 4 在学生端前端任务中接入选课/退选 mutation 和成功/失败提示。
+  // 负责人 scaffold 仅保留只读页面骨架，避免在 dev/C 中抢做成员负责的完整交互。
   const courseOfferingTable = (
     <CourseOfferingTable
       offerings={offeringRows}
       loading={offeringTableLoading}
-      onEnroll={handleEnroll}
       onViewDetail={setOfferingIdInDrawer}
     />
   );
@@ -239,15 +209,6 @@ const StudentCourseSelectionPage: React.FC = () => {
               {enrollments.slice(0, 4).map((item) => (
                 <li key={item.id}>
                   {item.offering.courseName}（{item.status}）
-                  {item.status === 'enrolled' ? (
-                    <Button
-                      size="small"
-                      style={{ marginLeft: 8 }}
-                      onClick={() => handleDrop(item.id)}
-                    >
-                      退课
-                    </Button>
-                  ) : null}
                 </li>
               ))}
             </ul>

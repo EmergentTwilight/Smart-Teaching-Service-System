@@ -14,12 +14,20 @@ export const courseSearchController = {
   async searchCourses(req: Request, res: Response) {
     const query = courseSearchQuerySchema.parse(req.query)
     const result = await courseSearchService.searchCourses(query)
+    if (!result) {
+      return error(res, '功能待实现：C2 FR-C-08 FR-C-09 FR-C-10 FR-C-12 NFR-C-13', 501)
+    }
+
     return success(res, result)
   },
 
   async listOfferings(req: Request, res: Response) {
     const query = courseSearchQuerySchema.parse(req.query)
     const result = await courseSearchService.listOfferings(query)
+    if (!result) {
+      return error(res, '功能待实现：C2 FR-C-08 FR-C-12 FR-C-15', 501)
+    }
+
     return success(res, result)
   },
 
@@ -32,6 +40,10 @@ export const courseSearchController = {
     }
 
     const result = await courseSearchService.listAvailableOfferings(studentId, query)
+    if (!result) {
+      return error(res, '功能待实现：C2 FR-C-13 FR-C-15 NFR-C-07 NFR-C-08', 501)
+    }
+
     return success(res, result)
   },
 

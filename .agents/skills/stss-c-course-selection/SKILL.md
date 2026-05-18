@@ -176,16 +176,16 @@ controller/schema 层负责做 snake_case 到 camelCase 的转换。
 * 必须登录；
 * 教师名单查询和导出必须校验当前教师是否为该 `CourseOffering` 的任课教师；
 * 任课教师可以查看本人课程名单；
-* `academic_admin` 如需查看必须由 API 文档明确授权；
-* `system_admin` 不默认替代教务权限，必须先获得明确的 `academic_admin` 授权；
+* `academic_admin` 是 C API/SRS 的语义角色；当前代码层可由既有 `admin`/`super_admin` 角色作为入口保护；
+* C5/管理服务层后续必须映射到 `Admin.adminType = ACADEMIC` 或等价教务授权，不得把系统管理员默认等同为教务管理员；
 * 非任课教师不得通过猜测 offeringId 查看或导出他人课程学生名单。
 
 教务管理端接口：
 
 * 必须登录；
-* 必须使用项目已有角色机制限制为 `academic_admin`；
-* `system_admin` 不默认替代教务权限，必须先获得明确的 `academic_admin` 授权；
-* 手动加课接口可以接收 `student_id`，但只能出现在 `academic_admin` 接口；
+* 必须使用项目已有角色机制限制为当前代码已有的 `admin`/`super_admin` 入口，并在服务层 TODO 或实现中收紧到 C API 语义角色 `academic_admin`；
+* `academic_admin` 应映射为 `Admin.adminType = ACADEMIC` 或等价教务授权；
+* 手动加课接口可以接收 `student_id`，但只能出现在教务管理接口；
 * 手动加课必须要求 `reason`，且 reason 必须是非空字符串，用于 `SystemLog` 审计。
 
 AI 接口：

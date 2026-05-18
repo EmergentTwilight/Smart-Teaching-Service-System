@@ -18,7 +18,7 @@
 - 基础接口前缀：`/api/v1/course-selection`
 - 学生端：`student`（课程列表/详情、推荐、培养方案、选课与退选、课表）
 - 教师端：`teacher`（课程名单查询/导出）
-- 教务端：`admin`、`super_admin`（阶段管理、手动加课）
+- 教务端：当前路由角色使用 `admin`、`super_admin`；C API 语义角色为 `academic_admin`，后续应按 `Admin.adminType = ACADEMIC` 或等价授权收紧阶段管理、手动加课。
 - 通用：前端不上传 `studentId` 作为可信身份依据，所有请求默认由 `req.user` 派生。
 
 ## 3. 交易与一致性约定（UI 层）
@@ -77,30 +77,26 @@
 
 ## 6. 成员工作指导（除负责人）
 
-### 成员 1（学生端）
+### 成员 4（学生端前端）
 - 页面：`StudentCourseSelectionPage`、`StudentCurriculumPage`、`StudentTimetablePage`
 - 组件：`CourseOfferingTable`、`CourseDetailDrawer`、`CreditProgressCard`、`TimetableGrid`
+- 相关 API/hooks/types：`courses.ts`、`curriculum.ts`、`enrollments.ts`、`useAvailableOfferings`、`useMyEnrollments`、学生端类型。
 - 目标：
-  - 完成课程搜索、筛选、详情查看、AI 解释入口、课表展示；
+  - 完成培养方案、课程搜索、详情查看、选课/退选入口、结果和课表展示；
   - 严格保持“前端预校验 + 后端裁判权”；
   - 所有 TODO 保留 FR/CFR 编号和实现说明。
 
-### 成员 2（教师端 + AI展示）
-- 页面：`TeacherRosterPage`、`CourseSelectionAiPage`
-- 组件：`AiAdvisorPanel`
+### 成员 5（教师/教务端前端 + AI 面板）
+- 页面：`TeacherRosterPage`、`AdminSelectionPeriodPage`、`AdminManualEnrollmentPage`、`CourseSelectionAiPage`
+- 组件：`AiAdvisorPanel`、`SelectionPeriodStatusTag`
+- 相关 API/hooks/types：`roster.ts`、`periods.ts`、`ai-advisor.ts`、教师/教务/AI 类型。
 - 目标：
   - 完成课程名单查询与导出体验；
+  - 完成阶段管理和手动加课表单；
   - 完善 AI 建议/解释展示，不引导自动选课；
   - 与后端错误码联动提示并支持降级说明。
 
-### 成员 3（教务端）
-- 页面：`AdminSelectionPeriodPage`、`AdminManualEnrollmentPage`
-- 目标：
-  - 完成阶段创建/更新表单约束；
-  - 完成手动加课提交与失败说明；
-  - 确保提交后自动刷新列表并提示操作边界。
-
-### 成员 4（边界复核）
+### C 组负责人（边界复核）
 - 目标：
   - 审核所有 TODO 与接口约束是否绑定 `FR-C-xx`/`NFR-C-xx`；
   - 对接 `hooks/api/types` 的类型命名一致性；

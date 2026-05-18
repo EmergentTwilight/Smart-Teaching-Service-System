@@ -7,40 +7,23 @@ import type {
   CourseOfferingDetail,
 } from './course-selection.types.js'
 
-const emptyPagination = {
-  page: 1,
-  pageSize: 20,
-  total: 0,
-  totalPages: 0,
-}
-
 export const courseSearchService = {
   // TODO(C2, FR-C-08, FR-C-09, FR-C-10, FR-C-12, NFR-C-13): 完整实现课程搜索查询
   // - 支持课程名/教师名/课程代码/学期/课程类型筛选
   // - 分页返回并支持按课程状态、是否可选过滤
-  async searchCourses(query: CourseSearchQuery): Promise<PaginatedItems<CourseListItem>> {
-    return {
-      items: [],
-      pagination: {
-        ...emptyPagination,
-        page: query.page ?? 1,
-        pageSize: query.pageSize || 20,
-      },
-    }
+  // - 负责人 scaffold 不返回 200 空列表，避免把未实现误判为无数据
+  async searchCourses(query: CourseSearchQuery): Promise<PaginatedItems<CourseListItem> | null> {
+    void query
+    return null
   },
 
   // TODO(C2, FR-C-08, FR-C-15): 实现开课列表查询并返回容量与状态
   // - 基于 CourseOffering 返回课程容量/已选人数/教师
   // - 与课程状态变更一致，不依赖前端过滤
-  async listOfferings(query: CourseSearchQuery): Promise<PaginatedItems<CourseOfferingItem>> {
-    return {
-      items: [],
-      pagination: {
-        ...emptyPagination,
-        page: query.page ?? 1,
-        pageSize: query.pageSize || 20,
-      },
-    }
+  // - 负责人 scaffold 不返回 200 空列表，避免把未实现误判为无数据
+  async listOfferings(query: CourseSearchQuery): Promise<PaginatedItems<CourseOfferingItem> | null> {
+    void query
+    return null
   },
 
   // TODO(C2, C3, FR-C-13, FR-C-15, FR-C-16, FR-C-18, NFR-C-07, NFR-C-08): 返回学生可选课程并标记可选原因
@@ -49,15 +32,10 @@ export const courseSearchService = {
   async listAvailableOfferings(
     studentId: string,
     query: AvailableOfferingsQuery
-  ): Promise<PaginatedItems<CourseOfferingItem>> {
-    return {
-      items: [],
-      pagination: {
-        ...emptyPagination,
-        page: query.page ?? 1,
-        pageSize: query.pageSize || 20,
-      },
-    }
+  ): Promise<PaginatedItems<CourseOfferingItem> | null> {
+    void studentId
+    void query
+    return null
   },
 
   // TODO(C2, C3, FR-C-18, FR-C-19, NFR-C-07):

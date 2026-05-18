@@ -146,7 +146,8 @@ types：定义 DTO、错误码和共享类型
 
 ```ts
 // TODO(C5, FR-C-10): Implement SelectionPeriod management.
-// Only academic admin or system admin may create, update, enable, or close periods.
+// Current route guard may use admin/super_admin, but C5 service must map the semantic
+// academic_admin permission to Admin.adminType = ACADEMIC or equivalent authorization.
 // Validate semester, phase, start time, end time, max credits, and active state.
 // Reject invalid time ranges and overlapping active periods when applicable.
 ```
@@ -158,6 +159,8 @@ types：定义 DTO、错误码和共享类型
 ```ts
 // TODO(C5, FR-C-11): Implement manual enrollment.
 // Only authorized academic admin may manually add a student to a CourseOffering.
+// In current code, admin/super_admin route roles are only entry guards; service must
+// map this to Admin.adminType = ACADEMIC or equivalent authorization.
 // Record operator, reason, target student, target offering, and result.
 // By default, still check duplicate enrollment, capacity, schedule conflict, max credits, and prerequisites.
 ```

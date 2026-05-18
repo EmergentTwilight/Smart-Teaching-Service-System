@@ -121,7 +121,7 @@ backend/src/modules/course-selection/**
 教务阶段管理和手动加课必须遵循：
 
 ```text
-1. 管理接口仅供 academic_admin 使用；系统管理员不可默认替代教务权限。
+1. 管理入口当前使用 `admin`/`super_admin` 路由角色；C API 语义角色为 `academic_admin`，后端服务层应按 `Admin.adminType = ACADEMIC` 或等价授权收紧。
 2. 手动加课表单必须要求 reason 非空。
 3. 前端可以做表单预校验，但后端仍必须最终校验。
 4. 前端不得伪造手动加课成功。

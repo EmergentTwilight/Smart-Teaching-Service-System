@@ -24,7 +24,7 @@
 
 ### C3 选课与退选核心事务
 - 文件：`enrollment.controller.ts`、`enrollment.service.ts`
-- 职责：`POST /enrollments`、`PATCH /enrollments/:id/drop` 与 `GET /enrollments/me`（`FR-C-13` ~ `FR-C-23`）。
+- 职责：`POST /enrollments`、`PATCH /enrollments/:id/drop`（`FR-C-13` ~ `FR-C-23`）。
 - 权限：`student`。
 - 事务要求（NFR-C-04、NFR-C-05）：
   - 服务端时间和当前有效 `SelectionPeriod` 校验（`FR-C-14`, `FR-C-32`）。
@@ -35,7 +35,7 @@
 
 ### C4 结果查询与教师名单
 - 文件：`timetable.controller.ts`、`timetable.service.ts`、`roster.controller.ts`、`roster.service.ts`
-- 职责：本人结果、课表、教师课程名单、名单导出接口（`FR-C-24` ~ `FR-C-29`）。
+- 职责：`GET /enrollments/me`、本人课表、教师课程名单、名单导出接口（`FR-C-24` ~ `FR-C-29`）。
 - 权限：
   - 学生只能查本人；教师仅查本人任课课程；管理员按授权范围访问。
 - 事务要求：读取类；导出必须与后台 `Enrollment` 状态一致。
@@ -63,8 +63,8 @@
 - 路由与职责映射：
   - `/curriculum/me`、`/curriculum/me/progress` → `C1`
   - `/courses`、`/offerings`、`/offerings/available`、`/offerings/:id` → `C2`
-  - `/enrollments/me`、`/enrollments`、`/enrollments/:id/drop` → `C3`
-  - `/timetable/me` → `C4`
+  - `/enrollments`、`/enrollments/:id/drop` → `C3`
+  - `/enrollments/me`、`/timetable/me` → `C4`
   - `/teacher/offerings/:id/roster`、`/teacher/offerings/:id/roster/export` → `C4`
   - `/admin/periods`、`/admin/periods/:id`、`/admin/enrollments` → `C5`
   - `/ai-advisor/recommend`、`/ai-advisor/explain` → `C6`
@@ -93,12 +93,21 @@
   - `FR-C-30 ~ FR-C-37`（阶段与手动加课）
   - 保持手动加课与阶段变更合规校验与审计边界。
 
-### 成员 4（C6）
-- 负责：`ai-advisor.controller.ts`、`ai-advisor.service.ts`
+### 成员 4（学生端前端）
+- 负责：学生端培养方案、课程搜索、选课结果和课表页面的前端文件；后端 README 仅记录其对接边界。
 - 目标：
-  - `FR-C-38 ~ FR-C-43`、`NFR-C-09 ~ NFR-C-11`
-  - AI 仅提供“解释与建议”，不参与 Enrollment 写入；
+  - 对接 C1/C2/C3/C4 后端接口；
+  - 前端仅展示后端返回的状态和错误原因，不替代后端事务校验；
+  - 选课、退选、课表和结果页面的完整交互以 `docs/tasks/C-work-breakdown.md` 为准。
+
+### 成员 5（教师/教务前端 + AI 面板）
+- 负责：教师名单、教务阶段管理、手动加课、AI 推荐展示的前端文件；后端 C6 接口骨架由负责人预留，具体实现按成员任务拆分。
+- 目标：
+  - 对接 C4/C5/C6 后端接口；
+  - AI 仅展示“解释与建议”，不参与 Enrollment 写入；
   - 在异常降级时返回可见提示，保留常规流程能力。
+
+本 README 只说明后端模块边界；成员分工以 `docs/tasks/C-work-breakdown.md` 和 `.agents/skills/stss-c-member*/SKILL.md` 为准。
 
 ## 5. 验收检查（负责人合并前）
 

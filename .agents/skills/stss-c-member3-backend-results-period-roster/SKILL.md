@@ -105,7 +105,7 @@ backend/src/modules/course-selection/curriculum.service.ts
 6. A/B/D/E/F 组业务逻辑。
 ```
 
-手动加课属于 academic_admin 特殊操作，不等同于普通学生选课。
+手动加课属于 C API 语义角色 `academic_admin` 的特殊操作，不等同于普通学生选课。
 成员 3 实现手动加课时可以调用或复用 C3 的校验能力，但不得重写 C3 普通选课事务。手动加课可不要求当前处于学生选课开放时间段，但仍必须在事务内校验学生、课程开设存在且课程未取消、容量、重复选课、课表冲突和默认 max_credits，并写入 `SystemLog`。培养方案适配和先修课是否允许例外必须按 API TODO-C-21 或负责人确认口径处理。
 
 ## 6. 权限边界
@@ -123,17 +123,17 @@ backend/src/modules/course-selection/curriculum.service.ts
 ```text
 1. 教师只能查看和导出本人任课 CourseOffering 的名单。
 2. 必须校验 CourseOffering.teacher_id 与当前教师身份。
-3. academic_admin 如需查看必须由 API 文档明确授权；系统管理员不可默认替代教务权限。
+3. `academic_admin` 是 API 语义角色；当前代码层可由 `admin`/`super_admin` 入口保护，但服务层应收紧到 `Admin.adminType = ACADEMIC` 或等价授权。
 4. 非任课教师不得通过猜测 offeringId 访问名单。
 ```
 
 教务管理：
 
 ```text
-1. SelectionPeriod 和手动加课接口必须限制为 academic_admin。
+1. SelectionPeriod 和手动加课接口当前可用 `admin`/`super_admin` 作为入口角色，但必须在服务层 TODO 或实现中映射到 `academic_admin` 语义权限。
 2. 手动加课必须 reason 非空。
 3. 手动加课不得开放给 student/teacher。
-4. 系统管理员如需访问，必须先获得明确的 academic_admin 授权，不得默认等同。
+4. `academic_admin` 应映射为 `Admin.adminType = ACADEMIC` 或等价教务授权，不得默认把系统管理员等同为教务管理员。
 ```
 
 ## 7. API 契约要求
@@ -229,7 +229,7 @@ CourseSelectionQueue
 
 ```ts
 // TODO(C5, FR-C-33, FR-C-34, FR-C-37):
-// 实现教务手动加课事务：校验 academic_admin、reason、学生、课程开设存在且课程未取消、
+// 实现教务手动加课事务：校验 admin/super_admin 入口角色与 Admin.adminType=ACADEMIC 等价教务授权、reason、学生、课程开设存在且课程未取消、
 // 容量、重复选课、课表冲突和默认 max_credits。
 // 创建或恢复 Enrollment、更新 CourseOffering.enrolled_count、写入 SystemLog 必须在同一事务内完成。
 // 培养方案适配和先修课是否允许例外必须按 TODO-C-21 或负责人确认口径处理。
@@ -257,7 +257,7 @@ CourseSelectionQueue
 3. 已实现的功能。
 4. 是否只涉及 C4/C5 后端。
 5. 是否修改 roster ownership 权限。
-6. 是否修改 academic_admin 权限。
+6. 是否修改 academic_admin 语义权限或 admin/super_admin 到 Admin.adminType=ACADEMIC 的映射。
 7. 是否修改手动加课 reason、事务校验或 SystemLog 审计规则。
 8. 是否修改 API 契约。
 9. 是否修改数据库或 Prisma schema。

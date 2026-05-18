@@ -205,12 +205,19 @@ export interface CurriculumProgress {
 }
 
 export interface CourseListItem {
-  id: string
-  code: string
-  name: string
+  courseId: string
+  courseCode: string
+  courseName: string
   credits: number
   courseType: CourseTypeValue
+  category?: string | null
+  assessmentMethod?: string | null
   status: CourseStatusValue
+  offeringSummary?: {
+    openCount: number
+    plannedCount: number
+    latestSemesterName?: string | null
+  }
 }
 
 export interface CourseOfferingItem {

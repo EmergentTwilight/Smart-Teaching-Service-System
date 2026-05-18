@@ -9,7 +9,7 @@ import type {
 
 export const selectionPeriodService = {
   // TODO(C5, FR-C-30, FR-C-31, FR-C-32, NFR-C-14): 枚举学期阶段并校验时序
-  // - 支持 initial / second / adjustment 阶段配置
+  // - 支持 first_round / second_round / adjustment 阶段配置
   // - 校验起止时间、是否重叠、是否启用互斥
   async listPeriods(query: SelectionPeriodQuery): Promise<PaginatedItems<SelectionPeriodItem> | null> {
     void query
@@ -35,7 +35,7 @@ export const selectionPeriodService = {
   },
 
   // TODO(C5, FR-C-30, FR-C-32, NFR-C-12): 更新阶段并记录历史
-  // - 仅 admin/super_admin 可改
+  // - 路由层 admin/super_admin 仅为入口保护；服务层需映射到 academic_admin / Admin.adminType = ACADEMIC
   // - 校验时间/状态变化合法
   async updatePeriod(
     operatorUserId: string,

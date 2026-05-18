@@ -206,7 +206,7 @@ const App: React.FC = () => {
                   <Route
                     path="selection/teacher/roster"
                     element={
-                      <ProtectedRoute requiredRoles={['teacher', 'admin', 'super_admin']}>
+                      <ProtectedRoute requiredRoles={['teacher']}>
                         <TeacherRosterPage />
                       </ProtectedRoute>
                     }

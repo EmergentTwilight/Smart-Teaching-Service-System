@@ -113,7 +113,7 @@ types：定义 DTO、错误码和共享类型
 `enrollment.service.ts` 中必须保留或实现如下业务规则：
 
 ```ts
-// TODO(C3, FR-C-05): Implement capacity-safe enrollment transaction.
+// TODO(C3, FR-C-14, FR-C-16~FR-C-23, NFR-C-04, NFR-C-05): Implement capacity-safe enrollment transaction.
 // Required checks:
 // 1. current user must be a student;
 // 2. active SelectionPeriod exists and server time is inside [start_time, end_time];
@@ -131,7 +131,7 @@ types：定义 DTO、错误码和共享类型
 ## 7. 退选事务 TODO 模板
 
 ```ts
-// TODO(C3, FR-C-07): Implement drop transaction.
+// TODO(C3, FR-C-14, FR-C-21~FR-C-23, NFR-C-04): Implement drop transaction.
 // Required checks:
 // 1. current user owns the target Enrollment;
 // 2. current SelectionPeriod allows dropping;
@@ -145,7 +145,7 @@ types：定义 DTO、错误码和共享类型
 ## 8. 选课阶段管理 TODO 模板
 
 ```ts
-// TODO(C5, FR-C-10): Implement SelectionPeriod management.
+// TODO(C5, FR-C-30~FR-C-32, FR-C-37, NFR-C-14): Implement SelectionPeriod management.
 // Current route guard may use admin/super_admin, but C5 service must map the semantic
 // academic_admin permission to Admin.adminType = ACADEMIC or equivalent authorization.
 // Validate semester, phase, start time, end time, max credits, and active state.
@@ -157,7 +157,7 @@ types：定义 DTO、错误码和共享类型
 ## 9. 手动加课 TODO 模板
 
 ```ts
-// TODO(C5, FR-C-11): Implement manual enrollment.
+// TODO(C5, FR-C-33, FR-C-34, FR-C-37, NFR-C-04, NFR-C-12): Implement manual enrollment.
 // Only authorized academic admin may manually add a student to a CourseOffering.
 // In current code, admin/super_admin route roles are only entry guards; service must
 // map this to Admin.adminType = ACADEMIC or equivalent authorization.
@@ -170,7 +170,7 @@ types：定义 DTO、错误码和共享类型
 ## 10. 教师名单导出 TODO 模板
 
 ```ts
-// TODO(C4, FR-C-09): Implement teacher roster export.
+// TODO(C4, FR-C-27, FR-C-28, NFR-C-06, NFR-C-08): Implement teacher roster export.
 // Teacher may only export rosters for CourseOfferings taught by themselves.
 // Export data must come from valid Enrollment records and include student number,
 // name, major/class information when available, enrollment status, and enrolled time.
@@ -181,7 +181,7 @@ types：定义 DTO、错误码和共享类型
 ## 11. AI 辅助 TODO 模板
 
 ```ts
-// TODO(C6, FR-C-13): Implement AI-assisted recommendation.
+// TODO(C6, FR-C-38~FR-C-43, NFR-C-09~NFR-C-11): Implement AI-assisted recommendation.
 // AI may rank and explain candidate CourseOfferings.
 // AI must not directly write Enrollment.
 // AI must not override hard constraints: capacity, schedule conflict,

@@ -290,7 +290,7 @@ C6 AI 辅助选课：
 合格 TODO 示例：
 
 ```ts
-// TODO(C3, FR-C-05, NFR-C-04):
+// TODO(C3, FR-C-14, FR-C-16~FR-C-23, NFR-C-04, NFR-C-05):
 // 实现学生选课事务：
 // 1. 校验当前用户必须是 student；
 // 2. 校验有效 SelectionPeriod；

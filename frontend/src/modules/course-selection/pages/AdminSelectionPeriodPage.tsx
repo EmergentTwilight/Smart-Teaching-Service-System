@@ -66,7 +66,12 @@ const AdminSelectionPeriodPage: React.FC = () => {
   });
 
   const columns = [
-    { title: '学期', dataIndex: 'semesterId', key: 'semesterId' },
+    {
+      title: '学期',
+      dataIndex: ['semester', 'name'],
+      key: 'semester',
+      render: (_: string, record: SelectionPeriodItem) => record.semester.name || record.semester.id,
+    },
     {
       title: '阶段',
       dataIndex: 'phase',
@@ -87,6 +92,7 @@ const AdminSelectionPeriodPage: React.FC = () => {
           isActive={record.isActive}
           startTime={record.startTime}
           endTime={record.endTime}
+          serverStatus={record.serverStatus}
         />
       ),
     },
@@ -104,7 +110,7 @@ const AdminSelectionPeriodPage: React.FC = () => {
   const loadPeriodForEdit = (record: SelectionPeriodItem) => {
     setEditingPeriodId(record.id);
     form.setFieldsValue({
-      semesterId: record.semesterId,
+      semesterId: record.semester.id,
       phase: record.phase,
       startTime: dayjs(record.startTime),
       endTime: dayjs(record.endTime),

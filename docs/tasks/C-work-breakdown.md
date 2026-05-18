@@ -203,7 +203,7 @@ git branch -r | grep 'origin/dev/C'
 职责：
 
 ```text
-1. 实现 POST 选课和 PATCH/DELETE 退选对应业务。
+1. 实现 POST 选课和 PATCH 退选对应业务。
 2. 检查 SelectionPeriod、CourseOffering 状态、容量、重复选课、时间冲突、最大学分和先修课。
 3. 保证 Enrollment 与 CourseOffering.enrolled_count 事务一致。
 4. 给前端返回明确错误码和错误原因。

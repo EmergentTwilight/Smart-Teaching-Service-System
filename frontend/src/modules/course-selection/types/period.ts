@@ -1,14 +1,18 @@
 export type SelectionPhase = 'first_round' | 'second_round' | 'adjustment';
+export type SelectionPeriodServerStatus = 'not_started' | 'open' | 'ended';
 
 export interface SelectionPeriodItem {
   id: string;
-  semesterId: string;
-  semesterName: string;
+  semester: {
+    id: string;
+    name: string;
+  };
   phase: SelectionPhase;
   startTime: string;
   endTime: string;
   maxCredits?: number;
   isActive: boolean;
+  serverStatus: SelectionPeriodServerStatus;
 }
 
 export interface SelectionPeriodQuery {

@@ -3,6 +3,7 @@ export type CourseStatusValue = 'active' | 'archived'
 export type OfferingStatusValue = 'planned' | 'open' | 'closed' | 'cancelled'
 export type EnrollmentStatusValue = 'enrolled' | 'dropped' | 'withdrawn'
 export type SelectionPhaseValue = 'first_round' | 'second_round' | 'adjustment'
+export type SelectionPeriodServerStatusValue = 'not_started' | 'open' | 'ended'
 
 const toLowercaseApiEnum = <T extends string>(value: T): Lowercase<T> =>
   value.toLowerCase() as Lowercase<T>
@@ -453,13 +454,16 @@ export interface TimetablePayload {
 
 export interface SelectionPeriodItem {
   id: string
-  semesterId: string
-  semesterName: string
+  semester: {
+    id: string
+    name: string
+  }
   phase: SelectionPhaseValue
   startTime: string
   endTime: string
   maxCredits?: number
   isActive: boolean
+  serverStatus: SelectionPeriodServerStatusValue
 }
 
 export interface RosterStudentItem {

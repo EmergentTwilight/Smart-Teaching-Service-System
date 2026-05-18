@@ -61,7 +61,7 @@ backend/src/modules/course-selection/curriculum.service.ts
 成员 3 可以实现或完善：
 
 ```text
-1. 学生查看本人选课结果。
+1. GET /api/v1/course-selection/enrollments/me，学生查看本人选课结果。
 2. 学生查看个人课表。
 3. 教师查看本人课程学生名单。
 4. 教师导出本人课程学生名单。
@@ -80,8 +80,9 @@ backend/src/modules/course-selection/curriculum.service.ts
 3. 初选、补退选、调整阶段管理。
 4. 阶段时间 start_time/end_time、max_credits、is_active。
 5. 教务手动加课接口。
-6. 手动加课 reason 必填和审计入口。
-7. 连接数控制和长时间无操作强制退出的后端预留或 TODO。
+6. 手动加课 reason 必填和 SystemLog 审计。
+7. 手动加课事务内校验学生、课程开设、容量、重复选课、课表冲突，并同步 Enrollment 与 CourseOffering.enrolled_count。
+8. 连接数控制和长时间无操作强制退出的后端预留或 TODO。
 ```
 
 ## 5. 禁止越界
@@ -97,8 +98,8 @@ backend/src/modules/course-selection/curriculum.service.ts
 6. A/B/D/E/F 组业务逻辑。
 ```
 
-手动加课属于 admin 特殊操作，不等同于普通学生选课。
-成员 3 实现手动加课时可以调用或复用 C3 的校验能力，但不得重写 C3 普通选课事务。
+手动加课属于 academic_admin 特殊操作，不等同于普通学生选课。
+成员 3 实现手动加课时可以调用或复用 C3 的校验能力，但不得重写 C3 普通选课事务。手动加课可不要求当前处于学生选课开放时间段，但仍必须在事务内校验容量、重复选课和课表冲突，并写入 `SystemLog`。
 
 ## 6. 权限边界
 
@@ -115,16 +116,17 @@ backend/src/modules/course-selection/curriculum.service.ts
 ```text
 1. 教师只能查看和导出本人任课 CourseOffering 的名单。
 2. 必须校验 CourseOffering.teacher_id 与当前教师身份。
-3. admin/super_admin 例外必须明确。
+3. academic_admin 如需查看必须由 API 文档明确授权；系统管理员不可默认替代教务权限。
 4. 非任课教师不得通过猜测 offeringId 访问名单。
 ```
 
 教务管理：
 
 ```text
-1. SelectionPeriod 和手动加课接口必须限制 admin/super_admin 或项目等价教务角色。
+1. SelectionPeriod 和手动加课接口必须限制为 academic_admin。
 2. 手动加课必须 reason 非空。
 3. 手动加课不得开放给 student/teacher。
+4. 系统管理员如需访问，必须先获得明确的 academic_admin 授权，不得默认等同。
 ```
 
 ## 7. API 契约要求
@@ -132,6 +134,7 @@ backend/src/modules/course-selection/curriculum.service.ts
 成员 3 相关接口主要包括：
 
 ```text
+GET /api/v1/course-selection/enrollments/me
 GET /api/v1/course-selection/timetable/me
 GET /api/v1/course-selection/teacher/offerings/:id/roster
 GET /api/v1/course-selection/teacher/offerings/:id/roster/export
@@ -179,6 +182,7 @@ Schedule
 Enrollment
 SelectionPeriod
 Semester
+SystemLog
 ```
 
 可以只读使用：
@@ -196,7 +200,7 @@ ManualEnrollmentRequest
 CourseSelectionQueue
 ```
 
-如果需要审计日志，应优先使用项目已有日志机制或写 TODO，不得随意新增表。
+关键教务操作必须使用项目已有 `SystemLog` 或等价日志机制。不得为手动加课新增 `ManualEnrollmentRequest` 等业务表。
 
 ## 9. TODO 规则
 
@@ -214,6 +218,12 @@ CourseSelectionQueue
 // TODO(C4, FR-C-xx):
 // 实现教师名单 Excel 导出。
 // 必须复用 roster ownership 校验，确保教师只能导出本人任课课程。
+```
+
+```ts
+// TODO(C5, FR-C-33, FR-C-34, FR-C-37):
+// 实现教务手动加课事务：校验 academic_admin、reason、学生、课程开设、容量、重复选课和课表冲突。
+// 创建或恢复 Enrollment、更新 CourseOffering.enrolled_count、写入 SystemLog 必须在同一事务内完成。
 ```
 
 ## 10. Docker 校验
@@ -234,14 +244,16 @@ CourseSelectionQueue
 
 ```text
 1. 修改文件清单。
-2. 是否只涉及 C4/C5 后端。
-3. 是否修改 roster ownership 权限。
-4. 是否修改 admin 权限。
-5. 是否修改手动加课 reason 规则。
-6. 是否修改 API 契约。
-7. 是否修改数据库或 Prisma schema。
-8. 是否涉及 C1/C2/C3/C6 或前端，如涉及说明原因。
-9. 实际执行的 Docker wrapper 命令。
-10. 后端 typecheck 结果。
-11. 剩余 TODO 和风险。
+2. 每个文件的作用。
+3. 已实现的功能。
+4. 是否只涉及 C4/C5 后端。
+5. 是否修改 roster ownership 权限。
+6. 是否修改 academic_admin 权限。
+7. 是否修改手动加课 reason、事务校验或 SystemLog 审计规则。
+8. 是否修改 API 契约。
+9. 是否修改数据库或 Prisma schema。
+10. 是否涉及 C1/C2/C3/C6、前端或非 C 组文件，如涉及说明原因。
+11. 实际执行的 Docker wrapper 命令和结果。
+12. 手动测试步骤。
+13. 剩余 TODO、风险和需要负责人确认的问题。
 ```

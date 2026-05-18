@@ -114,7 +114,7 @@ backend/src/modules/course-selection/**
 教务阶段管理和手动加课必须遵循：
 
 ```text
-1. 管理接口仅供 admin/super_admin 或等价教务角色使用。
+1. 管理接口仅供 academic_admin 使用；系统管理员不可默认替代教务权限。
 2. 手动加课表单必须要求 reason 非空。
 3. 前端可以做表单预校验，但后端仍必须最终校验。
 4. 前端不得伪造手动加课成功。
@@ -125,6 +125,8 @@ backend/src/modules/course-selection/**
 
 AI 面板只能展示推荐和解释。
 
+AI 推荐和解释接口是学生端接口，仅限 `student` 当前登录上下文使用。成员 5 虽负责 AI 展示面板，但不得让教师端或教务端代替学生调用 AI 接口，也不得在 AI 请求中传入 `student_id` 或 `studentId`。
+
 禁止：
 
 ```text
@@ -132,6 +134,8 @@ AI 面板只能展示推荐和解释。
 2. AI 面板绕过普通选课按钮。
 3. AI 结果直接改变课程已选状态。
 4. AI 不可用时阻断普通选课流程。
+5. 教师/教务页面代学生请求 AI 推荐或解释。
+6. AI 请求体携带 student_id/studentId。
 ```
 
 允许：
@@ -177,6 +181,8 @@ keyword
 page_size
 ```
 
+AI 推荐和解释请求不得包含 `student_id`/`studentId`，学生身份只能由后端从当前登录上下文解析。
+
 内部前端类型可以使用 camelCase，但 API client 应负责请求/响应映射，且必须与文档一致。
 
 ## 9. 与后端成员协作
@@ -184,7 +190,7 @@ page_size
 若后端接口尚未实现，应写 TODO：
 
 ```ts
-// TODO(C5 frontend, depends on member 3 backend):
+// TODO(C5, FR-C-33, FR-C-34, FR-C-37):
 // AdminManualEnrollmentPage 依赖 POST /admin/enrollments。
 // 前端只做 reason 非空预校验，最终容量/冲突/重复校验由后端完成。
 ```
@@ -192,8 +198,8 @@ page_size
 AI 面板若依赖后端：
 
 ```ts
-// TODO(C6 frontend, depends on backend AI advisor):
-// 展示 AI 推荐和解释。AI 不得直接写 Enrollment，最终选课仍走普通选课接口。
+// TODO(C6, FR-C-38, FR-C-40, FR-C-41, NFR-C-10):
+// 展示当前登录学生的 AI 推荐和解释。AI 不得直接写 Enrollment，最终选课仍走普通选课接口。
 ```
 
 ## 10. Docker 校验
@@ -203,7 +209,7 @@ AI 面板若依赖后端：
 前端标准校验：
 
 ```bash
-./scripts/codex-docker-run.sh 'pnpm --filter @stss/web typecheck'
+CODEX_DOCKER_SERVICE=web CODEX_DOCKER_WORKDIR=/app ./scripts/codex-docker-run.sh 'pnpm --filter @stss/web typecheck'
 ```
 
 不得在宿主机直接运行 pnpm、npm、node、tsc。
@@ -215,14 +221,14 @@ AI 面板若依赖后端：
 示例：
 
 ```ts
-// TODO(C5 frontend, depends on member 3 backend):
+// TODO(C5, FR-C-30, FR-C-31, FR-C-37):
 // SelectionPeriod 保存接口应支持 semester_id、phase、start_time、end_time、max_credits、is_active。
 // 当前页面只保持表单结构和 API 调用入口。
 ```
 
 ```ts
-// TODO(C6 frontend):
-// AI 推荐仅用于展示推荐理由和风险提示，不得直接创建 Enrollment。
+// TODO(C6, FR-C-38, FR-C-40, FR-C-41):
+// AI 推荐仅用于展示当前登录学生的推荐理由和风险提示，不得直接创建 Enrollment。
 ```
 
 ## 12. 输出要求
@@ -231,13 +237,17 @@ AI 面板若依赖后端：
 
 ```text
 1. 修改文件清单。
-2. 是否只涉及教师/教务/AI 前端。
-3. 是否修改学生端页面，如修改必须说明原因。
-4. 是否修改后端，如修改必须说明原因。
-5. 是否修改 API client 或类型。
-6. 是否修改权限边界。
-7. 新增 TODO。
-8. 实际执行的 Docker wrapper 命令。
-9. 前端 typecheck 结果。
-10. 剩余依赖后端或其他成员完成的事项。
+2. 每个文件的作用。
+3. 已实现的功能。
+4. 是否只涉及教师/教务/AI 前端。
+5. 是否修改学生端页面，如修改必须说明原因。
+6. 是否修改后端，如修改必须说明原因。
+7. 是否修改 API client 或类型。
+8. 是否修改权限边界。
+9. 是否修改数据库或 Prisma schema。
+10. 是否修改非 C 组文件。
+11. 新增或保留的 TODO。
+12. 实际执行的 Docker wrapper 命令和结果。
+13. 手动测试步骤。
+14. 剩余依赖后端或其他成员完成的事项，以及需要负责人确认的问题。
 ```

@@ -67,16 +67,19 @@ backend/src/modules/course-selection/ai-advisor.service.ts
 ```text
 1. POST /api/v1/course-selection/enrollments。
 2. PATCH /api/v1/course-selection/enrollments/:id/drop。
-3. GET /api/v1/course-selection/enrollments/me 的后端核心选课记录查询能力，若文档中该接口由 C4 前端展示，成员 2 只负责后端 enrollment 数据。
+3. 为 C4 的 GET /api/v1/course-selection/enrollments/me 提供可复用 enrollment 读取能力时，只维护字段兼容和本人权限，不扩展 C4 结果展示职责。
 4. SelectionPeriod 有效性校验。
 5. CourseOffering 开放状态校验。
-6. 容量校验。
-7. 重复选课校验。
-8. Schedule 时间冲突校验。
-9. 当前阶段 max_credits 校验。
-10. CoursePrerequisite 先修课校验。
-11. Enrollment 与 CourseOffering.enrolled_count 的事务一致性。
-12. 明确错误码和错误原因。
+6. Course.status = active 校验。
+7. 容量校验。
+8. 重复选课校验。
+9. Schedule 时间冲突校验。
+10. 当前阶段 max_credits 校验。
+11. 培养方案适配性校验。
+12. CoursePrerequisite 先修课校验。
+13. Enrollment 与 CourseOffering.enrolled_count 的事务一致性。
+14. PostgreSQL 行锁、条件更新或等价并发安全策略。
+15. 明确错误码和错误原因。
 ```
 
 ## 4. 禁止越界
@@ -106,13 +109,16 @@ backend/src/modules/course-selection/ai-advisor.service.ts
 2. 学生身份必须来自认证上下文，不得信任请求体中的 student_id/studentId。
 3. 当前必须存在有效 SelectionPeriod。
 4. 当前时间必须在 start_time 和 end_time 范围内。
-5. CourseOffering 必须处于开放状态。
-6. enrolled_count < capacity。
-7. 同一学生不能重复选择同一 CourseOffering。
-8. 新选课程不能与学生已选课程 Schedule 冲突。
-9. 总学分不能超过当前阶段 max_credits。
-10. 如存在 CoursePrerequisite，必须检查先修要求。
-11. 创建 Enrollment 和更新 CourseOffering.enrolled_count 必须在同一事务中完成。
+5. CourseOffering.status 必须为 open。
+6. Course.status 必须为 active。
+7. enrolled_count < capacity。
+8. 同一学生不能重复选择同一 CourseOffering。
+9. 新选课程不能与学生已选课程 Schedule 冲突。
+10. 总学分不能超过当前阶段 max_credits。
+11. 必须校验课程符合学生培养方案适配性。
+12. 如存在 CoursePrerequisite，必须检查先修要求。
+13. 创建 Enrollment 和更新 CourseOffering.enrolled_count 必须在同一事务中完成。
+14. 并发选课必须使用行锁、条件更新或等价策略，避免容量超卖和重复有效记录。
 ```
 
 禁止危险实现：
@@ -123,6 +129,7 @@ backend/src/modules/course-selection/ai-advisor.service.ts
 3. 先创建 Enrollment 再异步更新 enrolled_count。
 4. 只靠前端判断冲突。
 5. 让 AI 或前端决定选课成功。
+6. 只读 enrolled_count 后无锁写入，导致并发超卖。
 ```
 
 ## 6. 数据库与模型约束
@@ -147,18 +154,20 @@ Semester
 
 ## 7. API 契约要求
 
-成员 2 相关接口主要包括：
+成员 2 相关写接口主要包括：
 
 ```text
-GET /api/v1/course-selection/enrollments/me
 POST /api/v1/course-selection/enrollments
 PATCH /api/v1/course-selection/enrollments/:id/drop
 ```
+
+`GET /api/v1/course-selection/enrollments/me` 属于 C4 结果查询契约。若当前代码结构由 `enrollment.controller.ts` 或 `enrollment.service.ts` 承载该只读接口，成员 2 只能保持本人权限、字段和状态过滤与 API 文档兼容，不得把 C4 结果展示、课表或名单导出扩展为自己的职责。
 
 请求体必须遵循 API 文档：
 
 ```text
 POST /enrollments 使用 course_offering_id。
+POST /enrollments 和 PATCH /drop 的幂等字段使用 client_request_id。
 学生普通选课接口不得接收或信任 student_id。
 ```
 
@@ -166,16 +175,15 @@ POST /enrollments 使用 course_offering_id。
 
 ```text
 courseOfferingId
+clientRequestId
 ```
-
-幂等字段如 `idempotency_key` 若 API 文档要求，应保留 schema 支持或 TODO。
 
 ## 8. 权限边界
 
 ```text
 1. 学生只能选/退自己的课程。
 2. 学生身份从 auth context 获取。
-3. admin 手动加课不属于普通学生选课接口，属于成员 3/C5 范围。
+3. academic_admin 手动加课不属于普通学生选课接口，属于成员 3/C5 范围。
 4. 教师不得调用学生选课写接口替学生选课。
 ```
 
@@ -185,8 +193,9 @@ courseOfferingId
 
 ```ts
 // TODO(C3, FR-C-xx, NFR-C-04):
-// 实现学生选课事务：检查 SelectionPeriod、CourseOffering 状态、容量、重复选课、Schedule 冲突、max_credits、CoursePrerequisite。
-// Enrollment 创建和 CourseOffering.enrolled_count 更新必须在同一事务内完成。
+// 实现学生选课事务：检查 SelectionPeriod、CourseOffering.status=open、Course.status=active、容量、重复选课、
+// Schedule 冲突、max_credits、培养方案适配性、CoursePrerequisite。
+// Enrollment 创建和 CourseOffering.enrolled_count 更新必须在同一事务内完成，并使用行锁或条件更新防止并发超卖。
 ```
 
 不得把 C4/C5/C6 的任务写成自己要实现的 TODO，应标注给对应成员。
@@ -209,13 +218,15 @@ courseOfferingId
 
 ```text
 1. 修改文件清单。
-2. 是否只涉及 C3。
-3. 是否修改选课事务规则。
-4. 是否修改 API 契约。
-5. 是否修改权限边界。
-6. 是否修改数据库或 Prisma schema。
-7. 是否涉及 C1/C2/C4/C5/C6，如涉及说明原因。
-8. 实际执行的 Docker wrapper 命令。
-9. 后端 typecheck 结果。
-10. 未完成 TODO 和需要负责人/其他成员确认的事项。
+2. 每个文件的作用。
+3. 已实现的功能。
+4. 是否只涉及 C3。
+5. 是否修改选课事务规则。
+6. 是否修改 API 契约。
+7. 是否修改权限边界。
+8. 是否修改数据库或 Prisma schema。
+9. 是否涉及 C1/C2/C4/C5/C6 或非 C 组文件，如涉及说明原因。
+10. 实际执行的 Docker wrapper 命令和结果。
+11. 手动测试步骤。
+12. 未完成 TODO、剩余风险，以及需要负责人/其他成员确认的事项。
 ```

@@ -181,13 +181,13 @@ studentId
 前端标准校验：
 
 ```bash
-./scripts/codex-docker-run.sh 'pnpm --filter @stss/web typecheck'
+CODEX_DOCKER_SERVICE=web CODEX_DOCKER_WORKDIR=/app ./scripts/codex-docker-run.sh 'pnpm --filter @stss/web typecheck'
 ```
 
 如任务也影响共享类型或后端 API 类型，负责人或相关后端成员应另行运行：
 
 ```bash
-./scripts/codex-docker-run.sh 'pnpm --filter @stss/shared build && pnpm --filter @stss/server typecheck'
+CODEX_DOCKER_SERVICE=server CODEX_DOCKER_WORKDIR=/app ./scripts/codex-docker-run.sh 'pnpm --filter @stss/shared build && pnpm --filter @stss/server typecheck'
 ```
 
 成员 4 不得在宿主机直接运行 pnpm、npm、node、tsc。
@@ -210,12 +210,15 @@ studentId
 
 ```text
 1. 修改文件清单。
-2. 是否只涉及学生端前端。
-3. 是否修改 API client 或类型。
-4. 是否修改后端，如修改必须说明原因。
-5. 是否修改教师/教务/AI 前端，如修改必须说明原因。
-6. 新增 TODO。
-7. 实际执行的 Docker wrapper 命令。
-8. 前端 typecheck 结果。
-9. 剩余依赖后端或其他成员完成的事项。
+2. 每个文件的作用。
+3. 已实现的功能。
+4. 是否只涉及学生端前端。
+5. 是否修改 API client 或类型。
+6. 是否修改后端，如修改必须说明原因。
+7. 是否修改教师/教务/AI 前端或非 C 组文件，如修改必须说明原因。
+8. 是否修改数据库或 Prisma schema。
+9. 新增或保留的 TODO。
+10. 实际执行的 Docker wrapper 命令和结果。
+11. 手动测试步骤。
+12. 剩余依赖后端或其他成员完成的事项，以及需要负责人确认的问题。
 ```

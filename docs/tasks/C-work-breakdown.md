@@ -73,6 +73,16 @@ git branch -r | grep 'origin/dev/C'
 
 若组员数量或能力分布变化，优先保证 C3 选课事务和 C5 阶段管理有人负责，因为这两部分最容易影响数据一致性。
 
+成员开始实现前，应优先阅读对应的工作指导：
+
+```text
+成员 1：docs/tasks/C-member1-backend-curriculum-course-search-guide.md
+成员 2：docs/tasks/C-member2-backend-enrollment-core-guide.md
+成员 3：docs/tasks/C-member3-backend-results-period-roster-guide.md
+成员 4：docs/tasks/C-member4-frontend-student-guide.md
+成员 5：docs/tasks/C-member5-frontend-admin-teacher-ai-guide.md
+```
+
 ## 5. 阶段计划
 
 ### M0：文档和框架

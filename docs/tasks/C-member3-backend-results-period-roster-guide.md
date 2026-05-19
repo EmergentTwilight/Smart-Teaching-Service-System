@@ -144,9 +144,24 @@ frontend/src/modules/course-selection/**
 
 不要主动实现 C1/C2/C3/C6 或前端完整业务。
 
-## 5. C4 后端工作要求
+## 5. 负责人已预留 TODO 占位清单
 
-### 5.1 本人选课结果
+以下 TODO 是负责人搭建 C 组框架时已经留在代码中的成员 3 工作占位，覆盖 C4 结果/名单和 C5 教务管理。成员 3 应优先完成这些后端 TODO，并保留其中的权限、事务和审计边界。
+
+| 现有位置 | 当前 TODO 范围 | 组员需要完成的内容 |
+|---|---|---|
+| `backend/src/modules/course-selection/enrollment-results.service.ts` | `TODO(C4, FR-C-24, FR-C-26, FR-C-29)` | 实现 `/enrollments/me` 本人选课记录查询，支持 `semester_id/status/keyword/page/page_size`；只读本人数据，不修改 `Enrollment`，不放回 C3 `enrollment.service.ts`。 |
+| `backend/src/modules/course-selection/timetable.service.ts` | `TODO(C4, FR-C-25, NFR-C-08)`、`TODO(C4, FR-C-25, FR-C-26, NFR-C-08)` | 实现本人课表查询，支持 `semester_id` 与 `format`；返回 `semester/items/missing_schedule_items`；打印样式留给前端。 |
+| `backend/src/modules/course-selection/roster.service.ts` | `TODO(C4, FR-C-27, FR-C-28, NFR-C-06)`、`TODO(C4, FR-C-27, NFR-C-06)`、`TODO(C4, FR-C-28, NFR-C-08)` | 实现教师 roster 分页查询和 Excel 导出；必须复用 `CourseOffering.teacher_id` ownership 校验；当前 API 不提供 admin/super_admin 例外；导出返回二进制，不返回 JSON download token。 |
+| `backend/src/modules/course-selection/selection-period.service.ts` | `TODO(C5, FR-C-30, FR-C-31, FR-C-32, NFR-C-14)`、`TODO(C5, FR-C-30, FR-C-31, NFR-C-05)`、`TODO(C5, FR-C-30, FR-C-32, NFR-C-12)` | 实现 SelectionPeriod 列表、创建、修改；语义权限为 `academic_admin`，服务层映射 `Admin.adminType=ACADEMIC`；校验阶段枚举、时间范围、重叠规则、`is_active`；创建/修改写 `SystemLog`。 |
+| `backend/src/modules/course-selection/selection-period.service.ts`：手动加课 | `TODO(C5, FR-C-33, FR-C-34, NFR-C-04, NFR-C-12)` | 实现手动加课事务：`reason` 必填；校验学生、课程开设存在且未取消、容量、重复、冲突、默认 `max_credits`；创建或恢复 `Enrollment`、更新 `enrolled_count`、写 `SystemLog` 同事务完成；培养方案和先修例外按 `TODO-C-21`。 |
+| `backend/src/modules/course-selection/course-selection.schemas.ts`：C4/C5 schema | `TODO(C5, FR-C-30, FR-C-35, NFR-C-14)`、`TODO(C5, FR-C-30, FR-C-31, FR-C-32, NFR-C-14)`、`TODO(C5, FR-C-33, FR-C-34, NFR-C-04)`、`TODO(C4, FR-C-27, FR-C-28, NFR-C-06)`、`TODO(C4, FR-C-25, FR-C-26, NFR-C-08)` | 补齐阶段、手动加课、roster、课表查询参数校验；roster 默认 `page_size=50`，phase 只允许 `first_round/second_round/adjustment`，创建 period 要求 `is_active`，manual enrollment 要求 `reason`。 |
+
+连接数控制和长时间无操作释放的 TODO 应靠近 `selection-period.service.ts` 或未来准入控制 service，标注 `TODO(C5, FR-C-35, FR-C-36, NFR-C-01~NFR-C-03)`；不要新增 `CourseSelectionQueue` 等数据库业务表。
+
+## 6. C4 后端工作要求
+
+### 6.1 本人选课结果
 
 实现 `GET /enrollments/me`：
 
@@ -155,7 +170,7 @@ frontend/src/modules/course-selection/**
 - 返回 `enrollment_id`、状态、时间、课程开设摘要、分页 summary。
 - 不修改任何 `Enrollment`。
 
-### 5.2 本人课表
+### 6.2 本人课表
 
 实现 `GET /timetable/me`：
 
@@ -164,7 +179,7 @@ frontend/src/modules/course-selection/**
 - 返回 `semester`、`items`、`missing_schedule_items`。
 - 后端只提供稳定数据结构，打印样式由成员 4 前端完成。
 
-### 5.3 教师名单与导出
+### 6.3 教师名单与导出
 
 实现 roster 查询和导出：
 
@@ -175,9 +190,9 @@ frontend/src/modules/course-selection/**
 - 导出接口返回 Excel 二进制，不能返回 JSON download token。
 - 导出必须复用 ownership 校验，不能从前端缓存拼接敏感数据。
 
-## 6. C5 后端工作要求
+## 7. C5 后端工作要求
 
-### 6.1 SelectionPeriod 管理
+### 7.1 SelectionPeriod 管理
 
 实现阶段查询、创建、修改：
 
@@ -188,7 +203,7 @@ frontend/src/modules/course-selection/**
 - 同一学期启用阶段重叠、相邻规则按 `TODO-C-18` 明确。
 - 正在开放阶段被停用时的在途请求策略按 `TODO-C-20` 明确。
 
-### 6.2 手动加课
+### 7.2 手动加课
 
 实现 `POST /admin/enrollments`：
 
@@ -198,7 +213,7 @@ frontend/src/modules/course-selection/**
 - 创建或恢复 `Enrollment`、更新 `CourseOffering.enrolled_count`、写入 `SystemLog` 必须在同一事务内完成。
 - 是否允许培养方案适配或先修课例外，按 `TODO-C-21` 由负责人确认，不得用前端参数绕过。
 
-### 6.3 并发与无操作释放
+### 7.3 并发与无操作释放
 
 连接数控制、心跳、无操作释放如未实现，必须保留清晰 TODO：
 
@@ -208,7 +223,7 @@ TODO(C5, FR-C-35, FR-C-36, NFR-C-01~NFR-C-03)
 
 不得新增 `CourseSelectionQueue` 等数据库业务表。
 
-## 7. 权限边界
+## 8. 权限边界
 
 必须守住：
 
@@ -220,9 +235,9 @@ TODO(C5, FR-C-35, FR-C-36, NFR-C-01~NFR-C-03)
 5. 手动加课不得开放给 student/teacher。
 ```
 
-## 8. 推荐 AI 工作流
+## 9. 推荐 AI 工作流
 
-### 8.1 开始任务
+### 9.1 开始任务
 
 给 AI 的开场提示建议：
 
@@ -232,7 +247,7 @@ TODO(C5, FR-C-35, FR-C-36, NFR-C-01~NFR-C-03)
 请优先对齐 C API 中 /enrollments/me、/timetable/me、/teacher/offerings/:id/roster、/admin/periods、/admin/enrollments 的契约。
 ```
 
-### 8.2 拆分实现
+### 9.2 拆分实现
 
 推荐拆成这些任务：
 
@@ -244,7 +259,7 @@ TODO(C5, FR-C-35, FR-C-36, NFR-C-01~NFR-C-03)
 6. “实现手动加课事务，复用 C3 校验能力，不重写普通学生选课事务。”
 7. “补充连接数控制和无操作释放 TODO，不新增业务表。”
 
-### 8.3 AI 输出复核
+### 9.3 AI 输出复核
 
 每轮修改后检查：
 
@@ -255,7 +270,7 @@ TODO(C5, FR-C-35, FR-C-36, NFR-C-01~NFR-C-03)
 - 是否绕过容量、冲突、重复和学分校验。
 - 是否误改 C3 普通选课事务。
 
-## 9. 验证要求
+## 10. 验证要求
 
 必须通过 Docker wrapper。
 
@@ -276,7 +291,7 @@ TODO(C5, FR-C-35, FR-C-36, NFR-C-01~NFR-C-03)
 6. 手动加课容量满、重复、课表冲突、缺 reason 时失败。
 ```
 
-## 10. 交付说明模板
+## 11. 交付说明模板
 
 提交或交接时必须说明：
 

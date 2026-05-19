@@ -140,7 +140,19 @@ backend/src/modules/course-selection/ai-advisor.service.ts
 
 不要主动修改前端页面、C1/C2/C4/C5/C6 service 或其他组模块。
 
-## 5. 选课事务必须完成的校验
+## 5. 负责人已预留 TODO 占位清单
+
+以下 TODO 是负责人搭建 C 组框架时已经留在代码中的成员 2 工作占位。成员 2 接手实现时，应优先完成这些 C3 写事务 TODO；完成后可以删除或细化 TODO，但不能保留危险假实现。
+
+| 现有位置 | 当前 TODO 范围 | 组员需要完成的内容 |
+|---|---|---|
+| `backend/src/modules/course-selection/enrollment.service.ts`：选课函数 | `TODO(C3, FR-C-14, FR-C-16, FR-C-17, NFR-C-04, NFR-C-05)`、`TODO(C3, FR-C-17, FR-C-22)` | 实现学生选课事务：校验学生身份、有效阶段、`CourseOffering.status=open`、`Course.status=active`、容量、重复、Schedule 冲突、`max_credits`、培养方案适配、先修要求；创建或恢复 `Enrollment` 与更新 `CourseOffering.enrolled_count` 必须同事务完成；并发使用行锁、条件更新或等价策略。 |
+| `backend/src/modules/course-selection/enrollment.service.ts`：退选函数 | `TODO(C3, FR-C-21, FR-C-22, NFR-C-04)`、`TODO(C3, FR-C-23)` | 实现退选事务：只能退选当前学生本人 `Enrollment`，阶段必须允许退选，目标状态必须为 `enrolled`；只更新 `status=dropped` 和 `dropped_at`，不得删除记录，不写不存在的退选原因字段；同事务减少 `enrolled_count` 且不小于 0。 |
+| `backend/src/modules/course-selection/course-selection.schemas.ts`：选课/退选 schema | `TODO(C3, FR-C-14, FR-C-16, NFR-C-04)`、`TODO(C3, FR-C-16, FR-C-14, NFR-C-04)`、`TODO(C3, FR-C-21, NFR-C-04)` | 保持请求体只使用 `course_offering_id`、`client_request_id` 等文档字段；学生身份不得来自请求体；退选 schema 透传 `client_request_id`，不推动新增 `Enrollment.reason`。 |
+
+依赖其他成员的内容不要在 C3 中直接实现：可选课程 eligibility 属于 C1/C2，`GET /enrollments/me` 和课表属于 C4，手动加课属于 C5。先修通过情况、准入控制和退选阶段规则应分别引用 `TODO-C-10`、`TODO-C-11`、`TODO-C-12` 并写清负责人确认项。
+
+## 6. 选课事务必须完成的校验
 
 `POST /enrollments` 必须在服务端事务中完成，至少包含：
 
@@ -170,7 +182,7 @@ backend/src/modules/course-selection/ai-advisor.service.ts
 5. 返回 success: true 作为临时假实现。
 ```
 
-## 6. 退选事务必须完成的校验
+## 7. 退选事务必须完成的校验
 
 `PATCH /enrollments/:id/drop` 必须在服务端事务中完成，至少包含：
 
@@ -183,7 +195,7 @@ backend/src/modules/course-selection/ai-advisor.service.ts
 7. `CourseOffering.enrolled_count` 必须在同一事务内减少，并保证不小于 0。
 8. 幂等字段使用 `client_request_id`。
 
-## 7. 数据库与模型边界
+## 8. 数据库与模型边界
 
 可以使用：
 
@@ -202,9 +214,9 @@ Semester
 
 不得新增业务表或修改 Prisma schema。若认为必须增加唯一约束或索引，先写负责人确认项，不要直接改 schema。
 
-## 8. 推荐 AI 工作流
+## 9. 推荐 AI 工作流
 
-### 8.1 开始任务
+### 9.1 开始任务
 
 给 AI 的开场提示建议：
 
@@ -214,7 +226,7 @@ Semester
 请先对照 C API 的 RULE-C-01 至 RULE-C-05 和 FR-C-14 至 FR-C-23。
 ```
 
-### 8.2 拆分实现
+### 9.2 拆分实现
 
 推荐拆成这些小任务：
 
@@ -225,7 +237,7 @@ Semester
 5. “实现退选事务：只改状态和 `dropped_at`，同步减少人数。”
 6. “补充错误码、手动测试和并发测试说明。”
 
-### 8.3 AI 输出复核
+### 9.3 AI 输出复核
 
 每轮修改后检查：
 
@@ -236,7 +248,7 @@ Semester
 - 是否仍信任请求体中的 `student_id`。
 - 是否有容量超卖风险。
 
-## 9. 验证要求
+## 10. 验证要求
 
 必须通过 Docker wrapper。
 
@@ -257,7 +269,7 @@ Semester
 6. 学生退选他人记录失败。
 ```
 
-## 10. 交付说明模板
+## 11. 交付说明模板
 
 提交或交接时必须说明：
 

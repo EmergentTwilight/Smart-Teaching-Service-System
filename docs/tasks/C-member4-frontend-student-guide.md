@@ -154,16 +154,32 @@ frontend/src/modules/course-selection/pages/CourseSelectionAiPage.tsx
 
 不要主动修改后端复杂业务、教师/教务/AI 页面或其他组模块。
 
-## 5. 具体要完成的工作
+## 5. 负责人已预留 TODO 占位清单
 
-### 5.1 培养方案页面
+以下 TODO 是负责人搭建 C 组前端框架时已经留在代码中的成员 4 工作占位。成员 4 接手实现时，应优先完成这些学生端 TODO；若后端仍为 501，应展示错误和占位状态，不能用假数据覆盖真实接口状态。
+
+| 现有位置 | 当前 TODO 范围 | 组员需要完成的内容 |
+|---|---|---|
+| `frontend/src/modules/course-selection/pages/StudentCurriculumPage.tsx` | `TODO(C1, FR-C-01, FR-C-02, FR-C-04, FR-C-05)` | 完成培养方案页面，展示培养方案、课程分组、建议学期、确认入口和学分进展；无培养方案时展示后端错误。 |
+| `frontend/src/modules/course-selection/pages/StudentCourseSelectionPage.tsx` | `TODO(C1, C2, C3, FR-C-04, FR-C-13, FR-C-16, FR-C-22, NFR-C-07, NFR-C-13)`、`TODO(C3/C4 frontend, FR-C-16, FR-C-21, FR-C-24, NFR-C-13)` | 完成学生选课聚合页：展示培养方案上下文、可选课程、课程详情、本人选课；接入选课/退选 mutation，但必须等待后端结果，不伪造成功。 |
+| `frontend/src/modules/course-selection/pages/StudentTimetablePage.tsx` | `TODO(C4, FR-C-25, FR-C-26, FR-C-29, FR-C-07)` | 完成本人课表页面，展示课表、筛选和缺失排课提示；打印样式在前端实现但不改变后端数据。 |
+| `frontend/src/modules/course-selection/components/CreditProgressCard.tsx` | `TODO(C1, FR-C-05, NFR-C-06, NFR-C-07)` | 完成学分进展卡片，展示必修/选修/公共课进度、warnings、loading 和 error 状态。 |
+| `frontend/src/modules/course-selection/components/CourseOfferingTable.tsx` | `TODO(C2, FR-C-08, FR-C-09, C3, FR-C-16, NFR-C-13)` | 完成课程列表渲染，与后端分页、筛选、可选状态、冲突提示保持一致；展示 `eligibility.reasons`，不要要求未定义的 `unavailable_reason`。 |
+| `frontend/src/modules/course-selection/components/CourseDetailDrawer.tsx` | `TODO(C2, FR-C-11, FR-C-19, NFR-C-07)` | 完成课程详情抽屉，展示先修课程、排课信息和冲突风险；不展示 roster 敏感信息。 |
+| `frontend/src/modules/course-selection/components/TimetableGrid.tsx` | `TODO(C4, FR-C-25, NFR-C-08)` | 完成课表网格化展示，按后端 `items` 渲染并处理缺失排课项。 |
+| `frontend/src/modules/course-selection/hooks/useAvailableOfferings.ts` | `TODO(C2, FR-C-13, FR-C-15, NFR-C-13)` | 完成可选课程查询 hook，使用 `/offerings/available` 和 `include_unavailable`，不发送 `student_id`。 |
+| `frontend/src/modules/course-selection/hooks/useMyEnrollments.ts` | `TODO(C4, FR-C-24, FR-C-29, NFR-C-06)` | 完成本人选课结果查询 hook；`GET /enrollments/me` 属于 C4 只读结果，学生身份由后端解析。 |
+
+## 6. 具体要完成的工作
+
+### 6.1 培养方案页面
 
 - 展示培养方案名称、专业、年级、总学分、课程分组。
 - 展示 required/elective/general 分类课程、学分、建议学期。
 - 展示学分进展和后端 warnings。
 - 如果后端提示无匹配培养方案，前端给出明确错误和空状态。
 
-### 5.2 学生选课页面
+### 6.2 学生选课页面
 
 - 提供课程搜索和筛选，字段对齐 API 文档。
 - `/offerings/available` 使用 `include_unavailable` 展示可选与不可选课程。
@@ -172,19 +188,19 @@ frontend/src/modules/course-selection/pages/CourseSelectionAiPage.tsx
 - 选课按钮调用 `POST /enrollments`，成功后刷新可选课程和本人选课。
 - 退选按钮调用 `PATCH /enrollments/:id/drop`，成功后刷新本人结果和课表。
 
-### 5.3 结果和课表页面
+### 6.3 结果和课表页面
 
 - 结果查询支持 `semester_id`、`status`、`keyword`、分页。
 - 课表展示按后端 `items` 和 `missing_schedule_items` 渲染。
 - 打印样式或导出视图属于前端工作，但不能改变后端数据。
 
-### 5.4 状态体验
+### 6.4 状态体验
 
 - 所有页面处理 loading、error、empty、permission denied。
 - 展示后端业务错误码和原因，不吞掉容量满、冲突、阶段关闭等失败原因。
 - 不在前端伪造成功状态；必须等待后端返回。
 
-## 6. 禁止事项
+## 7. 禁止事项
 
 成员 4 不得做：
 
@@ -199,9 +215,9 @@ frontend/src/modules/course-selection/pages/CourseSelectionAiPage.tsx
 8. 修改 A/B/D/E/F 组页面或逻辑。
 ```
 
-## 7. 推荐 AI 工作流
+## 8. 推荐 AI 工作流
 
-### 7.1 开始任务
+### 8.1 开始任务
 
 给 AI 的开场提示建议：
 
@@ -211,7 +227,7 @@ frontend/src/modules/course-selection/pages/CourseSelectionAiPage.tsx
 请先对齐 C API 的学生端接口和 frontend course-selection README。
 ```
 
-### 7.2 拆分实现
+### 8.2 拆分实现
 
 推荐拆成这些任务：
 
@@ -222,7 +238,7 @@ frontend/src/modules/course-selection/pages/CourseSelectionAiPage.tsx
 5. “完善本人选课结果和课表页面，支持筛选和缺失排课提示。”
 6. “做一次移动端和桌面端 UI 扫描，修正文本溢出和操作按钮状态。”
 
-### 7.3 AI 输出复核
+### 8.3 AI 输出复核
 
 每轮修改后检查：
 
@@ -233,7 +249,7 @@ frontend/src/modules/course-selection/pages/CourseSelectionAiPage.tsx
 - 是否误改教师/教务/AI 页面。
 - 是否保留后端未实现时的错误展示，不把 501 当空数据。
 
-## 8. 验证要求
+## 9. 验证要求
 
 必须通过 Docker wrapper。
 
@@ -259,7 +275,7 @@ CODEX_DOCKER_SERVICE=server CODEX_DOCKER_WORKDIR=/app ./scripts/codex-docker-run
 5. 后端 501 或权限错误时，页面展示明确错误而不是假空数据。
 ```
 
-## 9. 交付说明模板
+## 10. 交付说明模板
 
 提交或交接时必须说明：
 

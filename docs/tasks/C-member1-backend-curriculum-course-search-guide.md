@@ -159,7 +159,23 @@ backend/src/modules/forum/**
 backend/src/modules/score-management/**
 ```
 
-## 5. 具体要完成的工作
+## 5. 负责人已预留 TODO 占位清单
+
+以下 TODO 是负责人搭建 C 组框架时已经留在代码中的成员 1 工作占位。成员 1 接手实现时，应优先消化这些 TODO；完成后可以删除或改写为更细的后续 TODO，但不得把 TODO 留成已实现代码旁边的过期说明。
+
+| 现有位置 | 当前 TODO 范围 | 组员需要完成的内容 |
+|---|---|---|
+| `backend/src/modules/course-selection/curriculum.service.ts`：当前学生培养方案查询 | `TODO(C1, FR-C-01, FR-C-02, FR-C-03, FR-C-06, NFR-C-13)` | 根据当前登录学生匹配 `Curriculum`，返回培养方案、课程分组、课程类别和建议学期；无匹配培养方案时返回明确错误；不得新增 `StudentPlan` 或培养方案副本。 |
+| `backend/src/modules/course-selection/curriculum.service.ts`：学分进展查询 | `TODO(C1, FR-C-05, NFR-C-07)`、`TODO(C1, FR-C-05, NFR-C-12)` | 基于有效 `Enrollment` 汇总分类学分进度，并保证统计结果与后续 C3 选课/退课事务一致；公共课最低学分来源按 `TODO-C-02` 处理。 |
+| `backend/src/modules/course-selection/course-search.service.ts`：课程目录查询 | `TODO(C2, FR-C-08, FR-C-09, FR-C-10, FR-C-12, NFR-C-13)` | 实现课程名、课程代码、教师、学期、课程类型等筛选和分页；避免无分页大表查询；只读课程主数据，不修改课程主数据。 |
+| `backend/src/modules/course-selection/course-search.service.ts`：课程开设列表 | `TODO(C2, FR-C-08, FR-C-15)` | 返回课程开设容量、已选人数、教师、学期和状态；结果只代表开设信息，不代表学生一定可选。 |
+| `backend/src/modules/course-selection/course-search.service.ts`：本人可选课程 | `TODO(C2, C3, FR-C-13, FR-C-15, FR-C-16, FR-C-18, NFR-C-07, NFR-C-08)` | 实现只读 eligibility 计算和 `eligibility.reasons`，覆盖容量、已选、时间冲突、培养方案适配、当前阶段等原因；最终选课成功和容量扣减仍由 C3 事务决定。 |
+| `backend/src/modules/course-selection/course-search.service.ts`：课程详情 | `TODO(C2, C3, FR-C-18, FR-C-19, NFR-C-07)`、`TODO(C2, FR-C-11, FR-C-18, FR-C-19, NFR-C-07)` | 返回 nested `course/semester/teacher/schedules/prerequisites/eligibility`；排课缺失按 `TODO-C-07` 给出提示；先修通过情况按 `TODO-C-05` 与 F 子系统确认；不返回 roster 或学生名单。 |
+| `backend/src/modules/course-selection/course-selection.schemas.ts`：C1/C2 query schema | `TODO(C1, FR-C-01, FR-C-03, NFR-C-13)`、`TODO(C1, FR-C-05, NFR-C-13)`、`TODO(C2, FR-C-08, FR-C-12, NFR-C-13)`、`TODO(C2, FR-C-13, FR-C-15, NFR-C-13)`、`TODO(C2, FR-C-11, FR-C-19, NFR-C-07)` | 规范 C1/C2 请求参数、分页和筛选字段；外部字段保持 `snake_case`；`/offerings/available` 使用 `include_unavailable`，不要新增未评审过滤字段。 |
+
+如果实现中发现数据库无法支持 `FR-C-04` 培养方案确认、`FR-C-05` 公共课最低学分或 `FR-C-19` 先修通过情况，应把相关代码 TODO 指向 `TODO-C-01`、`TODO-C-02`、`TODO-C-05`，不要直接改 Prisma schema。
+
+## 6. 具体要完成的工作
 
 优先级建议：
 
@@ -187,7 +203,7 @@ SelectionPeriod（只读，用于 eligibility）
 Semester
 ```
 
-## 6. 禁止事项
+## 7. 禁止事项
 
 成员 1 不得做：
 
@@ -204,11 +220,11 @@ Semester
 
 如果需要 C3/C4/C5/C6 支持，写清 TODO 或在 PR 说明中列为依赖。
 
-## 7. 推荐 AI 工作流
+## 8. 推荐 AI 工作流
 
 建议每次只让 AI 处理一个小范围，不要一次要求“实现整个 C1/C2”。
 
-### 7.1 开始任务
+### 8.1 开始任务
 
 给 AI 的开场提示建议：
 
@@ -218,7 +234,7 @@ Semester
 本次只处理 C1/C2 后端，不实现 C3 选课事务或任何前端页面。
 ```
 
-### 7.2 拆分实现
+### 8.2 拆分实现
 
 推荐拆成这些独立 AI 任务：
 
@@ -229,7 +245,7 @@ Semester
 5. “实现 `/offerings/available` 只读 eligibility，并明确最终选课仍由 C3 事务判断。”
 6. “补充 C1/C2 后端手动测试步骤和剩余 TODO。”
 
-### 7.3 AI 输出复核
+### 8.3 AI 输出复核
 
 每轮 AI 修改后检查：
 
@@ -240,7 +256,7 @@ Semester
 - 是否让学生端通过请求参数传 `student_id` 查询他人培养方案。
 - 是否保留了必要 TODO-C-01、TODO-C-02、TODO-C-05、TODO-C-07。
 
-## 8. 验证要求
+## 9. 验证要求
 
 必须通过 Docker wrapper，不得在宿主机直接运行 `pnpm/npm/node/tsc/prisma`。
 
@@ -260,7 +276,7 @@ Semester
 5. 用无培养方案学生测试，确认返回明确错误或文档约定的提示。
 ```
 
-## 9. 交付说明模板
+## 10. 交付说明模板
 
 提交或交接时必须说明：
 

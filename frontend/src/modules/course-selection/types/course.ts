@@ -96,8 +96,6 @@ export interface OfferingsAvailableQuery {
   semesterId?: string;
   courseType?: string;
   offeringStatus?: string;
-  onlyAvailable?: boolean;
-  includeConflictReasons?: boolean;
   includeUnavailable?: boolean;
   page?: number;
   pageSize?: number;

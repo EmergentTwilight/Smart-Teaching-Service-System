@@ -134,10 +134,6 @@ export const availableOfferingsQuerySchema = z
     course_type: z.string().optional(),
     offeringStatus: z.string().optional(),
     offering_status: z.string().optional(),
-    onlyAvailable: booleanSchema,
-    only_available: booleanSchema,
-    includeConflictReasons: booleanSchema,
-    include_conflict_reasons: booleanSchema,
     includeUnavailable: booleanSchema,
     include_unavailable: booleanSchema,
   })
@@ -150,10 +146,6 @@ export const availableOfferingsQuerySchema = z
     course_type,
     offeringStatus,
     offering_status,
-    onlyAvailable,
-    only_available,
-    includeConflictReasons,
-    include_conflict_reasons,
     includeUnavailable,
     include_unavailable,
     ...rest
@@ -163,8 +155,6 @@ export const availableOfferingsQuerySchema = z
     semesterId: semesterId ?? semester_id,
     courseType: courseType ?? course_type,
     offeringStatus: offeringStatus ?? offering_status,
-    onlyAvailable: onlyAvailable ?? only_available,
-    includeConflictReasons: includeConflictReasons ?? include_conflict_reasons,
     includeUnavailable: includeUnavailable ?? include_unavailable,
   }))
 
@@ -391,7 +381,7 @@ export const updateSelectionPeriodBodySchema = selectionPeriodBodyInputSchema
   }))
   .pipe(z.object({
     semesterId: z.string().uuid().optional(),
-    phase: z.string().optional(),
+    phase: z.enum(['first_round', 'second_round', 'adjustment']).optional(),
     startTime: z.string().datetime({ offset: true }).optional(),
     endTime: z.string().datetime({ offset: true }).optional(),
     maxCredits: z.number().min(0).optional(),

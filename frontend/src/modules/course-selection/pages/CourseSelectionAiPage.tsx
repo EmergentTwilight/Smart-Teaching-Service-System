@@ -28,8 +28,7 @@ const CourseSelectionAiPage: React.FC = () => {
     queryKey: ['course-selection', 'offerings', 'available', 'search', offeringsKeyword],
     queryFn: () =>
       coursesApi.listAvailableOfferings({
-        onlyAvailable: true,
-        includeConflictReasons: true,
+        includeUnavailable: true,
         keyword: offeringsKeyword || undefined,
       }),
     staleTime: 30 * 1000,

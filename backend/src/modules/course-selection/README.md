@@ -44,7 +44,7 @@
 ### C5 选课管理与管理员操作
 - 文件：`selection-period.controller.ts`、`selection-period.service.ts`
 - 职责：阶段管理、手动加课（`FR-C-30` ~ `FR-C-37`）。
-- 权限：`admin`、`super_admin`。
+- 权限：语义权限为 `academic_admin`；当前路由可暂以 `admin`/`super_admin` 作为入口保护，但服务层 TODO 或实现必须映射到 `Admin.adminType = ACADEMIC` 或等价教务授权，不得把系统管理员默认等同为教务管理员。
 - 事务要求（NFR-C-12）：
   - 阶段变更需校验时序、冲突与激活状态。
   - 手动加课沿用 `C3` 所有校验链路，不得绕过容量和冲突规则（`FR-C-33`、`FR-C-34`）。

@@ -88,10 +88,6 @@ export interface AvailableOfferingsQuery extends BaseQuery {
   course_type?: string
   offeringStatus?: string
   offering_status?: string
-  onlyAvailable?: boolean
-  only_available?: boolean
-  includeConflictReasons?: boolean
-  include_conflict_reasons?: boolean
   includeUnavailable?: boolean
   include_unavailable?: boolean
 }

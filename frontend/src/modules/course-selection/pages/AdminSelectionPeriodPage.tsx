@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { Button, Card, DatePicker, Form, Input, Select, Space, Table, Tag, Typography } from 'antd';
 import dayjs, { Dayjs } from 'dayjs';
-import { useSelectionPeriods, useUpsertSelectionPeriod } from '../hooks/useSelectionPeriod';
+import { useSelectionPeriods } from '../hooks/useSelectionPeriod';
 import { SelectionPeriodStatusTag } from '../components/SelectionPeriodStatusTag';
-import type { SelectionPeriodItem, SelectionPeriodPayload, SelectionPhase } from '../types/period';
+import type { SelectionPeriodItem, SelectionPhase } from '../types/period';
 
 const { Text } = Typography;
 
@@ -30,7 +30,6 @@ interface PeriodFormValues {
  */
 const AdminSelectionPeriodPage: React.FC = () => {
   const periodsQuery = useSelectionPeriods();
-  const periodOps = useUpsertSelectionPeriod();
   const [editingPeriodId, setEditingPeriodId] = useState<string | null>(null);
   const [form] = Form.useForm<PeriodFormValues>();
 
@@ -39,31 +38,6 @@ const AdminSelectionPeriodPage: React.FC = () => {
     key: item.id,
     ...item,
   }));
-
-  const onSubmit = async () => {
-    const values = await form.validateFields().catch(() => null);
-    if (!values) {
-      return;
-    }
-    if (editingPeriodId) {
-      periodOps.update.mutate({
-        periodId: editingPeriodId,
-        payload: convertFormToPayload(values),
-      });
-      return;
-    }
-
-    periodOps.create.mutate(convertFormToPayload(values));
-  };
-
-  const convertFormToPayload = (values: PeriodFormValues): SelectionPeriodPayload => ({
-    semesterId: values.semesterId,
-    phase: values.phase,
-    startTime: values.startTime.toISOString(),
-    endTime: values.endTime.toISOString(),
-    maxCredits: values.maxCredits,
-    isActive: values.isActive ?? false,
-  });
 
   const columns = [
     {
@@ -134,7 +108,7 @@ const AdminSelectionPeriodPage: React.FC = () => {
       </div>
 
       <Card title={editingPeriodId ? '更新阶段配置' : '新建阶段配置'} style={{ marginBottom: 16 }}>
-        <Form form={form} layout="vertical" onFinish={onSubmit} initialValues={{ isActive: true }}>
+        <Form form={form} layout="vertical" initialValues={{ isActive: true }}>
           <Form.Item
             name="semesterId"
             label="学期ID"
@@ -176,13 +150,16 @@ const AdminSelectionPeriodPage: React.FC = () => {
           </Form.Item>
           <Form.Item>
             <Space>
-              <Button type="primary" htmlType="submit" loading={periodOps.create.isPending || periodOps.update.isPending}>
-                {editingPeriodId ? '更新阶段' : '创建阶段'}
+              <Button type="primary" disabled>
+                {editingPeriodId ? '更新阶段（TODO）' : '创建阶段（TODO）'}
               </Button>
               <Button onClick={resetForm}>重置表单</Button>
             </Space>
           </Form.Item>
         </Form>
+        <Text type="secondary">
+          TODO(C5 frontend, FR-C-30~FR-C-32): 成员 5 接入阶段创建/更新 mutation，负责人骨架不提前实现教务端写操作。
+        </Text>
       </Card>
 
       <Card title="阶段列表">

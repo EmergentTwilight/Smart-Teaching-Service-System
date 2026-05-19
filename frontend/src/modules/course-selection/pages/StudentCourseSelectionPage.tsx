@@ -42,8 +42,7 @@ const StudentCourseSelectionPage: React.FC = () => {
   const [filterForm] = Form.useForm<StudentCourseSelectionQuery>();
   const [offeringIdInDrawer, setOfferingIdInDrawer] = useState<string | null>(null);
   const [search, setSearch] = useState<StudentCourseSelectionQuery>({
-    onlyAvailable: true,
-    includeConflictReasons: true,
+    includeUnavailable: true,
     page: 1,
     pageSize: 20,
   });
@@ -79,8 +78,7 @@ const StudentCourseSelectionPage: React.FC = () => {
   const resetSearch = () => {
     filterForm.resetFields();
     setSearch((prev) => ({
-      onlyAvailable: prev.onlyAvailable,
-      includeConflictReasons: prev.includeConflictReasons,
+      includeUnavailable: prev.includeUnavailable ?? true,
       page: 1,
       pageSize: prev.pageSize || 20,
     }));
@@ -124,7 +122,7 @@ const StudentCourseSelectionPage: React.FC = () => {
               form={filterForm}
               layout="inline"
               onFinish={handleSearch}
-              initialValues={{ onlyAvailable: true, includeConflictReasons: true }}
+              initialValues={{ includeUnavailable: true }}
             >
               <Form.Item name="keyword" style={{ minWidth: 220 }}>
                 <Input
@@ -150,8 +148,8 @@ const StudentCourseSelectionPage: React.FC = () => {
                   <Select.Option value="closed">已关闭</Select.Option>
                 </Select>
               </Form.Item>
-              <Form.Item name="onlyAvailable" valuePropName="checked">
-                <Checkbox>仅显示可选</Checkbox>
+              <Form.Item name="includeUnavailable" valuePropName="checked">
+                <Checkbox>包含不可选课程</Checkbox>
               </Form.Item>
               <Space>
                 <Button type="primary" onClick={handleSearch}>

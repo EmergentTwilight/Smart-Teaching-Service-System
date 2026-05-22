@@ -2,8 +2,8 @@
 filename: development-specifications.md
 title: Smart-Teaching-Service-System 开发规范
 status: active
-version: 2.1.1
-last_updated_at: 2026-04-01
+version: 2.2.0
+last_updated_at: 2026-05-22
 last_updated_by: 程韬
 description: 智慧教学服务系统开发规范，包含技术栈、项目结构、Git规范、代码规范、API设计等
 link: https://tcncx9czflpz.feishu.cn/wiki/OAxZwur1VicbthkbJDgcoIaSnYb
@@ -12,7 +12,7 @@ link: https://tcncx9czflpz.feishu.cn/wiki/OAxZwur1VicbthkbJDgcoIaSnYb
 # Smart-Teaching-Service-System 开发规范
 
 > 智慧教学服务系统（Smart Teaching Service System）
-> 版本：2.1.1 | 更新时间：2026-04-01
+> 版本：2.2.0 | 更新时间：2026-05-22
 
 ---
 
@@ -130,7 +130,8 @@ STSS/
 │   ├── project-requirements.md
 │   ├── development-specifications.md
 │   ├── database-design.md
-│   └── apis/
+│   ├── apis/                       # API 设计文档
+│   └── submission/                 # 交付物（里程碑提交材料）
 │
 ├── docker-compose.yml              # Docker 配置
 ├── Makefile                        # 常用命令
@@ -154,14 +155,18 @@ modules/info-management/
 
 **后端模块结构：**
 
+各模块（info-management / course-arrangement / course-selection / forum / online-testing / score-management）统一采用以下目录结构：
+
 ```plaintext
-modules/info-management/
-├── *.controller.ts     # 控制器（处理 HTTP 请求）
-├── *.service.ts        # 服务（业务逻辑）
-├── *.routes.ts         # 路由定义
-├── *.types.ts          # 类型定义
-└── *.schemas.ts        # Zod schemas（可选）
+modules/<module-name>/
+├── controllers/       # 控制器（处理 HTTP 请求）
+├── services/          # 服务（业务逻辑）
+├── routes/            # 路由定义
+├── validators/        # Zod 请求校验 schema
+└── *.types.ts         # 类型定义（模块根级）
 ```
+
+> **注**：A 组（info-management）因早期开发采用扁平文件结构（`*.controller.ts` / `*.service.ts` / `*.routes.ts`），其余模块统一使用目录结构。新增文件建议遵循目录结构。
 
 ---
 
@@ -568,13 +573,15 @@ frontend/tests/
 
 ### 9.1 认证与授权
 
-| 项目           | 规范                |
-| -------------- | ------------------- |
-| **认证方式**   | JWT Bearer Token    |
-| **Token 过期** | Access Token 2h     |
-| **Refresh**    | Refresh Token 7d    |
-| **密码加密**   | bcrypt（rounds=10） |
-| **会话存储**   | Redis，支持强制登出 |
+| 项目           | 规范                                               |
+| -------------- | -------------------------------------------------- |
+| **认证方式**   | JWT Bearer Token（Access + Refresh 双 Token 机制） |
+| **Token 过期** | Access Token 2h，Refresh Token 7d                  |
+| **密码加密**   | bcrypt（rounds=10）                                |
+| **令牌存储**   | RefreshToken 表（哈希存储），支持吊销和审计        |
+| **会话存储**   | Redis，支持强制登出                                |
+| **账号激活**   | ActivationToken 表，邮件发送激活链接               |
+| **密码重置**   | PasswordResetToken 表，邮件发送重置链接            |
 
 ### 9.2 安全最佳实践
 
@@ -612,14 +619,17 @@ docs/
 ├── project-requirements.md       # 项目要求（公共）
 ├── development-specifications.md # 开发规范（公共）
 ├── database-design.md            # 数据库设计（公共）
-└── apis/                         # API 文档
-    ├── shared.md                 # 公共接口
-    ├── A-information-management.md
-    ├── B-automatic-course-management.md
-    ├── C-smart-course-selection.md
-    ├── D-discussion-forum.md
-    ├── E-online-testing.md
-    └── F-score-management.md
+├── apis/                         # API 文档
+│   ├── shared.md                 # 公共接口
+│   ├── A-information-management.md
+│   ├── B-automatic-course-management.md
+│   ├── C-smart-course-selection.md
+│   ├── D-discussion-forum.md
+│   ├── E-online-testing.md
+│   └── F-score-management.md
+└── submission/                   # 项目交付物（里程碑提交材料）
+    ├── 1-software-requirements-specification/
+    └── 2-design-report/
 ```
 
 ### 10.2 文档分类
@@ -669,3 +679,5 @@ description: 文档简述
 | D   | 论坛交流     | ⬜ 未开始   | -                    |
 | E   | 在线测试     | ⬜ 未开始   | -                    |
 | F   | 成绩管理     | ⬜ 未开始   | -                    |
+
+> **注**：子系统状态以 `main` 分支为准。各组在 `dev/X` 分支的开发进展未反映在此表中。

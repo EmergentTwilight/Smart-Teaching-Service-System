@@ -101,7 +101,6 @@ export interface EnrollmentQuery extends BaseQuery {
 export interface CreateEnrollmentBody {
   courseOfferingId: string
   clientRequestId?: string
-  reason?: string
 }
 
 export interface DropEnrollmentBody {

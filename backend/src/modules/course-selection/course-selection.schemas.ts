@@ -174,7 +174,7 @@ export const courseOfferingDetailQuerySchema = z
 export type CourseOfferingParams = z.infer<typeof courseOfferingParamsSchema>
 export type CourseOfferingDetailQuery = z.infer<typeof courseOfferingDetailQuerySchema>
 
-// TODO(C3, FR-C-14, FR-C-16, NFR-C-04): 选课/退选前置参数应支持课程/阶段校验与幂等控制
+// C4 本人选课记录查询参数；C3 写事务不从查询参数读取学生身份。
 export const enrollmentQuerySchema = paginationSchema
   .extend({
     semesterId: z.string().uuid('semester_id 格式不正确').optional(),
@@ -189,86 +189,37 @@ export const enrollmentQuerySchema = paginationSchema
 
 export type EnrollmentQuery = z.infer<typeof enrollmentQuerySchema>
 
-// TODO(C3, FR-C-16, FR-C-14, NFR-C-04): 兼容 snake_case 入参并统一落到 camelCase，保留幂等键透传给服务层
-const createEnrollmentBodyInputSchema = z.object({
-  courseOfferingId: z.string().uuid('课程开设ID应为 UUID').optional(),
-  course_offering_id: z.string().uuid('课程开设ID应为 UUID').optional(),
-  clientRequestId: z.string().min(1).max(128).optional(),
-  client_request_id: z.string().min(1).max(128).optional(),
-  reason: z.string().max(200).optional(),
-})
+// C3 选课请求体：外部字段保持 snake_case，服务层使用 camelCase 与幂等键。
+const createEnrollmentBodyInputSchema = z
+  .object({
+    course_offering_id: z.string().uuid('课程开设ID应为 UUID'),
+    client_request_id: z.string().min(1).max(128).optional(),
+  })
+  .strict()
 
 export const createEnrollmentBodySchema = createEnrollmentBodyInputSchema
-  .superRefine((value, ctx) => {
-    if (!value.courseOfferingId && !value.course_offering_id) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: 'courseOfferingId 或 course_offering_id 不能为空',
-        path: ['course_offering_id'],
-      })
-    }
-
-    if (
-      value.courseOfferingId &&
-      value.course_offering_id &&
-      value.courseOfferingId !== value.course_offering_id
-    ) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: 'courseOfferingId 与 course_offering_id 不一致',
-        path: ['course_offering_id'],
-      })
-    }
-
-    if (
-      value.clientRequestId &&
-      value.client_request_id &&
-      value.clientRequestId !== value.client_request_id
-    ) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: 'clientRequestId 与 client_request_id 不一致',
-        path: ['client_request_id'],
-      })
-    }
-  })
   .transform((value) => ({
-    courseOfferingId: value.courseOfferingId ?? value.course_offering_id,
-    clientRequestId: value.clientRequestId ?? value.client_request_id,
-    reason: value.reason,
+    courseOfferingId: value.course_offering_id,
+    clientRequestId: value.client_request_id,
   }))
   .pipe(z.object({
     courseOfferingId: z.string().uuid('课程开设ID应为 UUID'),
     clientRequestId: z.string().min(1).max(128).optional(),
-    reason: z.string().max(200).optional(),
   }))
 
 export type CreateEnrollmentBody = z.infer<typeof createEnrollmentBodySchema>
 
-// TODO(C3, FR-C-21, NFR-C-04): 退选仅允许修改状态，不允许删除历史记录
+// C3 退选请求体：reason 只透传为前端输入，当前 Enrollment 模型不持久化退选原因。
 export const dropEnrollmentParamsSchema = idSchema
 export const dropEnrollmentBodySchema = z
   .object({
     reason: z.string().max(200).optional(),
-    clientRequestId: z.string().min(1).max(128).optional(),
     client_request_id: z.string().min(1).max(128).optional(),
   })
-  .superRefine((value, ctx) => {
-    if (
-      value.clientRequestId &&
-      value.client_request_id &&
-      value.clientRequestId !== value.client_request_id
-    ) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: 'clientRequestId 与 client_request_id 不一致',
-        path: ['client_request_id'],
-      })
-    }
-  })
+  .strict()
   .transform((value) => ({
     reason: value.reason,
-    clientRequestId: value.clientRequestId ?? value.client_request_id,
+    clientRequestId: value.client_request_id,
   }))
 export type DropEnrollmentParams = z.infer<typeof dropEnrollmentParamsSchema>
 export type DropEnrollmentBody = z.infer<typeof dropEnrollmentBodySchema>

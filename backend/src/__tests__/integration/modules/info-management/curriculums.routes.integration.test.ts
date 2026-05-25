@@ -59,7 +59,7 @@ async function cleanupCurriculumsData() {
     where: {
       OR: [
         { name: { startsWith: 'itest_curriculum_' } },
-        { code: { startsWith: 'ITCU' } },
+        { code: { startsWith: 'ICU' } },
       ],
     },
   })
@@ -127,7 +127,7 @@ async function createTestDepartment(overrides: Record<string, unknown> = {}) {
   return prisma.department.create({
     data: {
       name: `itest_curriculum_学院_${random}`,
-      code: `ITCU_D${random}`,
+      code: `ICU_D${random}`,
       description: '培养方案测试学院',
       ...overrides,
     },
@@ -141,7 +141,7 @@ async function createTestMajor(overrides: Record<string, unknown> = {}) {
   return prisma.major.create({
     data: {
       name: `itest_curriculum_专业_${random}`,
-      code: `ITCU_M${random}`,
+      code: `ICU_M${random}`,
       departmentId: department.id,
       degreeType: 'BACHELOR',
       totalCredits: 160.0,
@@ -173,7 +173,7 @@ async function createTestCourse(overrides: Record<string, unknown> = {}) {
 
   return prisma.course.create({
     data: {
-      code: `ITCU_C${random}`,
+      code: `ICU_C${random}`,
       name: `itest_curriculum_课程_${random}`,
       credits: 3.0,
       hours: 48,
@@ -220,7 +220,7 @@ describe('GET /api/v1/curriculums', () => {
   it('应该成功获取培养方案列表并支持筛选', async () => {
     const user = await createTestUser('student')
     const token = generateTestToken(user.id, user.username, ['student'])
-    const major = await createTestMajor({ name: 'itest_curriculum_筛选专业', code: 'ITCU_M101' })
+    const major = await createTestMajor({ name: 'itest_curriculum_筛选专业', code: 'ICU_M101' })
 
     await createTestCurriculum({
       name: 'itest_curriculum_2026级培养方案',
@@ -260,7 +260,7 @@ describe('GET /api/v1/curriculums/:id', () => {
     })
     const course = await createTestCourse({
       name: 'itest_curriculum_数据结构',
-      code: 'ITCU_C201',
+      code: 'ICU_C201',
       credits: 4.0,
     })
 
@@ -283,7 +283,7 @@ describe('GET /api/v1/curriculums/:id', () => {
     expect(response.body.data.courses).toHaveLength(1)
     expect(response.body.data.courses[0]).toMatchObject({
       course_id: course.id,
-      course_code: 'ITCU_C201',
+      course_code: 'ICU_C201',
       course_name: 'itest_curriculum_数据结构',
       credits: 4,
       course_type: 'required',
@@ -310,7 +310,7 @@ describe('POST /api/v1/curriculums', () => {
   it('应该允许 admin 创建培养方案', async () => {
     const admin = await createTestUser('admin')
     const token = generateTestToken(admin.id, admin.username, ['admin'])
-    const major = await createTestMajor({ name: 'itest_curriculum_创建专业', code: 'ITCU_M301' })
+    const major = await createTestMajor({ name: 'itest_curriculum_创建专业', code: 'ICU_M301' })
 
     const response = await request(app)
       .post('/api/v1/curriculums')
@@ -413,7 +413,7 @@ describe('DELETE /api/v1/curriculums/:id', () => {
     const admin = await createTestUser('super_admin')
     const token = generateTestToken(admin.id, admin.username, ['super_admin'])
     const curriculum = await createTestCurriculum({ name: 'itest_curriculum_待删除方案' })
-    const course = await createTestCourse({ code: 'ITCU_C401' })
+    const course = await createTestCourse({ code: 'ICU_C401' })
     await prisma.curriculumCourse.create({
       data: {
         curriculumId: curriculum.id,
@@ -457,7 +457,7 @@ describe('培养方案课程管理', () => {
     const curriculum = await createTestCurriculum({ name: 'itest_curriculum_课程管理方案' })
     const course = await createTestCourse({
       name: 'itest_curriculum_编译原理',
-      code: 'ITCU_C501',
+      code: 'ICU_C501',
     })
 
     await request(app)
@@ -521,8 +521,8 @@ describe('培养方案课程管理', () => {
     const admin = await createTestUser('admin')
     const token = generateTestToken(admin.id, admin.username, ['admin'])
     const curriculum = await createTestCurriculum({ name: 'itest_curriculum_批量课程方案' })
-    const courseA = await createTestCourse({ code: 'ITCU_C601' })
-    const courseB = await createTestCourse({ code: 'ITCU_C602' })
+    const courseA = await createTestCourse({ code: 'ICU_C601' })
+    const courseB = await createTestCourse({ code: 'ICU_C602' })
 
     const response = await request(app)
       .post(`/api/v1/curriculums/${curriculum.id}/courses/batch`)

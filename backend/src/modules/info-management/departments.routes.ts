@@ -14,9 +14,10 @@ import { authMiddleware, requireRoles } from '../../shared/middleware/auth.js'
 import { validate } from '../../shared/middleware/validate.js'
 import prisma from '../../shared/prisma/client.js'
 import { success } from '../../shared/utils/response.js'
-import { NotFoundError } from '@stss/shared'
+import { ConflictError, NotFoundError } from '@stss/shared'
 import {
   departmentIdSchema,
+  getDepartmentListSchema,
   createDepartmentSchema,
   updateDepartmentSchema,
 } from './departments.types.js'
@@ -71,9 +72,18 @@ router.use(authMiddleware)
  *       401:
  *         description: 未授权
  */
-router.get('/', async (req, res, next) => {
+router.get('/', validate(getDepartmentListSchema, 'query'), async (req, res, next) => {
   try {
+    const keyword = req.query.keyword as string | undefined
     const departments = await prisma.department.findMany({
+      where: keyword
+        ? {
+            OR: [
+              { name: { contains: keyword, mode: 'insensitive' } },
+              { code: { contains: keyword, mode: 'insensitive' } },
+            ],
+          }
+        : undefined,
       include: {
         majors: true,
       },
@@ -217,7 +227,24 @@ router.post(
     try {
       const name = req.body.name as string
       const code = req.body.code as string
-      const description = req.body.description as string
+      const description = req.body.description as string | undefined
+
+      const existingByCode = await prisma.department.findUnique({
+        where: { code },
+        select: { id: true },
+      })
+      if (existingByCode) {
+        throw new ConflictError('部门代码已存在')
+      }
+
+      const existingByName = await prisma.department.findFirst({
+        where: { name },
+        select: { id: true },
+      })
+      if (existingByName) {
+        throw new ConflictError('部门名称已存在')
+      }
+
       const newDepartment = await prisma.department.create({
         data: {
           name,
@@ -273,12 +300,22 @@ router.post(
 router.put(
   '/:id',
   requireRoles('admin', 'super_admin'),
+  validate(departmentIdSchema, 'params'),
   validate(updateDepartmentSchema, 'body'),
   async (req, res, next) => {
     try {
       const id = req.params.id as string
       const name = req.body.name as string
       const description = req.body.description as string
+
+      const existing = await prisma.department.findUnique({
+        where: { id },
+        select: { id: true },
+      })
+      if (!existing) {
+        throw new NotFoundError('院系不存在')
+      }
+
       const updatedDepartment = await prisma.department.update({
         where: { id },
         data: {
@@ -326,6 +363,33 @@ router.delete(
   async (req, res, next) => {
     try {
       const id = req.params.id as string
+      const department = await prisma.department.findUnique({
+        where: { id },
+        include: {
+          _count: {
+            select: {
+              majors: true,
+              teachers: true,
+              admins: true,
+              courses: true,
+            },
+          },
+        },
+      })
+
+      if (!department) {
+        throw new NotFoundError('院系不存在')
+      }
+
+      const hasRelations =
+        department._count.majors > 0 ||
+        department._count.teachers > 0 ||
+        department._count.admins > 0 ||
+        department._count.courses > 0
+      if (hasRelations) {
+        throw new ConflictError('院系存在关联数据，无法删除')
+      }
+
       await prisma.department.delete({
         where: { id },
       })

@@ -107,9 +107,6 @@ const DepartmentList: React.FC = () => {
 
   // 新增部门
   const handleCreate = useCallback(() => {
-    console.log('=== [调试] 点击新增部门按钮 ===');
-    console.log('当前用户:', loggedInUser);
-    
     // 检查权限
     if (!isSuperAdmin) {
       alert('权限不足：您没有创建部门的权限，请联系超级管理员。');
@@ -118,8 +115,7 @@ const DepartmentList: React.FC = () => {
     
     setCurrentDepartment(null);
     setFormOpen(true);
-    console.log('=== [调试] 弹窗状态设置为打开 ===');
-  }, [loggedInUser, isSuperAdmin]);
+  }, [isSuperAdmin]);
 
   // 处理编辑
   const handleEdit = useCallback((department: Department) => {
@@ -145,62 +141,41 @@ const DepartmentList: React.FC = () => {
 
   // 处理表单提交
   const handleSubmit = async (values: CreateDepartmentDTO | UpdateDepartmentDTO) => {
-    console.log('=== [调试] handleSubmit 开始 ===');
-    console.log('当前编辑的部门:', currentDepartment);
-    console.log('提交的数据:', values);
     try {
       if (currentDepartment) {
-        console.log('=== [调试] 执行更新操作 ===');
         await departmentsApi.update(currentDepartment.id, values as UpdateDepartmentDTO);
-        console.log('=== [调试] 更新成功 ===');
         message.success('更新成功');
       } else {
-        console.log('=== [调试] 执行创建操作 ===');
         await departmentsApi.create(values as CreateDepartmentDTO);
-        console.log('=== [调试] 创建成功 ===');
         message.success('创建成功');
       }
       queryClient.invalidateQueries({ queryKey: ['departments'] });
-      console.log('=== [调试] 数据已刷新 ===');
     } catch (error: unknown) {
-      console.error('=== [调试] 操作失败 ===');
-      console.error('错误详情:', error);
-      const errorData = (error as { response?: { data?: { message?: string } } })?.response?.data;
-      console.error('错误响应:', errorData);
-      message.error(errorData?.message || '操作失败');
+      const errorMessage =
+        (error as { response?: { data?: { message?: string } }; message?: string })?.response?.data
+          ?.message || (error as { message?: string })?.message;
+      message.error(errorMessage || '操作失败');
+      throw error;
     }
   };
 
   // 打开删除确认弹窗
   const handleOpenDeleteModal = useCallback((id: string) => {
-    console.log('=== [调试] 点击删除按钮 ===');
-    console.log('当前用户:', loggedInUser);
-    console.log('isSuperAdmin:', isSuperAdmin);
-    console.log('要删除的部门ID:', id);
-    console.log('data:', data);
-    console.log('data?.items:', data?.items);
-    
     // 检查权限
     if (!isSuperAdmin) {
       alert('权限不足：您没有删除部门的权限，请联系超级管理员。');
-      console.log('=== [调试] 权限检查失败：非超级管理员 ===');
       return;
     }
-    
-    console.log('=== [调试] 权限检查通过 ===');
-    
+
     const department = data?.items?.find((item: Department) => item.id === id);
-    console.log('找到的部门:', department);
     
     if (department) {
       setDepartmentToDelete(department);
       setDeleteModalOpen(true);
-      console.log('=== [调试] 删除确认弹窗已打开 ===');
     } else {
       message.error('部门不存在或已被删除');
-      console.log('=== [调试] 未找到部门 ===');
     }
-  }, [data, isSuperAdmin, loggedInUser]);
+  }, [data, isSuperAdmin]);
 
   // 搜索处理（防抖）
   const debouncedSearchRef = useRef(
@@ -340,16 +315,9 @@ const DepartmentList: React.FC = () => {
         open={deleteModalOpen}
         onCancel={() => setDeleteModalOpen(false)}
         onOk={() => {
-          console.log('=== [调试] 点击删除确认弹窗的确定按钮 ===');
-          console.log('departmentToDelete:', departmentToDelete);
-          console.log('deleteMutation:', deleteMutation);
-          
           if (departmentToDelete) {
-            console.log('=== [调试] 执行 deleteMutation.mutate ===');
             deleteMutation.mutate(departmentToDelete.id);
             setDeleteModalOpen(false);
-          } else {
-            console.log('=== [调试] departmentToDelete 为空 ===');
           }
         }}
         okText="确定"

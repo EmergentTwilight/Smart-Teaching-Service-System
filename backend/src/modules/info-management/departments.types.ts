@@ -11,12 +11,19 @@ export const departmentIdSchema = z.object({
 })
 
 /**
+ * 部门列表查询 schema
+ */
+export const getDepartmentListSchema = z.object({
+  keyword: z.string().trim().optional(),
+})
+
+/**
  * 创建部门 schema
  */
 export const createDepartmentSchema = z.object({
   name: z.string(),
   code: z.string(),
-  description: z.string(),
+  description: z.string().optional(),
 })
 
 /**
@@ -29,5 +36,6 @@ export const updateDepartmentSchema = z.object({
 
 /** 部门 ID 参数类型 */
 export type DepartmentIdParams = z.infer<typeof departmentIdSchema>
+export type GetDepartmentListInput = z.infer<typeof getDepartmentListSchema>
 export type CreateDepartmentInput = z.infer<typeof createDepartmentSchema>
 export type UpdateDepartmentInput = z.infer<typeof updateDepartmentSchema>

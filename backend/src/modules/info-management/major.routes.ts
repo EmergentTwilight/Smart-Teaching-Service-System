@@ -29,7 +29,7 @@ router.use(authMiddleware)
  *     security:
  *       - bearerAuth: []
  */
-router.get('/', validate(getMajorListSchema, 'params'), majorController.list)
+router.get('/', validate(getMajorListSchema, 'query'), majorController.list)
 
 /**
  * @swagger

@@ -30,7 +30,7 @@ router.use(authMiddleware)
  *     security:
  *       - bearerAuth: []
  */
-router.get('/', validate(getCurriculumListSchema, 'params'), curriculumController.list)
+router.get('/', validate(getCurriculumListSchema, 'query'), curriculumController.list)
 
 /**
  * @swagger
@@ -71,6 +71,7 @@ router.post(
 router.put(
   '/:id',
   requireRoles('admin', 'super_admin'),
+  validate(curriculumIdSchema, 'params'),
   validate(updateCurriculumSchema),
   curriculumController.update
 )
@@ -84,7 +85,12 @@ router.put(
  *     security:
  *       - bearerAuth: []
  */
-router.delete('/:id', requireRoles('super_admin'), curriculumController.delete)
+router.delete(
+  '/:id',
+  requireRoles('super_admin'),
+  validate(curriculumIdSchema, 'params'),
+  curriculumController.delete
+)
 
 /**
  * @swagger
@@ -98,6 +104,7 @@ router.delete('/:id', requireRoles('super_admin'), curriculumController.delete)
 router.post(
   '/:id/courses',
   requireRoles('admin', 'super_admin'),
+  validate(curriculumIdSchema, 'params'),
   validate(addCourseToCurriculumSchema),
   curriculumController.addCourse
 )
@@ -114,6 +121,7 @@ router.post(
 router.post(
   '/:id/courses/batch',
   requireRoles('admin', 'super_admin'),
+  validate(curriculumIdSchema, 'params'),
   validate(batchAddCoursesSchema),
   curriculumController.batchAddCourses
 )

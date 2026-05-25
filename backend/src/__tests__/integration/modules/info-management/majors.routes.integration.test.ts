@@ -243,8 +243,8 @@ describe('GET /api/v1/majors', () => {
     const token = generateTestToken(user.id, user.username)
 
     const department = await createTestDepartment()
-    await createTestMajor(department.id, { name: 'itest_major_计算机科学与技术', code: 'CS' })
-    await createTestMajor(department.id, { name: 'itest_major_软件工程', code: 'SE' })
+    await createTestMajor(department.id, { name: 'itest_major_计算机科学与技术', code: 'IMCS' })
+    await createTestMajor(department.id, { name: 'itest_major_软件工程', code: 'IMSE' })
 
     const response = await request(app)
       .get('/api/v1/majors/?keyword=计算机')
@@ -311,12 +311,12 @@ describe('GET /api/v1/majors', () => {
     expect(response.body.message).toContain('未提供认证令牌')
   })
 
-  it('应该返回空列表当没有专业时', async () => {
+  it('应该返回空列表当没有匹配专业时', async () => {
     const user = await createTestUser()
     const token = generateTestToken(user.id, user.username)
 
     const response = await request(app)
-      .get('/api/v1/majors/')
+      .get('/api/v1/majors/?keyword=itest_major_no_match')
       .set('Authorization', `Bearer ${token}`)
       .expect(200)
 
@@ -335,7 +335,7 @@ describe('GET /api/v1/majors/:id', () => {
     const department = await createTestDepartment({ name: 'itest_major_计算机学院' })
     const major = await createTestMajor(department.id, {
       name: 'itest_major_计算机科学与技术',
-      code: 'CS',
+      code: 'IMD1',
     })
 
     const response = await request(app)
@@ -345,7 +345,7 @@ describe('GET /api/v1/majors/:id', () => {
 
     expect(response.body.data.id).toBe(major.id)
     expect(response.body.data.name).toContain('计算机科学与技术')
-    expect(response.body.data.code).toBe('CS')
+    expect(response.body.data.code).toBe('IMD1')
     expect(response.body.data.department_id).toBe(department.id)
   })
 
@@ -453,7 +453,7 @@ describe('POST /api/v1/majors', () => {
       .send({
         department_id: department.id,
         name: 'itest_major_计算机科学与技术',
-        code: 'CS',
+        code: 'IMC1',
         degree_type: 'BACHELOR',
         total_credits: 150,
       })
@@ -476,7 +476,7 @@ describe('POST /api/v1/majors', () => {
       .send({
         department_id: department.id,
         name: 'itest_major_测试专业',
-        code: 'TEST',
+        code: 'IMT1',
       })
       .expect(201)
 
@@ -885,7 +885,7 @@ describe('专业数据结构验证', () => {
     const department = await createTestDepartment({ name: 'itest_major_计算机学院' })
     await createTestMajor(department.id, {
       name: 'itest_major_计算机科学与技术',
-      code: 'CS',
+      code: 'IML1',
     })
 
     const response = await request(app)
@@ -914,7 +914,7 @@ describe('专业数据结构验证', () => {
     const department = await createTestDepartment()
     const major = await createTestMajor(department.id, {
       name: 'itest_major_计算机科学与技术',
-      code: 'CS',
+      code: 'IMD2',
     })
 
     const response = await request(app)

@@ -10,7 +10,7 @@ import type { Department, CreateDepartmentDTO, UpdateDepartmentDTO } from '../ty
 interface DepartmentModalProps {
   visible: boolean;
   onClose: () => void;
-  onSubmit: (data: CreateDepartmentDTO | UpdateDepartmentDTO) => void;
+  onSubmit: (data: CreateDepartmentDTO | UpdateDepartmentDTO) => void | Promise<void>;
   initialData?: Department;
 }
 
@@ -36,17 +36,22 @@ const DepartmentModal: React.FC<DepartmentModalProps> = ({
     }
   }, [visible, initialData, form]);
 
-  const handleSubmit = () => {
-    console.log('=== [调试] 部门表单提交 ===');
-    form.validateFields().then((values) => {
-      console.log('=== [调试] 表单验证通过，数据:', values);
-      onSubmit(values);
+  const handleSubmit = async () => {
+    try {
+      const values = await form.validateFields();
+      await onSubmit(values);
       form.resetFields();
       onClose();
-      console.log('=== [调试] 表单提交完成，弹窗已关闭 ===');
-    }).catch((error) => {
-      console.error('=== [调试] 表单验证失败:', error);
-    });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '';
+
+      if (message.includes('部门代码已存在')) {
+        form.setFields([{ name: 'code', errors: ['部门代码已存在'] }]);
+      } else if (message.includes('部门名称已存在')) {
+        form.setFields([{ name: 'name', errors: ['部门名称已存在'] }]);
+      }
+      // 表单校验或接口提交失败时保持弹窗打开。
+    }
   };
 
   return (

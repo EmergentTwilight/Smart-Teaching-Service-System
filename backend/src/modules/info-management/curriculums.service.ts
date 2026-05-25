@@ -213,13 +213,13 @@ export const curriculumService = {
   },
 
   async updateCurriculum(id: string, data: UpdateCurriculumSchema, req: Request) {
-    const existing = await prisma.$transaction(async (tx) => {
+    const updated = await prisma.$transaction(async (tx) => {
       const curriculum = await tx.curriculum.findUnique({ where: { id } })
       if (!curriculum) {
         throw new NotFoundError('培养方案不存在')
       }
 
-      await tx.curriculum.update({
+      const updatedCurriculum = await tx.curriculum.update({
         where: { id },
         data: {
           name: data.name,
@@ -240,9 +240,17 @@ export const curriculumService = {
           details: `修改了培养方案 ${curriculum.name} (ID: ${id})`,
         },
       })
+
+      return updatedCurriculum
     })
 
-    return existing
+    return {
+      id: updated.id,
+      name: updated.name,
+      total_credits: updated.totalCredits?.toNumber() || 0,
+      required_credits: updated.requiredCredits?.toNumber() || 0,
+      elective_credits: updated.electiveCredits?.toNumber() || 0,
+    }
   },
 
   async deleteCurriculum(id: string, req: Request) {

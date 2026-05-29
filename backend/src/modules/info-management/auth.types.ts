@@ -3,7 +3,12 @@
  * 包含登录、注册、修改密码的 schema 和类型
  */
 import { z } from 'zod'
-import { Gender } from '@prisma/client'
+
+const Gender = {
+  MALE: 'MALE',
+  FEMALE: 'FEMALE',
+  OTHER: 'OTHER',
+} as const
 
 /**
  * 登录请求验证 schema

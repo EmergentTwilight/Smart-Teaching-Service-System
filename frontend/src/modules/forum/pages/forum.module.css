@@ -1,0 +1,117 @@
+.pageWrap {
+  max-width: 1120px;
+  margin: 0 auto;
+}
+
+.hero {
+  border-radius: 16px;
+  padding: 28px 32px;
+  margin-bottom: 24px;
+  background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 48%, #a855f7 100%);
+  color: #fff;
+  box-shadow: 0 12px 40px rgba(99, 102, 241, 0.35);
+}
+
+.heroTitle {
+  color: #fff !important;
+  margin: 0 0 8px !important;
+  font-weight: 700 !important;
+}
+
+.heroSub {
+  color: rgba(255, 255, 255, 0.88) !important;
+  margin: 0 !important;
+}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+.postCard {
+  border-radius: 12px !important;
+  border: 1px solid #e5e7eb !important;
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.postCard:hover {
+  box-shadow: 0 8px 24px rgba(99, 102, 241, 0.12);
+  transform: translateY(-1px);
+}
+
+.postCardPinned {
+  border-color: #fcd34d !important;
+  background: linear-gradient(180deg, #fffbeb 0%, #ffffff 40%);
+}
+
+.postTitle {
+  font-size: 16px;
+}
+
+.detailCard {
+  border-radius: 16px !important;
+  margin-bottom: 20px;
+}
+
+.detailContent {
+  white-space: pre-wrap;
+  line-height: 1.75;
+  font-size: 15px;
+}
+
+.commentSection {
+  margin-top: 8px;
+}
+
+.commentComposer {
+  background: #f8fafc;
+  border-radius: 12px;
+  padding: 16px;
+  margin: 16px 0;
+  border: 1px solid #e2e8f0;
+}
+
+.commentReply {
+  margin-left: 48px;
+  padding-left: 16px;
+  border-left: 3px solid #c7d2fe;
+}
+
+.commentChildren {
+  margin-top: 4px;
+}
+
+.editorCard {
+  border-radius: 16px !important;
+  box-shadow: 0 4px 24px rgba(15, 23, 42, 0.06);
+}
+
+.uploadZone {
+  border: 2px dashed #c7d2fe;
+  border-radius: 12px;
+  padding: 32px 24px;
+  text-align: center;
+  background: #f8fafc;
+  transition: border-color 0.2s, background 0.2s;
+}
+
+.uploadZone:hover {
+  border-color: #6366f1;
+  background: #eef2ff;
+}
+
+.searchHero {
+  border-radius: 16px;
+  padding: 24px;
+  margin-bottom: 20px;
+  background: linear-gradient(135deg, #eef2ff 0%, #faf5ff 100%);
+  border: 1px solid #e0e7ff;
+}
+
+.demoBadge {
+  margin-left: 8px;
+}

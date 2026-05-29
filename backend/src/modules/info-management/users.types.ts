@@ -3,7 +3,18 @@
  * 包含用户查询、创建、更新的 schema 和类型
  */
 import { z } from 'zod'
-import { Gender, UserStatus } from '@prisma/client'
+
+const Gender = {
+  MALE: 'MALE',
+  FEMALE: 'FEMALE',
+  OTHER: 'OTHER',
+} as const
+
+const UserStatus = {
+  ACTIVE: 'ACTIVE',
+  INACTIVE: 'INACTIVE',
+  BANNED: 'BANNED',
+} as const
 
 /**
  * 用户 ID 参数 schema

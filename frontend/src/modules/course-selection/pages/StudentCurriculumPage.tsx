@@ -76,7 +76,7 @@ const StudentCurriculumPage: React.FC = () => {
           我的培养方案
         </Title>
         <Text type="secondary">
-          页面用于查看培养方案与学分结构，不进行后端可选课程计算（FR-C-07）。
+          查看您的培养方案、课程安排与学分要求。
         </Text>
       </div>
 
@@ -196,13 +196,13 @@ const StudentCurriculumPage: React.FC = () => {
             ) : (
               <Empty description="未返回培养方案数据">
                 <Text type="secondary">
-                  当前学生暂无可匹配培养方案。请确认您的专业、年级信息是否已在系统中正确录入（FR-C-06）。
+                  当前暂无可匹配的培养方案，请联系教务管理员确认您的专业和年级信息。
                 </Text>
               </Empty>
             )}
             <div style={{ marginTop: 12 }}>
               <Text type="secondary">
-                注：培养方案来源于系统主数据，C 组不维护课程与专业数据副本（FR-C-07）。
+                培养方案数据由学校教务系统统一维护。
               </Text>
             </div>
           </Card>
@@ -256,7 +256,7 @@ const StudentCurriculumPage: React.FC = () => {
                 type="warning"
                 icon={<ExclamationCircleOutlined />}
                 message="当前学生暂无可匹配培养方案"
-                description="请确认专业和年级信息已正确录入（FR-C-06）。"
+                description="请确认专业和年级信息已正确录入。"
                 showIcon
               />
             )}

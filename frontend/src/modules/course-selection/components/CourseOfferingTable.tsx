@@ -157,7 +157,7 @@ export const CourseOfferingTable: FC<CourseOfferingTableProps> = ({
         // not available — show reasons
         return (
           <Popover
-            title="不可选原因（来自后端 eligibility.reasons）"
+            title="不可选原因"
             content={
               eligibility.reasons.length > 0 ? (
                 <ul style={{ margin: 0, paddingLeft: 16 }}>
@@ -166,7 +166,7 @@ export const CourseOfferingTable: FC<CourseOfferingTableProps> = ({
                   ))}
                 </ul>
               ) : (
-                <Text type="secondary">后端未返回具体原因</Text>
+                <Text type="secondary">暂无具体原因</Text>
               )
             }
             trigger="hover"

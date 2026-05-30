@@ -339,7 +339,7 @@ export const CourseDetailDrawer: FC<CourseDetailDrawerProps> = ({
 
           <Divider />
           <Text type="secondary" style={{ fontSize: 12 }}>
-            数据来源：/offerings/:id。前端不缓存或篡改课程状态和容量。
+            课程数据由学校教务系统提供。
           </Text>
         </div>
       ) : (

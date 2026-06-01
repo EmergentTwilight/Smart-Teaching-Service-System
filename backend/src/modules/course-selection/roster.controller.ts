@@ -1,6 +1,7 @@
 import { Request, Response } from 'express'
 import { error, success } from '../../shared/utils/response.js'
 import { rosterService } from './roster.service.js'
+import { buildContentDispositionAttachment } from './roster-export.util.js'
 import {
   rosterExportQuerySchema,
   rosterOfferingParamsSchema,
@@ -8,7 +9,8 @@ import {
 } from './course-selection.schemas.js'
 
 /**
- * 老师名单控制器
+ * C4：教师名单查询与 Excel 导出（FR-C-27, FR-C-28, NFR-C-06）。
+ * 仅允许任课教师访问本人 courseOfferingId。
  */
 export const rosterController = {
   async getOfferingRoster(req: Request, res: Response) {
@@ -21,10 +23,6 @@ export const rosterController = {
     }
 
     const result = await rosterService.getOfferingRoster(user.userId, id, query)
-    if (!result) {
-      return error(res, '功能待实现：C4 FR-C-27 NFR-C-06', 501)
-    }
-
     return success(res, result)
   },
 
@@ -38,12 +36,8 @@ export const rosterController = {
     }
 
     const result = await rosterService.exportOfferingRoster(user.userId, id, query)
-    if (!result) {
-      return error(res, '功能待实现：C4 FR-C-28 NFR-C-08', 501)
-    }
-
     res.setHeader('Content-Type', result.contentType)
-    res.setHeader('Content-Disposition', `attachment; filename="${result.fileName}"`)
+    res.setHeader('Content-Disposition', buildContentDispositionAttachment(result.fileName))
     return res.status(200).send(result.content)
   },
 }

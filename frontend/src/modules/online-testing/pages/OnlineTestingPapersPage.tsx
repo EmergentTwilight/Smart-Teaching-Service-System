@@ -289,6 +289,30 @@ const OnlineTestingPapersPage: React.FC = () => {
     }
   };
 
+  // 发布试卷
+  const handlePublishPaper = async (paperId: string) => {
+    try {
+      await request.post(`/online-testing/test-papers/${paperId}/publish`);
+      message.success('试卷已发布');
+      await fetchPapers();
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : '发布失败';
+      message.error(msg);
+    }
+  };
+
+  // 关闭试卷
+  const handleClosePaper = async (paperId: string) => {
+    try {
+      await request.post(`/online-testing/test-papers/${paperId}/close`);
+      message.success('试卷已关闭');
+      await fetchPapers();
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : '关闭失败';
+      message.error(msg);
+    }
+  };
+
   const paperColumns: ColumnsType<TestPaperItem> = [
     { title: '标题', dataIndex: 'title', key: 'title', ellipsis: true },
     { title: '总分', dataIndex: 'totalPoints', key: 'totalPoints', width: 90 },
@@ -304,18 +328,32 @@ const OnlineTestingPapersPage: React.FC = () => {
     {
       title: '操作',
       key: 'actions',
-      width: 120,
+      width: isStudent ? 120 : 200,
       render: (_, record) => (
         <Space size="small">
-          {!isStudent && record.status === 'draft' && (
-            <Button size="small" onClick={() => openEditor(record.id)}>
-              编辑配置
-            </Button>
-          )}
           {isStudent && record.status === 'published' && (
             <Button size="small" type="primary" onClick={() => navigate(`/exam/exam/${record.id}`)}>
               开始答题
             </Button>
+          )}
+          {!isStudent && record.status === 'draft' && (
+            <>
+              <Button size="small" onClick={() => openEditor(record.id)}>
+                编辑配置
+              </Button>
+              <Popconfirm title="确认发布试卷？发布后学生可开始答题" onConfirm={() => handlePublishPaper(record.id)}>
+                <Button size="small" type="primary">
+                  发布
+                </Button>
+              </Popconfirm>
+            </>
+          )}
+          {!isStudent && record.status === 'published' && (
+            <Popconfirm title="确认关闭试卷？关闭后学生无法答题" onConfirm={() => handleClosePaper(record.id)}>
+              <Button size="small" danger>
+                关闭
+              </Button>
+            </Popconfirm>
           )}
         </Space>
       ),
@@ -345,11 +383,14 @@ const OnlineTestingPapersPage: React.FC = () => {
     <div className="fade-in">
       <div className="page-header">
         <Title level={2} style={{ margin: 0 }}>
-          组卷管理
+          {isStudent ? '试卷列表' : '组卷管理'}
         </Title>
-        <Text type="secondary">创建、编辑试卷，并支持手动/按条件批量配置题目</Text>
+        <Text type="secondary">
+          {isStudent ? '选择试卷开始在线答题' : '创建、编辑试卷，并支持手动/按条件批量配置题目'}
+        </Text>
       </div>
 
+      {!isStudent && (
       <Card style={{ borderRadius: 12, marginBottom: 16 }}>
         <Space direction="vertical" size="large" style={{ width: '100%' }}>
           <Form
@@ -378,11 +419,13 @@ const OnlineTestingPapersPage: React.FC = () => {
           </Form>
         </Space>
       </Card>
+      )}
 
       <Card style={{ borderRadius: 12 }}>
         <Table<TestPaperItem> rowKey="id" columns={paperColumns} dataSource={papers} pagination={false} />
       </Card>
 
+      {!isStudent && (
       <Modal
         title="编辑试卷与题目配置"
         open={editorOpen}
@@ -498,6 +541,7 @@ const OnlineTestingPapersPage: React.FC = () => {
         )}
         {editorLoading && <Divider>加载中...</Divider>}
       </Modal>
+      )}
     </div>
   );
 };

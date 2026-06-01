@@ -488,6 +488,7 @@ struct UpdateQuestionInput {
 }
 
 fn internal_error(err: impl std::fmt::Display) -> Error {
+    tracing::error!("Internal error: {}", err);
     Error::from_string(
         format!("数据库操作失败: {err}"),
         StatusCode::INTERNAL_SERVER_ERROR,
@@ -1823,13 +1824,13 @@ impl Api {
             .map_err(internal_error)?
             .ok_or_else(|| Error::from_string("只有学生可以答题", StatusCode::FORBIDDEN))?;
         let student_id: String = student_row.get("user_id");
-
+        tracing::info!("学生 {} 开始答题试卷 {}", student_id, id.0);
         // 获取试卷信息
         let paper = state
             .db
             .query_opt(
                 "SELECT id, title, duration_minutes, total_points::text AS total_points, \
-                        start_time, end_time, status::text AS status \
+                        start_time::text AS start_time, end_time::text AS end_time, status::text AS status \
                  FROM test_papers \
                  WHERE id = $1",
                 &[&id.0],
@@ -1837,7 +1838,7 @@ impl Api {
             .await
             .map_err(internal_error)?
             .ok_or_else(|| Error::from_string("试卷不存在", StatusCode::NOT_FOUND))?;
-
+        tracing::info!("试卷 {} 信息查询成功", id.0);
         let paper_status: String = paper.get("status");
         if paper_status != "PUBLISHED" {
             return Err(bad_request_error("该试卷当前不可作答"));
@@ -1861,6 +1862,8 @@ impl Api {
             if now > end {
                 return Err(bad_request_error("考试已结束"));
             }
+        } else {
+            tracing::warn!("试卷 {} 没有设置考试时间窗口，默认允许作答", id.0);
         }
 
         // 检查是否已有进行中的答题
@@ -1879,13 +1882,13 @@ impl Api {
 
         // 创建答题记录
         let test_result_id = Uuid::new_v4().to_string();
-        let now = chrono::Utc::now();
-        let start_time_str = now.to_rfc3339();
+        let start_time_str = chrono::Utc::now().to_rfc3339();
+
         state
             .db
             .execute(
                 "INSERT INTO test_results (id, test_paper_id, student_id, start_time, status) \
-                 VALUES ($1, $2, $3, $4::timestamptz, 'IN_PROGRESS'::\"TestStatus\")",
+                 VALUES ($1, $2, $3, $4::text::timestamp, 'IN_PROGRESS')",
                 &[&test_result_id, &id.0, &student_id, &start_time_str],
             )
             .await
@@ -1979,7 +1982,7 @@ impl Api {
         let result_row = state
             .db
             .query_opt(
-                "SELECT tr.id, tr.test_paper_id, tr.student_id, tr.start_time, \
+                "SELECT tr.id, tr.test_paper_id, tr.student_id, tr.start_time::text AS start_time, \
                         tr.status::text AS status, \
                         tp.total_points::text AS total_points \
                  FROM test_results tr \
@@ -2128,9 +2131,9 @@ impl Api {
             .db
             .execute(
                 "UPDATE test_results \
-                 SET submit_time = $2::timestamptz, \
+                 SET submit_time = $2::text::timestamptz, \
                      total_score = $3::text::numeric, \
-                     status = 'GRADED'::\"TestStatus\", \
+                     status = 'GRADED', \
                      time_spent_seconds = $4 \
                  WHERE id = $1",
                 &[&id.0, &submit_now, &total_score.to_string(), &time_spent],

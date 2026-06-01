@@ -164,6 +164,22 @@ async function main() {
     },
   })
 
+  // 为学生创建档案记录（学生答题需要此记录）
+  await prisma.student.upsert({
+    where: { userId: student.id },
+    update: {
+      studentNumber: 'S2026001',
+      grade: 2026,
+      className: '软件工程1班',
+    },
+    create: {
+      userId: student.id,
+      studentNumber: 'S2026001',
+      grade: 2026,
+      className: '软件工程1班',
+    },
+  })
+
   // 创建测试教师 (密码: teacher123)
   const teacher = await prisma.user.upsert({
     where: { username: 'teacher' },

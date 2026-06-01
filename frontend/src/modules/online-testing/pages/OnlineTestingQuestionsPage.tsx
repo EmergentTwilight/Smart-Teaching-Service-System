@@ -14,9 +14,11 @@ import {
   Tag,
   Typography,
   message,
+  Result,
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import request from '@/shared/utils/request';
+import { useAuthStore } from '@/shared/stores/authStore';
 
 const { Title, Text } = Typography;
 
@@ -79,6 +81,28 @@ interface QuestionBankFormValues {
 }
 
 const OnlineTestingQuestionsPage: React.FC = () => {
+  const roles = useAuthStore((s) => s.user?.roles ?? []);
+  const isStudent = roles.includes('student');
+
+  // 学生不能访问题库管理
+  if (isStudent) {
+    return (
+      <div className="fade-in">
+        <div className="page-header">
+          <Title level={2}>题库管理</Title>
+          <Text type="secondary">管理和维护在线测试题库</Text>
+        </div>
+        <Card style={{ borderRadius: 12 }}>
+          <Result
+            status="403"
+            title="无权访问"
+            subTitle="题库管理功能仅对教师和管理员开放"
+          />
+        </Card>
+      </div>
+    );
+  }
+
   const [form] = Form.useForm<QuestionFormValues>();
   const [bankForm] = Form.useForm<QuestionBankFormValues>();
   const [loading, setLoading] = useState(false);

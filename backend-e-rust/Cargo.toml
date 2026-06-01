@@ -17,3 +17,5 @@ async-trait = "0.1"
 time = "0.3"
 tokio-postgres = "0.7"
 url = "2"
+chrono = { version = "0.4", features = ["serde"] }
+rust_decimal = "1"

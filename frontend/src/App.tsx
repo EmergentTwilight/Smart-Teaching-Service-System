@@ -29,6 +29,12 @@ const OnlineTestingQuestionsPage = lazy(
 const OnlineTestingPapersPage = lazy(
   () => import('@/modules/online-testing/pages/OnlineTestingPapersPage')
 );
+const OnlineTestingExamPage = lazy(
+  () => import('@/modules/online-testing/pages/OnlineTestingExamPage')
+);
+const OnlineTestingResultsPage = lazy(
+  () => import('@/modules/online-testing/pages/OnlineTestingResultsPage')
+);
 const ComingSoon = lazy(() => import('@/shared/components/ComingSoon'));
 
 // 加载中组件
@@ -163,7 +169,8 @@ const App: React.FC = () => {
                   <Route path="exam/ping" element={<OnlineTestingPingPage />} />
                   <Route path="exam/questions" element={<OnlineTestingQuestionsPage />} />
                   <Route path="exam/papers" element={<OnlineTestingPapersPage />} />
-                  <Route path="exam/results" element={<ComingSoon title="成绩查看" />} />
+                  <Route path="exam/exam/:paperId" element={<OnlineTestingExamPage />} />
+                  <Route path="exam/results" element={<OnlineTestingResultsPage />} />
 
                   {/* 成绩管理 */}
                   <Route path="grade/entry" element={<ComingSoon title="成绩录入" />} />

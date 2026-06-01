@@ -13,9 +13,9 @@ use poem_openapi::{
     payload::Json,
     Enum, Object, OpenApi, OpenApiService, SecurityScheme,
 };
-use std::{collections::HashSet, env, sync::Arc};
+use std::{collections::{HashMap, HashSet}, env, sync::Arc};
 use tokio_postgres::{types::ToSql, Client, NoTls};
-use url::Url;
+use url::Url; 
 use uuid::Uuid;
 
 // --- 模型定义 (使用 poem_openapi::Object 代替单纯的 Serialize) ---
@@ -288,6 +288,121 @@ struct QuestionBankDetailResponse {
 struct BasicResponse {
     code: u16,
     message: String,
+}
+
+// ==================== 学生答题相关结构体 ====================
+
+/// 学生视角的选项（不含答案标记）
+#[derive(Object)]
+struct TestPaperStudentOptionData {
+    id: String,
+    option_text: String,
+    option_order: i32,
+}
+
+/// 学生视角的题目（含选项，不含 is_correct）
+#[derive(Object)]
+struct TestPaperStudentQuestionData {
+    test_question_id: String,
+    question_id: String,
+    question_type: QuestionTypeDto,
+    content: String,
+    points: String,
+    order_num: i32,
+    options: Vec<TestPaperStudentOptionData>,
+}
+
+/// 开始答题返回数据
+#[derive(Object)]
+struct StartExamData {
+    paper_title: String,
+    duration_minutes: i32,
+    question_count: usize,
+    total_points: String,
+    questions: Vec<TestPaperStudentQuestionData>,
+    start_time: String,
+    test_result_id: String,
+}
+
+#[derive(Object)]
+struct StartExamResponse {
+    code: u16,
+    message: String,
+    data: StartExamData,
+}
+
+/// 单题提交
+#[derive(Object)]
+#[oai(rename_all = "camelCase")]
+struct SubmitAnswerItem {
+    test_question_id: String,
+    student_answer: Option<String>,
+}
+
+/// 提交答案请求
+#[derive(Object)]
+#[oai(rename_all = "camelCase")]
+struct SubmitAnswersInput {
+    answers: Vec<SubmitAnswerItem>,
+}
+
+/// 单题评分详情
+#[derive(Object)]
+struct GradedAnswerData {
+    test_question_id: String,
+    question_content: String,
+    student_answer: Option<String>,
+    correct_answer: String,
+    is_correct: bool,
+    score: String,
+    points: String,
+}
+
+/// 提交后返回的评分结果
+#[derive(Object)]
+struct SubmitExamData {
+    test_result_id: String,
+    total_score: String,
+    total_points: String,
+    graded_count: i32,
+    correct_count: i32,
+    time_spent_seconds: Option<i32>,
+    answers: Vec<GradedAnswerData>,
+}
+
+#[derive(Object)]
+struct SubmitExamResponse {
+    code: u16,
+    message: String,
+    data: SubmitExamData,
+}
+
+/// 学生成绩列表项
+#[derive(Object)]
+struct TestResultListItemData {
+    id: String,
+    test_paper_id: String,
+    paper_title: String,
+    start_time: String,
+    submit_time: Option<String>,
+    total_score: Option<String>,
+    status: String,
+    time_spent_seconds: Option<i32>,
+}
+
+#[derive(Object)]
+struct TestResultListResponse {
+    code: u16,
+    message: String,
+    data: Vec<TestResultListItemData>,
+}
+
+/// 单次答题详情响应
+#[derive(Object)]
+struct TestResultDetailResponse {
+    code: u16,
+    message: String,
+    data: SubmitExamData,
 }
 
 #[derive(Object)]
@@ -1587,6 +1702,603 @@ impl Api {
         Ok(Json(DeleteQuestionResponse {
             code: 200,
             message: "deleted".to_string(),
+        }))
+    }
+
+    // ==================== 学生答题流程 ====================
+
+    /// 发布试卷（将草稿状态改为已发布）
+    #[oai(path = "/online-testing/test-papers/:id/publish", method = "post")]
+    async fn publish_test_paper(
+        &self,
+        state: Data<&AppState>,
+        auth: BearerAuth,
+        id: Path<String>,
+    ) -> poem::Result<Json<BasicResponse>> {
+        ensure_roles(&auth.0, &["super_admin", "admin"])?;
+
+        let row = state
+            .db
+            .query_opt(
+                "SELECT status::text AS status FROM test_papers WHERE id = $1",
+                &[&id.0],
+            )
+            .await
+            .map_err(internal_error)?
+            .ok_or_else(|| Error::from_string("试卷不存在", StatusCode::NOT_FOUND))?;
+
+        let current_status = row.get::<_, String>("status");
+        if current_status != "DRAFT" {
+            return Err(bad_request_error("只能发布草稿状态的试卷"));
+        }
+
+        // 检查是否有题目
+        let question_count: i64 = state
+            .db
+            .query_one(
+                "SELECT COUNT(*)::bigint AS total FROM test_questions WHERE test_paper_id = $1",
+                &[&id.0],
+            )
+            .await
+            .map_err(internal_error)?
+            .get("total");
+        if question_count == 0 {
+            return Err(bad_request_error("试卷没有题目，请先添加题目后再发布"));
+        }
+
+        state
+            .db
+            .execute(
+                "UPDATE test_papers SET status = 'PUBLISHED'::\"PaperStatus\" WHERE id = $1",
+                &[&id.0],
+            )
+            .await
+            .map_err(internal_error)?;
+
+        Ok(Json(BasicResponse {
+            code: 200,
+            message: "published".to_string(),
+        }))
+    }
+
+    /// 关闭试卷（将已发布改为已关闭）
+    #[oai(path = "/online-testing/test-papers/:id/close", method = "post")]
+    async fn close_test_paper(
+        &self,
+        state: Data<&AppState>,
+        auth: BearerAuth,
+        id: Path<String>,
+    ) -> poem::Result<Json<BasicResponse>> {
+        ensure_roles(&auth.0, &["super_admin", "admin"])?;
+
+        let row = state
+            .db
+            .query_opt(
+                "SELECT status::text AS status FROM test_papers WHERE id = $1",
+                &[&id.0],
+            )
+            .await
+            .map_err(internal_error)?
+            .ok_or_else(|| Error::from_string("试卷不存在", StatusCode::NOT_FOUND))?;
+
+        let current_status = row.get::<_, String>("status");
+        if current_status != "PUBLISHED" {
+            return Err(bad_request_error("只能关闭已发布状态的试卷"));
+        }
+
+        state
+            .db
+            .execute(
+                "UPDATE test_papers SET status = 'CLOSED'::\"PaperStatus\" WHERE id = $1",
+                &[&id.0],
+            )
+            .await
+            .map_err(internal_error)?;
+
+        Ok(Json(BasicResponse {
+            code: 200,
+            message: "closed".to_string(),
+        }))
+    }
+
+    /// 学生开始答题（获取试卷题目，创建答题记录）
+    #[oai(path = "/online-testing/test-papers/:id/start", method = "post")]
+    async fn start_exam(
+        &self,
+        state: Data<&AppState>,
+        auth: BearerAuth,
+        id: Path<String>,
+    ) -> poem::Result<Json<StartExamResponse>> {
+        ensure_roles(&auth.0, &["student"])?;
+        let user_id = &auth.0.user_id;
+
+        // 验证学生身份
+        let student_row = state
+            .db
+            .query_opt(
+                "SELECT user_id FROM students WHERE user_id = $1",
+                &[&user_id],
+            )
+            .await
+            .map_err(internal_error)?
+            .ok_or_else(|| Error::from_string("只有学生可以答题", StatusCode::FORBIDDEN))?;
+        let student_id: String = student_row.get("user_id");
+
+        // 获取试卷信息
+        let paper = state
+            .db
+            .query_opt(
+                "SELECT id, title, duration_minutes, total_points::text AS total_points, \
+                        start_time, end_time, status::text AS status \
+                 FROM test_papers \
+                 WHERE id = $1",
+                &[&id.0],
+            )
+            .await
+            .map_err(internal_error)?
+            .ok_or_else(|| Error::from_string("试卷不存在", StatusCode::NOT_FOUND))?;
+
+        let paper_status: String = paper.get("status");
+        if paper_status != "PUBLISHED" {
+            return Err(bad_request_error("该试卷当前不可作答"));
+        }
+
+        // 检查考试时间窗口
+        if let (Some(start_str), Some(end_str)) = (
+            paper.get::<_, Option<String>>("start_time"),
+            paper.get::<_, Option<String>>("end_time"),
+        ) {
+            let now = chrono::Utc::now();
+            let start = chrono::DateTime::parse_from_rfc3339(&start_str)
+                .map(|dt| dt.with_timezone(&chrono::Utc))
+                .unwrap_or(chrono::Utc::now());
+            let end = chrono::DateTime::parse_from_rfc3339(&end_str)
+                .map(|dt| dt.with_timezone(&chrono::Utc))
+                .unwrap_or(chrono::Utc::now());
+            if now < start {
+                return Err(bad_request_error("考试尚未开始"));
+            }
+            if now > end {
+                return Err(bad_request_error("考试已结束"));
+            }
+        }
+
+        // 检查是否已有进行中的答题
+        let existing = state
+            .db
+            .query_opt(
+                "SELECT id FROM test_results \
+                 WHERE test_paper_id = $1 AND student_id = $2 AND status = 'IN_PROGRESS'::\"TestStatus\"",
+                &[&id.0, &student_id],
+            )
+            .await
+            .map_err(internal_error)?;
+        if existing.is_some() {
+            return Err(bad_request_error("你已有一份进行中的答题，请先提交或等待超时"));
+        }
+
+        // 创建答题记录
+        let test_result_id = Uuid::new_v4().to_string();
+        let now = chrono::Utc::now();
+        let start_time_str = now.to_rfc3339();
+        state
+            .db
+            .execute(
+                "INSERT INTO test_results (id, test_paper_id, student_id, start_time, status) \
+                 VALUES ($1, $2, $3, $4::timestamptz, 'IN_PROGRESS'::\"TestStatus\")",
+                &[&test_result_id, &id.0, &student_id, &start_time_str],
+            )
+            .await
+            .map_err(internal_error)?;
+
+        // 查询试卷题目（不含正确答案）
+        let tq_rows = state
+            .db
+            .query(
+                "SELECT tq.id AS test_question_id, tq.question_id, tq.order_num, tq.points::text AS points, \
+                        q.question_type::text AS question_type, q.content \
+                 FROM test_questions tq \
+                 JOIN questions q ON q.id = tq.question_id \
+                 WHERE tq.test_paper_id = $1 \
+                 ORDER BY tq.order_num ASC, tq.id ASC",
+                &[&id.0],
+            )
+            .await
+            .map_err(internal_error)?;
+
+        let mut questions = Vec::with_capacity(tq_rows.len());
+        for tq_row in tq_rows {
+            let question_id: String = tq_row.get("question_id");
+            let test_question_id: String = tq_row.get("test_question_id");
+
+            // 查询选项（不含 is_correct）
+            let opt_rows = state
+                .db
+                .query(
+                    "SELECT id, option_text, option_order \
+                     FROM question_options \
+                     WHERE question_id = $1 \
+                     ORDER BY option_order ASC",
+                    &[&question_id],
+                )
+                .await
+                .map_err(internal_error)?;
+
+            let options: Vec<TestPaperStudentOptionData> = opt_rows
+                .into_iter()
+                .map(|row| TestPaperStudentOptionData {
+                    id: row.get("id"),
+                    option_text: row.get("option_text"),
+                    option_order: row.get("option_order"),
+                })
+                .collect();
+
+            questions.push(TestPaperStudentQuestionData {
+                test_question_id,
+                question_id,
+                question_type: parse_question_type(&tq_row.get::<_, String>("question_type")),
+                content: tq_row.get("content"),
+                points: tq_row.get("points"),
+                order_num: tq_row.get("order_num"),
+                options,
+            });
+        }
+
+        let paper_title: String = paper.get("title");
+        let duration_minutes: i32 = paper.get("duration_minutes");
+        let total_points: String = paper.get("total_points");
+
+        Ok(Json(StartExamResponse {
+            code: 200,
+            message: "success".to_string(),
+            data: StartExamData {
+                paper_title,
+                duration_minutes,
+                question_count: questions.len(),
+                total_points,
+                questions,
+                start_time: start_time_str,
+                test_result_id,
+            },
+        }))
+    }
+
+    /// 提交答案（自动评分）
+    #[oai(path = "/online-testing/test-results/:id/submit", method = "post")]
+    async fn submit_answers(
+        &self,
+        state: Data<&AppState>,
+        auth: BearerAuth,
+        id: Path<String>,
+        input: Json<SubmitAnswersInput>,
+    ) -> poem::Result<Json<SubmitExamResponse>> {
+        ensure_roles(&auth.0, &["student"])?;
+        let user_id = &auth.0.user_id;
+
+        // 验证答题记录
+        let result_row = state
+            .db
+            .query_opt(
+                "SELECT tr.id, tr.test_paper_id, tr.student_id, tr.start_time, \
+                        tr.status::text AS status, \
+                        tp.total_points::text AS total_points \
+                 FROM test_results tr \
+                 JOIN test_papers tp ON tp.id = tr.test_paper_id \
+                 WHERE tr.id = $1",
+                &[&id.0],
+            )
+            .await
+            .map_err(internal_error)?
+            .ok_or_else(|| Error::from_string("答题记录不存在", StatusCode::NOT_FOUND))?;
+
+        let status: String = result_row.get("status");
+        if status != "IN_PROGRESS" {
+            return Err(bad_request_error("该答题已经提交或已结束"));
+        }
+
+        let student_id: String = result_row.get("student_id");
+        if student_id != *user_id {
+            return Err(Error::from_string("无权操作他人的答题", StatusCode::FORBIDDEN));
+        }
+
+        let test_paper_id: String = result_row.get("test_paper_id");
+        let start_time: String = result_row.get("start_time");
+        let paper_total_points: String = result_row.get("total_points");
+
+        // 计算耗时
+        let time_spent = {
+            let start_dt = chrono::DateTime::parse_from_rfc3339(&start_time)
+                .map(|dt| dt.with_timezone(&chrono::Utc))
+                .unwrap_or_else(|_| chrono::Utc::now());
+            let now = chrono::Utc::now();
+            (now - start_dt).num_seconds() as i32
+        };
+
+        // 获取试卷的所有题目及其正确答案
+        let tq_rows = state
+            .db
+            .query(
+                "SELECT tq.id AS test_question_id, tq.question_id, tq.points::text AS points, \
+                        q.question_type::text AS question_type, q.answer AS correct_answer, \
+                        q.content \
+                 FROM test_questions tq \
+                 JOIN questions q ON q.id = tq.question_id \
+                 WHERE tq.test_paper_id = $1 \
+                 ORDER BY tq.order_num ASC, tq.id ASC",
+                &[&test_paper_id],
+            )
+            .await
+            .map_err(internal_error)?;
+
+        // 构建正确答案映射
+        let mut correct_map: HashMap<String, (String, String, String, String)> = HashMap::new();
+        for row in &tq_rows {
+            let tq_id: String = row.get("test_question_id");
+            let correct: String = row.get("correct_answer");
+            let qtype: String = row.get("question_type");
+            let points: String = row.get("points");
+            let content: String = row.get("content");
+            correct_map.insert(tq_id, (correct, qtype, points, content));
+        }
+
+        // 构建学生答案映射
+        let student_answers: HashMap<String, Option<String>> = input
+            .answers
+            .iter()
+            .map(|item| (item.test_question_id.clone(), item.student_answer.clone()))
+            .collect();
+
+        // 逐题评分
+        let mut graded_answers = Vec::new();
+        let mut total_score = rust_decimal::Decimal::ZERO;
+        let mut correct_count = 0i32;
+        let mut graded_count = 0i32;
+
+        for row in &tq_rows {
+            let tq_id: String = row.get("test_question_id");
+            let (correct_answer, qtype, points_str, content) = correct_map
+                .get(&tq_id)
+                .cloned()
+                .unwrap_or_default();
+
+            let student_answer = student_answers.get(&tq_id).cloned().flatten();
+
+            let points: rust_decimal::Decimal = points_str.parse().unwrap_or(rust_decimal::Decimal::ZERO);
+
+            let is_correct = match student_answer.as_deref() {
+                Some(ans) => {
+                    if qtype == "MULTI_CHOICE" {
+                        // 多选题：排序后比对
+                        let mut student_parts: Vec<&str> = ans.split(',').map(str::trim).filter(|s| !s.is_empty()).collect();
+                        student_parts.sort_unstable();
+                        let mut correct_parts: Vec<&str> = correct_answer.split(',').map(str::trim).filter(|s| !s.is_empty()).collect();
+                        correct_parts.sort_unstable();
+                        student_parts == correct_parts
+                    } else {
+                        // 单选/判断：直接比对
+                        ans.trim() == correct_answer.trim()
+                    }
+                }
+                None => false,
+            };
+
+            let score = if is_correct { points } else { rust_decimal::Decimal::ZERO };
+
+            graded_answers.push(GradedAnswerData {
+                test_question_id: tq_id.clone(),
+                question_content: content,
+                student_answer: student_answer.clone(),
+                correct_answer,
+                is_correct,
+                score: score.to_string(),
+                points: points_str,
+            });
+
+            total_score += score;
+            if is_correct {
+                correct_count += 1;
+            }
+            graded_count += 1;
+        }
+
+        // 保存答案到 answers 表
+        for answer_item in &graded_answers {
+            let answer_id = Uuid::new_v4().to_string();
+            state
+                .db
+                .execute(
+                    "INSERT INTO answers (id, test_result_id, test_question_id, student_answer, is_correct, score) \
+                     VALUES ($1, $2, $3, $4, $5, $6::text::numeric)",
+                    &[
+                        &answer_id,
+                        &id.0,
+                        &answer_item.test_question_id,
+                        &answer_item.student_answer,
+                        &answer_item.is_correct,
+                        &answer_item.score,
+                    ],
+                )
+                .await
+                .map_err(internal_error)?;
+        }
+
+        // 更新 test_results 状态
+        let submit_now = chrono::Utc::now().to_rfc3339();
+        state
+            .db
+            .execute(
+                "UPDATE test_results \
+                 SET submit_time = $2::timestamptz, \
+                     total_score = $3::text::numeric, \
+                     status = 'GRADED'::\"TestStatus\", \
+                     time_spent_seconds = $4 \
+                 WHERE id = $1",
+                &[&id.0, &submit_now, &total_score.to_string(), &time_spent],
+            )
+            .await
+            .map_err(internal_error)?;
+
+        Ok(Json(SubmitExamResponse {
+            code: 200,
+            message: "submitted".to_string(),
+            data: SubmitExamData {
+                test_result_id: id.0.clone(),
+                total_score: total_score.to_string(),
+                total_points: paper_total_points,
+                graded_count,
+                correct_count,
+                time_spent_seconds: Some(time_spent),
+                answers: graded_answers,
+            },
+        }))
+    }
+
+    /// 学生查看自己的答题记录列表
+    #[oai(path = "/online-testing/test-results/my", method = "get")]
+    async fn list_my_results(
+        &self,
+        state: Data<&AppState>,
+        auth: BearerAuth,
+    ) -> poem::Result<Json<TestResultListResponse>> {
+        ensure_roles(&auth.0, &["student"])?;
+        let user_id = &auth.0.user_id;
+
+        let rows = state
+            .db
+            .query(
+                "SELECT tr.id, tr.test_paper_id, tp.title AS paper_title, \
+                        tr.start_time::text AS start_time, \
+                        tr.submit_time::text AS submit_time, \
+                        tr.total_score::text AS total_score, \
+                        tr.status::text AS status, \
+                        tr.time_spent_seconds \
+                 FROM test_results tr \
+                 JOIN test_papers tp ON tp.id = tr.test_paper_id \
+                 WHERE tr.student_id = $1 \
+                 ORDER BY tr.start_time DESC",
+                &[&user_id],
+            )
+            .await
+            .map_err(internal_error)?;
+
+        let data = rows
+            .into_iter()
+            .map(|row| TestResultListItemData {
+                id: row.get("id"),
+                test_paper_id: row.get("test_paper_id"),
+                paper_title: row.get("paper_title"),
+                start_time: row.get("start_time"),
+                submit_time: row.get("submit_time"),
+                total_score: row.get("total_score"),
+                status: row.get::<_, String>("status").to_lowercase(),
+                time_spent_seconds: row.get("time_spent_seconds"),
+            })
+            .collect();
+
+        Ok(Json(TestResultListResponse {
+            code: 200,
+            message: "success".to_string(),
+            data,
+        }))
+    }
+
+    /// 查看某次答题的详细结果（含每题判分）
+    #[oai(path = "/online-testing/test-results/:id", method = "get")]
+    async fn get_test_result_detail(
+        &self,
+        state: Data<&AppState>,
+        auth: BearerAuth,
+        id: Path<String>,
+    ) -> poem::Result<Json<TestResultDetailResponse>> {
+        let user_id = &auth.0.user_id;
+        let roles = &auth.0.roles;
+
+        // 验证答题记录存在且归属正确（学生只能看自己的，教师和管理员可看任意）
+        let result_row = state
+            .db
+            .query_opt(
+                "SELECT tr.id, tr.test_paper_id, tr.student_id, \
+                        tr.total_score::text AS total_score, \
+                        tr.time_spent_seconds, \
+                        tp.total_points::text AS total_points \
+                 FROM test_results tr \
+                 JOIN test_papers tp ON tp.id = tr.test_paper_id \
+                 WHERE tr.id = $1",
+                &[&id.0],
+            )
+            .await
+            .map_err(internal_error)?
+            .ok_or_else(|| Error::from_string("答题记录不存在", StatusCode::NOT_FOUND))?;
+
+        let student_id: String = result_row.get("student_id");
+
+        // 权限检查：学生只能看自己的
+        if roles.iter().any(|r| r == "student") && student_id != *user_id {
+            return Err(Error::from_string("无权查看他人的答题记录", StatusCode::FORBIDDEN));
+        }
+
+        let _test_paper_id: String = result_row.get("test_paper_id");
+        let total_score: Option<String> = result_row.get("total_score");
+        let time_spent: Option<i32> = result_row.get("time_spent_seconds");
+        let paper_total_points: String = result_row.get("total_points");
+
+        // 查询各题判分详情
+        let answer_rows = state
+            .db
+            .query(
+                "SELECT a.test_question_id, a.student_answer, a.is_correct, a.score::text AS score, \
+                        tq.points::text AS points, tq.question_id, \
+                        q.content AS question_content, q.answer AS correct_answer \
+                 FROM answers a \
+                 JOIN test_questions tq ON tq.id = a.test_question_id \
+                 JOIN questions q ON q.id = tq.question_id \
+                 WHERE a.test_result_id = $1 \
+                 ORDER BY tq.order_num ASC, tq.id ASC",
+                &[&id.0],
+            )
+            .await
+            .map_err(internal_error)?;
+
+        let mut answers = Vec::new();
+        let mut correct_count = 0i32;
+        let mut graded_count = 0i32;
+
+        for row in answer_rows {
+            let is_correct: bool = row.get("is_correct");
+            if is_correct {
+                correct_count += 1;
+            }
+            graded_count += 1;
+
+            let score_val: rust_decimal::Decimal = row.get::<_, Option<String>>("score")
+                .and_then(|s| s.parse().ok())
+                .unwrap_or_default();
+
+            answers.push(GradedAnswerData {
+                test_question_id: row.get("test_question_id"),
+                question_content: row.get("question_content"),
+                student_answer: row.get("student_answer"),
+                correct_answer: row.get("correct_answer"),
+                is_correct,
+                score: score_val.to_string(),
+                points: row.get("points"),
+            });
+        }
+
+        let total_score_str = total_score.unwrap_or_else(|| "0".to_string());
+
+        Ok(Json(TestResultDetailResponse {
+            code: 200,
+            message: "success".to_string(),
+            data: SubmitExamData {
+                test_result_id: id.0.clone(),
+                total_score: total_score_str,
+                total_points: paper_total_points,
+                graded_count,
+                correct_count,
+                time_spent_seconds: time_spent,
+                answers,
+            },
         }))
     }
 }

@@ -17,6 +17,8 @@ import {
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import request from '@/shared/utils/request';
+import { useNavigate } from 'react-router-dom';
+import { useAuthStore } from '@/shared/stores/authStore';
 
 const { Title, Text } = Typography;
 
@@ -96,6 +98,9 @@ interface AutoGenerateFormValues {
 
 const OnlineTestingPapersPage: React.FC = () => {
   const [createForm] = Form.useForm<CreateOrUpdatePaperFormValues>();
+  const navigate = useNavigate();
+  const roles = useAuthStore((s) => s.user?.roles ?? []);
+  const isStudent = roles.includes('student');
   const [editForm] = Form.useForm<CreateOrUpdatePaperFormValues>();
   const [manualForm] = Form.useForm<ManualAddFormValues>();
   const [autoForm] = Form.useForm<AutoGenerateFormValues>();
@@ -301,9 +306,18 @@ const OnlineTestingPapersPage: React.FC = () => {
       key: 'actions',
       width: 120,
       render: (_, record) => (
-        <Button size="small" onClick={() => openEditor(record.id)}>
-          编辑配置
-        </Button>
+        <Space size="small">
+          {!isStudent && record.status === 'draft' && (
+            <Button size="small" onClick={() => openEditor(record.id)}>
+              编辑配置
+            </Button>
+          )}
+          {isStudent && record.status === 'published' && (
+            <Button size="small" type="primary" onClick={() => navigate(`/exam/exam/${record.id}`)}>
+              开始答题
+            </Button>
+          )}
+        </Space>
       ),
     },
   ];

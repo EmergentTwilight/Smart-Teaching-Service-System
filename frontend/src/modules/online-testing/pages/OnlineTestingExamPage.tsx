@@ -54,6 +54,7 @@ interface StartExamData {
   questions: ExamQuestion[];
   startTime: string;
   testResultId: string;
+  remainingSeconds?: number;
 }
 
 interface GradedAnswer {
@@ -88,6 +89,7 @@ const OnlineTestingExamPage: React.FC = () => {
   const [submitting, setSubmitting] = useState(false);
   const [submitResult, setSubmitResult] = useState<SubmitResult | null>(null);
   const [phase, setPhase] = useState<'idle' | 'exam' | 'finished'>('idle');
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   const isStudent = roles.includes('student');
 
@@ -121,7 +123,7 @@ const OnlineTestingExamPage: React.FC = () => {
         `/online-testing/test-papers/${paperId}/start`
       );
       setExamData(data);
-      setTimeLeft(data.durationMinutes * 60);
+      setTimeLeft(data.remainingSeconds ?? data.durationMinutes * 60);
       setPhase('exam');
     } catch (err) {
       const msg = err instanceof Error ? err.message : '开始答题失败';
@@ -164,6 +166,16 @@ const OnlineTestingExamPage: React.FC = () => {
       setSubmitting(false);
     }
   }, [examData, answers, submitting]);
+
+  const unansweredCount = (examData?.questionCount ?? 0) - answeredCount;
+
+  const handleOpenConfirm = () => {
+    setConfirmOpen(true);
+  };
+  const handleConfirmOk = () => {
+    setConfirmOpen(false);
+    handleSubmit();
+  };
 
   // 格式化倒计时
   const formatTime = (seconds: number): string => {
@@ -397,30 +409,25 @@ const OnlineTestingExamPage: React.FC = () => {
           size="large"
           danger={answeredCount < (examData?.questionCount ?? 0)}
           loading={submitting}
-          onClick={() => {
-            const unanswered = (examData?.questionCount ?? 0) - answeredCount;
-            if (unanswered > 0) {
-              Modal.confirm({
-                title: '确认交卷',
-                content: `你还有 ${unanswered} 道题未作答，确定要交卷吗？`,
-                okText: '确认交卷',
-                cancelText: '继续答题',
-                onOk: handleSubmit,
-              });
-            } else {
-              Modal.confirm({
-                title: '确认交卷',
-                content: '确定要提交答案吗？交卷后无法修改。',
-                okText: '确认交卷',
-                cancelText: '继续检查',
-                onOk: handleSubmit,
-              });
-            }
-          }}
+          onClick={handleOpenConfirm}
         >
           交卷
         </Button>
       </div>
+
+      <Modal
+        title="确认交卷"
+        open={confirmOpen}
+        onOk={handleConfirmOk}
+        onCancel={() => setConfirmOpen(false)}
+        okText="确认交卷"
+        cancelText={unansweredCount > 0 ? '继续答题' : '继续检查'}
+        confirmLoading={submitting}
+      >
+        {unansweredCount > 0
+          ? `你还有 ${unansweredCount} 道题未作答，确定要交卷吗？`
+          : '确定要提交答案吗？交卷后无法修改。'}
+      </Modal>
     </div>
   );
 };

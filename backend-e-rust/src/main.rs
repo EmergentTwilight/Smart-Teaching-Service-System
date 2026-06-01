@@ -322,6 +322,8 @@ struct StartExamData {
     questions: Vec<TestPaperStudentQuestionData>,
     start_time: String,
     test_result_id: String,
+    /// 恢复答题时的剩余秒数，首次进入为 null
+    remaining_seconds: Option<i32>,
 }
 
 #[derive(Object)]
@@ -1870,14 +1872,65 @@ impl Api {
         let existing = state
             .db
             .query_opt(
-                "SELECT id FROM test_results \
-                 WHERE test_paper_id = $1 AND student_id = $2 AND status = 'IN_PROGRESS'::\"TestStatus\"",
+                "SELECT id, start_time::text AS start_time, time_spent_seconds \
+                 FROM test_results \
+                 WHERE test_paper_id = $1 AND student_id = $2 AND status = 'IN_PROGRESS'",
                 &[&id.0, &student_id],
             )
             .await
             .map_err(internal_error)?;
-        if existing.is_some() {
-            return Err(bad_request_error("你已有一份进行中的答题，请先提交或等待超时"));
+
+        // 如果已有进行中的答题，恢复它
+        if let Some(row) = existing {
+            let existing_id: String = row.get("id");
+            let existing_start: String = row.get("start_time");
+            let elapsed = {
+                let start_dt = chrono::DateTime::parse_from_rfc3339(&existing_start)
+                    .map(|dt| dt.with_timezone(&chrono::Utc))
+                    .unwrap_or_else(|_| chrono::Utc::now());
+                (chrono::Utc::now() - start_dt).num_seconds() as i32
+            };
+            let duration_secs = paper.get::<_, i32>("duration_minutes") * 60;
+            let remaining = (duration_secs - elapsed).max(0);
+            // 加载题目（复用后面的查询逻辑，这里简化）
+            let tq_rows = state.db.query(
+                "SELECT tq.id AS test_question_id, tq.question_id, tq.order_num, tq.points::text AS points, \
+                        q.question_type::text AS question_type, q.content \
+                 FROM test_questions tq JOIN questions q ON q.id = tq.question_id \
+                 WHERE tq.test_paper_id = $1 ORDER BY tq.order_num ASC, tq.id ASC",
+                &[&id.0],
+            ).await.map_err(internal_error)?;
+            let mut questions = Vec::with_capacity(tq_rows.len());
+            for tq_row in tq_rows {
+                let qid: String = tq_row.get("question_id");
+                let tqid: String = tq_row.get("test_question_id");
+                let opts = state.db.query(
+                    "SELECT id, option_text, option_order FROM question_options WHERE question_id = $1 ORDER BY option_order ASC",
+                    &[&qid],
+                ).await.map_err(internal_error)?;
+                let options: Vec<TestPaperStudentOptionData> = opts.into_iter()
+                    .map(|r| TestPaperStudentOptionData { id: r.get("id"), option_text: r.get("option_text"), option_order: r.get("option_order") })
+                    .collect();
+                questions.push(TestPaperStudentQuestionData {
+                    test_question_id: tqid, question_id: qid,
+                    question_type: parse_question_type(&tq_row.get::<_, String>("question_type")),
+                    content: tq_row.get("content"), points: tq_row.get("points"),
+                    order_num: tq_row.get("order_num"), options,
+                });
+            }
+            return Ok(Json(StartExamResponse {
+                code: 200, message: "resumed".to_string(),
+                data: StartExamData {
+                    paper_title: paper.get("title"),
+                    duration_minutes: paper.get("duration_minutes"),
+                    question_count: questions.len(),
+                    total_points: paper.get("total_points"),
+                    questions,
+                    start_time: existing_start,
+                    test_result_id: existing_id,
+                    remaining_seconds: Some(remaining),
+                },
+            }));
         }
 
         // 创建答题记录
@@ -1962,6 +2015,7 @@ impl Api {
                 questions,
                 start_time: start_time_str,
                 test_result_id,
+                remaining_seconds: None,
             },
         }))
     }
@@ -2105,41 +2159,48 @@ impl Api {
         }
 
         // 保存答案到 answers 表
-        for answer_item in &graded_answers {
+        tracing::info!("准备写入 {} 条答案记录", graded_answers.len());
+        for (i, answer_item) in graded_answers.iter().enumerate() {
             let answer_id = Uuid::new_v4().to_string();
+            let score_f64: f64 = answer_item.score.parse().unwrap_or(0.0);
+            tracing::info!("  answer[{}]: tq_id={}, is_correct={}, score={}", i, &answer_item.test_question_id, answer_item.is_correct, score_f64);
             state
                 .db
                 .execute(
                     "INSERT INTO answers (id, test_result_id, test_question_id, student_answer, is_correct, score) \
-                     VALUES ($1, $2, $3, $4, $5, $6::text::numeric)",
+                     VALUES ($1, $2, $3, $4, $5, $6)",
                     &[
                         &answer_id,
                         &id.0,
                         &answer_item.test_question_id,
                         &answer_item.student_answer,
                         &answer_item.is_correct,
-                        &answer_item.score,
+                        &score_f64,
                     ],
                 )
                 .await
                 .map_err(internal_error)?;
         }
+        tracing::info!("答案写入完成");
 
         // 更新 test_results 状态
         let submit_now = chrono::Utc::now().to_rfc3339();
+        let total_score_f64: f64 = total_score.to_string().parse().unwrap_or(0.0);
+        tracing::info!("更新答题记录: id={}, submit_time={}, total_score={}, time_spent={}", id.0, &submit_now, total_score_f64, time_spent);
         state
             .db
             .execute(
                 "UPDATE test_results \
                  SET submit_time = $2::text::timestamptz, \
-                     total_score = $3::text::numeric, \
+                     total_score = $3, \
                      status = 'GRADED', \
                      time_spent_seconds = $4 \
                  WHERE id = $1",
-                &[&id.0, &submit_now, &total_score.to_string(), &time_spent],
+                &[&id.0, &submit_now, &total_score_f64, &time_spent],
             )
             .await
             .map_err(internal_error)?;
+        tracing::info!("答题记录更新完成");
 
         Ok(Json(SubmitExamResponse {
             code: 200,

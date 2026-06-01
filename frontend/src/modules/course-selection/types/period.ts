@@ -21,11 +21,19 @@ export interface SelectionPeriodQuery {
   semesterId?: string;
 }
 
-export interface SelectionPeriodPayload {
+export interface CreateSelectionPeriodPayload {
   semesterId: string;
   phase: SelectionPhase;
   startTime: string;
   endTime: string;
+  maxCredits?: number;
+  isActive: boolean;
+}
+
+export interface UpdateSelectionPeriodPayload {
+  phase?: SelectionPhase;
+  startTime?: string;
+  endTime?: string;
   maxCredits?: number;
   isActive?: boolean;
 }

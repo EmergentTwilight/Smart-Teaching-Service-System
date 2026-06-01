@@ -1,5 +1,5 @@
 import { courseSelectionRequest } from './client';
-import type { PaginatedRosterPayload, RosterExportQuery, RosterQuery } from '../types/enrollment';
+import type { PaginatedRosterPayload, RosterExportQuery, RosterExportResult, RosterQuery } from '../types/enrollment';
 
 const buildQueryString = (params?: RosterExportQuery) => {
   const searchParams = new URLSearchParams();
@@ -13,17 +13,30 @@ const buildQueryString = (params?: RosterExportQuery) => {
   return queryString ? `?${queryString}` : '';
 };
 
+const parseFileName = (contentDisposition: string | null, fallback: string) => {
+  if (!contentDisposition) {
+    return fallback;
+  }
+
+  const utf8Match = contentDisposition.match(/filename\*=UTF-8''([^;]+)/i);
+  if (utf8Match?.[1]) {
+    return decodeURIComponent(utf8Match[1]);
+  }
+
+  const plainMatch = contentDisposition.match(/filename="?([^";]+)"?/i);
+  return plainMatch?.[1] || fallback;
+};
+
 const getAccessToken = (): string | null => {
   const authStorage = localStorage.getItem('auth-storage');
   return authStorage ? JSON.parse(authStorage)?.state?.token ?? null : null;
 };
 
-const exportRosterFile = async (offeringId: string, params?: RosterExportQuery): Promise<Blob> => {
+const exportRosterFile = async (offeringId: string, params?: RosterExportQuery): Promise<RosterExportResult> => {
   const token = getAccessToken();
   const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000/api/v1';
-  const exportUrl = `${baseUrl}/course-selection/teacher/offerings/${offeringId}/roster/export${buildQueryString(params)}`;
   const response = await fetch(
-    exportUrl,
+    `${baseUrl}/course-selection/teacher/offerings/${offeringId}/roster/export${buildQueryString(params)}`,
     {
       credentials: 'include',
       headers: token ? { Authorization: `Bearer ${token}` } : undefined,
@@ -31,11 +44,16 @@ const exportRosterFile = async (offeringId: string, params?: RosterExportQuery):
   );
 
   if (!response.ok) {
-    const errorPayload = await response.json().catch(() => null);
-    throw new Error(errorPayload?.message || '导出失败');
+    throw new Error('导出失败');
   }
 
-  return response.blob();
+  const blob = await response.blob();
+  const fileName = parseFileName(
+    response.headers.get('content-disposition'),
+    `roster-${offeringId}.xlsx`
+  );
+
+  return { blob, fileName };
 };
 
 export const rosterApi = {

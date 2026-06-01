@@ -2,9 +2,10 @@ import { useMemo } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { periodsApi } from '../api/periods';
 import type {
-  SelectionPeriodPayload,
+  CreateSelectionPeriodPayload,
   SelectionPeriodQuery,
   ManualEnrollmentPayload,
+  UpdateSelectionPeriodPayload,
 } from '../types/period';
 
 // TODO(C5, FR-C-30, FR-C-31, FR-C-33, NFR-C-01~NFR-C-03): 阶段与手动加课操作
@@ -22,21 +23,32 @@ export const useSelectionPeriods = (query?: SelectionPeriodQuery) => {
 
 export const useUpsertSelectionPeriod = () => {
   const qc = useQueryClient();
+  const invalidatePeriodRelatedQueries = () =>
+    Promise.all([
+      qc.invalidateQueries({ queryKey: ['course-selection', 'periods'] }),
+      qc.invalidateQueries({ queryKey: ['course-selection', 'offerings', 'available'] }),
+    ]);
 
   const create = useMutation({
-    mutationFn: (payload: SelectionPeriodPayload) => periodsApi.createPeriod(payload),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['course-selection', 'periods'] }),
+    mutationFn: (payload: CreateSelectionPeriodPayload) => periodsApi.createPeriod(payload),
+    onSuccess: invalidatePeriodRelatedQueries,
   });
 
   const update = useMutation({
-    mutationFn: ({ periodId, payload }: { periodId: string; payload: SelectionPeriodPayload }) =>
+    mutationFn: ({ periodId, payload }: { periodId: string; payload: UpdateSelectionPeriodPayload }) =>
       periodsApi.updatePeriod(periodId, payload),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['course-selection', 'periods'] }),
+    onSuccess: invalidatePeriodRelatedQueries,
   });
 
   const manualEnroll = useMutation({
     mutationFn: (payload: ManualEnrollmentPayload) => periodsApi.manualEnroll(payload),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['course-selection', 'enrollments'] }),
+    onSuccess: () =>
+      Promise.all([
+        qc.invalidateQueries({ queryKey: ['course-selection', 'enrollments'] }),
+        qc.invalidateQueries({ queryKey: ['course-selection', 'offerings', 'available'] }),
+        qc.invalidateQueries({ queryKey: ['course-selection', 'timetable'] }),
+        qc.invalidateQueries({ queryKey: ['course-selection', 'curriculum', 'progress'] }),
+      ]),
   });
 
   return useMemo(() => ({ create, update, manualEnroll }), [create, update, manualEnroll]);

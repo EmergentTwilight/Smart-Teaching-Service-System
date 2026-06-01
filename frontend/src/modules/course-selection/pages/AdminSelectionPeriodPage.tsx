@@ -34,7 +34,6 @@ type SubmitFeedback =
  * - 教务页面仅做配置入口，生效与时序校验由后端服务完成；
  * - 页面仅显示结果与状态，不在前端重复判定角色以外规则；
  * - 变更后应回写查询缓存供学生端看到最新可选状态。
- * - 待完成 SelectionPeriod 后端实现后做创建/更新/列表联调整体验证。
  */
 const AdminSelectionPeriodPage: React.FC = () => {
   const periodsQuery = useSelectionPeriods();

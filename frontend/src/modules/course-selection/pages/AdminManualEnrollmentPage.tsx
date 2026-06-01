@@ -24,7 +24,6 @@ type SubmitFeedback =
  * TODO(C5, FR-C-33, FR-C-34, NFR-C-04, NFR-C-12):
  * - 页面仅提供教务手动加课入口；后端必须仍走统一事务链路，默认执行容量/重复/冲突/学分/阶段/先修检查；
  * - 任何成功/失败以服务端返回为准，不在前端伪装落库。
- * - 待手动加课后端实现后做成功/失败联调整体验证。
  */
 const AdminManualEnrollmentPage: React.FC = () => {
   const [form] = Form.useForm<ManualEnrollmentFormValues>();

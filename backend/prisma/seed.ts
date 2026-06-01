@@ -279,11 +279,12 @@ async function main() {
   }
 
   // 创建示例题目（避免重复插入）
+  // 注意：answer 必须使用选项序号（数字），与学生提交的答案格式一致
   const seedQuestions = [
     {
       questionType: 'SINGLE_CHOICE' as const,
       content: '以下关于static的说法，不正确的是？',
-      answer: '一定包含指向静态存储期的引用',
+      answer: '4', // 第4个选项
       explanation: '不包含引用的数据结构也是static的，不要求一定包含指向静态存储期的引用。',
       defaultPoints: new Prisma.Decimal('2.0'),
       difficulty: 'HARD' as const,
@@ -298,7 +299,7 @@ async function main() {
     {
       questionType: 'MULTI_CHOICE' as const,
       content: '以下哪些属于 HTTP 常见方法？',
-      answer: 'GET,POST,PUT,DELETE',
+      answer: '1,2,4', // 第1,2,4个选项（排除 FETCH）
       explanation: 'REST 接口中最常用的请求方法。',
       defaultPoints: new Prisma.Decimal('3.0'),
       difficulty: 'MEDIUM' as const,
@@ -313,7 +314,7 @@ async function main() {
     {
       questionType: 'TRUE_FALSE' as const,
       content: 'Prisma 是一种 ORM 工具。',
-      answer: 'true',
+      answer: '1', // 正确=第1个选项
       explanation: 'Prisma 可用于定义 schema 并访问数据库。',
       defaultPoints: new Prisma.Decimal('1.0'),
       difficulty: 'EASY' as const,

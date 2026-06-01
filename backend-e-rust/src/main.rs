@@ -2162,20 +2162,19 @@ impl Api {
         tracing::info!("准备写入 {} 条答案记录", graded_answers.len());
         for (i, answer_item) in graded_answers.iter().enumerate() {
             let answer_id = Uuid::new_v4().to_string();
-            let score_f64: f64 = answer_item.score.parse().unwrap_or(0.0);
-            tracing::info!("  answer[{}]: tq_id={}, is_correct={}, score={}", i, &answer_item.test_question_id, answer_item.is_correct, score_f64);
+            tracing::info!("  answer[{}]: tq_id={}, is_correct={}, score={}", i, &answer_item.test_question_id, answer_item.is_correct, &answer_item.score);
             state
                 .db
                 .execute(
                     "INSERT INTO answers (id, test_result_id, test_question_id, student_answer, is_correct, score) \
-                     VALUES ($1, $2, $3, $4, $5, $6)",
+                     VALUES ($1, $2, $3, $4, $5, $6::text::numeric)",
                     &[
                         &answer_id,
                         &id.0,
                         &answer_item.test_question_id,
                         &answer_item.student_answer,
                         &answer_item.is_correct,
-                        &score_f64,
+                        &answer_item.score,
                     ],
                 )
                 .await
@@ -2185,18 +2184,18 @@ impl Api {
 
         // 更新 test_results 状态
         let submit_now = chrono::Utc::now().to_rfc3339();
-        let total_score_f64: f64 = total_score.to_string().parse().unwrap_or(0.0);
-        tracing::info!("更新答题记录: id={}, submit_time={}, total_score={}, time_spent={}", id.0, &submit_now, total_score_f64, time_spent);
+        let total_score_str = total_score.to_string();
+        tracing::info!("更新答题记录: id={}, submit_time={}, total_score={}, time_spent={}", id.0, &submit_now, &total_score_str, time_spent);
         state
             .db
             .execute(
                 "UPDATE test_results \
                  SET submit_time = $2::text::timestamptz, \
-                     total_score = $3, \
+                     total_score = $3::text::numeric, \
                      status = 'GRADED', \
                      time_spent_seconds = $4 \
                  WHERE id = $1",
-                &[&id.0, &submit_now, &total_score_f64, &time_spent],
+                &[&id.0, &submit_now, &total_score_str, &time_spent],
             )
             .await
             .map_err(internal_error)?;

@@ -2,8 +2,7 @@ import { courseSelectionRequest } from './client';
 import type {
   SelectionPeriodItem,
   SelectionPeriodQuery,
-  CreateSelectionPeriodPayload,
-  UpdateSelectionPeriodPayload,
+  SelectionPeriodPayload,
   ManualEnrollmentPayload,
   ManualEnrollmentResult,
 } from '../types/period';
@@ -14,9 +13,9 @@ export const periodsApi = {
     courseSelectionRequest.get<PaginatedResponse<SelectionPeriodItem>>('/course-selection/admin/periods', {
       params,
     }),
-  createPeriod: (payload: CreateSelectionPeriodPayload) =>
+  createPeriod: (payload: SelectionPeriodPayload) =>
     courseSelectionRequest.post<SelectionPeriodItem>('/course-selection/admin/periods', payload),
-  updatePeriod: (periodId: string, payload: UpdateSelectionPeriodPayload) =>
+  updatePeriod: (periodId: string, payload: SelectionPeriodPayload) =>
     courseSelectionRequest.patch<SelectionPeriodItem>(`/course-selection/admin/periods/${periodId}`, payload),
   manualEnroll: (payload: ManualEnrollmentPayload) =>
     courseSelectionRequest.post<ManualEnrollmentResult>(

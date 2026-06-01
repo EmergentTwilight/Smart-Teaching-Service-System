@@ -1,4 +1,4 @@
-import { Alert, Button, Card, Empty, List, Space, Typography } from 'antd';
+import { Alert, Button, Card, List, Space, Typography } from 'antd';
 import { type FC } from 'react';
 import type { AiAdvicePayload } from '../types/ai';
 
@@ -22,11 +22,7 @@ export const AiAdvisorPanel: FC<AiAdvisorPanelProps> = ({ advice, loading, onExp
   }
 
   if (!advice) {
-    return (
-      <Card title="AI 辅助建议">
-        <Empty description="暂无建议，可继续使用基础课程搜索与选课流程。" image={Empty.PRESENTED_IMAGE_SIMPLE} />
-      </Card>
-    );
+    return <Card title="AI 辅助建议">暂无建议（接口未返回数据）</Card>;
   }
 
   return (
@@ -57,52 +53,28 @@ export const AiAdvisorPanel: FC<AiAdvisorPanelProps> = ({ advice, loading, onExp
           )}
         </div>
         <Text strong>推荐课程</Text>
-        {advice.recommendations.length === 0 ? (
-          <Empty description="当前没有可推荐课程。" image={Empty.PRESENTED_IMAGE_SIMPLE} />
-        ) : (
-          <List
-            size="small"
-            dataSource={advice.recommendations}
-            renderItem={(item) => (
-              <List.Item
-                actions={[
-                  <Button
-                    key={item.courseOfferingId}
-                    size="small"
-                    onClick={() => onExplain(item.courseOfferingId)}
-                  >
-                    查看解释
-                  </Button>,
-                ]}
-              >
-                <List.Item.Meta
-                  title={
-                    <Space wrap>
-                      <Text strong>{item.courseCode} {item.courseName}</Text>
-                      <Text type="secondary">{item.teacherName}</Text>
-                    </Space>
-                  }
-                  description={
-                    <Space direction="vertical" size={4} style={{ width: '100%' }}>
-                      <Text type="secondary">
-                        推荐分数 {item.recommendationScore.toFixed(2)} · 学分 {item.credits}
-                      </Text>
-                      <Text>推荐理由：{item.reasons.join('；') || '暂无推荐理由'}</Text>
-                      {item.risks.length > 0 ? (
-                        <Alert
-                          message="风险提示"
-                          description={item.risks.join('；')}
-                          type="warning"
-                          showIcon
-                        />
-                      ) : null}
-                    </Space>
-                  }
-                />
-              </List.Item>
-            )}
-          />
-        )}
+        <List
+          size="small"
+          dataSource={advice.recommendations}
+          renderItem={(item) => (
+            <List.Item
+              actions={[
+                <Button
+                  key={item.courseOfferingId}
+                  size="small"
+                  onClick={() => onExplain(item.courseOfferingId)}
+                >
+                  查看解释
+                </Button>,
+              ]}
+            >
+              <List.Item.Meta
+                title={`${item.courseCode} ${item.courseName}`}
+                description={`${item.teacherName} · 分数 ${item.recommendationScore.toFixed(2)} · ${item.reasons.join('；')}`}
+              />
+            </List.Item>
+          )}
+        />
       </Space>
     </Card>
   );

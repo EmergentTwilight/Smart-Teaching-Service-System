@@ -129,8 +129,9 @@ export interface PaginatedRosterPayload extends RosterPayload {
 }
 
 export interface RosterQuery {
+  offeringId?: string;
+  semesterId?: string;
   status?: EnrollmentStatus;
-  keyword?: string;
   page?: number;
   pageSize?: number;
 }
@@ -138,9 +139,4 @@ export interface RosterQuery {
 export interface RosterExportQuery {
   status?: EnrollmentStatus;
   format?: 'xlsx';
-}
-
-export interface RosterExportResult {
-  blob: Blob;
-  fileName: string;
 }

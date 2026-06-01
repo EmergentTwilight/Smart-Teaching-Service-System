@@ -1,18 +1,13 @@
-import { useState } from 'react';
-import { Alert, Button, Card, Form, InputNumber, Space, Tag, Typography } from 'antd';
+import { Button, Card, Form, Input, InputNumber, Space, Typography, message } from 'antd';
 import { useAiAdvisor } from '../hooks/useAiAdvisor';
 import { AiAdvisorPanel } from '../components/AiAdvisorPanel';
+import { useQuery } from '@tanstack/react-query';
+import { coursesApi } from '../api/courses';
 import type { AiRecommendPayload } from '../types/ai';
+import { extractErrorMessage } from '@/shared/utils/error';
+import { useState } from 'react';
 
 const { Text } = Typography;
-
-type SubmitFeedback =
-  | {
-      type: 'success' | 'error' | 'warning' | 'info';
-      message: string;
-      description?: string;
-    }
-  | null;
 
 interface RecommendFormValues {
   maxRecommendations: number;
@@ -26,10 +21,18 @@ interface RecommendFormValues {
  */
 const CourseSelectionAiPage: React.FC = () => {
   const [recommendForm] = Form.useForm<RecommendFormValues>();
-  const [recommendFeedback, setRecommendFeedback] = useState<SubmitFeedback>(null);
-  const [explainFeedback, setExplainFeedback] = useState<SubmitFeedback>(null);
+  const [offeringsKeyword, setOfferingsKeyword] = useState('');
 
   const aiAdvisor = useAiAdvisor();
+  const availabilityQuery = useQuery({
+    queryKey: ['course-selection', 'offerings', 'available', 'search', offeringsKeyword],
+    queryFn: () =>
+      coursesApi.listAvailableOfferings({
+        includeUnavailable: true,
+        keyword: offeringsKeyword || undefined,
+      }),
+    staleTime: 30 * 1000,
+  });
 
   const handleRecommend = async () => {
     const values = await recommendForm.validateFields().catch(() => null);
@@ -37,56 +40,31 @@ const CourseSelectionAiPage: React.FC = () => {
       return;
     }
 
-    setRecommendFeedback(null);
-
     const payload: AiRecommendPayload = {
       maxRecommendations: values.maxRecommendations || 5,
     };
 
     aiAdvisor.recommend.mutate(payload, {
-      onSuccess: () => {
-        setRecommendFeedback({
-          type: 'success',
-          message: 'AI 推荐已更新',
-          description: '推荐结果仅供参考，最终是否可选仍以后端规则校验为准。',
-        });
-      },
       onError: (error) => {
-        setRecommendFeedback({
-          type: 'warning',
-          message: 'AI 推荐失败，已降级为基础课程查询',
-          description: 'AI 推荐服务暂时不可用，系统将继续保留基础课程查询与正式选课流程。',
-        });
+        message.error(extractErrorMessage(error, 'AI 推荐失败，系统将继续提供基础课程选课能力'));
       },
     });
   };
 
   const handleExplain = (offeringId: string) => {
-    setExplainFeedback(null);
     aiAdvisor.explain.mutate(
       {
         offeringId,
       },
       {
-        onSuccess: () => {
-          setExplainFeedback({
-            type: 'info',
-            message: 'AI 解释已更新',
-            description: '解释基于当前学生上下文生成，不会直接写入选课记录。',
-          });
-        },
         onError: (error) => {
-          setExplainFeedback({
-            type: 'warning',
-            message: 'AI 解释失败',
-            description: 'AI 解释服务暂时不可用，请稍后重试或直接使用普通选课流程。',
-          });
+          message.error(extractErrorMessage(error, 'AI 解释失败'));
         },
       }
     );
   };
 
-  const explainResult = aiAdvisor.explain.data;
+  const candidateCourses = availabilityQuery.data?.items || [];
 
   return (
     <div className="fade-in">
@@ -100,18 +78,9 @@ const CourseSelectionAiPage: React.FC = () => {
       </div>
 
       <Card title="建议参数" style={{ marginBottom: 16 }}>
-        {recommendFeedback ? (
-          <Alert
-            message={recommendFeedback.message}
-            description={recommendFeedback.description}
-            type={recommendFeedback.type}
-            showIcon
-            style={{ marginBottom: 16 }}
-          />
-        ) : null}
         <Form
           form={recommendForm}
-          layout="vertical"
+          layout="inline"
           onFinish={handleRecommend}
           initialValues={{ maxRecommendations: 5 }}
         >
@@ -122,12 +91,44 @@ const CourseSelectionAiPage: React.FC = () => {
           >
             <InputNumber min={1} max={10} />
           </Form.Item>
-          <Form.Item style={{ marginBottom: 0 }}>
+          <Form.Item>
             <Button type="primary" htmlType="submit" loading={aiAdvisor.recommend.isPending}>
               生成建议
             </Button>
           </Form.Item>
         </Form>
+      </Card>
+
+      <Card title="可解释课程清单" style={{ marginBottom: 16 }}>
+        <Input.Search
+          allowClear
+          placeholder="按课程名称/代码搜索课程上下文"
+          value={offeringsKeyword}
+          onChange={(event) => setOfferingsKeyword(event.target.value)}
+          onSearch={setOfferingsKeyword}
+          style={{ marginBottom: 12, maxWidth: 420 }}
+        />
+        {availabilityQuery.isLoading ? (
+          <Text type="secondary">课程列表加载中...</Text>
+        ) : candidateCourses.length === 0 ? (
+          <Text type="secondary">暂无可选课程，AI 解释按钮会被限制到推荐结果内。</Text>
+        ) : (
+          <div>
+            {candidateCourses.slice(0, 6).map((course) => (
+              <Space key={course.courseOfferingId} style={{ marginBottom: 8, width: '100%' }} direction="vertical">
+                <Space>
+                  <Text>
+                    {course.courseCode} - {course.courseName}
+                  </Text>
+                  <Text type="secondary">[{course.status}]</Text>
+                </Space>
+                <Button size="small" onClick={() => handleExplain(course.courseOfferingId)}>
+                  解释课程可行性
+                </Button>
+              </Space>
+            ))}
+          </div>
+        )}
       </Card>
 
       <AiAdvisorPanel
@@ -138,30 +139,22 @@ const CourseSelectionAiPage: React.FC = () => {
         }}
       />
 
-      {explainFeedback ? (
-        <Alert
-          message={explainFeedback.message}
-          description={explainFeedback.description}
-          type={explainFeedback.type}
-          showIcon
-          style={{ marginTop: 16 }}
-        />
-      ) : null}
-
-      {explainResult ? (
+      {aiAdvisor.explain.data ? (
         <Card title="AI 课程解释" style={{ marginTop: 16 }}>
-          <Space direction="vertical" size="middle" style={{ width: '100%' }}>
-            <Space wrap>
-              <Text strong>{explainResult.courseName}</Text>
-              <Tag color={explainResult.hardRuleResult.isSelectableNow ? 'green' : 'red'}>
-                {explainResult.hardRuleResult.isSelectableNow ? '当前可选' : '当前不可选'}
-              </Tag>
-            </Space>
-            <Text>{explainResult.explanation}</Text>
-            <Alert message={explainResult.disclaimer} type="info" showIcon />
-          </Space>
+          <Text>{aiAdvisor.explain.data.explanation}</Text>
+          {aiAdvisor.explain.data.disclaimer ? (
+            <div style={{ marginTop: 12 }}>
+              <Text type="secondary">{aiAdvisor.explain.data.disclaimer}</Text>
+            </div>
+          ) : null}
         </Card>
       ) : null}
+
+      <Card title="后处理说明" style={{ marginTop: 16 }}>
+        <Text type="secondary">
+          解释动作以返回的课程ID为准，最终选课仍需使用“课程选择”页面执行正式提交；AI不可用时不影响该流程（FR-C-42）。
+        </Text>
+      </Card>
     </div>
   );
 };

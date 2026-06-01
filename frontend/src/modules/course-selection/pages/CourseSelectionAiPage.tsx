@@ -51,7 +51,7 @@ const CourseSelectionAiPage: React.FC = () => {
           description: '推荐结果仅供参考，最终是否可选仍以后端规则校验为准。',
         });
       },
-      onError: (error) => {
+      onError: (_error) => {
         setRecommendFeedback({
           type: 'warning',
           message: 'AI 推荐失败，已降级为基础课程查询',
@@ -75,7 +75,7 @@ const CourseSelectionAiPage: React.FC = () => {
             description: '解释基于当前学生上下文生成，不会直接写入选课记录。',
           });
         },
-        onError: (error) => {
+        onError: (_error) => {
           setExplainFeedback({
             type: 'warning',
             message: 'AI 解释失败',

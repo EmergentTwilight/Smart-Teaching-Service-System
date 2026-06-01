@@ -94,7 +94,7 @@ const TeacherRosterPage: React.FC = () => {
       URL.revokeObjectURL(url);
 
       message.success('名单导出已开始下载');
-    } catch (error) {
+    } catch {
       message.error('导出失败，请稍后重试。');
     } finally {
       setIsExporting(false);

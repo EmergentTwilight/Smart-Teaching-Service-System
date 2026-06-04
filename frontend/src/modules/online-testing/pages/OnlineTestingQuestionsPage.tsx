@@ -84,6 +84,60 @@ const OnlineTestingQuestionsPage: React.FC = () => {
   const roles = useAuthStore((s) => s.user?.roles ?? []);
   const isStudent = roles.includes('student');
 
+  // Hooks 必须在条件 return 之前调用（React 规则）
+  const [form] = Form.useForm<QuestionFormValues>();
+  const [bankForm] = Form.useForm<QuestionBankFormValues>();
+  const [loading, setLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [bankSubmitting, setBankSubmitting] = useState(false);
+  const [bankModalOpen, setBankModalOpen] = useState(false);
+  const [banks, setBanks] = useState<QuestionBankItem[]>([]);
+  const [selectedBankId, setSelectedBankId] = useState<string | undefined>(undefined);
+  const [data, setData] = useState<QuestionListData>({
+    items: [],
+    pagination: { page: 1, pageSize: 10, total: 0, totalPages: 0 },
+  });
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editing, setEditing] = useState<QuestionItem | null>(null);
+  const currentType = Form.useWatch('questionType', form) || 'singleChoice';
+  const optionCount = Form.useWatch('optionCount', form) || 2;
+
+
+  useEffect(() => {
+    if (isStudent) {
+      return;
+    }
+    const bootstrap = async () => {
+      try {
+        const fetchedBanks = await fetchQuestionBanks();
+        if (fetchedBanks.length > 0) {
+          form.setFieldValue('bankId', fetchedBanks[0].id);
+        }
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : '加载题库失败';
+        message.error(msg);
+      }
+    };
+    bootstrap();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (isStudent) {
+      return;
+    }
+    if (selectedBankId) {
+      fetchQuestions(1, data.pagination.pageSize, selectedBankId);
+    } else {
+      setData((prev) => ({
+        ...prev,
+        items: [],
+        pagination: { ...prev.pagination, page: 1, total: 0, totalPages: 0 },
+      }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedBankId]);
+
   // 学生不能访问题库管理
   if (isStudent) {
     return (
@@ -102,23 +156,6 @@ const OnlineTestingQuestionsPage: React.FC = () => {
       </div>
     );
   }
-
-  const [form] = Form.useForm<QuestionFormValues>();
-  const [bankForm] = Form.useForm<QuestionBankFormValues>();
-  const [loading, setLoading] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
-  const [bankSubmitting, setBankSubmitting] = useState(false);
-  const [bankModalOpen, setBankModalOpen] = useState(false);
-  const [banks, setBanks] = useState<QuestionBankItem[]>([]);
-  const [selectedBankId, setSelectedBankId] = useState<string | undefined>(undefined);
-  const [data, setData] = useState<QuestionListData>({
-    items: [],
-    pagination: { page: 1, pageSize: 10, total: 0, totalPages: 0 },
-  });
-  const [modalOpen, setModalOpen] = useState(false);
-  const [editing, setEditing] = useState<QuestionItem | null>(null);
-  const currentType = Form.useWatch('questionType', form) || 'singleChoice';
-  const optionCount = Form.useWatch('optionCount', form) || 2;
 
   const normalizeOptionTexts = (raw: string[] | undefined, count: number): string[] => {
     const source = raw ?? [];
@@ -156,33 +193,6 @@ const OnlineTestingQuestionsPage: React.FC = () => {
     });
     return result;
   };
-
-  useEffect(() => {
-    const bootstrap = async () => {
-      try {
-        const fetchedBanks = await fetchQuestionBanks();
-        if (fetchedBanks.length > 0) {
-          form.setFieldValue('bankId', fetchedBanks[0].id);
-        }
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : '加载题库失败';
-        message.error(msg);
-      }
-    };
-    bootstrap();
-  }, []);
-
-  useEffect(() => {
-    if (selectedBankId) {
-      fetchQuestions(1, data.pagination.pageSize, selectedBankId);
-    } else {
-      setData((prev) => ({
-        ...prev,
-        items: [],
-        pagination: { ...prev.pagination, page: 1, total: 0, totalPages: 0 },
-      }));
-    }
-  }, [selectedBankId]);
 
   const openCreate = () => {
     setEditing(null);

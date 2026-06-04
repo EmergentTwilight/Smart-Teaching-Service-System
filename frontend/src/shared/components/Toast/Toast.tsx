@@ -9,7 +9,7 @@ import './Toast.css'
 type ToastType = 'success' | 'error' | 'warning' | 'info'
 
 let container: HTMLDivElement | null = null
-let root: any = null
+let root: ReturnType<typeof createRoot> | null = null
 
 /**
  * 显示 Toast 提示

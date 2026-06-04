@@ -112,7 +112,11 @@ const OnlineTestingExamPage: React.FC = () => {
       }
     }, 1000);
     return () => clearInterval(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase, endTime]);
+
+  // sessionStorage 暂存 key
+  const draftKey = `exam_draft_${paperId}`;
 
   // 开始答题
   const handleStart = useCallback(async () => {
@@ -141,10 +145,7 @@ const OnlineTestingExamPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [paperId]);
-
-  // sessionStorage 暂存 key
-  const draftKey = `exam_draft_${paperId}`;
+  }, [paperId, draftKey]);
 
   // 保存答案到 sessionStorage
   const persistAnswers = (next: Record<string, string>) => {
@@ -195,7 +196,7 @@ const OnlineTestingExamPage: React.FC = () => {
     } finally {
       setSubmitting(false);
     }
-  }, [examData, answers, submitting]);
+  }, [examData, answers, submitting, draftKey]);
 
   const unansweredCount = (examData?.questionCount ?? 0) - answeredCount;
 

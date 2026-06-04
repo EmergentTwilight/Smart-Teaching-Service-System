@@ -124,6 +124,16 @@ const OnlineTestingExamPage: React.FC = () => {
       );
       setExamData(data);
       setTimeLeft(data.remainingSeconds ?? data.durationMinutes * 60);
+      // 恢复之前的暂存答案
+      try {
+        const raw = sessionStorage.getItem(draftKey);
+        if (raw) {
+          const draft = JSON.parse(raw);
+          if (draft.testResultId === data.testResultId && draft.answers) {
+            setAnswers(draft.answers);
+          }
+        }
+      } catch { /* ignore */ }
       setPhase('exam');
     } catch (err) {
       const msg = err instanceof Error ? err.message : '开始答题失败';
@@ -133,9 +143,28 @@ const OnlineTestingExamPage: React.FC = () => {
     }
   }, [paperId]);
 
-  // 更新答案
+  // sessionStorage 暂存 key
+  const draftKey = `exam_draft_${paperId}`;
+
+  // 保存答案到 sessionStorage
+  const persistAnswers = (next: Record<string, string>) => {
+    if (!examData) return;
+    try {
+      sessionStorage.setItem(draftKey, JSON.stringify({
+        testResultId: examData.testResultId,
+        answers: next,
+        timeLeft,
+      }));
+    } catch { /* ignore quota */ }
+  };
+
+  // 更新答案（同步写 sessionStorage）
   const handleAnswerChange = (testQuestionId: string, value: string) => {
-    setAnswers((prev) => ({ ...prev, [testQuestionId]: value }));
+    setAnswers((prev) => {
+      const next = { ...prev, [testQuestionId]: value };
+      persistAnswers(next);
+      return next;
+    });
   };
 
   // 已答题数
@@ -158,6 +187,7 @@ const OnlineTestingExamPage: React.FC = () => {
       );
       setSubmitResult(result);
       setPhase('finished');
+      sessionStorage.removeItem(draftKey);
       message.success('交卷成功');
     } catch (err) {
       const msg = err instanceof Error ? err.message : '交卷失败';
@@ -371,10 +401,11 @@ const OnlineTestingExamPage: React.FC = () => {
                 ? answers[q.testQuestionId].split(',').map(Number)
                 : []}
               onChange={(checkedValues: number[]) =>
-                setAnswers((prev) => ({
-                  ...prev,
-                  [q.testQuestionId]: checkedValues.join(','),
-                }))
+                setAnswers((prev) => {
+                  const next = { ...prev, [q.testQuestionId]: checkedValues.join(',') };
+                  persistAnswers(next);
+                  return next;
+                })
               }
             >
               {q.options

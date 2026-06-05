@@ -2,17 +2,17 @@
 filename: A-information-management.md
 title: STSS A 模块 · 接口设计文档
 status: active
-version: 2.0.0
-last_updated_at: 2026-05-22
+version: 3.0.0
+last_updated_at: 2026-06-05
 last_updated_by: 程韬
-description: 基础信息管理子系统 API 接口设计，包含认证、用户管理、角色权限、院系专业等模块
+description: 基础信息管理子系统 API 接口设计，包含认证、用户管理、角色权限、令牌安全、院系专业、课程管理、培养方案等模块
 link: https://tcncx9czflpz.feishu.cn/wiki/DQQewmdsgi6d8kkR1E6cTFbpnzh
 ---
 
 # STSS A 模块 · 接口设计文档
 
 > Smart Teaching Service System — Subsystem A: 基础信息管理（Information Management）
-> 版本：2.0.0 | 更新时间：2026-05-22
+> 版本：3.0.0 | 更新时间：2026-06-05
 
 ---
 
@@ -378,7 +378,7 @@ Authorization: Bearer <access_token>
 | `page_size`       | int     | 每页数量，默认 20，最大 100 |
 | `keyword`         | string  | 搜索关键词                  |
 | `status`          | string  | 状态筛选                    |
-| `user_type`       | string  | 类型：student/teacher/admin |
+| `role`            | string  | 角色代码筛选                |
 | `include_deleted` | boolean | 是否包含已删除用户          |
 
 **响应：**
@@ -395,6 +395,7 @@ Authorization: Bearer <access_token>
         "real_name": "张三",
         "email": "student@example.com",
         "status": "active",
+        "roles": ["student"],
         "created_at": "2026-03-01T00:00:00+08:00"
       }
     ],
@@ -459,7 +460,16 @@ Authorization: Bearer <access_token>
     "status": "active",
     "last_login_at": "2026-04-01T10:00:00+08:00",
     "created_at": "2026-03-01T00:00:00+08:00",
-    "roles": [{ "id": "uuid", "code": "student", "name": "学生" }]
+    "roles": [{ "id": "uuid", "code": "student", "name": "学生" }],
+    "student": {
+      "student_number": "2023001",
+      "major_id": "uuid",
+      "major_name": "计算机科学与技术",
+      "grade": 2023,
+      "class_name": "1班"
+    },
+    "teacher": null,
+    "admin": null
   }
 }
 ```
@@ -483,11 +493,13 @@ Authorization: Bearer <access_token>
   "real_name": "张三",
   "phone": "13800138000",
   "gender": "MALE",
-  "user_type": "student",
-  "student_number": "2023001",
-  "major_id": "uuid",
-  "grade": 2023,
-  "class_name": "1班"
+  "role_ids": ["uuid"],
+  "student": {
+    "student_number": "2023001",
+    "major_id": "uuid",
+    "grade": 2023,
+    "class_name": "1班"
+  }
 }
 ```
 
@@ -558,7 +570,9 @@ Authorization: Bearer <access_token>
 {
   "email": "newemail@example.com",
   "phone": "13900139000",
-  "real_name": "李四"
+  "real_name": "李四",
+  "gender": "MALE",
+  "role_ids": ["uuid1", "uuid2"]
 }
 ```
 
@@ -631,7 +645,8 @@ Authorization: Bearer <access_token>
 ```json
 {
   "user_ids": ["uuid1", "uuid2"],
-  "status": "active"
+  "status": "active",
+  "role_ids": ["uuid"]
 }
 ```
 
@@ -642,13 +657,13 @@ Authorization: Bearer <access_token>
   "code": 200,
   "message": "批量状态更新完成",
   "data": {
-    "success_count": 10,
-    "fail_count": 0
+    "updated_count": 10,
+    "failed_count": 0
   }
 }
 ```
 
-### 3.10 修改密码（管理员）
+### 3.10 修改密码（用户自己）
 
 ```plaintext
 PATCH /api/v1/users/:id/password
@@ -768,7 +783,80 @@ Authorization: Bearer <access_token>
 }
 ```
 
-### 3.15 上传头像
+### 3.15 获取角色列表
+
+```plaintext
+GET /api/v1/users/roles
+Authorization: Bearer <access_token>
+```
+
+**说明：** 用户侧轻量角色列表，用于用户创建、编辑和角色分配表单。管理端角色权限维护见第八章。
+
+**响应：**
+
+```json
+{
+  "code": 200,
+  "message": "success",
+  "data": [
+    {
+      "id": "uuid",
+      "code": "student",
+      "name": "学生",
+      "description": "学生角色"
+    }
+  ]
+}
+```
+
+### 3.16 获取系统日志
+
+```plaintext
+GET /api/v1/users/logs
+Authorization: Bearer <access_token>
+```
+
+**权限：** `admin`、`super_admin`
+
+**查询参数：**
+
+| 参数         | 类型   | 说明         |
+| ------------ | ------ | ------------ |
+| `user_id`    | uuid   | 筛选用户     |
+| `action`     | string | 筛选操作类型 |
+| `start_time` | string | 起始时间     |
+| `end_time`   | string | 结束时间     |
+| `page`       | int    | 页码         |
+| `page_size`  | int    | 每页数量     |
+
+**响应：**
+
+```json
+{
+  "code": 200,
+  "message": "success",
+  "data": {
+    "items": [
+      {
+        "id": 1,
+        "user_id": "uuid",
+        "username": "admin",
+        "real_name": "管理员",
+        "action": "auth:login",
+        "resource_type": "user",
+        "resource_id": "uuid",
+        "ip_address": "10.0.0.1",
+        "user_agent": "Mozilla/5.0...",
+        "details": {},
+        "created_at": "2026-04-01T10:00:00+08:00"
+      }
+    ],
+    "pagination": { ... }
+  }
+}
+```
+
+### 3.17 上传头像
 
 ```plaintext
 POST /api/v1/users/:id/avatar
@@ -798,12 +886,11 @@ Content-Type: multipart/form-data
 
 **说明：**
 
-- 上传成功后自动更新 User 表的 `avatar_url` 字段
-- 返回 CDN 地址作为头像 URL
-- 旧头像会在新头像上传后自动清理
-- 仅接受图片格式（image/jpeg, image/png, image/webp）
+- 上传成功后更新 User 表的 `avatar_url` 字段
+- 仅接受图片格式（image/jpeg、image/png、image/webp）
+- 旧头像可在新头像上传成功后异步清理
 
-### 3.16 更新学生专业
+### 3.18 更新学生专业
 
 ```plaintext
 PATCH /api/v1/users/:id/student/major
@@ -837,10 +924,10 @@ Authorization: Bearer <access_token>
 **说明：**
 
 - 仅对 Student 类型用户有效
-- `major_id` 必须是已存在的专业
-- 专业变更会记录到系统日志
+- `major_id` 必须是已存在且未删除的专业
+- 专业变更应记录系统日志
 
-### 3.17 更新教师院系
+### 3.19 更新教师院系
 
 ```plaintext
 PATCH /api/v1/users/:id/teacher/department
@@ -874,9 +961,10 @@ Authorization: Bearer <access_token>
 **说明：**
 
 - 仅对 Teacher 类型用户有效
-- `department_id` 必须是已存在的院系
+- `department_id` 必须是已存在且未删除的院系
+- 院系变更应记录系统日志
 
-### 3.18 更新管理员院系
+### 3.20 更新管理员院系
 
 ```plaintext
 PATCH /api/v1/users/:id/admin/department
@@ -910,75 +998,8 @@ Authorization: Bearer <access_token>
 **说明：**
 
 - 仅对 Admin 类型用户有效
-- `department_id` 必须是已存在的院系
+- `department_id` 必须是已存在且未删除的院系
 - 仅超级管理员可操作
-
-### 3.19 获取角色列表（用户侧）
-
-> 轻量接口，返回角色基本信息。管理端完整角色管理见第六章。
-
-```plaintext
-GET /api/v1/users/roles
-Authorization: Bearer <access_token>
-```
-
-**响应：**
-
-```json
-{
-  "code": 200,
-  "message": "success",
-  "data": [
-    {
-      "id": "uuid",
-      "code": "student",
-      "name": "学生",
-      "description": "学生角色"
-    }
-  ]
-}
-```
-
-### 3.20 获取系统日志
-
-```plaintext
-GET /api/v1/users/logs
-Authorization: Bearer <access_token>
-```
-
-**权限：** `admin`、`super_admin`
-
-**查询参数：**
-
-| 参数         | 类型   | 说明         |
-| ------------ | ------ | ------------ |
-| `user_id`    | uuid   | 筛选用户     |
-| `action`     | string | 筛选操作类型 |
-| `start_time` | string | 起始时间     |
-| `end_time`   | string | 结束时间     |
-| `page`       | int    | 页码         |
-| `page_size`  | int    | 每页数量     |
-
-**响应：**
-
-```json
-{
-  "code": 200,
-  "message": "success",
-  "data": {
-    "items": [
-      {
-        "id": 1,
-        "user_id": "uuid",
-        "action": "auth:login",
-        "ip_address": "10.0.0.1",
-        "created_at": "2026-04-01T10:00:00+08:00"
-      }
-    ],
-    "pagination": { ... }
-  }
-}
-```
 
 ---
 
@@ -991,21 +1012,35 @@ GET /api/v1/departments
 Authorization: Bearer <access_token>
 ```
 
+**查询参数：**
+
+| 参数        | 类型   | 说明       |
+| ----------- | ------ | ---------- |
+| `page`      | int    | 页码       |
+| `page_size` | int    | 每页数量   |
+| `keyword`   | string | 搜索关键词 |
+
 **响应：**
 
 ```json
 {
   "code": 200,
   "message": "success",
-  "data": [
-    {
-      "id": "uuid",
-      "name": "计算机学院",
-      "code": "CS",
-      "description": "...",
-      "majors": [{ "id": "uuid", "name": "计算机科学与技术", "code": "CS001" }]
-    }
-  ]
+  "data": {
+    "items": [
+      {
+        "id": "uuid",
+        "name": "计算机学院",
+        "code": "CS",
+        "description": "...",
+        "teacher_count": 50,
+        "student_count": 500,
+        "major_count": 3,
+        "created_at": "2026-03-01T00:00:00+08:00"
+      }
+    ],
+    "pagination": { ... }
+  }
 }
 ```
 
@@ -1027,7 +1062,25 @@ Authorization: Bearer <access_token>
     "name": "计算机学院",
     "code": "CS",
     "description": "...",
-    "majors": [{ "id": "uuid", "name": "计算机科学与技术", "code": "CS001" }]
+    "majors": [
+      {
+        "id": "uuid",
+        "name": "计算机科学与技术",
+        "code": "CS001",
+        "degree_type": "bachelor",
+        "student_count": 200
+      }
+    ],
+    "teachers": [
+      {
+        "id": "uuid",
+        "teacher_number": "T001",
+        "real_name": "张教授",
+        "title": "教授"
+      }
+    ],
+    "created_at": "2026-03-01T00:00:00+08:00",
+    "updated_at": "2026-04-01T00:00:00+08:00"
   }
 }
 ```
@@ -1047,7 +1100,7 @@ Authorization: Bearer <access_token>
 {
   "name": "计算机学院",
   "code": "CS",
-  "description": "计算机科学与技术学院"
+  "description": "计算机科学与技术相关学科"
 }
 ```
 
@@ -1060,8 +1113,7 @@ Authorization: Bearer <access_token>
   "data": {
     "id": "uuid",
     "name": "计算机学院",
-    "code": "CS",
-    "description": "计算机科学与技术学院"
+    "code": "CS"
   }
 }
 ```
@@ -1080,7 +1132,6 @@ Authorization: Bearer <access_token>
 ```json
 {
   "name": "计算机科学与技术学院",
-  "code": "CS",
   "description": "更新后的描述"
 }
 ```
@@ -1104,6 +1155,8 @@ Authorization: Bearer <access_token>
 
 **权限：** `super_admin`
 
+**前置条件：** 院系下无关联教师、专业
+
 **响应：**
 
 ```json
@@ -1112,11 +1165,6 @@ Authorization: Bearer <access_token>
   "message": "院系已删除"
 }
 ```
-
-**说明：**
-
-- 仅当院系下没有教师、管理员和专业时才可删除
-- 删除前需确认关联数据已迁移
 
 ---
 
@@ -1133,7 +1181,9 @@ Authorization: Bearer <access_token>
 
 | 参数            | 类型   | 说明       |
 | --------------- | ------ | ---------- |
-| `department_id` | uuid   | 按院系筛选 |
+| `page`          | int    | 页码       |
+| `page_size`     | int    | 每页数量   |
+| `department_id` | uuid   | 院系ID筛选 |
 | `keyword`       | string | 搜索关键词 |
 
 **响应：**
@@ -1142,17 +1192,22 @@ Authorization: Bearer <access_token>
 {
   "code": 200,
   "message": "success",
-  "data": [
-    {
-      "id": "uuid",
-      "department_id": "uuid",
-      "department_name": "计算机学院",
-      "name": "计算机科学与技术",
-      "code": "CS001",
-      "degree_type": "bachelor",
-      "total_credits": 160.0
-    }
-  ]
+  "data": {
+    "items": [
+      {
+        "id": "uuid",
+        "name": "计算机科学与技术",
+        "code": "CS001",
+        "department_id": "uuid",
+        "department_name": "计算机学院",
+        "degree_type": "bachelor",
+        "total_credits": 160.0,
+        "student_count": 200,
+        "created_at": "2026-03-01T00:00:00+08:00"
+      }
+    ],
+    "pagination": { ... }
+  }
 }
 ```
 
@@ -1171,12 +1226,31 @@ Authorization: Bearer <access_token>
   "message": "success",
   "data": {
     "id": "uuid",
-    "department_id": "uuid",
-    "department_name": "计算机学院",
     "name": "计算机科学与技术",
     "code": "CS001",
+    "department_id": "uuid",
+    "department_name": "计算机学院",
     "degree_type": "bachelor",
-    "total_credits": 160.0
+    "total_credits": 160.0,
+    "description": "...",
+    "curriculums": [
+      {
+        "id": "uuid",
+        "name": "2023级培养方案",
+        "year": 2023,
+        "total_credits": 160.0
+      }
+    ],
+    "students": [
+      {
+        "user_id": "uuid",
+        "student_number": "2023001",
+        "real_name": "张三",
+        "grade": 2023
+      }
+    ],
+    "created_at": "2026-03-01T00:00:00+08:00",
+    "updated_at": "2026-04-01T00:00:00+08:00"
   }
 }
 ```
@@ -1188,15 +1262,15 @@ POST /api/v1/majors
 Authorization: Bearer <access_token>
 ```
 
-**权限：** `admin`、`super_admin`
+**权限：** `super_admin`
 
 **请求：**
 
 ```json
 {
-  "department_id": "uuid",
   "name": "计算机科学与技术",
   "code": "CS001",
+  "department_id": "uuid",
   "degree_type": "bachelor",
   "total_credits": 160.0
 }
@@ -1229,11 +1303,8 @@ Authorization: Bearer <access_token>
 
 ```json
 {
-  "name": "计算机科学与技术",
-  "code": "CS001",
-  "degree_type": "bachelor",
-  "total_credits": 165.0,
-  "department_id": "uuid"
+  "name": "计算机科学与技术（更新）",
+  "total_credits": 165.0
 }
 ```
 
@@ -1256,6 +1327,8 @@ Authorization: Bearer <access_token>
 
 **权限：** `super_admin`
 
+**前置条件：** 专业下无关联学生
+
 **响应：**
 
 ```json
@@ -1265,22 +1338,521 @@ Authorization: Bearer <access_token>
 }
 ```
 
-**说明：**
+---
 
-- 仅当专业下没有学生时才可删除
+## 六、课程管理 API
+
+### 6.1 获取课程列表
+
+```plaintext
+GET /api/v1/courses
+Authorization: Bearer <access_token>
+```
+
+**查询参数：**
+
+| 参数            | 类型   | 说明                            |
+| --------------- | ------ | ------------------------------- |
+| `page`          | int    | 页码                            |
+| `page_size`     | int    | 每页数量                        |
+| `keyword`       | string | 搜索关键词                      |
+| `department_id` | uuid   | 院系ID筛选                      |
+| `course_type`   | string | 类型：required/elective/general |
+| `status`        | string | 状态：active/archived           |
+
+**响应：**
+
+```json
+{
+  "code": 200,
+  "message": "success",
+  "data": {
+    "items": [
+      {
+        "id": "uuid",
+        "code": "CS101",
+        "name": "数据结构",
+        "credits": 4.0,
+        "hours": 64,
+        "course_type": "required",
+        "category": "专业必修",
+        "department_id": "uuid",
+        "department_name": "计算机学院",
+        "teacher_id": "uuid",
+        "teacher_name": "张教授",
+        "status": "active",
+        "created_at": "2026-03-01T00:00:00+08:00"
+      }
+    ],
+    "pagination": { ... }
+  }
+}
+```
+
+### 6.2 获取课程详情
+
+```plaintext
+GET /api/v1/courses/:id
+Authorization: Bearer <access_token>
+```
+
+**响应：**
+
+```json
+{
+  "code": 200,
+  "message": "success",
+  "data": {
+    "id": "uuid",
+    "code": "CS101",
+    "name": "数据结构",
+    "credits": 4.0,
+    "hours": 64,
+    "course_type": "required",
+    "category": "专业必修",
+    "department_id": "uuid",
+    "department_name": "计算机学院",
+    "teacher_id": "uuid",
+    "teacher_name": "张教授",
+    "description": "本课程介绍基本数据结构...",
+    "assessment_method": "平时30% + 期末70%",
+    "status": "active",
+    "prerequisites": [
+      {
+        "id": "uuid",
+        "code": "CS100",
+        "name": "程序设计基础"
+      }
+    ],
+    "created_at": "2026-03-01T00:00:00+08:00",
+    "updated_at": "2026-04-01T00:00:00+08:00"
+  }
+}
+```
+
+### 6.3 创建课程
+
+```plaintext
+POST /api/v1/courses
+Authorization: Bearer <access_token>
+```
+
+**权限：** `admin`、`super_admin`
+
+**请求：**
+
+```json
+{
+  "code": "CS101",
+  "name": "数据结构",
+  "credits": 4.0,
+  "hours": 64,
+  "course_type": "required",
+  "category": "专业必修",
+  "department_id": "uuid",
+  "teacher_id": "uuid",
+  "description": "本课程介绍基本数据结构...",
+  "assessment_method": "平时30% + 期末70%",
+  "prerequisite_ids": ["uuid"]
+}
+```
+
+**响应：**
+
+```json
+{
+  "code": 201,
+  "message": "课程创建成功",
+  "data": {
+    "id": "uuid",
+    "code": "CS101",
+    "name": "数据结构"
+  }
+}
+```
+
+### 6.4 更新课程
+
+```plaintext
+PUT /api/v1/courses/:id
+Authorization: Bearer <access_token>
+```
+
+**权限：** `admin`、`super_admin`
+
+**请求：**
+
+```json
+{
+  "name": "数据结构（更新版）",
+  "credits": 3.5,
+  "description": "更新后的描述",
+  "prerequisite_ids": ["uuid1", "uuid2"]
+}
+```
+
+**响应：**
+
+```json
+{
+  "code": 200,
+  "message": "课程更新成功",
+  "data": { ... }
+}
+```
+
+### 6.5 删除课程
+
+```plaintext
+DELETE /api/v1/courses/:id
+Authorization: Bearer <access_token>
+```
+
+**权限：** `super_admin`
+
+**前置条件：** 课程未被任何培养方案引用
+
+**响应：**
+
+```json
+{
+  "code": 200,
+  "message": "课程已删除"
+}
+```
+
+### 6.6 批量创建课程
+
+```plaintext
+POST /api/v1/courses/batch
+Authorization: Bearer <access_token>
+```
+
+**权限：** `admin`、`super_admin`
+
+**请求：**
+
+```json
+{
+  "courses": [
+    { "code": "CS101", "name": "数据结构", ... },
+    { "code": "CS102", "name": "算法设计", ... }
+  ]
+}
+```
+
+**响应：**
+
+```json
+{
+  "code": 200,
+  "message": "批量创建完成",
+  "data": {
+    "total": 10,
+    "success_count": 9,
+    "fail_count": 1,
+    "results": [
+      { "index": 0, "id": "uuid", "status": "created" },
+      { "index": 1, "error": "课程代码已存在", "status": "failed" }
+    ]
+  }
+}
+```
 
 ---
 
-## 六、角色权限管理 API
+## 七、培养方案管理 API
 
-### 6.1 获取角色列表（管理端）
+### 7.1 获取培养方案列表
 
-> 返回角色详情及其关联权限。用户侧轻量接口见 3.19。
+```plaintext
+GET /api/v1/curriculums
+Authorization: Bearer <access_token>
+```
+
+**查询参数：**
+
+| 参数        | 类型 | 说明       |
+| ----------- | ---- | ---------- |
+| `page`      | int  | 页码       |
+| `page_size` | int  | 每页数量   |
+| `major_id`  | uuid | 专业ID筛选 |
+| `year`      | int  | 年份筛选   |
+
+**响应：**
+
+```json
+{
+  "code": 200,
+  "message": "success",
+  "data": {
+    "items": [
+      {
+        "id": "uuid",
+        "name": "2023级培养方案",
+        "major_id": "uuid",
+        "major_name": "计算机科学与技术",
+        "year": 2023,
+        "total_credits": 160.0,
+        "required_credits": 120.0,
+        "elective_credits": 40.0,
+        "course_count": 45,
+        "created_at": "2026-03-01T00:00:00+08:00"
+      }
+    ],
+    "pagination": { ... }
+  }
+}
+```
+
+### 7.2 获取培养方案详情
+
+```plaintext
+GET /api/v1/curriculums/:id
+Authorization: Bearer <access_token>
+```
+
+**响应：**
+
+```json
+{
+  "code": 200,
+  "message": "success",
+  "data": {
+    "id": "uuid",
+    "name": "2023级培养方案",
+    "major_id": "uuid",
+    "major_name": "计算机科学与技术",
+    "year": 2023,
+    "total_credits": 160.0,
+    "required_credits": 120.0,
+    "elective_credits": 40.0,
+    "courses": [
+      {
+        "course_id": "uuid",
+        "course_code": "CS101",
+        "course_name": "数据结构",
+        "credits": 4.0,
+        "course_type": "required",
+        "semester_suggestion": 2
+      }
+    ],
+    "created_at": "2026-03-01T00:00:00+08:00",
+    "updated_at": "2026-04-01T00:00:00+08:00"
+  }
+}
+```
+
+### 7.3 创建培养方案
+
+```plaintext
+POST /api/v1/curriculums
+Authorization: Bearer <access_token>
+```
+
+**权限：** `admin`、`super_admin`
+
+**请求：**
+
+```json
+{
+  "name": "2023级培养方案",
+  "major_id": "uuid",
+  "year": 2023,
+  "total_credits": 160.0,
+  "required_credits": 120.0,
+  "elective_credits": 40.0
+}
+```
+
+**响应：**
+
+```json
+{
+  "code": 201,
+  "message": "培养方案创建成功",
+  "data": {
+    "id": "uuid",
+    "name": "2023级培养方案"
+  }
+}
+```
+
+### 7.4 更新培养方案
+
+```plaintext
+PUT /api/v1/curriculums/:id
+Authorization: Bearer <access_token>
+```
+
+**权限：** `admin`、`super_admin`
+
+**请求：**
+
+```json
+{
+  "name": "2023级培养方案（修订版）",
+  "total_credits": 165.0,
+  "required_credits": 125.0,
+  "elective_credits": 40.0
+}
+```
+
+**响应：**
+
+```json
+{
+  "code": 200,
+  "message": "培养方案更新成功",
+  "data": { ... }
+}
+```
+
+### 7.5 删除培养方案
+
+```plaintext
+DELETE /api/v1/curriculums/:id
+Authorization: Bearer <access_token>
+```
+
+**权限：** `super_admin`
+
+**响应：**
+
+```json
+{
+  "code": 200,
+  "message": "培养方案已删除"
+}
+```
+
+### 7.6 添加课程到培养方案
+
+```plaintext
+POST /api/v1/curriculums/:id/courses
+Authorization: Bearer <access_token>
+```
+
+**权限：** `admin`、`super_admin`
+
+**请求：**
+
+```json
+{
+  "course_id": "uuid",
+  "course_type": "required",
+  "semester_suggestion": 2
+}
+```
+
+**响应：**
+
+```json
+{
+  "code": 200,
+  "message": "课程已添加到培养方案"
+}
+```
+
+### 7.7 批量添加课程到培养方案
+
+```plaintext
+POST /api/v1/curriculums/:id/courses/batch
+Authorization: Bearer <access_token>
+```
+
+**权限：** `admin`、`super_admin`
+
+**请求：**
+
+```json
+{
+  "courses": [
+    { "course_id": "uuid1", "course_type": "required", "semester_suggestion": 1 },
+    { "course_id": "uuid2", "course_type": "elective", "semester_suggestion": 3 }
+  ]
+}
+```
+
+**响应：**
+
+```json
+{
+  "code": 200,
+  "message": "批量添加完成",
+  "data": {
+    "success_count": 10,
+    "fail_count": 0
+  }
+}
+```
+
+### 7.8 从培养方案移除课程
+
+```plaintext
+DELETE /api/v1/curriculums/:id/courses/:course_id
+Authorization: Bearer <access_token>
+```
+
+**权限：** `admin`、`super_admin`
+
+**响应：**
+
+```json
+{
+  "code": 200,
+  "message": "课程已从培养方案移除"
+}
+```
+
+### 7.9 更新培养方案中的课程
+
+```plaintext
+PUT /api/v1/curriculums/:id/courses/:course_id
+Authorization: Bearer <access_token>
+```
+
+**权限：** `admin`、`super_admin`
+
+**请求：**
+
+```json
+{
+  "course_type": "elective",
+  "semester_suggestion": 4
+}
+```
+
+**响应：**
+
+```json
+{
+  "code": 200,
+  "message": "课程信息已更新"
+}
+```
+
+---
+
+## 八、角色权限与令牌管理 API
+
+> 本章补充 A 模块的权限管理和安全管理能力。用户-角色分配仍保留在用户管理章节（3.12 - 3.14）；本章负责角色、权限、角色-权限关系以及 RefreshToken 的管理。
+
+### 8.1 获取角色列表（管理端）
 
 ```plaintext
 GET /api/v1/roles
 Authorization: Bearer <access_token>
 ```
+
+**权限：** `admin`、`super_admin`
+
+**查询参数：**
+
+| 参数      | 类型    | 说明                 |
+| --------- | ------- | -------------------- |
+| `keyword` | string  | 按角色名称/代码搜索  |
+| `builtin` | boolean | 是否筛选系统内置角色 |
 
 **响应：**
 
@@ -1291,16 +1863,18 @@ Authorization: Bearer <access_token>
   "data": [
     {
       "id": "uuid",
-      "code": "student",
-      "name": "学生",
-      "description": "学生角色",
-      "permissions": [{ "id": "uuid", "code": "course:read", "name": "查看课程" }]
+      "code": "admin",
+      "name": "教务管理员",
+      "description": "负责院系、专业、课程和用户管理",
+      "builtin": true,
+      "user_count": 5,
+      "permissions": [{ "id": "uuid", "code": "user:read", "name": "查看用户" }]
     }
   ]
 }
 ```
 
-### 6.2 获取角色详情
+### 8.2 获取角色详情
 
 ```plaintext
 GET /api/v1/roles/:id
@@ -1318,8 +1892,9 @@ Authorization: Bearer <access_token>
   "data": {
     "id": "uuid",
     "code": "admin",
-    "name": "管理员",
-    "description": "院系管理员",
+    "name": "教务管理员",
+    "description": "负责院系、专业、课程和用户管理",
+    "builtin": true,
     "permissions": [
       {
         "id": "uuid",
@@ -1329,12 +1904,12 @@ Authorization: Bearer <access_token>
         "action": "read"
       }
     ],
-    "user_count": 5
+    "users": [{ "id": "uuid", "username": "admin001", "real_name": "张老师" }]
   }
 }
 ```
 
-### 6.3 创建角色
+### 8.3 创建角色
 
 ```plaintext
 POST /api/v1/roles
@@ -1347,9 +1922,10 @@ Authorization: Bearer <access_token>
 
 ```json
 {
-  "name": "院系管理员",
   "code": "dept_admin",
-  "description": "院系级别管理员"
+  "name": "院系管理员",
+  "description": "负责本院系基础信息管理",
+  "permission_ids": ["uuid1", "uuid2"]
 }
 ```
 
@@ -1361,14 +1937,13 @@ Authorization: Bearer <access_token>
   "message": "角色创建成功",
   "data": {
     "id": "uuid",
-    "name": "院系管理员",
     "code": "dept_admin",
-    "description": "院系级别管理员"
+    "name": "院系管理员"
   }
 }
 ```
 
-### 6.4 更新角色
+### 8.4 更新角色
 
 ```plaintext
 PUT /api/v1/roles/:id
@@ -1382,7 +1957,7 @@ Authorization: Bearer <access_token>
 ```json
 {
   "name": "院系管理员",
-  "description": "更新后的描述"
+  "description": "负责院系范围内的基础信息管理"
 }
 ```
 
@@ -1396,7 +1971,12 @@ Authorization: Bearer <access_token>
 }
 ```
 
-### 6.5 删除角色
+**说明：**
+
+- 系统内置角色的 `code` 不可修改
+- 若角色已被用户使用，仍允许修改名称和描述
+
+### 8.5 删除角色
 
 ```plaintext
 DELETE /api/v1/roles/:id
@@ -1404,6 +1984,8 @@ Authorization: Bearer <access_token>
 ```
 
 **权限：** `super_admin`
+
+**前置条件：** 角色未被任何用户引用，且不是系统内置角色
 
 **响应：**
 
@@ -1414,12 +1996,43 @@ Authorization: Bearer <access_token>
 }
 ```
 
-**说明：**
+### 8.6 获取权限列表
 
-- 系统内置角色（student/teacher/admin/super_admin）不可删除
-- 仅当角色未被分配给用户时才可删除
+```plaintext
+GET /api/v1/permissions
+Authorization: Bearer <access_token>
+```
 
-### 6.6 为角色分配权限
+**权限：** `admin`、`super_admin`
+
+**查询参数：**
+
+| 参数       | 类型   | 说明       |
+| ---------- | ------ | ---------- |
+| `resource` | string | 按资源筛选 |
+| `action`   | string | 按操作筛选 |
+| `keyword`  | string | 搜索关键词 |
+
+**响应：**
+
+```json
+{
+  "code": 200,
+  "message": "success",
+  "data": [
+    {
+      "id": "uuid",
+      "code": "course:create",
+      "name": "创建课程",
+      "resource": "course",
+      "action": "create",
+      "description": "允许创建课程基础信息"
+    }
+  ]
+}
+```
+
+### 8.7 为角色分配权限
 
 ```plaintext
 POST /api/v1/roles/:id/permissions
@@ -1441,11 +2054,15 @@ Authorization: Bearer <access_token>
 ```json
 {
   "code": 200,
-  "message": "权限分配成功"
+  "message": "权限分配成功",
+  "data": {
+    "role_id": "uuid",
+    "added_count": 2
+  }
 }
 ```
 
-### 6.7 撤销角色权限
+### 8.8 撤销角色权限
 
 ```plaintext
 DELETE /api/v1/roles/:id/permissions/:permission_id
@@ -1463,52 +2080,19 @@ Authorization: Bearer <access_token>
 }
 ```
 
-### 6.8 获取权限列表
+**说明：**
 
-```plaintext
-GET /api/v1/permissions
-Authorization: Bearer <access_token>
-```
+- 撤销权限后，已登录用户的权限缓存应在下一次请求或令牌刷新时失效
+- 不允许撤销导致系统没有任何超级管理员可用的关键权限
 
-**权限：** `admin`、`super_admin`
-
-**查询参数：**
-
-| 参数       | 类型   | 说明       |
-| ---------- | ------ | ---------- |
-| `resource` | string | 按资源筛选 |
-| `action`   | string | 按操作筛选 |
-
-**响应：**
-
-```json
-{
-  "code": 200,
-  "message": "success",
-  "data": [
-    {
-      "id": "uuid",
-      "name": "查看用户",
-      "code": "user:read",
-      "resource": "user",
-      "action": "read"
-    }
-  ]
-}
-```
-
----
-
-## 七、令牌管理 API
-
-### 7.1 获取用户活跃令牌列表
+### 8.9 获取用户活跃令牌列表
 
 ```plaintext
 GET /api/v1/users/:id/tokens
 Authorization: Bearer <access_token>
 ```
 
-**权限：** `admin`、`super_admin`（查看其他用户），本人可查看自己的
+**权限：** 本人或管理员
 
 **响应：**
 
@@ -1519,22 +2103,30 @@ Authorization: Bearer <access_token>
   "data": [
     {
       "id": "uuid",
-      "created_at": "2026-05-22T10:00:00+08:00",
-      "expires_at": "2026-05-29T10:00:00+08:00",
-      "is_used": false
+      "created_at": "2026-06-05T10:00:00+08:00",
+      "expires_at": "2026-06-12T10:00:00+08:00",
+      "last_used_at": "2026-06-05T12:00:00+08:00",
+      "ip_address": "10.0.0.1",
+      "user_agent": "Mozilla/5.0...",
+      "revoked_at": null
     }
   ]
 }
 ```
 
-### 7.2 吊销指定令牌
+**说明：**
+
+- 仅返回未过期且未吊销的 RefreshToken
+- 普通用户只能查看自己的令牌
+
+### 8.10 吊销指定令牌
 
 ```plaintext
 DELETE /api/v1/users/:id/tokens/:token_id
 Authorization: Bearer <access_token>
 ```
 
-**权限：** `admin`、`super_admin`
+**权限：** 本人或管理员
 
 **响应：**
 
@@ -1545,14 +2137,14 @@ Authorization: Bearer <access_token>
 }
 ```
 
-### 7.3 吊销用户所有令牌
+### 8.11 吊销用户所有令牌
 
 ```plaintext
 POST /api/v1/users/:id/tokens/revoke-all
 Authorization: Bearer <access_token>
 ```
 
-**权限：** `admin`、`super_admin`
+**权限：** 本人或管理员
 
 **响应：**
 
@@ -1568,14 +2160,14 @@ Authorization: Bearer <access_token>
 
 **说明：**
 
-- 角色变更或密码修改时应自动调用此接口
-- 吊销后用户需要重新登录
+- 修改密码、重置密码、禁用账号或调整关键角色权限后，系统可调用本能力让用户重新登录
+- 对长时间停留或存在安全风险的在线会话，可通过令牌吊销实现强制退出
 
 ---
 
-## 八、权限说明
+## 九、权限说明
 
-### 8.1 角色类型
+### 9.1 角色类型
 
 | 角色       | 代码          | 说明          |
 | ---------- | ------------- | ------------- |
@@ -1584,52 +2176,65 @@ Authorization: Bearer <access_token>
 | 教务管理员 | `admin`       | 院系/用户管理 |
 | 超级管理员 | `super_admin` | 最高权限      |
 
-### 8.2 权限代码
+### 9.2 权限代码
 
-| 权限          | 说明         |
-| ------------- | ------------ |
-| `user:read`   | 查看用户信息 |
-| `user:create` | 创建用户     |
-| `user:update` | 更新用户     |
-| `user:delete` | 删除用户     |
+| 权限                | 说明         |
+| ------------------- | ------------ |
+| `user:read`         | 查看用户信息 |
+| `user:create`       | 创建用户     |
+| `user:update`       | 更新用户     |
+| `user:delete`       | 删除用户     |
+| `department:read`   | 查看院系     |
+| `department:create` | 创建院系     |
+| `department:update` | 更新院系     |
+| `department:delete` | 删除院系     |
+| `major:read`        | 查看专业     |
+| `major:create`      | 创建专业     |
+| `major:update`      | 更新专业     |
+| `major:delete`      | 删除专业     |
+| `course:read`       | 查看课程     |
+| `course:create`     | 创建课程     |
+| `course:update`     | 更新课程     |
+| `course:delete`     | 删除课程     |
+| `curriculum:read`   | 查看培养方案 |
+| `curriculum:create` | 创建培养方案 |
+| `curriculum:update` | 更新培养方案 |
+| `curriculum:delete` | 删除培养方案 |
+| `role:read`         | 查看角色     |
+| `role:create`       | 创建角色     |
+| `role:update`       | 更新角色     |
+| `role:delete`       | 删除角色     |
+| `permission:read`   | 查看权限     |
+| `permission:assign` | 分配角色权限 |
+| `permission:revoke` | 撤销角色权限 |
+| `token:read`        | 查看活跃令牌 |
+| `token:revoke`      | 吊销令牌     |
+| `log:read`          | 查看系统日志 |
 
 ---
 
 ## 变更记录
 
-### v2.0.0 (2026-05-22)
+### v3.0.0 (2026-06-05)
 
-**新增 API：**
+- **基线修复：** 以 2026-04-04 的 v2.0.0 文档为基础重新修订，恢复课程管理 API（6.1 - 6.6）和培养方案管理 API（7.1 - 7.9）
+- **需求对齐：** 根据 `project-requirements.md` 中 A 模块对用户信息、课程基础信息、权限管理、安全管理和系统日志的要求补充缺失接口
+- 新增用户头像上传 API（3.17），支持用户个人照片管理
+- 新增学生专业、教师院系、管理员院系更新 API（3.18 - 3.20），补齐学生/教师/教务管理人员基础信息维护能力
+- 新增角色权限与令牌管理 API（第八章），覆盖角色 CRUD、权限查询、角色-权限关系维护和 RefreshToken 吊销
+- 修正用户侧角色列表和系统日志路径为 `/users/roles`、`/users/logs`，与当前服务路由挂载保持一致
+- 明确培养方案 API 作为基础数据维护能力保留在 A 模块文档中，供智能选课等后续模块引用
 
-| #       | API            | 方法                | 路径                            | 说明                           |
-| ------- | -------------- | ------------------- | ------------------------------- | ------------------------------ |
-| 3.15    | 上传头像       | POST                | `/users/:id/avatar`             | multipart/form-data 头像上传   |
-| 3.16    | 更新学生专业   | PATCH               | `/users/:id/student/major`      | Student.major_id 字段管理      |
-| 3.17    | 更新教师院系   | PATCH               | `/users/:id/teacher/department` | Teacher.department_id 字段管理 |
-| 3.18    | 更新管理员院系 | PATCH               | `/users/:id/admin/department`   | Admin.department_id 字段管理   |
-| 4.3     | 创建院系       | POST                | `/departments`                  | Department CRUD 补全           |
-| 4.4     | 更新院系       | PUT                 | `/departments/:id`              | Department CRUD 补全           |
-| 4.5     | 删除院系       | DELETE              | `/departments/:id`              | Department CRUD 补全           |
-| 5.1-5.5 | 专业管理 CRUD  | GET/POST/PUT/DELETE | `/majors`                       | Major 完整 CRUD                |
-| 6.1-6.5 | 角色管理 CRUD  | GET/POST/PUT/DELETE | `/roles`                        | Role 完整 CRUD                 |
-| 6.6     | 分配角色权限   | POST                | `/roles/:id/permissions`        | RolePermission 管理            |
-| 6.7     | 撤销角色权限   | DELETE              | `/roles/:id/permissions/:pid`   | RolePermission 管理            |
-| 6.8     | 获取权限列表   | GET                 | `/permissions`                  | Permission 列表查询            |
-| 7.1     | 获取用户令牌   | GET                 | `/users/:id/tokens`             | RefreshToken 管理              |
-| 7.2     | 吊销指定令牌   | DELETE              | `/users/:id/tokens/:tid`        | RefreshToken 吊销              |
-| 7.3     | 吊销所有令牌   | POST                | `/users/:id/tokens/revoke-all`  | 批量吊销                       |
+### v2.0.0 (2026-04-04)
 
-**结构变更：**
-
-- 原第四章「院系管理」拆分为第四章「院系管理」和第五章「专业管理」
-- 新增第六章「角色权限管理」（Role/Permission/RolePermission CRUD）
-- 新增第七章「令牌管理」（RefreshToken 管理与吊销）
-- 原第五章「权限说明」顺移为第八章
-
-**与 database-design v1.4 对齐：**
-
-- 三张令牌表（RefreshToken / ActivationToken / PasswordResetToken）已有对应 API
-- 所有 A 组数据库表（User/Student/Teacher/Admin/Department/Major/Role/Permission/UserRole/RolePermission/RefreshToken/SystemLog）均已覆盖 API 设计
+- **重大更新：** 完善所有 A 模块功能接口
+- 新增课程管理 API（6.1 - 6.6）
+- 新增院系管理 API（4.3 - 4.5）
+- 新增专业管理 API（5.1 - 5.5）
+- 新增培养方案管理 API（7.1 - 7.9）
+- 完善权限代码列表
+- 补充角色列表和系统日志接口说明
+- 完善响应字段（增加关联数据）
 
 ### v1.1.0 (2026-04-01)
 

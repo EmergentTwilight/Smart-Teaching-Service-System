@@ -26,27 +26,27 @@ const DepartmentDetail: React.FC<DepartmentDetailProps> = ({ visible, onClose, d
     },
     {
       title: '学位类型',
-      dataIndex: 'degree_type',
-      key: 'degree_type',
+      dataIndex: 'degreeType',
+      key: 'degreeType',
       render: (type: string) => DEGREE_TYPE_LABELS[type] || type,
     },
     {
       title: '学生人数',
-      dataIndex: 'student_count',
-      key: 'student_count',
+      dataIndex: 'studentCount',
+      key: 'studentCount',
     },
   ];
 
   const teacherColumns: ColumnsType<TeacherSummary> = [
     {
       title: '教师编号',
-      dataIndex: 'teacher_number',
-      key: 'teacher_number',
+      dataIndex: 'teacherNumber',
+      key: 'teacherNumber',
     },
     {
       title: '姓名',
-      dataIndex: 'real_name',
-      key: 'real_name',
+      dataIndex: 'realName',
+      key: 'realName',
     },
     {
       title: '职称',
@@ -68,18 +68,18 @@ const DepartmentDetail: React.FC<DepartmentDetailProps> = ({ visible, onClose, d
     >
       <Descriptions title={data.name} column={2}>
         <Descriptions.Item label="部门代码">{data.code}</Descriptions.Item>
-        <Descriptions.Item label="创建时间">{dayjs(data.created_at).format('YYYY-MM-DD HH:mm')}</Descriptions.Item>
+        <Descriptions.Item label="创建时间">{dayjs(data.createdAt).format('YYYY-MM-DD HH:mm')}</Descriptions.Item>
         <Descriptions.Item label="描述" span={2}>
           {data.description || '-'}
         </Descriptions.Item>
         <Descriptions.Item label="教师人数">
-          <Tag color="blue">{data.teacher_count} 人</Tag>
+          <Tag color="blue">{data.teacherCount} 人</Tag>
         </Descriptions.Item>
         <Descriptions.Item label="学生人数">
-          <Tag color="green">{data.student_count} 人</Tag>
+          <Tag color="green">{data.studentCount} 人</Tag>
         </Descriptions.Item>
         <Descriptions.Item label="专业数量">
-          <Tag color="orange">{data.major_count} 个</Tag>
+          <Tag color="orange">{data.majorCount} 个</Tag>
         </Descriptions.Item>
       </Descriptions>
 

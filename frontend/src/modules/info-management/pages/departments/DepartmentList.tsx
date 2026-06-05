@@ -325,14 +325,14 @@ const DepartmentList: React.FC = () => {
         okButtonProps={{ danger: true, loading: deleteMutation.isPending }}
       >
         <p>确定要删除部门 <strong>{departmentToDelete?.name}</strong> 吗？此操作不可恢复。</p>
-        {departmentToDelete && departmentToDelete.teacher_count != null && departmentToDelete.teacher_count > 0 && (
+        {departmentToDelete && departmentToDelete.teacherCount != null && departmentToDelete.teacherCount > 0 && (
           <p style={{ color: '#f59e0b', marginTop: 8 }}>
-            该部门下还有 {departmentToDelete.teacher_count} 名教师，删除前请先转移或删除相关教师。
+            该部门下还有 {departmentToDelete.teacherCount} 名教师，删除前请先转移或删除相关教师。
           </p>
         )}
-        {departmentToDelete && departmentToDelete.major_count != null && departmentToDelete.major_count > 0 && (
+        {departmentToDelete && departmentToDelete.majorCount != null && departmentToDelete.majorCount > 0 && (
           <p style={{ color: '#f59e0b', marginTop: 8 }}>
-            该部门下还有 {departmentToDelete.major_count} 个专业，删除前请先删除相关专业。
+            该部门下还有 {departmentToDelete.majorCount} 个专业，删除前请先删除相关专业。
           </p>
         )}
       </Modal>

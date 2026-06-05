@@ -20,6 +20,7 @@ const Dashboard = lazy(() => import('@/modules/info-management/pages/Dashboard')
 const UserList = lazy(() => import('@/modules/info-management/pages/users/UserList'));
 const SystemLogs = lazy(() => import('@/modules/info-management/pages/users/SystemLogs'));
 const DepartmentList = lazy(() => import('@/modules/info-management/pages/departments/DepartmentList'));
+const MajorList = lazy(() => import('@/modules/info-management/pages/majors/MajorList'));
 const Profile = lazy(() => import('@/modules/info-management/pages/Profile'));
 const ComingSoon = lazy(() => import('@/shared/components/ComingSoon'));
 
@@ -133,6 +134,7 @@ const App: React.FC = () => {
                   />
                   <Route path="profile" element={<Profile />} />
                   <Route path="info/departments" element={<DepartmentList />} />
+                  <Route path="info/majors" element={<MajorList />} />
                   <Route path="info/roles" element={<ComingSoon title="角色权限" />} />
                   <Route path="info/courses" element={<ComingSoon title="课程信息" />} />
                   <Route path="info/classrooms" element={<ComingSoon title="教室管理" />} />

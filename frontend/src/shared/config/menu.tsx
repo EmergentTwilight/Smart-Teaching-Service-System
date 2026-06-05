@@ -37,6 +37,7 @@ export const MENU_ITEMS: MenuProps['items'] = [
     children: [
       { key: '/users', icon: <TeamOutlined />, label: '用户管理' },
       { key: '/info/departments', icon: <BuildOutlined />, label: '部门管理' },
+      { key: '/info/majors', icon: <BookOutlined />, label: '专业管理' },
       { key: '/info/roles', icon: <SafetyOutlined />, label: '角色权限' },
       { key: '/info/courses', icon: <BookOutlined />, label: '课程信息' },
       { key: '/info/classrooms', icon: <HomeOutlined />, label: '教室管理' },

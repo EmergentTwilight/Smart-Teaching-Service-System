@@ -536,9 +536,11 @@ describe('GET /api/v1/auth/me', () => {
       username: user.username,
       real_name: '测试用户',
       email: 'itest_auth_me@test.com',
-      roles: ['student'],
       permissions: expect.any(Array),
     })
+    expect(response.body.data.roles).toEqual(
+      expect.arrayContaining([expect.objectContaining({ code: 'student' })])
+    )
   })
 
   it('应该包含用户的角色和权限信息', async () => {

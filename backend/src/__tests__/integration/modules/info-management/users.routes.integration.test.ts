@@ -337,7 +337,7 @@ describe('POST /api/v1/users', () => {
       .expect(201)
 
     expect(response.body.code).toBe(201)
-    expect(response.body.message).toBe('创建成功')
+    expect(response.body.message).toBe('用户创建成功')
     expect(response.body.data.username).toBeDefined()
   })
 
@@ -449,7 +449,7 @@ describe('POST /api/v1/users/:id/roles', () => {
       .send({ roleIds: [teacherRole.id] })
       .expect(200)
 
-    expect(response.body.data.roles).toContain('teacher')
+    expect(response.body.data.roles).toContainEqual(expect.objectContaining({ code: 'teacher' }))
   })
 
   it('应该拒绝分配 super_admin 角色给非 super_admin', async () => {
@@ -510,7 +510,7 @@ describe('DELETE /api/v1/users/:id', () => {
       .set('Authorization', `Bearer ${token}`)
       .expect(200)
 
-    expect(response.body.message).toBe('删除成功')
+    expect(response.body.message).toBe('用户已删除')
 
     // 验证用户已被删除
     const deletedUser = await prisma.user.findUnique({

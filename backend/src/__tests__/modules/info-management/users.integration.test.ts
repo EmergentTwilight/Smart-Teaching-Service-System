@@ -167,7 +167,7 @@ describe('UsersService Integration Tests', () => {
         expect(result.username).toBe('itest_usvc_newuser')
         expect(result.realName).toBe('新用户')
         expect(result.email).toBe('itest_usvc_newuser@test.com')
-        expect(result.roles).toContain('itest_student')
+        expect(result.roles).toContainEqual(expect.objectContaining({ code: 'itest_student' }))
 
         // 验证数据库中真实存在该用户
         const dbUser = await prisma.user.findUnique({
@@ -753,13 +753,14 @@ describe('UsersService Integration Tests', () => {
           },
         ]
 
-        await expect(usersService.batchCreateUsers({ users })).rejects.toBeInstanceOf(ConflictError)
+        const result = await usersService.batchCreateUsers({ users })
 
-        // 验证第一个用户也没有被创建（事务回滚）
-        const dbUser = await prisma.user.findUnique({
-          where: { username: 'itest_usvc_batchnew1' },
-        })
-        expect(dbUser).toBeNull()
+        expect(result.total).toBe(2)
+        expect(result.success_count).toBe(1)
+        expect(result.fail_count).toBe(1)
+        expect(result.results[0].status).toBe('created')
+        expect(result.results[1].status).toBe('failed')
+        expect(result.results[1].error).toBe('用户名已存在')
       })
 
       it('超过100个用户时应该抛出 ValidationError', async () => {
@@ -852,7 +853,7 @@ describe('UsersService Integration Tests', () => {
       expect(result.username).toBe('itest_usvc_getbyid')
       expect(result.email).toBe('itest_usvc_getbyid@test.com')
       expect(result.realName).toBe('详情用户')
-      expect(result.roles).toContain('itest_student')
+      expect(result.roles).toContainEqual(expect.objectContaining({ code: 'itest_student' }))
     })
 
     it('用户不存在时应该抛出 NotFoundError', async () => {

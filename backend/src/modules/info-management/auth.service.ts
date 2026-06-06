@@ -160,11 +160,11 @@ function serializeUser(
     username: user.username,
     email: user.email,
     phone: user.phone,
-    realName: user.realName,
-    avatarUrl: user.avatarUrl,
+    real_name: user.realName,
+    avatar_url: user.avatarUrl,
     gender: user.gender,
     status: user.status,
-    lastLoginAt: user.lastLoginAt,
+    last_login_at: user.lastLoginAt,
     roles,
     permissions,
   }
@@ -364,10 +364,10 @@ export const authService = {
     })
 
     return {
-      accessToken: issueAccessToken(updatedUser),
-      refreshToken: refreshTokenValue,
-      expiresIn: parseExpiresIn(config.jwt.accessTokenExpiresIn),
-      tokenType: 'Bearer',
+      access_token: issueAccessToken(updatedUser),
+      refresh_token: refreshTokenValue,
+      expires_in: parseExpiresIn(config.jwt.accessTokenExpiresIn),
+      token_type: 'Bearer',
       user: serializeUser(updatedUser),
     }
   },
@@ -423,10 +423,10 @@ export const authService = {
     ])
 
     return {
-      accessToken: issueAccessToken(storedToken.user),
-      refreshToken: newRefreshTokenValue,
-      expiresIn: parseExpiresIn(config.jwt.accessTokenExpiresIn),
-      tokenType: 'Bearer',
+      access_token: issueAccessToken(storedToken.user),
+      refresh_token: newRefreshTokenValue,
+      expires_in: parseExpiresIn(config.jwt.accessTokenExpiresIn),
+      token_type: 'Bearer',
     }
   },
 
@@ -532,7 +532,7 @@ export const authService = {
       id: createdUser.id,
       username: createdUser.username,
       email: createdUser.email,
-      realName: createdUser.realName,
+      real_name: createdUser.realName,
       status: createdUser.status,
     }
   },

@@ -80,7 +80,7 @@ describe('UsersController', () => {
           { id: 'user-1', username: 'alice', roles: ['student'] },
           { id: 'user-2', username: 'bob', roles: ['teacher'] },
         ],
-        pagination: { page: 1, pageSize: 10, total: 2, totalPages: 1 },
+        pagination: { page: 1, page_size: 10, total: 2, total_pages: 1 },
       }
 
       req.query = { page: '1', pageSize: '10' }

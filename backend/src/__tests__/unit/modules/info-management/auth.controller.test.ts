@@ -119,10 +119,10 @@ describe('AuthController', () => {
   describe('refreshToken', () => {
     it('应该成功刷新 token', async () => {
       const mockResult = {
-        accessToken: 'new-access-token',
-        refreshToken: 'new-refresh-token',
-        expiresIn: 7200,
-        tokenType: 'Bearer',
+        access_token: 'new-access-token',
+        refresh_token: 'new-refresh-token',
+        expires_in: 7200,
+        token_type: 'Bearer',
       }
 
       req.body = { refreshToken: 'valid-refresh-token' }
@@ -153,7 +153,7 @@ describe('AuthController', () => {
         id: 'user-1',
         username: 'newuser',
         email: 'newuser@example.com',
-        realName: '新用户',
+        real_name: '新用户',
         status: 'INACTIVE' as const,
       }
 

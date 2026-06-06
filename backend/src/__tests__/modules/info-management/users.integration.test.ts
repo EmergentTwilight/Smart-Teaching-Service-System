@@ -165,7 +165,7 @@ describe('UsersService Integration Tests', () => {
 
         // 验证返回值
         expect(result.username).toBe('itest_usvc_newuser')
-        expect(result.realName).toBe('新用户')
+        expect(result.real_name).toBe('新用户')
         expect(result.email).toBe('itest_usvc_newuser@test.com')
         expect(result.roles).toContainEqual(expect.objectContaining({ code: 'itest_student' }))
 
@@ -231,9 +231,9 @@ describe('UsersService Integration Tests', () => {
 
         expect(result.items.length).toBeLessThanOrEqual(10)
         expect(result.pagination.page).toBe(1)
-        expect(result.pagination.pageSize).toBe(10)
+        expect(result.pagination.page_size).toBe(10)
         expect(result.pagination.total).toBeGreaterThanOrEqual(15)
-        expect(result.pagination.totalPages).toBeGreaterThanOrEqual(2)
+        expect(result.pagination.total_pages).toBeGreaterThanOrEqual(2)
       })
 
       it('应该支持按关键词搜索', async () => {
@@ -288,7 +288,7 @@ describe('UsersService Integration Tests', () => {
           phone: '13900000000',
         })
 
-        expect(result.realName).toBe('更新后')
+        expect(result.real_name).toBe('更新后')
         expect(result.phone).toBe('13900000000')
 
         // 验证数据库中已更新
@@ -852,7 +852,7 @@ describe('UsersService Integration Tests', () => {
       expect(result.id).toBe(user.id)
       expect(result.username).toBe('itest_usvc_getbyid')
       expect(result.email).toBe('itest_usvc_getbyid@test.com')
-      expect(result.realName).toBe('详情用户')
+      expect(result.real_name).toBe('详情用户')
       expect(result.roles).toContainEqual(expect.objectContaining({ code: 'itest_student' }))
     })
 

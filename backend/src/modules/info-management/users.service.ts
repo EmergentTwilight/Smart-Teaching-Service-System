@@ -73,23 +73,23 @@ export const usersService = {
       username: user.username,
       email: user.email,
       phone: user.phone,
-      realName: user.realName,
-      avatarUrl: user.avatarUrl,
+      real_name: user.realName,
+      avatar_url: user.avatarUrl,
       gender: user.gender,
       status: user.status,
       roles: user.userRoles.map((ur) => ur.role.code),
-      lastLoginAt: user.lastLoginAt,
-      createdAt: user.createdAt,
-      updatedAt: user.updatedAt,
+      last_login_at: user.lastLoginAt,
+      created_at: user.createdAt,
+      updated_at: user.updatedAt,
     }))
 
     return {
       items,
       pagination: {
         page,
-        pageSize,
+        page_size: pageSize,
         total,
-        totalPages: Math.ceil(total / pageSize),
+        total_pages: Math.ceil(total / pageSize),
       },
     }
   },
@@ -176,12 +176,12 @@ export const usersService = {
       username: user.username,
       email: user.email,
       phone: user.phone,
-      realName: user.realName,
-      avatarUrl: user.avatarUrl,
+      real_name: user.realName,
+      avatar_url: user.avatarUrl,
       gender: user.gender,
       status: user.status,
-      lastLoginAt: user.lastLoginAt,
-      createdAt: user.createdAt,
+      last_login_at: user.lastLoginAt,
+      created_at: user.createdAt,
       roles: user.userRoles.map((ur) => ({
         id: ur.role.id,
         code: ur.role.code,
@@ -401,25 +401,25 @@ export const usersService = {
 
     const items = logs.map((log) => ({
       id: log.id.toString(),
-      userId: log.userId,
+      user_id: log.userId,
       username: log.user?.username || null,
-      realName: log.user?.realName || null,
+      real_name: log.user?.realName || null,
       action: log.action,
-      resourceType: log.resourceType,
-      resourceId: log.resourceId,
-      ipAddress: log.ipAddress,
-      userAgent: log.userAgent,
+      resource_type: log.resourceType,
+      resource_id: log.resourceId,
+      ip_address: log.ipAddress,
+      user_agent: log.userAgent,
       details: log.details,
-      createdAt: log.createdAt,
+      created_at: log.createdAt,
     }))
 
     return {
       items,
       pagination: {
         page,
-        pageSize,
+        page_size: pageSize,
         total,
-        totalPages: Math.ceil(total / pageSize),
+        total_pages: Math.ceil(total / pageSize),
       },
     }
   },
@@ -478,7 +478,6 @@ export const usersService = {
           continue
         }
 
-         
         const { roleIds, password, ...createData } = userData
         const hashedPassword = await hashPassword(password)
 
@@ -894,7 +893,15 @@ export const usersService = {
       orderBy: { createdAt: 'desc' },
     })
 
-    return tokens
+    return tokens.map((t) => ({
+      id: t.id,
+      created_at: t.createdAt,
+      expires_at: t.expiresAt,
+      last_used_at: t.lastUsedAt,
+      ip_address: t.ipAddress,
+      user_agent: t.userAgent,
+      revoked_at: t.revokedAt,
+    }))
   },
 
   /**

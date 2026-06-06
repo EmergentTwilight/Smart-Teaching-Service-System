@@ -167,9 +167,9 @@ describe('UsersService', () => {
 
       expect(result.items).toHaveLength(2)
       expect(result.pagination.page).toBe(1)
-      expect(result.pagination.pageSize).toBe(10)
+      expect(result.pagination.page_size).toBe(10)
       expect(result.pagination.total).toBe(2)
-      expect(result.pagination.totalPages).toBe(1)
+      expect(result.pagination.total_pages).toBe(1)
       expect(result.items[0].roles).toContain('student')
       expect(prismaMock.user.findMany).toHaveBeenCalledWith({
         where: {},

@@ -116,9 +116,9 @@ export const paginated = <T>(
   items: T[],
   pagination: {
     page: number
-    pageSize: number
+    page_size: number
     total: number
-    totalPages: number
+    total_pages: number
   },
   requestId?: string
 ) => {

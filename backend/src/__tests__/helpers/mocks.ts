@@ -308,9 +308,9 @@ export function mockPagination<T>(items: T[], options: MockPaginationOptions = {
     items,
     pagination: {
       page,
-      pageSize,
+      page_size: pageSize,
       total,
-      totalPages: Math.ceil(total / pageSize),
+      total_pages: Math.ceil(total / pageSize),
     },
   }
 }

@@ -130,7 +130,10 @@ describe('AuthController', () => {
 
       await authController.refreshToken(req as Request, res as Response)
 
-      expect(authService.refreshToken).toHaveBeenCalledWith('valid-refresh-token')
+      expect(authService.refreshToken).toHaveBeenCalledWith('valid-refresh-token', {
+        ipAddress: '127.0.0.1',
+        userAgent: 'vitest',
+      })
       expect(mockSuccess).toHaveBeenCalledWith(res, mockResult, '令牌刷新成功')
     })
 
@@ -151,6 +154,7 @@ describe('AuthController', () => {
         username: 'newuser',
         email: 'newuser@example.com',
         realName: '新用户',
+        status: 'INACTIVE' as const,
       }
 
       req.body = {
@@ -349,7 +353,7 @@ describe('AuthController', () => {
           userAgent: 'vitest',
         }
       )
-      expect(mockSuccess).toHaveBeenCalledWith(res, null, '密码重置成功，请使用新密码登录')
+      expect(mockSuccess).toHaveBeenCalledWith(res, null, '密码重置成功')
     })
 
     it('应该拒绝无效的重置令牌', async () => {

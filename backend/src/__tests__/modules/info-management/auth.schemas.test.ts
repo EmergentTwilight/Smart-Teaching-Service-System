@@ -4,7 +4,6 @@
  * 按最佳实践：每个 schema 测试 valid / invalid / edge cases
  */
 import { describe, expect, it } from 'vitest'
-import { type ZodIssue } from 'zod'
 import {
   loginSchema,
   registerSchema,
@@ -331,7 +330,6 @@ describe('resetPasswordSchema', () => {
   const validInput = {
     token: 'reset-token',
     newPassword: 'NewPass123',
-    confirmPassword: 'NewPass123',
   }
 
   describe('valid inputs', () => {
@@ -346,7 +344,6 @@ describe('resetPasswordSchema', () => {
       const result = resetPasswordSchema.safeParse({
         token: '',
         newPassword: 'NewPass123',
-        confirmPassword: 'NewPass123',
       })
       expect(result.success).toBe(false)
       if (!result.success) {
@@ -360,7 +357,6 @@ describe('resetPasswordSchema', () => {
       const result = resetPasswordSchema.safeParse({
         ...validInput,
         newPassword: 'New1',
-        confirmPassword: 'New1',
       })
       expect(result.success).toBe(false)
     })
@@ -369,7 +365,6 @@ describe('resetPasswordSchema', () => {
       const result = resetPasswordSchema.safeParse({
         ...validInput,
         newPassword: 'newpassword123',
-        confirmPassword: 'newpassword123',
       })
       expect(result.success).toBe(false)
     })
@@ -378,7 +373,6 @@ describe('resetPasswordSchema', () => {
       const result = resetPasswordSchema.safeParse({
         ...validInput,
         newPassword: 'NEWPASSWORD123',
-        confirmPassword: 'NEWPASSWORD123',
       })
       expect(result.success).toBe(false)
     })
@@ -387,32 +381,6 @@ describe('resetPasswordSchema', () => {
       const result = resetPasswordSchema.safeParse({
         ...validInput,
         newPassword: 'NewPasswordAB',
-        confirmPassword: 'NewPasswordAB',
-      })
-      expect(result.success).toBe(false)
-    })
-  })
-
-  describe('confirmPassword validation', () => {
-    it('应该拒绝与新密码不匹配的确认密码', () => {
-      const result = resetPasswordSchema.safeParse({
-        token: 'reset-token',
-        newPassword: 'NewPass123',
-        confirmPassword: 'DifferentPass1',
-      })
-      expect(result.success).toBe(false)
-      if (!result.success) {
-        // refine 错误 path 指向 confirmPassword
-        const issue = result.error.issues.find((i: ZodIssue) => i.path.includes('confirmPassword'))
-        expect(issue?.message).toBe('两次输入的新密码不一致')
-      }
-    })
-
-    it('应该拒绝少于 8 位的确认密码', () => {
-      const result = resetPasswordSchema.safeParse({
-        token: 'reset-token',
-        newPassword: 'NewPass123',
-        confirmPassword: 'New1',
       })
       expect(result.success).toBe(false)
     })

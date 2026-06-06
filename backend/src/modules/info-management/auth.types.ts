@@ -70,21 +70,15 @@ export const forgotPasswordSchema = z.object({
 /**
  * 重置密码请求验证 schema
  */
-export const resetPasswordSchema = z
-  .object({
-    token: z.string().min(1, '重置令牌不能为空'),
-    newPassword: z
-      .string()
-      .min(8, '新密码至少8位')
-      .regex(/[A-Z]/, '新密码必须包含大写字母')
-      .regex(/[a-z]/, '新密码必须包含小写字母')
-      .regex(/[0-9]/, '新密码必须包含数字'),
-    confirmPassword: z.string().min(8, '确认密码至少8位'),
-  })
-  .refine((data) => data.newPassword === data.confirmPassword, {
-    message: '两次输入的新密码不一致',
-    path: ['confirmPassword'],
-  })
+export const resetPasswordSchema = z.object({
+  token: z.string().min(1, '重置令牌不能为空'),
+  newPassword: z
+    .string()
+    .min(8, '新密码至少8位')
+    .regex(/[A-Z]/, '新密码必须包含大写字母')
+    .regex(/[a-z]/, '新密码必须包含小写字母')
+    .regex(/[0-9]/, '新密码必须包含数字'),
+})
 
 /** 登录输入类型 */
 export type LoginInput = z.infer<typeof loginSchema>

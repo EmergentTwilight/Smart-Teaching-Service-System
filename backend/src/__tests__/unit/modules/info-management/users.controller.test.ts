@@ -98,7 +98,15 @@ describe('UsersController', () => {
 
   describe('getStats', () => {
     it('应该成功获取用户统计', async () => {
-      const mockStats = { totalCount: 100 }
+      const mockStats = {
+        total: 100,
+        students: 80,
+        teachers: 15,
+        admins: 5,
+        active: 95,
+        inactive: 3,
+        banned: 2,
+      }
       vi.mocked(usersService.getUserStats).mockResolvedValue(mockStats)
 
       await usersController.getStats(req as Request, res as Response)
@@ -156,7 +164,7 @@ describe('UsersController', () => {
       await usersController.create(req as Request, res as Response)
 
       expect(usersService.createUser).toHaveBeenCalledWith(req.body)
-      expect(mockSuccess).toHaveBeenCalledWith(res, mockUser, '创建成功', 201)
+      expect(mockSuccess).toHaveBeenCalledWith(res, mockUser, '用户创建成功', 201)
     })
 
     it('应该拒绝重复的用户名', async () => {
@@ -188,7 +196,7 @@ describe('UsersController', () => {
       await usersController.update(req as Request, res as Response)
 
       expect(usersService.updateUser).toHaveBeenCalledWith('user-1', req.body)
-      expect(mockSuccess).toHaveBeenCalledWith(res, mockUser, '更新成功')
+      expect(mockSuccess).toHaveBeenCalledWith(res, mockUser, '用户更新成功')
     })
 
     it('应该传递用户不存在的错误', async () => {
@@ -211,7 +219,7 @@ describe('UsersController', () => {
       await usersController.delete(req as Request, res as Response)
 
       expect(usersService.deleteUser).toHaveBeenCalledWith('user-2')
-      expect(mockSuccess).toHaveBeenCalledWith(res, null, '删除成功')
+      expect(mockSuccess).toHaveBeenCalledWith(res, null, '用户已删除')
     })
 
     it('应该防止删除自己的账号', async () => {
@@ -270,11 +278,12 @@ describe('UsersController', () => {
   describe('batchCreate', () => {
     it('应该成功批量创建用户', async () => {
       const mockResult = {
-        success: true,
-        created_count: 2,
-        users: [
-          { id: 'user-1', username: 'user1' },
-          { id: 'user-2', username: 'user2' },
+        total: 2,
+        success_count: 2,
+        fail_count: 0,
+        results: [
+          { index: 0, id: 'user-1', status: 'created' as const },
+          { index: 1, id: 'user-2', status: 'created' as const },
         ],
       }
 
@@ -289,7 +298,7 @@ describe('UsersController', () => {
       await usersController.batchCreate(req as Request, res as Response)
 
       expect(usersService.batchCreateUsers).toHaveBeenCalledWith(req.body)
-      expect(mockSuccess).toHaveBeenCalledWith(res, mockResult, '批量创建成功', 201)
+      expect(mockSuccess).toHaveBeenCalledWith(res, mockResult, '批量创建完成')
     })
 
     it('应该拒绝超过100个用户的批量创建', async () => {
@@ -321,7 +330,7 @@ describe('UsersController', () => {
       await usersController.batchUpdateStatus(req as Request, res as Response)
 
       expect(usersService.batchUpdateStatus).toHaveBeenCalledWith(req.body)
-      expect(mockSuccess).toHaveBeenCalledWith(res, mockResult, '批量修改状态成功')
+      expect(mockSuccess).toHaveBeenCalledWith(res, mockResult, '批量状态更新完成')
     })
   })
 
@@ -364,7 +373,7 @@ describe('UsersController', () => {
       await usersController.resetPassword(req as Request, res as Response)
 
       expect(usersService.resetPassword).toHaveBeenCalledWith('user-1', req.body)
-      expect(mockSuccess).toHaveBeenCalledWith(res, null, '密码重置成功')
+      expect(mockSuccess).toHaveBeenCalledWith(res, null, '密码已重置')
     })
 
     it('应该传递用户不存在的错误', async () => {
@@ -393,7 +402,7 @@ describe('UsersController', () => {
       await usersController.updateStatus(req as Request, res as Response)
 
       expect(usersService.updateStatus).toHaveBeenCalledWith('user-1', req.body)
-      expect(mockSuccess).toHaveBeenCalledWith(res, mockUser, '状态修改成功')
+      expect(mockSuccess).toHaveBeenCalledWith(res, mockUser, '状态已更新')
     })
   })
 
@@ -447,7 +456,7 @@ describe('UsersController', () => {
       await usersController.revokeRole(req as Request, res as Response)
 
       expect(usersService.revokeRole).toHaveBeenCalledWith('user-1', 'role-admin', 'admin-1')
-      expect(mockSuccess).toHaveBeenCalledWith(res, mockUser, '角色撤销成功')
+      expect(mockSuccess).toHaveBeenCalledWith(res, mockUser, '角色已撤销')
     })
 
     it('应该防止撤销自己的最后一个管理员角色', async () => {
@@ -467,8 +476,8 @@ describe('UsersController', () => {
     it('管理员应该成功查看他人权限', async () => {
       const mockPermissions = {
         user_id: 'user-1',
-        username: 'alice',
         permissions: ['course:read', 'profile:update'],
+        roles: [{ id: 'role-1', code: 'student', name: '学生' }],
       }
 
       req.params = { id: 'user-1' }
@@ -484,8 +493,8 @@ describe('UsersController', () => {
     it('用户应该成功查看自己的权限', async () => {
       const mockPermissions = {
         user_id: 'user-1',
-        username: 'alice',
         permissions: ['course:read'],
+        roles: [{ id: 'role-1', code: 'student', name: '学生' }],
       }
 
       req.params = { id: 'user-1' }

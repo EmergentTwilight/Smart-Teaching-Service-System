@@ -3,5 +3,5 @@
   "*.{js,ts,json,md,css,scss}": "prettier --write",
   "backend/**/*.ts": "pnpm --filter @stss/server exec eslint --fix",
   "frontend/**/*.{ts,tsx}": "pnpm --filter frontend exec eslint --fix",
-  "backend/prisma/schema.prisma": "cd backend && npx prisma format"
+  "backend/prisma/schema.prisma": "pnpm --filter @stss/server exec prisma format"
 }

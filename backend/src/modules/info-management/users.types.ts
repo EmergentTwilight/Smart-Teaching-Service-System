@@ -60,15 +60,7 @@ export const updateUserSchema = z.object({
   realName: z.string().min(1, '姓名不能为空').max(50).optional(),
   avatarUrl: z.string().url('头像URL格式不正确').optional(),
   gender: z.nativeEnum(Gender).optional(),
-  status: z.nativeEnum(UserStatus).optional(),
   roleIds: z.array(z.string()).optional(),
-  password: z
-    .string()
-    .min(8, '密码至少 8 个字符')
-    .regex(/[A-Z]/, '密码必须包含大写字母')
-    .regex(/[a-z]/, '密码必须包含小写字母')
-    .regex(/[0-9]/, '密码必须包含数字')
-    .optional(),
 })
 
 /**
@@ -168,6 +160,7 @@ export const resetPasswordSchema = z.object({
  */
 export const updateStatusSchema = z.object({
   status: z.nativeEnum(UserStatus),
+  reason: z.string().optional(),
 })
 
 /**
@@ -175,6 +168,16 @@ export const updateStatusSchema = z.object({
  */
 export const assignRolesSchema = z.object({
   roleIds: z.array(z.string()).min(1, '至少需要一个角色ID'),
+})
+
+// ==================== 令牌管理 Schema ====================
+
+/**
+ * 令牌 ID 参数 schema（用于吊销指定令牌）
+ */
+export const tokenParamsSchema = z.object({
+  id: z.string().min(1, '用户ID不能为空'),
+  token_id: z.string().min(1, '令牌ID不能为空'),
 })
 
 /** 批量创建用户输入类型 */
@@ -189,3 +192,23 @@ export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>
 export type UpdateStatusInput = z.infer<typeof updateStatusSchema>
 /** 分配角色输入类型 */
 export type AssignRolesInput = z.infer<typeof assignRolesSchema>
+/**
+ * 更新学生专业 schema
+ */
+export const updateStudentMajorSchema = z.object({
+  majorId: z.string().min(1, '专业ID不能为空'),
+})
+
+/**
+ * 更新教师/管理员院系 schema
+ */
+export const updateDepartmentSchema = z.object({
+  departmentId: z.string().min(1, '院系ID不能为空'),
+})
+
+/** 令牌参数类型 */
+export type TokenParams = z.infer<typeof tokenParamsSchema>
+/** 更新学生专业输入类型 */
+export type UpdateStudentMajorInput = z.infer<typeof updateStudentMajorSchema>
+/** 更新院系输入类型 */
+export type UpdateDepartmentInput = z.infer<typeof updateDepartmentSchema>

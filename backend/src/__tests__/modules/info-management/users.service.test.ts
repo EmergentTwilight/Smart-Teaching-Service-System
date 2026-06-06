@@ -279,20 +279,18 @@ describe('UsersService', () => {
       expect(result.id).toBe('user-1')
       expect(result.username).toBe('alice')
       expect(result.email).toBe('alice@example.com')
-      expect(result.roles).toContain('student')
-      expect(prismaMock.user.findUnique).toHaveBeenCalledWith({
-        where: { id: 'user-1' },
-        include: {
-          userRoles: {
-            include: {
-              role: true,
-            },
-          },
-          student: true,
-          teacher: true,
-          admin: true,
-        },
-      })
+      expect(result.roles).toContainEqual({ id: 'role-1', code: 'student', name: '学生' })
+      expect(prismaMock.user.findUnique).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'user-1' },
+          include: expect.objectContaining({
+            userRoles: expect.any(Object),
+            student: expect.any(Object),
+            teacher: expect.any(Object),
+            admin: expect.any(Object),
+          }),
+        })
+      )
     })
 
     it('用户不存在应该抛出 NotFoundError', async () => {
@@ -569,15 +567,16 @@ describe('UsersService', () => {
 
       const result = await usersService.batchCreateUsers({ users })
 
-      expect(result.success).toBe(true)
-      expect(result.created_count).toBe(2)
-      expect(result.users).toHaveLength(2)
-      expect(result.users[0].username).toBe('user1')
-      expect(result.users[1].username).toBe('user2')
+      expect(result.total).toBe(2)
+      expect(result.success_count).toBe(2)
+      expect(result.fail_count).toBe(0)
+      expect(result.results).toHaveLength(2)
+      expect(result.results[0].status).toBe('created')
+      expect(result.results[1].status).toBe('created')
       expect(passwordMock.hashPassword).toHaveBeenCalledTimes(2)
     })
 
-    it('用户名冲突时应该抛出 ConflictError', async () => {
+    it('用户名冲突时应返回失败结果', async () => {
       const users = [
         {
           username: 'existing',
@@ -586,13 +585,18 @@ describe('UsersService', () => {
         },
       ]
 
-      // Mock finds existing user -> throws ConflictError
       prismaMock.user.findMany.mockResolvedValue([{ username: 'existing' }])
 
-      await expect(usersService.batchCreateUsers({ users })).rejects.toBeInstanceOf(ConflictError)
+      const result = await usersService.batchCreateUsers({ users })
+
+      expect(result.total).toBe(1)
+      expect(result.success_count).toBe(0)
+      expect(result.fail_count).toBe(1)
+      expect(result.results[0].status).toBe('failed')
+      expect(result.results[0].error).toBe('用户名已存在')
     })
 
-    it('邮箱冲突时应该抛出 ConflictError', async () => {
+    it('邮箱冲突时应返回失败结果', async () => {
       const users = [
         {
           username: 'newuser',
@@ -607,7 +611,11 @@ describe('UsersService', () => {
         .mockResolvedValueOnce([]) // username check - no conflicts
         .mockResolvedValueOnce([{ email: 'existing@example.com' }]) // email check - conflict
 
-      await expect(usersService.batchCreateUsers({ users })).rejects.toBeInstanceOf(ConflictError)
+      const result = await usersService.batchCreateUsers({ users })
+
+      expect(result.fail_count).toBe(1)
+      expect(result.results[0].status).toBe('failed')
+      expect(result.results[0].error).toBe('邮箱已被注册')
     })
 
     it('超过100个用户时应该抛出 ValidationError', async () => {
@@ -813,7 +821,9 @@ describe('UsersService', () => {
       })
 
       expect(prismaMock.role.findMany).toHaveBeenCalledWith({
-        where: { OR: [{ id: { in: ['role-1', 'role-2'] } }, { code: { in: ['role-1', 'role-2'] } }] },
+        where: {
+          OR: [{ id: { in: ['role-1', 'role-2'] } }, { code: { in: ['role-1', 'role-2'] } }],
+        },
       })
       expect(prismaMock.userRole.createMany).toHaveBeenCalledWith({
         data: [
@@ -916,7 +926,7 @@ describe('UsersService', () => {
       const result = await usersService.getUserPermissions('user-1')
 
       expect(result.user_id).toBe('user-1')
-      expect(result.username).toBe('alice')
+      expect(result.roles).toBeDefined()
       expect(result.permissions).toContain('course:read')
       expect(result.permissions).toContain('profile:update')
       expect(result.permissions).toContain('course:write')

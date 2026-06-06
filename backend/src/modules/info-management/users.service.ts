@@ -17,7 +17,7 @@ import type {
   UpdateStatusInput,
   AssignRolesInput,
 } from './users.types.js'
-import type { Prisma, Gender, UserStatus } from '@prisma/client'
+import type { Prisma, Gender } from '@prisma/client'
 
 export const usersService = {
   /**
@@ -98,9 +98,42 @@ export const usersService = {
    * 获取用户统计
    */
   async getUserStats() {
-    const totalCount = await prisma.user.count()
+    const [total, active, inactive, banned] = await Promise.all([
+      prisma.user.count(),
+      prisma.user.count({ where: { status: 'ACTIVE' } }),
+      prisma.user.count({ where: { status: 'INACTIVE' } }),
+      prisma.user.count({ where: { status: 'BANNED' } }),
+    ])
+
+    const roleCounts = await prisma.userRole.groupBy({
+      by: ['roleId'],
+      _count: { userId: true },
+    })
+
+    const roles = await prisma.role.findMany({
+      where: { id: { in: roleCounts.map((r) => r.roleId) } },
+      select: { id: true, code: true },
+    })
+
+    const roleCodeMap = new Map(roles.map((r) => [r.id, r.code]))
+    const students = roleCounts
+      .filter((r) => roleCodeMap.get(r.roleId) === 'student')
+      .reduce((sum, r) => sum + r._count.userId, 0)
+    const teachers = roleCounts
+      .filter((r) => roleCodeMap.get(r.roleId) === 'teacher')
+      .reduce((sum, r) => sum + r._count.userId, 0)
+    const admins = roleCounts
+      .filter((r) => ['admin', 'super_admin'].includes(roleCodeMap.get(r.roleId) || ''))
+      .reduce((sum, r) => sum + r._count.userId, 0)
+
     return {
-      totalCount,
+      total,
+      students,
+      teachers,
+      admins,
+      active,
+      inactive,
+      banned,
     }
   },
 
@@ -116,9 +149,21 @@ export const usersService = {
             role: true,
           },
         },
-        student: true,
-        teacher: true,
-        admin: true,
+        student: {
+          include: {
+            major: { select: { id: true, name: true } },
+          },
+        },
+        teacher: {
+          include: {
+            department: { select: { id: true, name: true } },
+          },
+        },
+        admin: {
+          include: {
+            department: { select: { id: true, name: true } },
+          },
+        },
       },
     })
 
@@ -135,13 +180,38 @@ export const usersService = {
       avatarUrl: user.avatarUrl,
       gender: user.gender,
       status: user.status,
-      roles: user.userRoles.map((ur) => ur.role.code),
-      student: user.student,
-      teacher: user.teacher,
-      admin: user.admin,
       lastLoginAt: user.lastLoginAt,
       createdAt: user.createdAt,
-      updatedAt: user.updatedAt,
+      roles: user.userRoles.map((ur) => ({
+        id: ur.role.id,
+        code: ur.role.code,
+        name: ur.role.name,
+      })),
+      student: user.student
+        ? {
+            student_number: user.student.studentNumber,
+            major_id: user.student.majorId,
+            major_name: user.student.major?.name || null,
+            grade: user.student.grade,
+            class_name: user.student.className,
+          }
+        : null,
+      teacher: user.teacher
+        ? {
+            teacher_number: user.teacher.teacherNumber,
+            department_id: user.teacher.departmentId,
+            department_name: user.teacher.department?.name || null,
+            title: user.teacher.title,
+            office_location: user.teacher.officeLocation,
+          }
+        : null,
+      admin: user.admin
+        ? {
+            admin_type: user.admin.adminType,
+            department_id: user.admin.departmentId,
+            department_name: user.admin.department?.name || null,
+          }
+        : null,
     }
   },
 
@@ -206,7 +276,7 @@ export const usersService = {
       throw new NotFoundError('用户不存在')
     }
 
-    const { gender, email, roleIds, status, password, ...restData } = data
+    const { gender, email, roleIds, ...restData } = data
 
     // 邮箱唯一性检查：只有当新邮箱与当前用户不同时才检查
     if (email !== undefined && email !== user.email) {
@@ -222,12 +292,6 @@ export const usersService = {
       ...restData,
       email: email,
       gender: gender as Gender | null | undefined,
-      status: status as UserStatus | undefined,
-    }
-
-    // 如果提供了新密码，则哈希并更新
-    if (password) {
-      updatePayload.passwordHash = await hashPassword(password)
     }
 
     // 使用事务更新用户信息和角色
@@ -371,81 +435,92 @@ export const usersService = {
       throw new ValidationError('单次最多创建 100 个用户')
     }
 
+    const total = data.users.length
     const results: Array<{
-      id: string
-      username: string
-      email: string | null
-      phone: string | null
-      realName: string
-      gender: Gender | null
-      status: UserStatus
+      index: number
+      id?: string
+      error?: string
+      status: 'created' | 'failed'
     }> = []
 
-    await prisma.$transaction(async (tx) => {
-      // 批量查询已存在的用户名
-      const usernames = data.users.map((u) => u.username)
-      const existingUsers = await tx.user.findMany({
-        where: { username: { in: usernames } },
-        select: { username: true },
-      })
-      if (existingUsers.length > 0) {
-        throw new ConflictError(`用户名已存在: ${existingUsers.map((u) => u.username).join(', ')}`)
-      }
-
-      // 批量查询已存在的邮箱
-      const emails = data.users.filter((u) => u.email).map((u) => u.email as string)
-      if (emails.length > 0) {
-        const existingEmails = await tx.user.findMany({
-          where: { email: { in: emails } },
-          select: { email: true },
-        })
-        if (existingEmails.length > 0) {
-          throw new ConflictError(`邮箱已被注册: ${existingEmails.map((u) => u.email).join(', ')}`)
-        }
-      }
-
-      // 并行 hash 所有密码
-      const hashedPasswords = await Promise.all(data.users.map((u) => hashPassword(u.password)))
-
-      for (let i = 0; i < data.users.length; i++) {
-        const userData = data.users[i]
-        const hashedPassword = hashedPasswords[i]
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        const { roleIds, password, ...createData } = userData
-
-        const user = await tx.user.create({
-          data: {
-            ...createData,
-            passwordHash: hashedPassword,
-          },
-        })
-
-        // 分配角色
-        if (roleIds && roleIds.length > 0) {
-          await tx.userRole.createMany({
-            data: roleIds.map((roleId) => ({
-              userId: user.id,
-              roleId,
-            })),
-          })
-        }
-
-        results.push({
-          id: user.id,
-          username: user.username,
-          email: user.email,
-          phone: user.phone,
-          realName: user.realName,
-          gender: user.gender,
-          status: user.status,
-        })
-      }
+    // 预查询已存在的用户名和邮箱
+    const usernames = data.users.map((u) => u.username)
+    const existingUsers = await prisma.user.findMany({
+      where: { username: { in: usernames } },
+      select: { username: true },
     })
+    const existingUsernameSet = new Set(existingUsers.map((u) => u.username))
+
+    const emails = data.users.filter((u) => u.email).map((u) => u.email as string)
+    let existingEmailSet = new Set<string>()
+    if (emails.length > 0) {
+      const existingEmails = await prisma.user.findMany({
+        where: { email: { in: emails } },
+        select: { email: true },
+      })
+      existingEmailSet = new Set(existingEmails.map((u) => u.email!))
+    }
+
+    // 逐项创建，支持部分成功
+    for (let i = 0; i < data.users.length; i++) {
+      const userData = data.users[i]
+
+      try {
+        // 检查用户名
+        if (existingUsernameSet.has(userData.username)) {
+          results.push({ index: i, error: '用户名已存在', status: 'failed' })
+          continue
+        }
+
+        // 检查邮箱
+        if (userData.email && existingEmailSet.has(userData.email)) {
+          results.push({ index: i, error: '邮箱已被注册', status: 'failed' })
+          continue
+        }
+
+         
+        const { roleIds, password, ...createData } = userData
+        const hashedPassword = await hashPassword(password)
+
+        const user = await prisma.$transaction(async (tx) => {
+          const newUser = await tx.user.create({
+            data: {
+              ...createData,
+              passwordHash: hashedPassword,
+            },
+          })
+
+          // 分配角色
+          if (roleIds && roleIds.length > 0) {
+            await tx.userRole.createMany({
+              data: roleIds.map((roleId) => ({
+                userId: newUser.id,
+                roleId,
+              })),
+            })
+          }
+
+          return newUser
+        })
+
+        // 更新已知集合，避免同批次重复
+        existingUsernameSet.add(userData.username)
+        if (userData.email) existingEmailSet.add(userData.email)
+
+        results.push({ index: i, id: user.id, status: 'created' })
+      } catch {
+        results.push({ index: i, error: '创建失败', status: 'failed' })
+      }
+    }
+
+    const successCount = results.filter((r) => r.status === 'created').length
+    const failCount = results.filter((r) => r.status === 'failed').length
 
     return {
-      success: true,
-      created_count: results.length,
-      users: results,
+      total,
+      success_count: successCount,
+      fail_count: failCount,
+      results,
     }
   },
 
@@ -749,10 +824,16 @@ export const usersService = {
       )
     )
 
+    const roles = user.userRoles.map((ur) => ({
+      id: ur.role.id,
+      code: ur.role.code,
+      name: ur.role.name,
+    }))
+
     return {
       user_id: userId,
-      username: user.username,
       permissions,
+      roles,
     }
   },
 
@@ -776,5 +857,207 @@ export const usersService = {
       code: role.code,
       description: role.description,
     }))
+  },
+
+  // ==================== 令牌管理 ====================
+
+  /**
+   * 获取用户活跃令牌列表
+   * 仅返回未过期且未吊销的 RefreshToken
+   */
+  async getUserTokens(userId: string) {
+    // 先确认用户存在
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true },
+    })
+
+    if (!user) {
+      throw new NotFoundError('用户不存在')
+    }
+
+    const tokens = await prisma.refreshToken.findMany({
+      where: {
+        userId,
+        isUsed: false,
+        expiresAt: { gt: new Date() },
+      },
+      select: {
+        id: true,
+        createdAt: true,
+        expiresAt: true,
+        lastUsedAt: true,
+        ipAddress: true,
+        userAgent: true,
+        revokedAt: true,
+      },
+      orderBy: { createdAt: 'desc' },
+    })
+
+    return tokens
+  },
+
+  /**
+   * 吊销指定令牌
+   */
+  async revokeToken(userId: string, tokenId: string) {
+    const token = await prisma.refreshToken.findFirst({
+      where: {
+        id: tokenId,
+        userId,
+        isUsed: false,
+      },
+    })
+
+    if (!token) {
+      throw new NotFoundError('令牌不存在或已失效')
+    }
+
+    await prisma.refreshToken.update({
+      where: { id: tokenId },
+      data: { isUsed: true, revokedAt: new Date() },
+    })
+  },
+
+  /**
+   * 吊销用户所有令牌
+   */
+  async revokeAllTokens(userId: string) {
+    const result = await prisma.refreshToken.updateMany({
+      where: {
+        userId,
+        isUsed: false,
+        expiresAt: { gt: new Date() },
+      },
+      data: { isUsed: true, revokedAt: new Date() },
+    })
+
+    return {
+      revoked_count: result.count,
+    }
+  },
+
+  // ==================== 头像上传 ====================
+
+  /**
+   * 更新用户头像
+   */
+  async updateAvatar(userId: string, avatarUrl: string) {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true },
+    })
+
+    if (!user) {
+      throw new NotFoundError('用户不存在')
+    }
+
+    await prisma.user.update({
+      where: { id: userId },
+      data: { avatarUrl },
+    })
+
+    return { avatar_url: avatarUrl }
+  },
+
+  // ==================== 学生专业 / 教师院系 / 管理员院系 更新 ====================
+
+  /**
+   * 更新学生专业
+   */
+  async updateStudentMajor(userId: string, majorId: string) {
+    const student = await prisma.student.findUnique({
+      where: { userId },
+    })
+
+    if (!student) {
+      throw new NotFoundError('该用户不是学生')
+    }
+
+    const major = await prisma.major.findUnique({
+      where: { id: majorId },
+      select: { id: true, name: true },
+    })
+
+    if (!major) {
+      throw new NotFoundError('专业不存在')
+    }
+
+    await prisma.student.update({
+      where: { userId },
+      data: { majorId },
+    })
+
+    return {
+      user_id: userId,
+      major_id: major.id,
+      major_name: major.name,
+    }
+  },
+
+  /**
+   * 更新教师院系
+   */
+  async updateTeacherDepartment(userId: string, departmentId: string) {
+    const teacher = await prisma.teacher.findUnique({
+      where: { userId },
+    })
+
+    if (!teacher) {
+      throw new NotFoundError('该用户不是教师')
+    }
+
+    const department = await prisma.department.findUnique({
+      where: { id: departmentId },
+      select: { id: true, name: true },
+    })
+
+    if (!department) {
+      throw new NotFoundError('院系不存在')
+    }
+
+    await prisma.teacher.update({
+      where: { userId },
+      data: { departmentId },
+    })
+
+    return {
+      user_id: userId,
+      department_id: department.id,
+      department_name: department.name,
+    }
+  },
+
+  /**
+   * 更新管理员院系
+   */
+  async updateAdminDepartment(userId: string, departmentId: string) {
+    const admin = await prisma.admin.findUnique({
+      where: { userId },
+    })
+
+    if (!admin) {
+      throw new NotFoundError('该用户不是管理员')
+    }
+
+    const department = await prisma.department.findUnique({
+      where: { id: departmentId },
+      select: { id: true, name: true },
+    })
+
+    if (!department) {
+      throw new NotFoundError('院系不存在')
+    }
+
+    await prisma.admin.update({
+      where: { userId },
+      data: { departmentId },
+    })
+
+    return {
+      user_id: userId,
+      department_id: department.id,
+      department_name: department.name,
+    }
   },
 }

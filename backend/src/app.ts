@@ -5,6 +5,8 @@
 import 'dotenv/config'
 // Express 5 已内置 async 错误处理支持，无需 express-async-errors
 import express, { type Application } from 'express'
+import path from 'path'
+import { fileURLToPath } from 'url'
 import cors from 'cors'
 import helmet from 'helmet'
 import compression from 'compression'
@@ -80,6 +82,10 @@ app.use(requestLogger)
 
 // HTTP 请求日志
 app.use(morgan('dev'))
+
+// 静态文件服务（头像等上传资源）
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
+app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')))
 
 // JSON 解析
 app.use(express.json())

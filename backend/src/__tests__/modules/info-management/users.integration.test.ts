@@ -710,14 +710,15 @@ describe('UsersService Integration Tests', () => {
 
         const result = await usersService.batchCreateUsers({ users })
 
-        expect(result.success).toBe(true)
-        expect(result.created_count).toBe(3)
-        expect(result.users).toHaveLength(3)
+        expect(result.total).toBe(3)
+        expect(result.success_count).toBe(3)
+        expect(result.fail_count).toBe(0)
+        expect(result.results).toHaveLength(3)
 
         // 验证所有用户都已写入数据库
-        for (const user of result.users) {
+        for (const r of result.results) {
           const dbUser = await prisma.user.findUnique({
-            where: { id: user.id },
+            where: { id: r.id },
           })
           expect(dbUser).not.toBeNull()
           expect(dbUser!.username).toContain('itest_usvc_batch')
@@ -725,17 +726,17 @@ describe('UsersService Integration Tests', () => {
 
         // 验证角色分配
         const user1Roles = await prisma.userRole.findMany({
-          where: { userId: result.users[0].id },
+          where: { userId: result.results[0].id! },
         })
         expect(user1Roles).toHaveLength(1)
 
         const user3Roles = await prisma.userRole.findMany({
-          where: { userId: result.users[2].id },
+          where: { userId: result.results[2].id! },
         })
         expect(user3Roles).toHaveLength(0)
       })
 
-      it('用户名冲突时应该抛出 ConflictError 并回滚所有操作', async () => {
+      it('用户名冲突时应返回失败结果', async () => {
         // 先创建一个用户
         await createTestUser({ username: 'itest_usvc_batchconflict' })
 

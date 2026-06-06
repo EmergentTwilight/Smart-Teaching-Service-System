@@ -142,11 +142,11 @@ function serializeUser(
     include: typeof userAuthInclude
   }>
 ) {
-  const roleDetails = user.userRoles.map((userRole) => ({
+  const roles = user.userRoles.map((userRole) => ({
+    id: userRole.role.id,
     code: userRole.role.code,
     name: userRole.role.name,
   }))
-  const roles = roleDetails.map((r) => r.code)
   const permissions = Array.from(
     new Set(
       user.userRoles.flatMap((userRole) =>
@@ -166,7 +166,6 @@ function serializeUser(
     status: user.status,
     lastLoginAt: user.lastLoginAt,
     roles,
-    roleDetails,
     permissions,
   }
 }
@@ -334,6 +333,8 @@ export const authService = {
           userId: user.id,
           tokenHash: hashToken(tokenValue),
           expiresAt: new Date(Date.now() + refreshTokenExpiresIn * 1000),
+          ipAddress: input.ipAddress,
+          userAgent: input.userAgent,
         },
       })
 
@@ -376,7 +377,7 @@ export const authService = {
    * @param refreshTokenValue 刷新令牌
    * @returns 新的访问令牌和刷新令牌
    */
-  async refreshToken(refreshTokenValue: string) {
+  async refreshToken(refreshTokenValue: string, meta: AuditMeta = {}) {
     const storedToken = await prisma.refreshToken.findUnique({
       where: { tokenHash: hashToken(refreshTokenValue) },
       include: {
@@ -408,13 +409,15 @@ export const authService = {
     await prisma.$transaction([
       prisma.refreshToken.update({
         where: { id: storedToken.id },
-        data: { isUsed: true },
+        data: { isUsed: true, lastUsedAt: new Date() },
       }),
       prisma.refreshToken.create({
         data: {
           userId: storedToken.user.id,
           tokenHash: hashToken(newRefreshTokenValue),
           expiresAt: new Date(Date.now() + refreshTokenExpiresIn * 1000),
+          ipAddress: meta.ipAddress,
+          userAgent: meta.userAgent,
         },
       }),
     ])
@@ -443,7 +446,7 @@ export const authService = {
         tokenHash: hashToken(input.refreshToken),
         isUsed: false,
       },
-      data: { isUsed: true },
+      data: { isUsed: true, revokedAt: new Date() },
     })
 
     if (result.count === 0) {
@@ -504,7 +507,7 @@ export const authService = {
         realName: data.realName,
         phone: data.phone,
         gender: data.gender?.toUpperCase() as Gender | undefined,
-        status: 'ACTIVE',
+        status: 'INACTIVE',
       },
     })
 
@@ -530,6 +533,7 @@ export const authService = {
       username: createdUser.username,
       email: createdUser.email,
       realName: createdUser.realName,
+      status: createdUser.status,
     }
   },
 
@@ -604,9 +608,12 @@ export const authService = {
    * @param newPassword 新密码
    * @param meta 审计信息
    */
-  async verifyResetToken(token: string): Promise<boolean> {
+  async verifyResetToken(
+    token: string
+  ): Promise<{ valid: true; email: string } | { valid: false; email?: undefined }> {
     const passwordResetToken = await prisma.passwordResetToken.findUnique({
       where: { tokenHash: hashToken(token) },
+      include: { user: { select: { email: true } } },
     })
 
     if (
@@ -614,10 +621,10 @@ export const authService = {
       passwordResetToken.isUsed ||
       passwordResetToken.expiresAt < new Date()
     ) {
-      return false
+      return { valid: false }
     }
 
-    return true
+    return { valid: true, email: passwordResetToken.user.email! }
   },
 
   async resetPassword(token: string, newPassword: string, meta: AuditMeta = {}) {

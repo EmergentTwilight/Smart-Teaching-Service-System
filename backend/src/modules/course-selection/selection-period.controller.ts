@@ -1,3 +1,7 @@
+/**
+ * C5：选课阶段 CRUD 与教务手动加课（FR-C-30~FR-C-37）。
+ * 路由层使用 admin 角色；服务层校验 ACADEMIC 教务类型。
+ */
 import { Request, Response } from 'express'
 import { error, paginated, success } from '../../shared/utils/response.js'
 import { selectionPeriodService } from './selection-period.service.js'
@@ -13,10 +17,6 @@ export const selectionPeriodController = {
   async listPeriods(req: Request, res: Response) {
     const query = selectionPeriodQuerySchema.parse(req.query)
     const result = await selectionPeriodService.listPeriods(query)
-    if (!result) {
-      return error(res, '功能待实现：C5 FR-C-30~FR-C-32 NFR-C-14', 501)
-    }
-
     return paginated(res, result.items, result.pagination)
   },
 
@@ -29,9 +29,6 @@ export const selectionPeriodController = {
     }
 
     const result = await selectionPeriodService.createPeriod(currentUser.userId, body)
-    if (!result) {
-      return error(res, '功能待实现：C5 FR-C-30~FR-C-32 NFR-C-14', 501)
-    }
     return success(res, result, '选课阶段创建成功', 201)
   },
 
@@ -45,10 +42,6 @@ export const selectionPeriodController = {
     }
 
     const result = await selectionPeriodService.updatePeriod(currentUser.userId, id, body)
-    if (!result) {
-      return error(res, '功能待实现：C5 FR-C-30~FR-C-32, NFR-C-01', 501)
-    }
-
     return success(res, result, '选课阶段更新成功')
   },
 
@@ -61,10 +54,6 @@ export const selectionPeriodController = {
     }
 
     const result = await selectionPeriodService.manualEnroll(currentUser.userId, body)
-    if (!result) {
-      return error(res, '功能待实现：C5 FR-C-33 FR-C-34 NFR-C-12', 501)
-    }
-
-    return success(res, result, '手动加课请求已受理', 201)
+    return success(res, result, '手动加课成功', 201)
   },
 }

@@ -26,6 +26,9 @@ Thumbs.db
 # Logs
 *.log
 
+# C4/C5 本地验收脚本生成的 ID 文件
+scripts/.c4c5-verify-ids.json
+
 # Docker volumes (本地)
 postgres_data/
 redis_data/

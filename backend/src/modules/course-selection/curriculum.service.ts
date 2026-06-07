@@ -6,6 +6,9 @@ import type {
   CurriculumInfo,
   CurriculumCourseGroup,
   CurriculumConfirmation,
+  CurriculumCreditSummary,
+  CurriculumCourseTypeProgress,
+  CurriculumProgressWarning,
 } from './course-selection.types.js'
 
 import {
@@ -15,7 +18,8 @@ import {
 import { 
   PrismaClient,
   CourseType,
-  CourseStatus
+  CourseStatus,
+  EnrollmentStatus
 } from '@prisma/client'
 
 const prisma = new PrismaClient()
@@ -173,7 +177,7 @@ export const curriculumService = {
   async getMyCurriculumProgress(
     studentId: string,
     query: CurriculumProgressQuery
-  ): Promise<CurriculumProgress | null> {
+  ): Promise<CurriculumProgress | string> {
     void studentId
     void query
 
@@ -183,6 +187,154 @@ export const curriculumService = {
     // - 计算与 Curriculum 目标学分的比例
     // TODO(C1, FR-C-05, NFR-C-12): 进度统计结果与后续选课/退课事务需保持一致
     // 负责人 scaffold 不返回 200 全零进度，避免把未实现误判为真实统计结果。
-    return null
+    const student = await prisma.student.findUnique({
+      where: {
+        userId: studentId
+      },
+      include: {
+        major: true
+      }
+    })
+    if(!student) {
+      return '无法找到对应学生'
+    }
+    if(!student.majorId || !student.major) {
+      return '无法找到对应专业'
+    }
+
+    const curriculums = await prisma.curriculum.findMany({
+      where: {
+        majorId: student.majorId,
+        year:  student.grade
+      }
+    })
+    if(curriculums.length === 0) {
+      return '无法找到对应培养方案'
+    }
+    if(curriculums.length !== 1) {
+      return '对应培养方案不唯一'
+    }
+
+    const curriculum = curriculums[0]
+    const requirements: CurriculumCreditSummary = {
+      totalCredits: Number(curriculum.totalCredits),
+      requiredCredits: Number(curriculum.requiredCredits),
+      electiveCredits: Number(curriculum.electiveCredits),
+      generalCredits: null
+    }
+
+    const semesterId =
+      query.semesterId ?? undefined
+    let date: Date = new Date()
+    if(semesterId) {
+      const semester = await prisma.semester.findUnique({
+        where: {
+          id: semesterId
+        }
+      })
+      if(!semester) {
+        return '无法找到对应学期'
+      }
+      date = semester.endDate
+    }
+
+    const includeDropped =
+      query.includeDropped ?? query.include_dropped ?? false
+    let a: number = 0, b: number = 0, c: number = 0, d: number = 0, x: number = 0, y: number = 0, z: number = 0
+    const enrollments = await prisma.enrollment.findMany({
+      where: {
+        studentId: studentId
+      }
+    })
+    for(const enrollment of enrollments) {
+      if(!includeDropped && enrollment.status !== EnrollmentStatus.ENROLLED) {
+        continue
+      }
+      const courseoffering = await prisma.courseOffering.findUnique({
+        where: {
+          id: enrollment.courseOfferingId
+        },
+        include: {
+          semester: true
+        }
+      })
+      if(!courseoffering || !courseoffering.semester || courseoffering.semester.endDate > date) {
+        continue
+      }
+      const course = await prisma.course.findUnique({
+        where: {
+          id: courseoffering.courseId
+        }
+      })
+      if(!course) {
+        continue
+      }
+      a += Number(course.credits)
+      if(course.courseType == CourseType.REQUIRED) {
+        b += Number(course.credits)
+        ++x
+      }
+      if(course.courseType == CourseType.ELECTIVE) {
+        c += Number(course.credits)
+        ++y
+      }
+      if(course.courseType == CourseType.GENERAL) {
+        d += Number(course.credits)
+        ++z
+      }
+    }
+    const selected: CurriculumCreditSummary = {
+      totalCredits: a,
+      requiredCredits: b,
+      electiveCredits: c,
+      generalCredits: d
+    }
+
+    let remaining: Partial<CurriculumCreditSummary> = {}
+    if(a < requirements.totalCredits) {
+      remaining.totalCredits = requirements.totalCredits - a
+    }
+    if(b < requirements.requiredCredits) {
+      remaining.requiredCredits = requirements.requiredCredits - b
+    }
+    if(c < requirements.electiveCredits) {
+      remaining.electiveCredits = requirements.electiveCredits - c
+    }
+
+    const byCourseType: CurriculumCourseTypeProgress[] = [
+      {
+        courseType: toCourseTypeValue('required'),
+        selectedCredits: b,
+        requirementCredits: requirements.requiredCredits,
+        courseCount: x
+      },
+      {
+        courseType: toCourseTypeValue('elective'),
+        selectedCredits: c,
+        requirementCredits: requirements.electiveCredits,
+        courseCount: y
+      },
+      {
+        courseType: toCourseTypeValue('general'),
+        selectedCredits: d,
+        requirementCredits: requirements.generalCredits,
+        courseCount: z
+      }
+    ]
+
+    const warnings: CurriculumProgressWarning[] = [{
+      code: 'GENERAL_REQUIREMENT_NOT_MODELED',
+      message: '数据库设计暂未提供公共课最低学分字段，仅返回已选公共课学分'
+    }]
+
+    const progress: CurriculumProgress = {
+      curriculumId: curriculum.id,
+      requirements: requirements,
+      selected: selected,
+      remaining: remaining,
+      byCourseType: byCourseType,
+      warnings: warnings
+    }
+    return progress
   },
 }

@@ -36,8 +36,8 @@ export const curriculumController = {
     }
 
     const result = await curriculumService.getMyCurriculumProgress(studentId, query)
-    if (!result) {
-      return error(res, '功能待实现：C1 FR-C-05 NFR-C-07 NFR-C-12', 501)
+    if (typeof result === 'string') {
+      return error(res, result , 422)
     }
 
     return success(res, result)

@@ -115,3 +115,47 @@
 .demoBadge {
   margin-left: 8px;
 }
+
+.statCard {
+  border-radius: 12px !important;
+  border: 1px solid #e0e7ff !important;
+  background: linear-gradient(180deg, #fafbff 0%, #ffffff 100%) !important;
+}
+
+.statCard :global(.ant-statistic-title) {
+  color: #64748b;
+  font-size: 13px;
+}
+
+.statCard :global(.ant-statistic-content) {
+  color: #4f46e5;
+}
+
+.listLayout {
+  display: grid;
+  grid-template-columns: 1fr 280px;
+  gap: 20px;
+  align-items: start;
+}
+
+.listMain {
+  min-width: 0;
+}
+
+.hotPanel {
+  border-radius: 12px !important;
+  border: 1px solid #fde68a !important;
+  background: linear-gradient(180deg, #fffbeb 0%, #ffffff 60%) !important;
+  position: sticky;
+  top: 80px;
+}
+
+@media (max-width: 900px) {
+  .listLayout {
+    grid-template-columns: 1fr;
+  }
+
+  .hotPanel {
+    position: static;
+  }
+}

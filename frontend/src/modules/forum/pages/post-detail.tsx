@@ -5,24 +5,29 @@ import {
   Button,
   Card,
   Empty,
-  List,
+  Popconfirm,
   Space,
   Spin,
+  Switch,
   Tag,
   Typography,
   message,
 } from 'antd'
 import {
   ArrowLeftOutlined,
+  DeleteOutlined,
+  EditOutlined,
   EyeOutlined,
-  PaperClipOutlined,
+  PushpinOutlined,
 } from '@ant-design/icons'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import dayjs from 'dayjs'
+import { AttachmentList } from '../components/attachment-list'
 import { CommentList } from '../components/comment-list'
 import { PostTypeTag } from '../components/post-type-tag'
 import { forumApi } from '../api/forum-api'
 import { useDemoMode } from '../hooks/use-demo-mode'
+import { useForumPermissions } from '../hooks/use-forum-permissions'
 import { getDemoComments, getDemoPostById } from '../constants/demo-mock'
 import styles from './forum.module.css'
 
@@ -32,6 +37,7 @@ export default function PostDetail() {
   const { postId } = useParams<{ postId: string }>()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const perms = useForumPermissions()
   const { demoMode } = useDemoMode()
   const [submitting, setSubmitting] = useState(false)
 
@@ -57,6 +63,24 @@ export default function PostDetail() {
     },
   })
 
+  const pinMutation = useMutation({
+    mutationFn: (pinned: boolean) => forumApi.togglePin(post!.id, pinned),
+    onSuccess: () => {
+      message.success('置顶状态已更新')
+      void queryClient.invalidateQueries({ queryKey: ['forum-post', postId] })
+    },
+    onError: () => message.error('操作失败'),
+  })
+
+  const deleteMutation = useMutation({
+    mutationFn: () => forumApi.deletePost(post!.id),
+    onSuccess: () => {
+      message.success('帖子已删除')
+      navigate('/forum/posts')
+    },
+    onError: () => message.error('删除失败'),
+  })
+
   const handleComment = async (content: string, parentId?: string) => {
     if (demoMode) {
       message.success('演示模式：评论已模拟提交')
@@ -72,6 +96,34 @@ export default function PostDetail() {
       message.error('评论失败')
     } finally {
       setSubmitting(false)
+    }
+  }
+
+  const handleHideComment = async (commentId: string) => {
+    if (demoMode) {
+      message.success('演示模式：评论已模拟隐藏')
+      return
+    }
+    try {
+      await forumApi.hideComment(commentId)
+      message.success('评论已隐藏')
+      await refetchComments()
+    } catch {
+      message.error('隐藏失败')
+    }
+  }
+
+  const handleDeleteComment = async (commentId: string) => {
+    if (demoMode) {
+      message.success('演示模式：评论已模拟删除')
+      return
+    }
+    try {
+      await forumApi.deleteComment(commentId)
+      message.success('评论已删除')
+      await refetchComments()
+    } catch {
+      message.error('删除失败')
     }
   }
 
@@ -96,6 +148,8 @@ export default function PostDetail() {
 
   const authorName = post.author.realName || post.author.username
   const attachments = post.attachments ?? []
+  const canEdit = perms.canEditPost(post.author.id)
+  const canPin = perms.canPinPost && !demoMode
 
   return (
     <div className={styles.pageWrap}>
@@ -107,20 +161,46 @@ export default function PostDetail() {
         ]}
       />
 
-      <Button
-        type="text"
-        icon={<ArrowLeftOutlined />}
-        onClick={() => navigate('/forum/posts')}
-        style={{ marginBottom: 12 }}
-      >
-        返回列表
-      </Button>
+      <Space style={{ marginBottom: 12 }} wrap>
+        <Button type="text" icon={<ArrowLeftOutlined />} onClick={() => navigate('/forum/posts')}>
+          返回列表
+        </Button>
+        {canEdit && (
+          <Button
+            icon={<EditOutlined />}
+            onClick={() => navigate(`/forum/posts/${post.id}/edit`)}
+          >
+            编辑
+          </Button>
+        )}
+        {canPin && (
+          <Space>
+            <Text type="secondary">置顶</Text>
+            <Switch
+              checked={post.isPinned}
+              loading={pinMutation.isPending}
+              onChange={(v) => pinMutation.mutate(v)}
+            />
+          </Space>
+        )}
+        {canEdit && !demoMode && (
+          <Popconfirm title="确定删除此帖子？" onConfirm={() => deleteMutation.mutate()}>
+            <Button danger icon={<DeleteOutlined />} loading={deleteMutation.isPending}>
+              删除
+            </Button>
+          </Popconfirm>
+        )}
+      </Space>
 
       <Card className={styles.detailCard}>
         <Space direction="vertical" size={16} style={{ width: '100%' }}>
           <Space wrap>
             <PostTypeTag type={post.postType} />
-            {post.isPinned && <Tag color="gold">置顶</Tag>}
+            {post.isPinned && (
+              <Tag color="gold" icon={<PushpinOutlined />}>
+                置顶
+              </Tag>
+            )}
             {demoMode && <Tag color="purple">演示数据</Tag>}
           </Space>
           <Title level={3} style={{ margin: 0 }}>
@@ -137,24 +217,12 @@ export default function PostDetail() {
             <Text type="secondary">{dayjs(post.createdAt).format('YYYY-MM-DD HH:mm')}</Text>
           </Space>
           <Paragraph className={styles.detailContent}>{post.content}</Paragraph>
-
           {attachments.length > 0 && (
             <div>
-              <Text strong>
-                <PaperClipOutlined /> 附件
+              <Text strong style={{ display: 'block', marginBottom: 8 }}>
+                附件
               </Text>
-              <List
-                size="small"
-                dataSource={attachments}
-                renderItem={(att) => (
-                  <List.Item>
-                    <Text>{att.fileName}</Text>
-                    <Text type="secondary" style={{ marginLeft: 8 }}>
-                      ({Math.round(Number(att.fileSize) / 1024)} KB)
-                    </Text>
-                  </List.Item>
-                )}
-              />
+              <AttachmentList files={attachments} readonly />
             </div>
           )}
         </Space>
@@ -164,6 +232,10 @@ export default function PostDetail() {
         <CommentList
           comments={comments}
           onSubmit={handleComment}
+          onDelete={handleDeleteComment}
+          onHide={handleHideComment}
+          canDelete={perms.canDeleteOwnComment}
+          canHide={perms.canModerateComments}
           submitting={submitting}
         />
       </Card>

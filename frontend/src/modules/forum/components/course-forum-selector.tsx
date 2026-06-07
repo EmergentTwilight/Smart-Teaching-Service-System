@@ -9,6 +9,7 @@ interface CourseForumSelectorProps {
   value?: string
   onChange: (id: string) => void
   loading?: boolean
+  allowClear?: boolean
 }
 
 export function CourseForumSelector({
@@ -16,6 +17,7 @@ export function CourseForumSelector({
   value,
   onChange,
   loading,
+  allowClear,
 }: CourseForumSelectorProps) {
   return (
     <Space wrap>
@@ -25,8 +27,9 @@ export function CourseForumSelector({
         style={{ minWidth: 260 }}
         placeholder="选择课程论坛"
         loading={loading}
+        allowClear={allowClear}
         value={value || undefined}
-        onChange={onChange}
+        onChange={(v) => onChange(v ?? '')}
         options={courses.map((c) => ({
           value: c.courseOfferingId,
           label: `${c.courseCode} · ${c.courseName}`,

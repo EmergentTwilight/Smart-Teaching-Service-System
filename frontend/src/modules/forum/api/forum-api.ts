@@ -1,12 +1,20 @@
+import axios from 'axios'
 import request from '@/shared/utils/request'
 import type {
   CourseOption,
+  CreateAnnouncementPayload,
   CreatePostPayload,
   ForumComment,
   ForumPost,
   ForumPostListResult,
+  ForumStatsOverview,
+  HiddenComment,
+  HotPostItem,
+  UpdateAnnouncementPayload,
+  UpdatePostPayload,
   UploadAttachmentPayload,
   UploadAttachmentResult,
+  UserStats,
 } from '../types'
 
 export interface PostQueryParams {
@@ -16,6 +24,7 @@ export interface PostQueryParams {
   keyword?: string
   postType?: string
   authorId?: string
+  isAnnouncement?: boolean
   sortBy?: string
   sortOrder?: string
 }
@@ -23,11 +32,34 @@ export interface PostQueryParams {
 export interface SearchQueryParams {
   keyword: string
   courseOfferingId?: string
+  authorId?: string
+  postType?: string
+  startDate?: string
+  endDate?: string
   page?: number
   pageSize?: number
+  sortBy?: string
+}
+
+export interface StatsQueryParams {
+  courseOfferingId?: string
+  startDate: string
+  endDate: string
+  period?: 'day' | 'week' | 'month'
+}
+
+function getAuthToken(): string | null {
+  const authStorage = localStorage.getItem('auth-storage')
+  if (!authStorage) return null
+  return JSON.parse(authStorage)?.state?.token ?? null
+}
+
+function getApiBaseUrl(): string {
+  return import.meta.env.VITE_API_URL || 'http://localhost:3000/api/v1'
 }
 
 export const forumApi = {
+  // ── 帖子 ──
   getPosts: (params?: PostQueryParams): Promise<ForumPostListResult> =>
     request.get('/forum/posts', { params }),
 
@@ -36,12 +68,15 @@ export const forumApi = {
   createPost: (data: CreatePostPayload): Promise<ForumPost> =>
     request.post('/forum/posts', data),
 
-  getAnnouncements: (params?: {
-    courseOfferingId?: string
-    page?: number
-    pageSize?: number
-  }): Promise<ForumPostListResult> => request.get('/forum/announcements', { params }),
+  updatePost: (id: string, data: UpdatePostPayload): Promise<ForumPost> =>
+    request.patch(`/forum/posts/${id}`, data),
 
+  deletePost: (id: string): Promise<void> => request.delete(`/forum/posts/${id}`),
+
+  togglePin: (id: string, pinned: boolean): Promise<ForumPost> =>
+    request.patch(`/forum/posts/${id}/pin`, { pinned }),
+
+  // ── 评论 ──
   getComments: (postId: string): Promise<ForumComment[]> =>
     request.get(`/forum/posts/${postId}/comments`),
 
@@ -50,32 +85,114 @@ export const forumApi = {
     data: { content: string; parentId?: string }
   ): Promise<ForumComment> => request.post(`/forum/posts/${postId}/comments`, data),
 
+  deleteComment: (commentId: string): Promise<void> =>
+    request.delete(`/forum/comments/${commentId}`),
+
+  hideComment: (commentId: string): Promise<void> =>
+    request.patch(`/forum/comments/${commentId}/hide`),
+
+  restoreComment: (commentId: string): Promise<void> =>
+    request.patch(`/forum/comments/${commentId}/restore`),
+
+  getHiddenComments: (params?: {
+    courseOfferingId?: string
+    page?: number
+    pageSize?: number
+  }): Promise<ForumPostListResult & { data: HiddenComment[] }> =>
+    request.get('/forum/comments/hidden', { params }),
+
+  // ── 公告 ──
+  getAnnouncements: (params?: {
+    courseOfferingId?: string
+    page?: number
+    pageSize?: number
+  }): Promise<ForumPostListResult> => request.get('/forum/announcements', { params }),
+
+  createAnnouncement: (data: CreateAnnouncementPayload): Promise<ForumPost> =>
+    request.post('/forum/announcements', data),
+
+  updateAnnouncement: (id: string, data: UpdateAnnouncementPayload): Promise<ForumPost> =>
+    request.patch(`/forum/announcements/${id}`, data),
+
+  deleteAnnouncement: (id: string): Promise<void> =>
+    request.delete(`/forum/announcements/${id}`),
+
+  // ── 检索 ──
   searchPosts: (params: SearchQueryParams): Promise<ForumPostListResult> =>
     request.get('/forum/search', { params }),
 
-  uploadAttachment: (data: UploadAttachmentPayload): Promise<UploadAttachmentResult> =>
-    request.post('/forum/attachments', data),
+  // ── 统计 ──
+  getStats: (params: StatsQueryParams): Promise<ForumStatsOverview> =>
+    request.get('/forum/stats', { params }),
 
-  getCourseActivity: async (): Promise<CourseOption[]> => {
-    const end = new Date()
-    const start = new Date()
-    start.setFullYear(start.getFullYear() - 1)
+  getHotPosts: (params?: {
+    period?: 'week' | 'month'
+    courseOfferingId?: string
+    limit?: number
+  }): Promise<HotPostItem[]> => request.get('/forum/stats/hot-posts', { params }),
+
+  getUserStats: (userId?: string): Promise<UserStats> =>
+    userId
+      ? request.get(`/forum/stats/user/${userId}`)
+      : request.get('/forum/stats/user'),
+
+  getCourseActivity: async (params?: {
+    startDate?: string
+    endDate?: string
+    courseOfferingId?: string
+  }): Promise<CourseOption[]> => {
+    const end = params?.endDate ? new Date(params.endDate) : new Date()
+    const start = params?.startDate
+      ? new Date(params.startDate)
+      : new Date(end.getTime() - 365 * 24 * 60 * 60 * 1000)
+
     const list = await request.get<
       Array<{
         courseOfferingId: string
         courseName: string
         courseCode: string
+        teacherName?: string
+        postCount?: number
+        commentCount?: number
+        participantCount?: number
+        activityScore?: number
       }>
     >('/forum/stats/course-activity', {
       params: {
         startDate: start.toISOString(),
         endDate: end.toISOString(),
+        courseOfferingId: params?.courseOfferingId,
       },
     })
     return (list ?? []).map((item) => ({
       courseOfferingId: item.courseOfferingId,
       courseName: item.courseName,
       courseCode: item.courseCode,
+      teacherName: item.teacherName,
+      postCount: item.postCount,
+      commentCount: item.commentCount,
+      participantCount: item.participantCount,
+      activityScore: item.activityScore,
     }))
   },
+
+  exportStatsCsv: async (params: StatsQueryParams): Promise<Blob> => {
+    const token = getAuthToken()
+    const response = await axios.get(`${getApiBaseUrl()}/forum/stats/export`, {
+      params,
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      responseType: 'blob',
+      withCredentials: true,
+    })
+    return response.data as Blob
+  },
+
+  // ── 附件 ──
+  uploadAttachment: (data: UploadAttachmentPayload): Promise<UploadAttachmentResult> =>
+    request.post('/forum/attachments', data),
+
+  uploadAttachmentsBatch: (files: UploadAttachmentPayload[]): Promise<UploadAttachmentResult[]> =>
+    request.post('/forum/attachments/batch', { files }),
+
+  deleteAttachment: (id: string): Promise<void> => request.delete(`/forum/attachments/${id}`),
 }

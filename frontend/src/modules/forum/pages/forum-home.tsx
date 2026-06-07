@@ -1,10 +1,9 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Button,
   Empty,
-  Input,
-  Select,
+  Pagination,
   Space,
   Spin,
   Switch,
@@ -13,35 +12,42 @@ import {
   message,
 } from 'antd'
 import {
+  BarChartOutlined,
+  FireOutlined,
+  NotificationOutlined,
   PlusOutlined,
   SearchOutlined,
-  ExperimentOutlined,
 } from '@ant-design/icons'
 import { useQuery } from '@tanstack/react-query'
 import { AnnouncementBanner } from '../components/announcement-banner'
 import { CourseForumSelector } from '../components/course-forum-selector'
 import { PostCard } from '../components/post-card'
+import { PostFilters } from '../components/post-filters'
 import { forumApi } from '../api/forum-api'
 import { useDemoMode } from '../hooks/use-demo-mode'
 import { useForumCourse } from '../hooks/use-forum-course'
+import { useForumPermissions } from '../hooks/use-forum-permissions'
 import { DEMO_POSTS } from '../constants/demo-mock'
-import { POST_TYPE_LABELS } from '../constants/forum'
 import type { PostType } from '../types'
 import styles from './forum.module.css'
 
 const { Title, Paragraph, Text } = Typography
-const { Search } = Input
 
 export default function ForumHome() {
   const navigate = useNavigate()
+  const perms = useForumPermissions()
   const { demoMode, setDemoMode } = useDemoMode()
   const { courses, courseOfferingId, setCourseOfferingId, loading: courseLoading } =
     useForumCourse(demoMode)
+
+  const [page, setPage] = useState(1)
   const [keyword, setKeyword] = useState('')
   const [postType, setPostType] = useState<PostType | undefined>()
+  const [sortBy, setSortBy] = useState('createdAt')
+  const pageSize = 10
 
   const { data, isLoading, refetch } = useQuery({
-    queryKey: ['forum-posts', courseOfferingId, keyword, postType, demoMode],
+    queryKey: ['forum-posts', courseOfferingId, keyword, postType, sortBy, page, demoMode],
     enabled: !!courseOfferingId || demoMode,
     queryFn: async () => {
       if (demoMode) {
@@ -57,16 +63,16 @@ export default function ForumHome() {
         }
         return {
           data: list,
-          pagination: { page: 1, pageSize: 20, total: list.length, totalPages: 1 },
+          pagination: { page: 1, pageSize, total: list.length, totalPages: 1 },
         }
       }
       return forumApi.getPosts({
         courseOfferingId,
         keyword: keyword || undefined,
         postType,
-        page: 1,
-        pageSize: 20,
-        sortBy: 'createdAt',
+        page,
+        pageSize,
+        sortBy,
         sortOrder: 'desc',
       })
     },
@@ -87,16 +93,31 @@ export default function ForumHome() {
   })
 
   const posts = data?.data ?? []
+  const pagination = data?.pagination
   const announcementList = announcements?.data ?? []
 
-  const typeOptions = useMemo(
-    () =>
-      (Object.keys(POST_TYPE_LABELS) as PostType[]).map((k) => ({
-        label: POST_TYPE_LABELS[k],
-        value: k,
-      })),
-    []
-  )
+  const { data: hotPosts = [] } = useQuery({
+    queryKey: ['forum-hot-posts-home', courseOfferingId, demoMode],
+    enabled: !!courseOfferingId || demoMode,
+    queryFn: async () => {
+      if (demoMode) {
+        return DEMO_POSTS.slice(0, 3).map((p) => ({
+          id: p.id,
+          title: p.title,
+          viewCount: p.viewCount,
+          commentCount: p.commentCount,
+          author: p.author,
+          courseName: p.courseOffering.course.name,
+          activityScore: p.viewCount + p.commentCount * 2,
+        }))
+      }
+      return forumApi.getHotPosts({
+        period: 'week',
+        courseOfferingId: courseOfferingId || undefined,
+        limit: 5,
+      })
+    },
+  })
 
   return (
     <div className={styles.pageWrap}>
@@ -111,20 +132,16 @@ export default function ForumHome() {
             </Paragraph>
           </div>
           <Space>
-            <Text style={{ color: 'rgba(255,255,255,0.9)' }}>演示数据</Text>
+            <Text style={{ color: 'rgba(255,255,255,0.85)', fontSize: 13 }}>演示数据</Text>
             <Switch
               checked={demoMode}
               onChange={(v) => {
                 setDemoMode(v)
-                message.info(v ? '已开启演示模式，便于答辩截图' : '已切换为真实接口数据')
+                message.info(v ? '已开启演示模式' : '已切换为真实接口')
                 void refetch()
               }}
             />
-            {demoMode && (
-              <Tag color="gold" className={styles.demoBadge}>
-                DEMO
-              </Tag>
-            )}
+            {demoMode && <Tag color="gold">DEMO</Tag>}
           </Space>
         </Space>
       </div>
@@ -133,31 +150,39 @@ export default function ForumHome() {
         <CourseForumSelector
           courses={courses}
           value={courseOfferingId}
-          onChange={setCourseOfferingId}
+          onChange={(id) => {
+            setCourseOfferingId(id)
+            setPage(1)
+          }}
           loading={courseLoading}
         />
         <Space wrap>
-          <Button
-            type="primary"
-            icon={<PlusOutlined />}
-            onClick={() => navigate('/forum/posts/new')}
-          >
+          <Button type="primary" icon={<PlusOutlined />} onClick={() => navigate('/forum/posts/new')}>
             发布帖子
           </Button>
           <Button icon={<SearchOutlined />} onClick={() => navigate('/forum/search')}>
             检索
           </Button>
+          {perms.canManageAnnouncements && (
+            <Button
+              icon={<NotificationOutlined />}
+              onClick={() => navigate('/forum/announcements')}
+            >
+              公告管理
+            </Button>
+          )}
+          {perms.canViewStats && (
+            <Button icon={<BarChartOutlined />} onClick={() => navigate('/forum/stats')}>
+              论坛统计
+            </Button>
+          )}
         </Space>
       </div>
 
       {!courseOfferingId && !demoMode ? (
-        <Empty description="请先选择课程，或开启演示模式">
-          <Button
-            type="primary"
-            icon={<ExperimentOutlined />}
-            onClick={() => setDemoMode(true)}
-          >
-            开启演示模式
+        <Empty description="请先选择课程开设，或开启演示数据">
+          <Button type="primary" onClick={() => setDemoMode(true)}>
+            开启演示数据
           </Button>
         </Empty>
       ) : (
@@ -167,40 +192,77 @@ export default function ForumHome() {
             onOpen={(id) => navigate(`/forum/posts/${id}`)}
           />
 
-          <Space wrap style={{ marginBottom: 16, width: '100%' }}>
-            <Search
-              placeholder="搜索帖子标题或内容"
-              allowClear
-              style={{ width: 280 }}
-              onSearch={setKeyword}
-            />
-            <Select
-              allowClear
-              placeholder="帖子类型"
-              style={{ width: 140 }}
-              options={typeOptions}
-              value={postType}
-              onChange={setPostType}
-            />
-          </Space>
+          <PostFilters
+            keyword={keyword}
+            postType={postType}
+            sortBy={sortBy}
+            onKeywordChange={(v) => {
+              setKeyword(v)
+              setPage(1)
+            }}
+            onPostTypeChange={(v) => {
+              setPostType(v)
+              setPage(1)
+            }}
+            onSortChange={(v) => {
+              setSortBy(v)
+              setPage(1)
+            }}
+          />
 
-          {posts.length === 0 ? (
-            <Empty description="暂无帖子">
-              <Button type="primary" onClick={() => navigate('/forum/posts/new')}>
-                发布第一条帖子
-              </Button>
-            </Empty>
-          ) : (
-            <Space direction="vertical" size={12} style={{ width: '100%' }}>
-              {posts.map((post) => (
-                <PostCard
-                  key={post.id}
-                  post={post}
-                  onClick={() => navigate(`/forum/posts/${post.id}`)}
-                />
-              ))}
-            </Space>
-          )}
+          <div className={styles.listLayout}>
+            <div className={styles.listMain}>
+              {posts.length === 0 ? (
+                <Empty description="暂无帖子">
+                  <Button type="primary" onClick={() => navigate('/forum/posts/new')}>
+                    发布第一条帖子
+                  </Button>
+                </Empty>
+              ) : (
+                <>
+                  <Space direction="vertical" size={12} style={{ width: '100%' }}>
+                    {posts.map((post) => (
+                      <PostCard
+                        key={post.id}
+                        post={post}
+                        onClick={() => navigate(`/forum/posts/${post.id}`)}
+                      />
+                    ))}
+                  </Space>
+                  {!demoMode && pagination && pagination.totalPages > 1 && (
+                    <Pagination
+                      style={{ marginTop: 24, textAlign: 'center' }}
+                      current={page}
+                      pageSize={pageSize}
+                      total={pagination.total}
+                      onChange={setPage}
+                      showSizeChanger={false}
+                    />
+                  )}
+                </>
+              )}
+            </div>
+
+            {hotPosts.length > 0 && (
+              <Card className={styles.hotPanel} title={<><FireOutlined /> 本周热帖</>}>
+                <Space direction="vertical" size={8} style={{ width: '100%' }}>
+                  {hotPosts.map((item, idx) => (
+                    <Button
+                      key={item.id}
+                      type="link"
+                      style={{ padding: 0, height: 'auto', textAlign: 'left' }}
+                      onClick={() => navigate(`/forum/posts/${item.id}`)}
+                    >
+                      <Text>
+                        <Text type="secondary">{idx + 1}. </Text>
+                        {item.title}
+                      </Text>
+                    </Button>
+                  ))}
+                </Space>
+              </Card>
+            )}
+          </div>
         </Spin>
       )}
     </div>

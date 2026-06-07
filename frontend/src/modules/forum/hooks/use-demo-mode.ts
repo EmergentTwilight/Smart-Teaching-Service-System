@@ -3,12 +3,9 @@ import { FORUM_DEMO_MODE_KEY } from '../constants/forum'
 
 export function useDemoMode() {
   const [demoMode, setDemoModeState] = useState(() => {
-    if (typeof window === 'undefined') return true
+    if (typeof window === 'undefined') return false
     const stored = localStorage.getItem(FORUM_DEMO_MODE_KEY)
-    // 答辩 Demo 默认开启；关闭后记为 '0'
-    if (stored === '0') return false
-    if (stored === '1') return true
-    return true
+    return stored === '1'
   })
 
   const setDemoMode = useCallback((enabled: boolean) => {

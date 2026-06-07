@@ -1,4 +1,4 @@
-/** 论坛模块类型定义（对齐后端 forum.types.ts） */
+/** 论坛模块类型定义（对齐 backend forum.types.ts） */
 
 export type PostType = 'QUESTION' | 'DISCUSSION' | 'SHARE' | 'ANNOUNCEMENT'
 export type PostStatus = 'NORMAL' | 'HIDDEN' | 'DELETED'
@@ -66,15 +66,22 @@ export interface ForumPagination {
   totalPages: number
 }
 
-export interface ForumPostListResult {
-  data: ForumPost[]
+export interface ForumPaginatedResult<T> {
+  data: T[]
   pagination: ForumPagination
 }
+
+export type ForumPostListResult = ForumPaginatedResult<ForumPost>
 
 export interface CourseOption {
   courseOfferingId: string
   courseName: string
   courseCode: string
+  teacherName?: string
+  postCount?: number
+  commentCount?: number
+  participantCount?: number
+  activityScore?: number
 }
 
 export interface CreatePostPayload {
@@ -82,7 +89,28 @@ export interface CreatePostPayload {
   title: string
   content: string
   postType: PostType
+  isAnnouncement?: boolean
   attachmentIds?: string[]
+}
+
+export interface UpdatePostPayload {
+  title?: string
+  content?: string
+  isPinned?: boolean
+  isAnnouncement?: boolean
+}
+
+export interface CreateAnnouncementPayload {
+  courseOfferingId: string
+  title: string
+  content: string
+  isPinned?: boolean
+}
+
+export interface UpdateAnnouncementPayload {
+  title?: string
+  content?: string
+  isPinned?: boolean
 }
 
 export interface UploadAttachmentPayload {
@@ -96,4 +124,49 @@ export interface UploadAttachmentResult {
   fileName: string
   fileSize: number
   fileType?: string | null
+  fileUrl?: string
+}
+
+export interface ForumStatsOverview {
+  totalPosts: number
+  totalComments: number
+  totalAttachments: number
+  activeUsers: number
+  periodData?: Array<{
+    date: string
+    postCount: number
+    commentCount: number
+  }>
+}
+
+export interface HotPostItem {
+  id: string
+  title: string
+  viewCount: number
+  commentCount: number
+  author: AuthorInfo
+  courseName: string
+  activityScore: number
+}
+
+export interface UserStats {
+  userId: string
+  username: string
+  realName: string
+  postCount: number
+  commentCount: number
+  announcementCount: number
+  totalCount: number
+}
+
+export interface HiddenComment {
+  id: string
+  content: string
+  author: AuthorInfo
+  post: {
+    id: string
+    title: string
+    courseOfferingId: string
+  }
+  createdAt: string
 }

@@ -26,6 +26,8 @@ const PostDetail = lazy(() => import('@/modules/forum/pages/post-detail'));
 const PostEditor = lazy(() => import('@/modules/forum/pages/post-editor'));
 const ForumSearch = lazy(() => import('@/modules/forum/pages/search-result'));
 const MyPosts = lazy(() => import('@/modules/forum/pages/my-posts'));
+const AnnouncementList = lazy(() => import('@/modules/forum/pages/announcement-list'));
+const StatsPage = lazy(() => import('@/modules/forum/pages/stats-page'));
 
 // 加载中组件
 const LoadingFallback = () => (
@@ -152,11 +154,13 @@ const App: React.FC = () => {
 
                   {/* 论坛交流 */}
                   <Route path="forum/posts/new" element={<PostEditor />} />
+                  <Route path="forum/posts/:postId/edit" element={<PostEditor />} />
                   <Route path="forum/posts/:postId" element={<PostDetail />} />
                   <Route path="forum/posts" element={<ForumHome />} />
                   <Route path="forum/search" element={<ForumSearch />} />
                   <Route path="forum/my" element={<MyPosts />} />
-                  <Route path="forum/notifications" element={<ComingSoon title="消息通知" />} />
+                  <Route path="forum/announcements" element={<AnnouncementList />} />
+                  <Route path="forum/stats" element={<StatsPage />} />
 
                   {/* 在线测试 */}
                   <Route path="exam/questions" element={<ComingSoon title="题库管理" />} />

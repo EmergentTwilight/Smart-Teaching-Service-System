@@ -52,6 +52,16 @@ async function cleanupUsersData() {
   await prisma.user.deleteMany({
     where: { username: { startsWith: 'itest_user_' } },
   })
+  await prisma.major.deleteMany({
+    where: {
+      OR: [{ code: { startsWith: 'ITEST_USER_MAJOR_' } }, { code: { startsWith: 'IUM' } }],
+    },
+  })
+  await prisma.department.deleteMany({
+    where: {
+      OR: [{ code: { startsWith: 'ITEST_USER_DEPT_' } }, { code: { startsWith: 'IU' } }],
+    },
+  })
 }
 
 // 辅助函数：创建测试用户
@@ -112,6 +122,37 @@ async function createAdminUser() {
       data: {
         userId: user.id,
         roleId: adminRole.id,
+      },
+    })
+  }
+
+  return user
+}
+
+// 辅助函数：创建超级管理员用户
+async function createSuperAdminUser() {
+  const username = `itest_user_super_admin_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`
+  const hashedPassword = await bcrypt.hash('AdminPassword123', 10)
+
+  const user = await prisma.user.create({
+    data: {
+      username,
+      passwordHash: hashedPassword,
+      email: `itest_user_super_admin_${Date.now()}@test.com`,
+      realName: '测试超级管理员',
+      status: 'ACTIVE',
+    },
+  })
+
+  const superAdminRole = await prisma.role.findUnique({
+    where: { code: 'super_admin' },
+  })
+
+  if (superAdminRole) {
+    await prisma.userRole.create({
+      data: {
+        userId: user.id,
+        roleId: superAdminRole.id,
       },
     })
   }
@@ -237,6 +278,23 @@ describe('GET /api/v1/users', () => {
       .expect(403)
 
     expect(response.body.message).toContain('权限不足')
+  })
+
+  it('应该按官方文档支持 page_size 查询参数', async () => {
+    const adminUser = await createAdminUser()
+    const token = generateTestToken(adminUser.id, adminUser.username, ['admin'])
+
+    await createTestUser({ username: 'itest_user_page_size_1' })
+    await createTestUser({ username: 'itest_user_page_size_2' })
+
+    const response = await request(app)
+      .get('/api/v1/users?page=1&page_size=1')
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200)
+
+    expect(response.body.data.pagination.page).toBe(1)
+    expect(response.body.data.pagination.page_size).toBe(1)
+    expect(response.body.data.items).toHaveLength(1)
   })
 })
 
@@ -396,6 +454,31 @@ describe('POST /api/v1/users', () => {
       })
       .expect(403)
   })
+
+  it('应该按官方文档支持 real_name 和 role_ids 创建用户', async () => {
+    const adminUser = await createSuperAdminUser()
+    const token = generateTestToken(adminUser.id, adminUser.username, ['super_admin'])
+    const studentRole = await prisma.role.findUnique({ where: { code: 'student' } })
+
+    if (!studentRole) {
+      throw new Error('Student role not found')
+    }
+
+    const response = await request(app)
+      .post('/api/v1/users')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        username: `itest_user_doc_create_${Date.now()}`,
+        password: 'Password123',
+        real_name: '文档创建用户',
+        email: `itest_user_doc_create_${Date.now()}@test.com`,
+        role_ids: [studentRole.id],
+      })
+      .expect(201)
+
+    expect(response.body.data.real_name).toBe('文档创建用户')
+    expect(response.body.data.roles).toContainEqual(expect.objectContaining({ code: 'student' }))
+  })
 })
 
 describe('PATCH /api/v1/users/:id/status', () => {
@@ -424,6 +507,26 @@ describe('PATCH /api/v1/users/:id/status', () => {
       .set('Authorization', `Bearer ${token}`)
       .send({ status: 'INACTIVE' })
       .expect(404)
+  })
+})
+
+describe('PATCH /api/v1/users/:id/password', () => {
+  const app = createTestApp()
+
+  it('应该按官方文档支持 old_password 和 new_password 修改自己的密码', async () => {
+    const user = await createTestUser()
+    const token = generateTestToken(user.id, user.username, ['student'])
+
+    const response = await request(app)
+      .patch(`/api/v1/users/${user.id}/password`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        old_password: 'Password123',
+        new_password: 'NewPassword123',
+      })
+      .expect(200)
+
+    expect(response.body.message).toBe('密码修改成功')
   })
 })
 
@@ -472,6 +575,166 @@ describe('POST /api/v1/users/:id/roles', () => {
       .expect(403)
 
     expect(response.body.message).toContain('只有超级管理员')
+  })
+
+  it('应该按官方文档支持 role_ids 分配角色', async () => {
+    const adminUser = await createAdminUser()
+    const targetUser = await createTestUser()
+    const teacherRole = await prisma.role.findUnique({
+      where: { code: 'teacher' },
+    })
+
+    const token = generateTestToken(adminUser.id, adminUser.username, ['admin'])
+
+    if (!teacherRole) {
+      throw new Error('Teacher role not found')
+    }
+
+    const response = await request(app)
+      .post(`/api/v1/users/${targetUser.id}/roles`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ role_ids: [teacherRole.id] })
+      .expect(200)
+
+    expect(response.body.data.roles).toContainEqual(expect.objectContaining({ code: 'teacher' }))
+  })
+})
+
+describe('PATCH /api/v1/users/:id/student/major', () => {
+  const app = createTestApp()
+
+  it('应该按官方文档支持 major_id 更新学生专业', async () => {
+    const adminUser = await createAdminUser()
+    const targetUser = await createTestUser()
+    const token = generateTestToken(adminUser.id, adminUser.username, ['admin'])
+
+    const oldDepartment = await prisma.department.create({
+      data: {
+        name: `测试院系旧_${Date.now()}`,
+        code: `IUD${Date.now()}`.slice(0, 20),
+      },
+    })
+    const newDepartment = await prisma.department.create({
+      data: {
+        name: `测试院系新_${Date.now()}`,
+        code: `IUN${Date.now()}`.slice(0, 20),
+      },
+    })
+    const oldMajor = await prisma.major.create({
+      data: {
+        name: `测试专业旧_${Date.now()}`,
+        code: `IUMO${Date.now()}`.slice(0, 20),
+        departmentId: oldDepartment.id,
+      },
+    })
+    const newMajor = await prisma.major.create({
+      data: {
+        name: `测试专业新_${Date.now()}`,
+        code: `IUMN${Date.now()}`.slice(0, 20),
+        departmentId: newDepartment.id,
+      },
+    })
+
+    await prisma.student.create({
+      data: {
+        userId: targetUser.id,
+        studentNumber: `S${Date.now()}`,
+        majorId: oldMajor.id,
+        grade: 2026,
+      },
+    })
+
+    const response = await request(app)
+      .patch(`/api/v1/users/${targetUser.id}/student/major`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ major_id: newMajor.id })
+      .expect(200)
+
+    expect(response.body.data.user_id).toBe(targetUser.id)
+    expect(response.body.data.major_id).toBe(newMajor.id)
+    expect(response.body.data.major_name).toBe(newMajor.name)
+  })
+})
+
+describe('PATCH /api/v1/users/:id/teacher/department', () => {
+  const app = createTestApp()
+
+  it('应该按官方文档支持 department_id 更新教师院系', async () => {
+    const adminUser = await createAdminUser()
+    const targetUser = await createTestUser()
+    const token = generateTestToken(adminUser.id, adminUser.username, ['admin'])
+
+    const oldDepartment = await prisma.department.create({
+      data: {
+        name: `教师旧院系_${Date.now()}`,
+        code: `IUTD${Date.now()}`.slice(0, 20),
+      },
+    })
+    const newDepartment = await prisma.department.create({
+      data: {
+        name: `教师新院系_${Date.now()}`,
+        code: `IUTN${Date.now()}`.slice(0, 20),
+      },
+    })
+
+    await prisma.teacher.create({
+      data: {
+        userId: targetUser.id,
+        teacherNumber: `T${Date.now()}`,
+        departmentId: oldDepartment.id,
+      },
+    })
+
+    const response = await request(app)
+      .patch(`/api/v1/users/${targetUser.id}/teacher/department`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ department_id: newDepartment.id })
+      .expect(200)
+
+    expect(response.body.data.user_id).toBe(targetUser.id)
+    expect(response.body.data.department_id).toBe(newDepartment.id)
+    expect(response.body.data.department_name).toBe(newDepartment.name)
+  })
+})
+
+describe('PATCH /api/v1/users/:id/admin/department', () => {
+  const app = createTestApp()
+
+  it('应该按官方文档支持 department_id 更新管理员院系', async () => {
+    const superAdmin = await createSuperAdminUser()
+    const targetUser = await createTestUser()
+    const token = generateTestToken(superAdmin.id, superAdmin.username, ['super_admin'])
+
+    const oldDepartment = await prisma.department.create({
+      data: {
+        name: `管理员旧院系_${Date.now()}`,
+        code: `IUAD${Date.now()}`.slice(0, 20),
+      },
+    })
+    const newDepartment = await prisma.department.create({
+      data: {
+        name: `管理员新院系_${Date.now()}`,
+        code: `IUAN${Date.now()}`.slice(0, 20),
+      },
+    })
+
+    await prisma.admin.create({
+      data: {
+        userId: targetUser.id,
+        adminType: 'ACADEMIC',
+        departmentId: oldDepartment.id,
+      },
+    })
+
+    const response = await request(app)
+      .patch(`/api/v1/users/${targetUser.id}/admin/department`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ department_id: newDepartment.id })
+      .expect(200)
+
+    expect(response.body.data.user_id).toBe(targetUser.id)
+    expect(response.body.data.department_id).toBe(newDepartment.id)
+    expect(response.body.data.department_name).toBe(newDepartment.name)
   })
 })
 

@@ -221,6 +221,20 @@ describe('POST /api/v1/auth/register', () => {
 
     expect(response.body.message).toBeDefined()
   })
+
+  it('应该按官方文档支持 real_name 注册用户', async () => {
+    const response = await request(app)
+      .post('/api/v1/auth/register')
+      .send({
+        username: `itest_auth_doc_register_${Date.now()}`,
+        password: 'Password123',
+        real_name: '文档注册用户',
+        email: `itest_auth_doc_register_${Date.now()}@test.com`,
+      })
+      .expect(201)
+
+    expect(response.body.data.real_name).toBe('文档注册用户')
+  })
 })
 
 describe('POST /api/v1/auth/login', () => {
@@ -448,6 +462,27 @@ describe('POST /api/v1/auth/refresh', () => {
 
     expect(response.body.message).toContain('刷新令牌已过期')
   })
+
+  it('应该按官方文档支持 refresh_token 刷新 token', async () => {
+    const user = await createTestUser()
+    const refresh_tokenValue = 'doc-refresh-token'
+    const tokenHash = hashToken(refresh_tokenValue)
+
+    await prisma.refreshToken.create({
+      data: {
+        userId: user.id,
+        tokenHash,
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      },
+    })
+
+    const response = await request(app)
+      .post('/api/v1/auth/refresh')
+      .send({ refresh_token: refresh_tokenValue })
+      .expect(200)
+
+    expect(response.body.data.refresh_token).toEqual(expect.any(String))
+  })
 })
 
 describe('POST /api/v1/auth/logout', () => {
@@ -513,6 +548,29 @@ describe('POST /api/v1/auth/logout', () => {
       .expect(401)
 
     expect(response.body.message).toContain('未提供认证令牌')
+  })
+
+  it('应该按官方文档支持 refresh_token 登出', async () => {
+    const user = await createTestUser()
+    const token = generateTestToken(user.id, user.username)
+    const refresh_tokenValue = 'doc-logout-token'
+    const tokenHash = hashToken(refresh_tokenValue)
+
+    await prisma.refreshToken.create({
+      data: {
+        userId: user.id,
+        tokenHash,
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      },
+    })
+
+    const response = await request(app)
+      .post('/api/v1/auth/logout')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ refresh_token: refresh_tokenValue })
+      .expect(200)
+
+    expect(response.body.message).toBe('登出成功')
   })
 })
 
@@ -695,6 +753,24 @@ describe('POST /api/v1/auth/change-password', () => {
     })
 
     expect(log).not.toBeNull()
+  })
+
+  it('应该按官方文档支持 old_password 和 new_password 修改密码', async () => {
+    const user = await createTestUser({
+      passwordHash: await bcrypt.hash('OldPassword123', 10),
+    })
+    const token = generateTestToken(user.id, user.username)
+
+    const response = await request(app)
+      .post('/api/v1/auth/change-password')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        old_password: 'OldPassword123',
+        new_password: 'NewPassword456',
+      })
+      .expect(200)
+
+    expect(response.body.message).toBe('密码修改成功')
   })
 })
 

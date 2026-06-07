@@ -36,7 +36,15 @@ export const usersApi = {
    * 获取用户统计
    * @returns 用户统计数据
    */
-  getStats: async (): Promise<{ totalCount: number }> => {
+  getStats: async (): Promise<{
+    total: number
+    students: number
+    teachers: number
+    admins: number
+    active: number
+    inactive: number
+    banned: number
+  }> => {
     return request.get('/users/stats')
   },
 

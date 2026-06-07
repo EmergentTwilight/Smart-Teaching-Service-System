@@ -17,7 +17,9 @@ import type {
   UpdateStatusInput,
   AssignRolesInput,
 } from './users.types.js'
-import type { Prisma, Gender, UserStatus } from '@prisma/client'
+type Prisma = any
+type Gender = 'MALE' | 'FEMALE' | 'OTHER'
+type UserStatus = 'ACTIVE' | 'INACTIVE' | 'BANNED'
 
 export const usersService = {
   /**

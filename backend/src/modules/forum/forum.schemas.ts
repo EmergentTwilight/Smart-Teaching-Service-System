@@ -1,5 +1,11 @@
 import { z } from 'zod';
-import { PostType } from '@prisma/client';
+
+const PostType = {
+  QUESTION: 'QUESTION',
+  DISCUSSION: 'DISCUSSION',
+  SHARE: 'SHARE',
+  ANNOUNCEMENT: 'ANNOUNCEMENT',
+} as const;
 
 // 发帖参数校验规则
 export const createPostSchema = z.object({

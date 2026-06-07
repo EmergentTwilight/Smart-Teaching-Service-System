@@ -1,5 +1,6 @@
 // forum.types.ts
-import { PostType, PostStatus } from '@prisma/client';
+type PostType = 'QUESTION' | 'DISCUSSION' | 'SHARE' | 'ANNOUNCEMENT';
+type PostStatus = 'NORMAL' | 'HIDDEN' | 'DELETED';
 
 // ============ 请求 DTO ============
 

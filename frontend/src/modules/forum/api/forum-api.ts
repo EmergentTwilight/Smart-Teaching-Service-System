@@ -15,6 +15,7 @@ export interface PostQueryParams {
   courseOfferingId?: string
   keyword?: string
   postType?: string
+  authorId?: string
   sortBy?: string
   sortOrder?: string
 }

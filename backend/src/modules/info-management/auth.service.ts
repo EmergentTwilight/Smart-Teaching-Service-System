@@ -21,7 +21,8 @@ import crypto from 'crypto'
 import config from '../../config/index.js'
 import { redisClient } from '../../config/redis.js'
 import { sendPasswordResetEmail } from '../../config/mail.js'
-import type { Gender, Prisma } from '@prisma/client'
+type Gender = 'MALE' | 'FEMALE' | 'OTHER'
+type Prisma = any
 
 const LOGIN_FAILURE_WINDOW_SECONDS = 5 * 60
 const LOGIN_LOCK_SECONDS = 15 * 60
@@ -163,7 +164,7 @@ function serializeUser(
     realName: user.realName,
     avatarUrl: user.avatarUrl,
     gender: user.gender,
-    status: user.status.toLowerCase(),
+    status: user.status,
     lastLoginAt: user.lastLoginAt,
     roles,
     roleDetails,

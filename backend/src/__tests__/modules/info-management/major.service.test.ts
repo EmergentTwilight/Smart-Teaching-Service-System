@@ -157,7 +157,7 @@ describe('MajorService', () => {
       expect(result.pagination.page).toBe(1)
       expect(result.pagination.page_size).toBe(10)
       expect(result.pagination.total).toBe(2)
-      expect(result.pagination.total_page).toBe(1)
+      expect(result.pagination.total_pages).toBe(1)
     })
 
     it('应该支持按院系筛选', async () => {
@@ -277,7 +277,7 @@ describe('MajorService', () => {
         page_size: 10,
       })
 
-      expect(result.pagination.total_page).toBe(3)
+      expect(result.pagination.total_pages).toBe(3)
     })
   })
 

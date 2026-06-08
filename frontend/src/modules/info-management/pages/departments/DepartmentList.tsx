@@ -91,6 +91,11 @@ const DepartmentList: React.FC = () => {
     return roles.includes('super_admin');
   }, [loggedInUser?.roles]);
 
+  const canEditDepartment = useMemo(() => {
+    const roles = loggedInUser?.roles || [];
+    return roles.includes('admin') || roles.includes('super_admin');
+  }, [loggedInUser?.roles]);
+
   // 表格多选配置
   const rowSelection = useMemo<TableProps<Department>['rowSelection']>(
     () => ({
@@ -112,7 +117,7 @@ const DepartmentList: React.FC = () => {
       alert('权限不足：您没有创建部门的权限，请联系超级管理员。');
       return;
     }
-    
+
     setCurrentDepartment(null);
     setFormOpen(true);
   }, [isSuperAdmin]);
@@ -120,13 +125,13 @@ const DepartmentList: React.FC = () => {
   // 处理编辑
   const handleEdit = useCallback((department: Department) => {
     // 检查权限
-    if (!isSuperAdmin) {
+    if (!canEditDepartment) {
       alert('权限不足：您没有编辑部门的权限，请联系超级管理员。');
       return;
     }
     setCurrentDepartment(department);
     setFormOpen(true);
-  }, [isSuperAdmin]);
+  }, [canEditDepartment]);
 
   // 处理查看详情
   const handleView = useCallback(async (department: Department) => {
@@ -168,7 +173,7 @@ const DepartmentList: React.FC = () => {
     }
 
     const department = data?.items?.find((item: Department) => item.id === id);
-    
+
     if (department) {
       setDepartmentToDelete(department);
       setDeleteModalOpen(true);
@@ -210,13 +215,7 @@ const DepartmentList: React.FC = () => {
   }, []);
 
   const departments = data?.items || [];
-  const pageSize = params.pageSize || 10;
-  const pagination = {
-    total: departments.length,
-    page: params.page,
-    pageSize,
-    totalPages: Math.ceil(departments.length / pageSize),
-  };
+  const pagination = data?.pagination;
 
   return (
     <div>
@@ -271,6 +270,8 @@ const DepartmentList: React.FC = () => {
           onView={handleView}
           onDelete={handleOpenDeleteModal}
           rowSelection={rowSelection}
+          canEdit={canEditDepartment}
+          canDelete={isSuperAdmin}
         />
 
         {/* 分页器 */}

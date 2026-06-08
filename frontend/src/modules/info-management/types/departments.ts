@@ -11,7 +11,7 @@ export interface Department {
   /** 部门代码 */
   code: string
   /** 部门描述 */
-  description: string
+  description: string | null
   /** 教师数量 */
   teacherCount: number
   /** 学生数量 */
@@ -19,9 +19,9 @@ export interface Department {
   /** 专业数量 */
   majorCount: number
   /** 创建时间 */
-  createdAt: string
+  createdAt: string | null
   /** 更新时间 */
-  updatedAt: string
+  updatedAt?: string | null
 }
 
 /** 部门详情（包含关联信息） */
@@ -57,6 +57,17 @@ export interface DepartmentQueryParams {
   pageSize?: number
   /** 搜索关键词 */
   keyword?: string
+}
+
+/** 部门列表响应 */
+export interface DepartmentListResponse {
+  items: Department[]
+  pagination: {
+    page: number
+    pageSize: number
+    total: number
+    totalPages: number
+  }
 }
 
 /** 创建部门请求数据 */

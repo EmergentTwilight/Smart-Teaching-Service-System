@@ -47,6 +47,6 @@ export const courseController = {
   async batchCreate(req: Request, res: Response) {
     const data = batchCreateCoursesSchema.parse(req.body)
     const courses = await courseService.batchCreateCourses(data.courses, req)
-    success(res, courses, '批量创建完成', 201)
+    success(res, courses, '批量创建完成')
   },
 }

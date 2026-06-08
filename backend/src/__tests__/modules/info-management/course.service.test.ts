@@ -166,7 +166,7 @@ describe('courseService', () => {
       expect(result.credits).toBe(3.5)
       expect(result.teacher_name).toBe('李老师')
       expect(result.prerequisites).toHaveLength(1)
-      expect(result.update_at).toEqual(new Date('2026-01-02T10:00:00Z'))
+      expect(result.updated_at).toEqual(new Date('2026-01-02T10:00:00Z'))
     })
 
     it('课程不存在时应该抛出 NotFoundError', async () => {
@@ -336,8 +336,8 @@ describe('courseService', () => {
 
       expect(result.total).toBe(2)
       expect(result.success_count).toBe(1)
-      expect(result.failed_count).toBe(1)
-      expect(result.results[0]).toMatchObject({ status: 'success', id: 'course-1' })
+      expect(result.fail_count).toBe(1)
+      expect(result.results[0]).toMatchObject({ status: 'created', id: 'course-1' })
       expect(result.results[1]).toMatchObject({ status: 'failed' })
     })
   })

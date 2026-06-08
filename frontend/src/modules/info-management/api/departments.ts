@@ -6,6 +6,7 @@ import request from '@/shared/utils/request'
 import type {
   Department,
   DepartmentDetail,
+  DepartmentListResponse,
   DepartmentQueryParams,
   CreateDepartmentDTO,
   UpdateDepartmentDTO,
@@ -19,9 +20,14 @@ export const departmentsApi = {
    * @returns 部门列表
    */
 
-  getList: async (params?: DepartmentQueryParams): Promise<{ items: Department[] }> => {
-    const result = (await request.get('/departments', { params })) as Department[]
-    return { items: result || [] }
+  getList: async (params?: DepartmentQueryParams): Promise<DepartmentListResponse> => {
+    return request.get('/departments', {
+      params: {
+        page: params?.page,
+        page_size: params?.pageSize,
+        keyword: params?.keyword || undefined,
+      },
+    })
   },
 
   /**

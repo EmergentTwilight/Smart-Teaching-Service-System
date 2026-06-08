@@ -3,6 +3,7 @@
  * 统一处理 HTTP 响应格式
  */
 import { Response } from 'express'
+import { Prisma } from '@prisma/client'
 
 /**
  * API 响应结构
@@ -37,6 +38,10 @@ const convertKeysToSnakeCase = <T>(input: T): T => {
 
   if (input instanceof Date) {
     return input.toISOString() as T
+  }
+
+  if (Prisma.Decimal.isDecimal(input)) {
+    return input.toNumber() as T
   }
 
   if (input && typeof input === 'object') {

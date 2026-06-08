@@ -19,6 +19,16 @@ export interface UserQueryParams {
   status?: string
 }
 
+export interface UserPermissionsResponse {
+  userId: string
+  permissions: string[]
+  roles: Array<{
+    id: string
+    code: string
+    name: string
+  }>
+}
+
 /** 用户管理 API 模块 */
 export const usersApi = {
   /**
@@ -162,7 +172,7 @@ export const usersApi = {
    * @param id 用户ID
    * @returns 权限列表
    */
-  getPermissions: async (id: string): Promise<string[]> => {
+  getPermissions: async (id: string): Promise<UserPermissionsResponse> => {
     return request.get(`/users/${id}/permissions`)
   },
 

@@ -57,10 +57,7 @@ async function cleanupCurriculumsData() {
 
   await prisma.course.deleteMany({
     where: {
-      OR: [
-        { name: { startsWith: 'itest_curriculum_' } },
-        { code: { startsWith: 'ICU' } },
-      ],
+      OR: [{ name: { startsWith: 'itest_curriculum_' } }, { code: { startsWith: 'ICU' } }],
     },
   })
 
@@ -286,7 +283,7 @@ describe('GET /api/v1/curriculums/:id', () => {
       course_code: 'ICU_C201',
       course_name: 'itest_curriculum_数据结构',
       credits: 4,
-      course_type: 'required',
+      course_type: 'REQUIRED',
       semester_suggestion: 2,
     })
   })

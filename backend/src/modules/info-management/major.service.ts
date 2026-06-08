@@ -85,7 +85,7 @@ export const majorService = {
       pagination: {
         page,
         page_size,
-        total_page: Math.ceil(total / page_size),
+        total_pages: Math.ceil(total / page_size),
         total: total,
       },
     }
@@ -213,7 +213,7 @@ export const majorService = {
       if (!major) {
         throw new NotFoundError('专业不存在')
       }
-      await tx.major.update({
+      const updatedMajor = await tx.major.update({
         where: { id },
         data: {
           name: data.name,
@@ -231,8 +231,17 @@ export const majorService = {
           details: `修改了专业 \n专业ID:${id} \n修改前： name:${major.name} totalCredits:${major.totalCredits}\n 修改后： name:${data.name} totalCredits:${data.total_credits}`,
         },
       })
+
+      return updatedMajor
     })
-    return updated
+    return {
+      id: updated.id,
+      name: updated.name,
+      code: updated.code,
+      department_id: updated.departmentId,
+      degree_type: updated.degreeType,
+      total_credits: updated.totalCredits?.toNumber() || 0,
+    }
   },
 
   async deleteMajor(id: string, req: Request) {

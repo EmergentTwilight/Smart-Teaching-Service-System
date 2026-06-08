@@ -74,7 +74,7 @@ export const courseService = {
         page,
         page_size,
         total,
-        total_page: totalPage,
+        total_pages: totalPage,
       },
     }
     return result
@@ -137,7 +137,7 @@ export const courseService = {
         name: p.prerequisite.name,
       })),
       created_at: course.createdAt,
-      update_at: course.updatedAt,
+      updated_at: course.updatedAt,
     }
     return result
   },
@@ -296,7 +296,7 @@ export const courseService = {
           })
           return course
         })
-        createResults.push({ index: dataInd, id: course.id, status: 'success' })
+        createResults.push({ index: dataInd, id: course.id, status: 'created' })
       } catch (error) {
         failedCount++
         createResults.push({
@@ -309,7 +309,7 @@ export const courseService = {
     const result = {
       total: coursesData.length,
       success_count: coursesData.length - failedCount,
-      failed_count: failedCount,
+      fail_count: failedCount,
       results: createResults,
     }
     return result

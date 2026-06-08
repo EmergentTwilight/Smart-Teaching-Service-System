@@ -118,7 +118,7 @@ POST /api/v1/auth/login
       "username": "admin",
       "real_name": "管理员",
       "email": "admin@example.com",
-      "status": "active"
+      "status": "ACTIVE"
     }
   }
 }
@@ -198,7 +198,7 @@ Authorization: Bearer <access_token>
     "real_name": "管理员",
     "avatar_url": null,
     "gender": "male",
-    "status": "active",
+    "status": "ACTIVE",
     "last_login_at": "2026-04-01T10:00:00+08:00",
     "roles": [
       { "id": "uuid", "code": "super_admin", "name": "超级管理员" }
@@ -238,7 +238,7 @@ POST /api/v1/auth/register
     "username": "newuser",
     "email": "user@example.com",
     "real_name": "张三",
-    "status": "inactive"
+    "status": "INACTIVE"
   }
 }
 ```
@@ -372,14 +372,14 @@ Authorization: Bearer <access_token>
 
 **查询参数：**
 
-| 参数              | 类型    | 说明                        |
-| ----------------- | ------- | --------------------------- |
-| `page`            | int     | 页码，默认 1                |
-| `page_size`       | int     | 每页数量，默认 20，最大 100 |
-| `keyword`         | string  | 搜索关键词                  |
-| `status`          | string  | 状态筛选                    |
-| `role`            | string  | 角色代码筛选                |
-| `include_deleted` | boolean | 是否包含已删除用户          |
+| 参数              | 类型    | 说明                             |
+| ----------------- | ------- | -------------------------------- |
+| `page`            | int     | 页码，默认 1                     |
+| `page_size`       | int     | 每页数量，默认 20，最大 100      |
+| `keyword`         | string  | 搜索关键词                       |
+| `status`          | string  | 状态筛选：ACTIVE/INACTIVE/BANNED |
+| `role`            | string  | 角色代码筛选                     |
+| `include_deleted` | boolean | 是否包含已删除用户               |
 
 **响应：**
 
@@ -394,7 +394,7 @@ Authorization: Bearer <access_token>
         "username": "student1",
         "real_name": "张三",
         "email": "student@example.com",
-        "status": "active",
+        "status": "ACTIVE",
         "roles": ["student"],
         "created_at": "2026-03-01T00:00:00+08:00"
       }
@@ -457,7 +457,7 @@ Authorization: Bearer <access_token>
     "real_name": "张三",
     "avatar_url": null,
     "gender": "male",
-    "status": "active",
+    "status": "ACTIVE",
     "last_login_at": "2026-04-01T10:00:00+08:00",
     "created_at": "2026-03-01T00:00:00+08:00",
     "roles": [{ "id": "uuid", "code": "student", "name": "学生" }],
@@ -512,7 +512,7 @@ Authorization: Bearer <access_token>
   "data": {
     "id": "uuid",
     "username": "newuser",
-    "status": "active"
+    "status": "ACTIVE"
   }
 }
 ```
@@ -617,7 +617,7 @@ Authorization: Bearer <access_token>
 
 ```json
 {
-  "status": "banned",
+  "status": "BANNED",
   "reason": "违反使用规定"
 }
 ```
@@ -645,7 +645,7 @@ Authorization: Bearer <access_token>
 ```json
 {
   "user_ids": ["uuid1", "uuid2"],
-  "status": "active",
+  "status": "ACTIVE",
   "role_ids": ["uuid"]
 }
 ```
@@ -824,8 +824,8 @@ Authorization: Bearer <access_token>
 | ------------ | ------ | ------------ |
 | `user_id`    | uuid   | 筛选用户     |
 | `action`     | string | 筛选操作类型 |
-| `start_time` | string | 起始时间     |
-| `end_time`   | string | 结束时间     |
+| `start_date` | string | 起始时间     |
+| `end_date`   | string | 结束时间     |
 | `page`       | int    | 页码         |
 | `page_size`  | int    | 每页数量     |
 
@@ -1067,7 +1067,7 @@ Authorization: Bearer <access_token>
         "id": "uuid",
         "name": "计算机科学与技术",
         "code": "CS001",
-        "degree_type": "bachelor",
+        "degree_type": "BACHELOR",
         "student_count": 200
       }
     ],
@@ -1200,7 +1200,7 @@ Authorization: Bearer <access_token>
         "code": "CS001",
         "department_id": "uuid",
         "department_name": "计算机学院",
-        "degree_type": "bachelor",
+        "degree_type": "BACHELOR",
         "total_credits": 160.0,
         "student_count": 200,
         "created_at": "2026-03-01T00:00:00+08:00"
@@ -1230,7 +1230,7 @@ Authorization: Bearer <access_token>
     "code": "CS001",
     "department_id": "uuid",
     "department_name": "计算机学院",
-    "degree_type": "bachelor",
+    "degree_type": "BACHELOR",
     "total_credits": 160.0,
     "description": "...",
     "curriculums": [
@@ -1271,7 +1271,7 @@ Authorization: Bearer <access_token>
   "name": "计算机科学与技术",
   "code": "CS001",
   "department_id": "uuid",
-  "degree_type": "bachelor",
+  "degree_type": "BACHELOR",
   "total_credits": 160.0
 }
 ```
@@ -1357,8 +1357,8 @@ Authorization: Bearer <access_token>
 | `page_size`     | int    | 每页数量                        |
 | `keyword`       | string | 搜索关键词                      |
 | `department_id` | uuid   | 院系ID筛选                      |
-| `course_type`   | string | 类型：required/elective/general |
-| `status`        | string | 状态：active/archived           |
+| `course_type`   | string | 类型：REQUIRED/ELECTIVE/GENERAL |
+| `status`        | string | 状态：ACTIVE/ARCHIVED           |
 
 **响应：**
 
@@ -1374,13 +1374,13 @@ Authorization: Bearer <access_token>
         "name": "数据结构",
         "credits": 4.0,
         "hours": 64,
-        "course_type": "required",
+        "course_type": "REQUIRED",
         "category": "专业必修",
         "department_id": "uuid",
         "department_name": "计算机学院",
         "teacher_id": "uuid",
         "teacher_name": "张教授",
-        "status": "active",
+        "status": "ACTIVE",
         "created_at": "2026-03-01T00:00:00+08:00"
       }
     ],
@@ -1408,7 +1408,7 @@ Authorization: Bearer <access_token>
     "name": "数据结构",
     "credits": 4.0,
     "hours": 64,
-    "course_type": "required",
+    "course_type": "REQUIRED",
     "category": "专业必修",
     "department_id": "uuid",
     "department_name": "计算机学院",
@@ -1416,7 +1416,7 @@ Authorization: Bearer <access_token>
     "teacher_name": "张教授",
     "description": "本课程介绍基本数据结构...",
     "assessment_method": "平时30% + 期末70%",
-    "status": "active",
+    "status": "ACTIVE",
     "prerequisites": [
       {
         "id": "uuid",
@@ -1447,7 +1447,7 @@ Authorization: Bearer <access_token>
   "name": "数据结构",
   "credits": 4.0,
   "hours": 64,
-  "course_type": "required",
+  "course_type": "REQUIRED",
   "category": "专业必修",
   "department_id": "uuid",
   "teacher_id": "uuid",
@@ -1633,7 +1633,7 @@ Authorization: Bearer <access_token>
         "course_code": "CS101",
         "course_name": "数据结构",
         "credits": 4.0,
-        "course_type": "required",
+        "course_type": "REQUIRED",
         "semester_suggestion": 2
       }
     ],
@@ -1740,7 +1740,7 @@ Authorization: Bearer <access_token>
 ```json
 {
   "course_id": "uuid",
-  "course_type": "required",
+  "course_type": "REQUIRED",
   "semester_suggestion": 2
 }
 ```
@@ -1768,8 +1768,8 @@ Authorization: Bearer <access_token>
 ```json
 {
   "courses": [
-    { "course_id": "uuid1", "course_type": "required", "semester_suggestion": 1 },
-    { "course_id": "uuid2", "course_type": "elective", "semester_suggestion": 3 }
+    { "course_id": "uuid1", "course_type": "REQUIRED", "semester_suggestion": 1 },
+    { "course_id": "uuid2", "course_type": "ELECTIVE", "semester_suggestion": 3 }
   ]
 }
 ```
@@ -1818,7 +1818,7 @@ Authorization: Bearer <access_token>
 
 ```json
 {
-  "course_type": "elective",
+  "course_type": "ELECTIVE",
   "semester_suggestion": 4
 }
 ```

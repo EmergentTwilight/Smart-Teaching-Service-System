@@ -161,16 +161,20 @@ describe('GET /api/v1/departments', () => {
       .expect(200)
 
     expect(response.body.code).toBe(200)
-    expect(Array.isArray(response.body.data)).toBe(true)
+    expect(Array.isArray(response.body.data.items)).toBe(true)
+    expect(response.body.data.pagination).toMatchObject({
+      page: 1,
+      page_size: 20,
+    })
 
     // 应该包含我们创建的测试院系
-    const testDepartments = response.body.data.filter((d: { name: string }) =>
+    const testDepartments = response.body.data.items.filter((d: { name: string }) =>
       d.name.startsWith('itest_dept_')
     )
     expect(testDepartments.length).toBeGreaterThanOrEqual(2)
   })
 
-  it('应该包含院系的专业信息', async () => {
+  it('应该包含院系统计信息', async () => {
     const user = await createTestUser()
     const token = generateTestToken(user.id, user.username)
 
@@ -189,10 +193,13 @@ describe('GET /api/v1/departments', () => {
       .set('Authorization', `Bearer ${token}`)
       .expect(200)
 
-    const deptWithMajors = response.body.data.find((d: { id: string }) => d.id === department.id)
+    const deptWithMajors = response.body.data.items.find(
+      (d: { id: string }) => d.id === department.id
+    )
     expect(deptWithMajors).toBeDefined()
-    expect(Array.isArray(deptWithMajors.majors)).toBe(true)
-    expect(deptWithMajors.majors.length).toBeGreaterThan(0)
+    expect(deptWithMajors.major_count).toBe(1)
+    expect(deptWithMajors.student_count).toBe(0)
+    expect(deptWithMajors.teacher_count).toBe(0)
   })
 
   it('未认证时应该拒绝访问', async () => {
@@ -201,7 +208,7 @@ describe('GET /api/v1/departments', () => {
     expect(response.body.message).toContain('未提供认证令牌')
   })
 
-  it('应该返回数组格式的院系列表', async () => {
+  it('应该返回分页格式的院系列表', async () => {
     const user = await createTestUser()
     const token = generateTestToken(user.id, user.username)
 
@@ -210,7 +217,8 @@ describe('GET /api/v1/departments', () => {
       .set('Authorization', `Bearer ${token}`)
       .expect(200)
 
-    expect(Array.isArray(response.body.data)).toBe(true)
+    expect(Array.isArray(response.body.data.items)).toBe(true)
+    expect(response.body.data.pagination).toBeDefined()
   })
 
   it('应该按关键词搜索院系名称或代码', async () => {
@@ -226,7 +234,7 @@ describe('GET /api/v1/departments', () => {
       .set('Authorization', `Bearer ${token}`)
       .expect(200)
 
-    const names = response.body.data.map((item: { name: string }) => item.name)
+    const names = response.body.data.items.map((item: { name: string }) => item.name)
     expect(names).toContain('itest_dept_搜索目标学院')
     expect(names).not.toContain('itest_dept_搜索干扰学院')
   })
@@ -563,14 +571,17 @@ describe('院系数据结构验证', () => {
       .set('Authorization', `Bearer ${token}`)
       .expect(200)
 
-    const testDept = response.body.data.find(
+    const testDept = response.body.data.items.find(
       (d: { name: string }) => d.name === 'itest_dept_测试学院'
     )
     expect(testDept).toHaveProperty('id')
     expect(testDept).toHaveProperty('name')
     expect(testDept).toHaveProperty('code')
     expect(testDept).toHaveProperty('description')
-    expect(testDept).toHaveProperty('majors')
+    expect(testDept).toHaveProperty('teacher_count')
+    expect(testDept).toHaveProperty('student_count')
+    expect(testDept).toHaveProperty('major_count')
+    expect(testDept).toHaveProperty('created_at')
   })
 
   it('专业对象应该包含所有必需字段', async () => {
@@ -595,7 +606,8 @@ describe('院系数据结构验证', () => {
     expect(major).toHaveProperty('id')
     expect(major).toHaveProperty('name')
     expect(major).toHaveProperty('code')
-    expect(major).toHaveProperty('department_id')
+    expect(major).toHaveProperty('degree_type')
+    expect(major).toHaveProperty('student_count')
   })
 })
 

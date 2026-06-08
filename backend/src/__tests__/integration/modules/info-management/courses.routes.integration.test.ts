@@ -38,19 +38,13 @@ async function cleanupCoursesData() {
 
   await prisma.systemLog.deleteMany({
     where: {
-      OR: [
-        { resourceType: 'course' },
-        { user: { username: { startsWith: 'itest_course_' } } },
-      ],
+      OR: [{ resourceType: 'course' }, { user: { username: { startsWith: 'itest_course_' } } }],
     },
   })
 
   await prisma.course.deleteMany({
     where: {
-      OR: [
-        { name: { startsWith: 'itest_course_' } },
-        { code: { startsWith: 'ITC' } },
-      ],
+      OR: [{ name: { startsWith: 'itest_course_' } }, { code: { startsWith: 'ITC' } }],
     },
   })
 
@@ -250,8 +244,16 @@ describe('GET /api/v1/courses', () => {
     const dept1 = await createTestDepartment({ name: 'itest_course_计算机学院', code: 'ITC11' })
     const dept2 = await createTestDepartment({ name: 'itest_course_数学学院', code: 'ITC22' })
 
-    await createTestCourse({ name: 'itest_course_数据结构', code: 'ITC101', departmentId: dept1.id })
-    await createTestCourse({ name: 'itest_course_线性代数', code: 'ITC102', departmentId: dept2.id })
+    await createTestCourse({
+      name: 'itest_course_数据结构',
+      code: 'ITC101',
+      departmentId: dept1.id,
+    })
+    await createTestCourse({
+      name: 'itest_course_线性代数',
+      code: 'ITC102',
+      departmentId: dept2.id,
+    })
 
     const response = await request(app)
       .get(`/api/v1/courses?department_id=${dept1.id}`)
@@ -290,9 +292,21 @@ describe('GET /api/v1/courses', () => {
     const department = await createTestDepartment()
 
     await Promise.all([
-      createTestCourse({ name: 'itest_course_分页课程1', code: 'ITC211', departmentId: department.id }),
-      createTestCourse({ name: 'itest_course_分页课程2', code: 'ITC212', departmentId: department.id }),
-      createTestCourse({ name: 'itest_course_分页课程3', code: 'ITC213', departmentId: department.id }),
+      createTestCourse({
+        name: 'itest_course_分页课程1',
+        code: 'ITC211',
+        departmentId: department.id,
+      }),
+      createTestCourse({
+        name: 'itest_course_分页课程2',
+        code: 'ITC212',
+        departmentId: department.id,
+      }),
+      createTestCourse({
+        name: 'itest_course_分页课程3',
+        code: 'ITC213',
+        departmentId: department.id,
+      }),
     ])
 
     const response = await request(app)
@@ -370,7 +384,10 @@ describe('GET /api/v1/courses/:course_id', () => {
     const token = generateTestToken(user.id, user.username)
     const department = await createTestDepartment()
     const teacher = await createTestTeacher(department.id)
-    const prerequisite = await createTestCourse({ name: 'itest_course_C语言程序设计', code: 'ITC301' })
+    const prerequisite = await createTestCourse({
+      name: 'itest_course_C语言程序设计',
+      code: 'ITC301',
+    })
     const course = await createTestCourse({
       name: 'itest_course_数据结构',
       code: 'ITC302',
@@ -613,6 +630,6 @@ describe('POST /api/v1/courses/batch', () => {
 
     expect(response.body.message).toBe('批量创建完成')
     expect(response.body.data.success_count).toBe(2)
-    expect(response.body.data.failed_count).toBe(0)
+    expect(response.body.data.fail_count).toBe(0)
   })
 })

@@ -88,7 +88,7 @@ export const curriculumService = {
       pagination: {
         page,
         page_size,
-        total_page: Math.ceil(total / page_size),
+        total_pages: Math.ceil(total / page_size),
         total,
       },
     }
@@ -167,7 +167,7 @@ export const curriculumService = {
           course_code: cc.course.code,
           course_name: cc.course.name,
           credits: cc.course.credits.toNumber(),
-          course_type: cc.course.courseType.toLowerCase(),
+          course_type: cc.course.courseType,
           semester_suggestion: cc.semesterSuggestion,
         })),
         created_at: createLog?.createdAt || new Date(0),

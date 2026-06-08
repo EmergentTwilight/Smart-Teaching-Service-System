@@ -7,8 +7,7 @@ import { CourseType, CourseStatus } from '@prisma/client'
 
 /**
  * 获取课程列表 schema
- * API中定义的course_type和status参数为小写字符串，为了API与数据库枚举类型兼容，
- * 使用zod的preprocess将输入转换为大写后再验证。
+ * API 使用 Prisma 枚举值（大写）。这里仍兼容小写输入，并在验证前转换为大写。
  */
 export const getCoursesListSchema = z.object({
   page: z.coerce.number().int().min(1).default(1),

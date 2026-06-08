@@ -1,3 +1,6 @@
+/**
+ * C4：GET /timetable/me — 学生个人课表（FR-C-27, FR-C-28）。
+ */
 import { Request, Response } from 'express'
 import { error, success } from '../../shared/utils/response.js'
 import { timetableService } from './timetable.service.js'
@@ -13,10 +16,6 @@ export const timetableController = {
     }
 
     const result = await timetableService.getMyTimetable(studentId, query)
-    if (!result) {
-      return error(res, '功能待实现：C4 FR-C-25 FR-C-26 NFR-C-08', 501)
-    }
-
     return success(res, result)
   },
 }

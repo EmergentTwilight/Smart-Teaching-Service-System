@@ -1,25 +1,40 @@
+/**
+ * C4：开课学生名单分页与导出；导出数据与列表查询口径一致（均来自 Enrollment）。
+ */
+import type { Prisma } from '@prisma/client'
+import { EnrollmentStatus } from '@prisma/client'
 import prisma from '../../shared/prisma/client.js'
-import { AppError, ForbiddenError, NotFoundError } from '@stss/shared'
+import { ForbiddenError, NotFoundError } from '@stss/shared'
 import type {
-  RosterExportPayload,
   PaginatedRosterPayload,
+  RosterExportPayload,
   RosterExportQuery,
   RosterOfferingInfo,
   RosterQuery,
+  RosterStudentItem,
 } from './course-selection.types.js'
+import {
+  buildPaginationMeta,
+  mapEnrollmentStatus,
+  parseEnrollmentStatusFilter,
+} from './course-selection.support.js'
+import { buildRosterExcelBuffer, sanitizeExportFileName } from './roster-export.util.js'
 
+/** 校验开课存在且 teacherId 与当前登录教师一致，否则 403。 */
 async function getOfferingRosterOwnership(
   requesterUserId: string,
   offeringId: string
-): Promise<RosterOfferingInfo> {
+): Promise<RosterOfferingInfo & { courseCode: string; semesterName: string }> {
   const offering = await prisma.courseOffering.findUnique({
     where: { id: offeringId },
     include: {
       course: {
         select: {
+          code: true,
           name: true,
         },
       },
+      semester: { select: { name: true } },
       teacher: {
         select: {
           user: {
@@ -44,48 +59,127 @@ async function getOfferingRosterOwnership(
     offeringId: offering.id,
     courseName: offering.course.name,
     teacherName: offering.teacher.user.realName,
+    courseCode: offering.course.code,
+    semesterName: offering.semester.name,
   }
 }
 
+const buildRosterEnrollmentWhere = (
+  offeringId: string,
+  query: RosterQuery | RosterExportQuery
+): Prisma.EnrollmentWhereInput => {
+  const status = parseEnrollmentStatusFilter(query.status ?? 'enrolled') ?? EnrollmentStatus.ENROLLED
+  const keyword = 'keyword' in query ? query.keyword?.trim() : undefined
+
+  const studentFilter: Prisma.StudentWhereInput | undefined = keyword
+    ? {
+        OR: [
+          { studentNumber: { contains: keyword, mode: 'insensitive' } },
+          { className: { contains: keyword, mode: 'insensitive' } },
+          { user: { realName: { contains: keyword, mode: 'insensitive' } } },
+          { major: { name: { contains: keyword, mode: 'insensitive' } } },
+        ],
+      }
+    : undefined
+
+  return {
+    courseOfferingId: offeringId,
+    status,
+    ...(studentFilter ? { student: studentFilter } : {}),
+  }
+}
+
+const mapRosterStudent = (row: {
+  status: EnrollmentStatus
+  enrolledAt: Date
+  student: {
+    studentNumber: string
+    className: string | null
+    user: { realName: string }
+    major: { name: string } | null
+  }
+}): RosterStudentItem => ({
+  studentNumber: row.student.studentNumber,
+  studentName: row.student.user.realName,
+  majorName: row.student.major?.name,
+  className: row.student.className ?? undefined,
+  enrollmentStatus: mapEnrollmentStatus(row.status),
+  enrolledAt: row.enrolledAt.toISOString(),
+})
+
+async function queryRosterStudents(
+  offeringId: string,
+  query: RosterQuery | RosterExportQuery
+): Promise<RosterStudentItem[]> {
+  const rows = await prisma.enrollment.findMany({
+    where: buildRosterEnrollmentWhere(offeringId, query),
+    orderBy: [{ enrolledAt: 'asc' }],
+    include: {
+      student: {
+        include: {
+          user: { select: { realName: true } },
+          major: { select: { name: true } },
+        },
+      },
+    },
+  })
+
+  return rows.map(mapRosterStudent)
+}
+
 export const rosterService = {
-  // TODO(C4, FR-C-27, FR-C-28, NFR-C-06): 列出并导出任课教师名单
-  // - 仅允许任课教师访问 roster 与 export
-  // - 基于 CourseOffering.teacherId 与数据库关系校验，禁止信任前端 teacherId
   async getOfferingRoster(
     requesterUserId: string,
     offeringId: string,
     query: RosterQuery
-  ): Promise<PaginatedRosterPayload | null> {
-    await getOfferingRosterOwnership(requesterUserId, offeringId)
-    void query
+  ): Promise<PaginatedRosterPayload> {
+    const offering = await getOfferingRosterOwnership(requesterUserId, offeringId)
+    const page = query.page ?? 1
+    const pageSize = query.pageSize ?? 50
+    const where = buildRosterEnrollmentWhere(offeringId, query)
 
-    // TODO(C4, FR-C-27, NFR-C-06): 替换为真实分页查询
-    // - 过滤 enrollment.status
-    // - 加关键字检索（学号/姓名/专业/班级）
-    // - 支持 status 与 page/pageSize 分页
-    // - 查询结果需与导出条件一致
-    // 负责人 scaffold 保留任课教师 ownership 校验，但不返回 200 空名单。
-    return null
+    const [total, rows] = await Promise.all([
+      prisma.enrollment.count({ where }),
+      prisma.enrollment.findMany({
+        where,
+        orderBy: [{ enrolledAt: 'asc' }],
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+        include: {
+          student: {
+            include: {
+              user: { select: { realName: true } },
+              major: { select: { name: true } },
+            },
+          },
+        },
+      }),
+    ])
+
+    return {
+      offering: {
+        offeringId: offering.offeringId,
+        courseName: offering.courseName,
+        teacherName: offering.teacherName,
+      },
+      students: rows.map(mapRosterStudent),
+      pagination: buildPaginationMeta(page, pageSize, total),
+    }
   },
 
-  // TODO(C4, FR-C-28, NFR-C-08): 导出接口返回可落盘结构
-  // - 导出字段：学号、姓名、专业、班级、选课状态、选课时间
-  // - 与查询结果一致，不来自前端缓存
   async exportOfferingRoster(
     requesterUserId: string,
     offeringId: string,
     query: RosterExportQuery
-  ): Promise<RosterExportPayload | null> {
-    await getOfferingRosterOwnership(requesterUserId, offeringId)
-    void query
+  ): Promise<RosterExportPayload> {
+    const offering = await getOfferingRosterOwnership(requesterUserId, offeringId)
+    const students = await queryRosterStudents(offeringId, query)
+    const content = await buildRosterExcelBuffer(students)
 
-    // TODO(C4, FR-C-28, NFR-C-08):
-    // 接入 Excel 生成库并按 query.status/query.format 从 Enrollment 查询导出内容；
-    // 在实现前不得返回伪造下载令牌。
-    throw new AppError(
-      'COURSE_SELECTION_ROSTER_EXPORT_NOT_IMPLEMENTED',
-      501,
-      '课程学生名单导出暂未实现，当前无法生成下载文件'
-    )
+    return {
+      content,
+      fileName: sanitizeExportFileName(offering.courseCode, offering.semesterName),
+      contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    }
   },
 }

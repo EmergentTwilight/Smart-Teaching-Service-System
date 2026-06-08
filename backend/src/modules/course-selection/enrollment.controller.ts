@@ -1,14 +1,7 @@
 import { Request, Response } from 'express'
 import { error, success } from '../../shared/utils/response.js'
 import { enrollmentService } from './enrollment.service.js'
-import {
-  createEnrollmentBodySchema,
-  dropEnrollmentBodySchema,
-  dropEnrollmentParamsSchema,
-} from './course-selection.schemas.js'
-
-const todoResponse = (res: Response, todo: string) =>
-  error(res, '功能待实现：C 组需补充完整实现', 501, { todo })
+import type { CreateEnrollmentBody, DropEnrollmentBody } from './course-selection.types.js'
 
 /**
  * 选课与退选控制器
@@ -16,34 +9,32 @@ const todoResponse = (res: Response, todo: string) =>
 export const enrollmentController = {
   async createEnrollment(req: Request, res: Response) {
     const studentId = req.user?.userId
-    const body = createEnrollmentBodySchema.parse(req.body)
+    const { courseOfferingId, clientRequestId } = req.body as CreateEnrollmentBody
 
     if (!studentId) {
       return error(res, '未认证', 401)
     }
 
-    const result = await enrollmentService.createEnrollment(studentId, body)
-    if (!result) {
-      return todoResponse(res, 'C3, FR-C-16, NFR-C-04: 选课事务未实现')
-    }
-
-    return success(res, result, '选课请求已受理', 201)
+    const result = await enrollmentService.createEnrollment(studentId, {
+      courseOfferingId,
+      clientRequestId,
+    })
+    return success(res, result, '选课成功', 201)
   },
 
   async dropEnrollment(req: Request, res: Response) {
     const studentId = req.user?.userId
-    const { id } = dropEnrollmentParamsSchema.parse(req.params)
-    const body = dropEnrollmentBodySchema.parse(req.body)
+    const { id } = req.params as { id: string }
+    const { reason, clientRequestId } = req.body as DropEnrollmentBody
 
     if (!studentId) {
       return error(res, '未认证', 401)
     }
 
-    const result = await enrollmentService.dropEnrollment(studentId, id, body)
-    if (!result) {
-      return todoResponse(res, 'C3, FR-C-21, NFR-C-04: 退选事务未实现')
-    }
-
-    return success(res, result, '退选请求已受理')
+    const result = await enrollmentService.dropEnrollment(studentId, id, {
+      reason,
+      clientRequestId,
+    })
+    return success(res, result, '退选成功')
   },
 }

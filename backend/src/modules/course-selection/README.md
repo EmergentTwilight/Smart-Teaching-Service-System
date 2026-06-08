@@ -24,14 +24,15 @@
 
 ### C3 选课与退选核心事务
 - 文件：`enrollment.controller.ts`、`enrollment.service.ts`
-- 职责：`POST /enrollments`、`PATCH /enrollments/:id/drop`（`FR-C-13` ~ `FR-C-23`）。
+- 职责：`POST /enrollments`、`PATCH /enrollments/:id/drop`（`FR-C-14` ~ `FR-C-23`）。
 - 权限：`student`。
 - 事务要求（NFR-C-04、NFR-C-05）：
   - 服务端时间和当前有效 `SelectionPeriod` 校验（`FR-C-14`, `FR-C-32`）。
   - 课程开设状态、容量、重复、学分、先修、时间冲突校验（`FR-C-16` ~ `FR-C-20`）。
   - 入库与 `CourseOffering.enrolled_count` 同事务更新（`FR-C-17` ~ `FR-C-22`）。
   - 退选只改状态，不删历史记录（`FR-C-21`）。
-- 依赖对象：`Enrollment`、`CourseOffering`、`SelectionPeriod`、`Schedule`。
+- 并发策略：使用 Serializable 事务、条件更新和唯一约束错误映射，避免容量超卖和重复有效记录。
+- 依赖对象：`Student`、`Enrollment`、`Course`、`CourseOffering`、`SelectionPeriod`、`Schedule`、`Curriculum`、`CurriculumCourse`、`CoursePrerequisite`。
 
 ### C4 结果查询与教师名单
 - 文件：`enrollment-results.controller.ts`、`enrollment-results.service.ts`、`timetable.controller.ts`、`timetable.service.ts`、`roster.controller.ts`、`roster.service.ts`
@@ -84,6 +85,8 @@
 - 目标：
   - `FR-C-14 ~ FR-C-23`
   - 实现选课/退选事务一致性与 `enrolled_count` 同步；
+  - 选课写入前校验学生身份、有效阶段、课程开设状态、课程状态、容量、重复、课表冲突、最大学分、培养方案适配和先修要求；
+  - 退选仅允许当前学生本人有效记录，且只更新 `dropped`/`dropped_at`；
   - 输出明确错误码与失败原因，不能退化到前端校验。
 
 ### 成员 3（C4 + C5）

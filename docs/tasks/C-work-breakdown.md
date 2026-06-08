@@ -83,6 +83,12 @@ git branch -r | grep 'origin/dev/C'
 成员 5：docs/tasks/C-member5-frontend-admin-teacher-ai-guide.md
 ```
 
+联调、验收和跨组交付时，应优先阅读：
+
+```text
+docs/tasks/C-integration-and-acceptance-guide.md
+```
+
 ## 5. 阶段计划
 
 ### M0：文档和框架

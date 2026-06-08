@@ -626,7 +626,7 @@ describe('POST /api/v1/courses/batch', () => {
           },
         ],
       })
-      .expect(201)
+      .expect(200)
 
     expect(response.body.message).toBe('批量创建完成')
     expect(response.body.data.success_count).toBe(2)

@@ -14,7 +14,7 @@ const createMockUser = (overrides?: Partial<AuthUserDto>): AuthUserDto => ({
   realName: 'Test User',
   avatarUrl: null,
   gender: null,
-  status: 'active',
+  status: 'ACTIVE',
   roles: ['student'],
   permissions: [],
   lastLoginAt: null,

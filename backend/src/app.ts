@@ -5,6 +5,8 @@
 import 'dotenv/config'
 // Express 5 已内置 async 错误处理支持，无需 express-async-errors
 import express, { type Application } from 'express'
+import path from 'path'
+import { fileURLToPath } from 'url'
 import cors from 'cors'
 import helmet from 'helmet'
 import compression from 'compression'
@@ -15,6 +17,10 @@ import { requestLogger } from './shared/middleware/requestLogger.js'
 import authRoutes from './modules/info-management/auth.routes.js'
 import usersRoutes from './modules/info-management/users.routes.js'
 import departmentsRoutes from './modules/info-management/departments.routes.js'
+import majorRoutes from './modules/info-management/major.routes.js'
+import courseRoutes from './modules/info-management/course.routes.js'
+import curriculumRoutes from './modules/info-management/curriculums.routes.js'
+import rolesRoutes, { permissionsRouter } from './modules/info-management/roles.routes.js'
 import config from './config/index.js'
 import { swaggerSpec } from './config/swagger.js'
 import swaggerUi from 'swagger-ui-express'
@@ -76,6 +82,10 @@ app.use(requestLogger)
 
 // HTTP 请求日志
 app.use(morgan('dev'))
+
+// 静态文件服务（头像等上传资源）
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
+app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')))
 
 // JSON 解析
 app.use(express.json())
@@ -162,6 +172,11 @@ app.get('/api/health', async (req, res) => {
 app.use('/api/v1/auth', authRoutes)
 app.use('/api/v1/users', usersRoutes)
 app.use('/api/v1/departments', departmentsRoutes)
+app.use('/api/v1/majors', majorRoutes)
+app.use('/api/v1/courses', courseRoutes)
+app.use('/api/v1/curriculums', curriculumRoutes)
+app.use('/api/v1/roles', rolesRoutes)
+app.use('/api/v1/permissions', permissionsRouter)
 
 // 404 处理
 app.use((req, res) => {

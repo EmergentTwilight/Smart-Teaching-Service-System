@@ -19,6 +19,16 @@ export interface UserQueryParams {
   status?: string
 }
 
+export interface UserPermissionsResponse {
+  userId: string
+  permissions: string[]
+  roles: Array<{
+    id: string
+    code: string
+    name: string
+  }>
+}
+
 /** 用户管理 API 模块 */
 export const usersApi = {
   /**
@@ -36,7 +46,15 @@ export const usersApi = {
    * 获取用户统计
    * @returns 用户统计数据
    */
-  getStats: async (): Promise<{ totalCount: number }> => {
+  getStats: async (): Promise<{
+    total: number
+    students: number
+    teachers: number
+    admins: number
+    active: number
+    inactive: number
+    banned: number
+  }> => {
     return request.get('/users/stats')
   },
 
@@ -154,7 +172,7 @@ export const usersApi = {
    * @param id 用户ID
    * @returns 权限列表
    */
-  getPermissions: async (id: string): Promise<string[]> => {
+  getPermissions: async (id: string): Promise<UserPermissionsResponse> => {
     return request.get(`/users/${id}/permissions`)
   },
 

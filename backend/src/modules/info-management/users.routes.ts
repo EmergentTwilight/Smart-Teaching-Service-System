@@ -3,6 +3,9 @@
  * 定义用户 CRUD 相关的 API 端点
  */
 import { Router, type Router as RouterType } from 'express'
+import multer from 'multer'
+import path from 'path'
+import crypto from 'crypto'
 import { usersController } from './users.controller.js'
 import { authMiddleware, requireRoles, requireSelfOrAdmin } from '../../shared/middleware/auth.js'
 import { validate } from '../../shared/middleware/validate.js'
@@ -19,7 +22,33 @@ import {
   assignRolesSchema,
   userIdParamsSchema,
   userRoleParamsSchema,
+  tokenParamsSchema,
+  updateStudentMajorSchema,
+  updateDepartmentSchema,
 } from './users.types.js'
+
+// 头像上传 multer 配置
+const avatarUpload = multer({
+  storage: multer.diskStorage({
+    destination: 'uploads/avatars/',
+    filename: (_req, file, cb) => {
+      const ext = path.extname(file.originalname).toLowerCase()
+      const name = crypto.randomUUID() + ext
+      cb(null, name)
+    },
+  }),
+  limits: {
+    fileSize: 5 * 1024 * 1024, // 5MB
+  },
+  fileFilter: (_req, file, cb) => {
+    const allowedMimes = ['image/jpeg', 'image/png', 'image/webp']
+    if (allowedMimes.includes(file.mimetype)) {
+      cb(null, true)
+    } else {
+      cb(new Error('仅支持 JPG、PNG、WEBP 格式的图片'))
+    }
+  },
+})
 
 const router: RouterType = Router()
 
@@ -304,6 +333,135 @@ router.get(
   validate(userIdParamsSchema, 'params'),
   requireSelfOrAdmin('admin', 'super_admin'),
   usersController.getPermissions
+)
+
+// ==================== 头像上传 ====================
+
+/**
+ * @swagger
+ * /api/v1/users/{id}/avatar:
+ *   post:
+ *     summary: 上传用户头像
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ */
+router.post(
+  '/:id/avatar',
+  validate(userIdParamsSchema, 'params'),
+  requireSelfOrAdmin('admin', 'super_admin'),
+  avatarUpload.single('avatar'),
+  usersController.uploadAvatar
+)
+
+// ==================== 学生专业更新 ====================
+
+/**
+ * @swagger
+ * /api/v1/users/{id}/student/major:
+ *   patch:
+ *     summary: 更新学生专业
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ */
+router.patch(
+  '/:id/student/major',
+  validate(userIdParamsSchema, 'params'),
+  requireRoles('admin', 'super_admin'),
+  validate(updateStudentMajorSchema, 'body'),
+  usersController.updateStudentMajor
+)
+
+// ==================== 教师院系更新 ====================
+
+/**
+ * @swagger
+ * /api/v1/users/{id}/teacher/department:
+ *   patch:
+ *     summary: 更新教师院系
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ */
+router.patch(
+  '/:id/teacher/department',
+  validate(userIdParamsSchema, 'params'),
+  requireRoles('admin', 'super_admin'),
+  validate(updateDepartmentSchema, 'body'),
+  usersController.updateTeacherDepartment
+)
+
+// ==================== 管理员院系更新 ====================
+
+/**
+ * @swagger
+ * /api/v1/users/{id}/admin/department:
+ *   patch:
+ *     summary: 更新管理员院系
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ */
+router.patch(
+  '/:id/admin/department',
+  validate(userIdParamsSchema, 'params'),
+  requireRoles('super_admin'),
+  validate(updateDepartmentSchema, 'body'),
+  usersController.updateAdminDepartment
+)
+
+// ==================== 令牌管理 ====================
+
+/**
+ * @swagger
+ * /api/v1/users/{id}/tokens:
+ *   get:
+ *     summary: 获取用户活跃令牌列表
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *   description: 管理员可查看任意用户令牌，普通用户只能查看自己的令牌
+ */
+router.get(
+  '/:id/tokens',
+  validate(userIdParamsSchema, 'params'),
+  requireSelfOrAdmin('admin', 'super_admin'),
+  usersController.getUserTokens
+)
+
+/**
+ * @swagger
+ * /api/v1/users/{id}/tokens/{token_id}:
+ *   delete:
+ *     summary: 吊销指定令牌
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *   description: 管理员可吊销任意用户令牌，普通用户只能吊销自己的令牌
+ */
+router.delete(
+  '/:id/tokens/:token_id',
+  validate(tokenParamsSchema, 'params'),
+  requireSelfOrAdmin('admin', 'super_admin'),
+  usersController.revokeToken
+)
+
+/**
+ * @swagger
+ * /api/v1/users/{id}/tokens/revoke-all:
+ *   post:
+ *     summary: 吊销用户所有令牌
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *   description: 管理员可吊销任意用户所有令牌，普通用户只能吊销自己的令牌
+ */
+router.post(
+  '/:id/tokens/revoke-all',
+  validate(userIdParamsSchema, 'params'),
+  requireSelfOrAdmin('admin', 'super_admin'),
+  usersController.revokeAllTokens
 )
 
 export default router

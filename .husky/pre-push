@@ -1,8 +1,8 @@
 # pre-push hook
-# 在推送前运行完整的 CI 检查，确保代码质量
-# 与 GitHub Actions CI workflow 保持一致
+# 在推送前运行快速本地检查，确保代码质量
+# 依赖数据库的集成测试由 GitHub Actions CI 负责
 
-echo "🔍 Running pre-push checks (same as CI)..."
+echo "🔍 Running pre-push checks..."
 echo ""
 
 # 1. 生成 Prisma Client（TypeScript 类型检查需要）
@@ -42,15 +42,29 @@ if [ $? -ne 0 ]; then
   exit 1
 fi
 
-# 5. 单元测试
-echo "🧪 Running unit tests..."
-pnpm -r test:run
+# 5. 前端 Vitest 测试
+echo "🧪 Running frontend tests..."
+cd frontend
+pnpm test:run
 if [ $? -ne 0 ]; then
-  echo "❌ Unit tests failed! Please fix the errors before pushing."
+  echo "❌ Frontend tests failed! Please fix the errors before pushing."
+  cd ..
   exit 1
 fi
+cd ..
 
-# 6. Prisma 验证和格式检查
+# 6. 后端单元测试（集成测试需要数据库，交给 CI）
+echo "🧪 Running backend unit tests..."
+cd backend
+pnpm test:unit
+if [ $? -ne 0 ]; then
+  echo "❌ Backend unit tests failed! Please fix the errors before pushing."
+  cd ..
+  exit 1
+fi
+cd ..
+
+# 7. Prisma 验证和格式检查
 echo "🔍 Validating Prisma schema..."
 cd backend
 DATABASE_URL="postgresql://test:test@localhost:5432/stss" npx prisma validate

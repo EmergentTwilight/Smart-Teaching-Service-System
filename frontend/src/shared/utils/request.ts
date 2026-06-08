@@ -79,7 +79,7 @@ async function refreshAccessToken(): Promise<{ accessToken: string; refreshToken
     // 使用独立的 axios 实例，避免触发拦截器循环
     const response = await axios.post(
       `${import.meta.env.VITE_API_URL || 'http://localhost:3000/api/v1'}/auth/refresh`,
-      { refreshToken },
+      { refresh_token: refreshToken },
       {
         headers: { 'Content-Type': 'application/json' },
         withCredentials: true,
@@ -88,8 +88,8 @@ async function refreshAccessToken(): Promise<{ accessToken: string; refreshToken
 
     const data = response.data?.data || response.data
     return {
-      accessToken: data.accessToken,
-      refreshToken: data.refreshToken,
+      accessToken: data.access_token || data.accessToken,
+      refreshToken: data.refresh_token || data.refreshToken,
     }
   } catch {
     return null

@@ -54,7 +54,7 @@ export const usersController = {
   async create(req: Request, res: Response) {
     const data = createUserSchema.parse(req.body)
     const user = await usersService.createUser(data)
-    success(res, user, '创建成功', 201)
+    success(res, user, '用户创建成功', 201)
   },
 
   /**
@@ -65,7 +65,7 @@ export const usersController = {
     const id = req.params.id as string
     const data = updateUserSchema.parse(req.body)
     const user = await usersService.updateUser(id, data)
-    success(res, user, '更新成功')
+    success(res, user, '用户更新成功')
   },
 
   /**
@@ -81,7 +81,7 @@ export const usersController = {
     }
 
     await usersService.deleteUser(id)
-    success(res, null, '删除成功')
+    success(res, null, '用户已删除')
   },
 
   /**
@@ -99,7 +99,7 @@ export const usersController = {
   async batchCreate(req: Request, res: Response) {
     const data = batchCreateUsersSchema.parse(req.body)
     const result = await usersService.batchCreateUsers(data)
-    success(res, result, '批量创建成功', 201)
+    success(res, result, '批量创建完成')
   },
 
   /**
@@ -108,7 +108,7 @@ export const usersController = {
   async batchUpdateStatus(req: Request, res: Response) {
     const data = batchUpdateStatusSchema.parse(req.body)
     const result = await usersService.batchUpdateStatus(data)
-    success(res, result, '批量修改状态成功')
+    success(res, result, '批量状态更新完成')
   },
 
   /**
@@ -135,7 +135,7 @@ export const usersController = {
     const id = req.params.id as string
     const data = resetPasswordSchema.parse(req.body)
     await usersService.resetPassword(id, data)
-    success(res, null, '密码重置成功')
+    success(res, null, '密码已重置')
   },
 
   /**
@@ -145,7 +145,7 @@ export const usersController = {
     const id = req.params.id as string
     const data = updateStatusSchema.parse(req.body)
     const user = await usersService.updateStatus(id, data)
-    success(res, user, '状态修改成功')
+    success(res, user, '状态已更新')
   },
 
   /**
@@ -168,7 +168,7 @@ export const usersController = {
     const roleId = req.params.role_id as string
     const currentUserId = req.user?.userId
     const user = await usersService.revokeRole(id, roleId, currentUserId)
-    success(res, user, '角色撤销成功')
+    success(res, user, '角色已撤销')
   },
 
   /**
@@ -195,5 +195,111 @@ export const usersController = {
   async getRoles(req: Request, res: Response) {
     const roles = await usersService.getRoles()
     success(res, roles)
+  },
+
+  // ==================== 令牌管理 ====================
+
+  /**
+   * 获取用户活跃令牌列表
+   */
+  async getUserTokens(req: Request, res: Response) {
+    const id = req.params.id as string
+    const currentUser = req.user!
+
+    // 普通用户只能查看自己的令牌
+    const isSelf = currentUser.userId === id
+    const isAdmin = currentUser.roles.some((r) => r === 'admin' || r === 'super_admin')
+    if (!isAdmin && !isSelf) {
+      throw new ForbiddenError('无权查看他人令牌')
+    }
+
+    const tokens = await usersService.getUserTokens(id)
+    success(res, tokens)
+  },
+
+  /**
+   * 吊销指定令牌
+   */
+  async revokeToken(req: Request, res: Response) {
+    const { id, token_id } = req.params as { id: string; token_id: string }
+    const currentUser = req.user!
+
+    // 普通用户只能吊销自己的令牌
+    const isSelf = currentUser.userId === id
+    const isAdmin = currentUser.roles.some((r) => r === 'admin' || r === 'super_admin')
+    if (!isAdmin && !isSelf) {
+      throw new ForbiddenError('无权吊销他人令牌')
+    }
+
+    await usersService.revokeToken(id, token_id)
+    success(res, null, '令牌已吊销')
+  },
+
+  /**
+   * 吊销用户所有令牌
+   */
+  async revokeAllTokens(req: Request, res: Response) {
+    const id = req.params.id as string
+    const currentUser = req.user!
+
+    // 普通用户只能吊销自己的令牌
+    const isSelf = currentUser.userId === id
+    const isAdmin = currentUser.roles.some((r) => r === 'admin' || r === 'super_admin')
+    if (!isAdmin && !isSelf) {
+      throw new ForbiddenError('无权吊销他人令牌')
+    }
+
+    const result = await usersService.revokeAllTokens(id)
+    success(res, result, '已吊销所有令牌')
+  },
+
+  // ==================== 头像上传 ====================
+
+  /**
+   * 上传用户头像
+   */
+  async uploadAvatar(req: Request, res: Response) {
+    const id = req.params.id as string
+    const file = req.file
+
+    if (!file) {
+      throw new ValidationError('请选择要上传的头像文件')
+    }
+
+    const avatarUrl = `/uploads/avatars/${file.filename}`
+    const result = await usersService.updateAvatar(id, avatarUrl)
+    success(res, result, '头像上传成功')
+  },
+
+  // ==================== 学生专业 / 教师院系 / 管理员院系 更新 ====================
+
+  /**
+   * 更新学生专业
+   */
+  async updateStudentMajor(req: Request, res: Response) {
+    const id = req.params.id as string
+    const { majorId } = req.body as { majorId: string }
+    const result = await usersService.updateStudentMajor(id, majorId)
+    success(res, result, '学生专业更新成功')
+  },
+
+  /**
+   * 更新教师院系
+   */
+  async updateTeacherDepartment(req: Request, res: Response) {
+    const id = req.params.id as string
+    const { departmentId } = req.body as { departmentId: string }
+    const result = await usersService.updateTeacherDepartment(id, departmentId)
+    success(res, result, '教师院系更新成功')
+  },
+
+  /**
+   * 更新管理员院系
+   */
+  async updateAdminDepartment(req: Request, res: Response) {
+    const id = req.params.id as string
+    const { departmentId } = req.body as { departmentId: string }
+    const result = await usersService.updateAdminDepartment(id, departmentId)
+    success(res, result, '管理员院系更新成功')
   },
 }

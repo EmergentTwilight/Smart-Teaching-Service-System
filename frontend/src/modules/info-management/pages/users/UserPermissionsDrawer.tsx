@@ -24,6 +24,7 @@ const UserPermissionsDrawer: React.FC<UserPermissionsDrawerProps> = ({
     queryFn: () => usersApi.getPermissions(userId),
     enabled: open,
   })
+  const permissions = data?.permissions || []
 
   return (
     <Drawer
@@ -37,9 +38,9 @@ const UserPermissionsDrawer: React.FC<UserPermissionsDrawerProps> = ({
         <div style={{ textAlign: 'center', padding: 40 }}>
           <Spin />
         </div>
-      ) : data && data.length > 0 ? (
+      ) : permissions.length > 0 ? (
         <List
-          dataSource={data}
+          dataSource={permissions}
           renderItem={(permission) => (
             <List.Item>
               <Tag color="blue">{permission}</Tag>

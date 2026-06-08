@@ -5,6 +5,23 @@
 import { z } from 'zod'
 import { Gender } from '@prisma/client'
 
+const normalizeKeys = (
+  input: unknown,
+  aliases: Record<string, string>
+): Record<string, unknown> => {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) {
+    return {}
+  }
+
+  const data = { ...(input as Record<string, unknown>) }
+  for (const [from, to] of Object.entries(aliases)) {
+    if (data[to] === undefined && data[from] !== undefined) {
+      data[to] = data[from]
+    }
+  }
+  return data
+}
+
 /**
  * 登录请求验证 schema
  * 登录时只检查密码非空，不限制密码格式（用户可能使用简单密码）
@@ -18,40 +35,53 @@ export const loginSchema = z.object({
  * 注册请求验证 schema
  * 密码强度要求：至少8位，包含大小写字母和数字
  */
-export const registerSchema = z.object({
-  username: z.string().min(3, '用户名至少3位').max(50, '用户名最多50位'),
-  password: z
-    .string()
-    .min(8, '密码至少8位')
-    .regex(/[A-Z]/, '密码必须包含大写字母')
-    .regex(/[a-z]/, '密码必须包含小写字母')
-    .regex(/[0-9]/, '密码必须包含数字'),
-  email: z.string().email('邮箱格式不正确').optional(),
-  realName: z.string().min(1, '姓名不能为空').max(50),
-  phone: z.string().optional(),
-  gender: z.nativeEnum(Gender).optional(),
-})
+export const registerSchema = z.preprocess(
+  (input) => normalizeKeys(input, { real_name: 'realName' }),
+  z.object({
+    username: z.string().min(3, '用户名至少3位').max(50, '用户名最多50位'),
+    password: z
+      .string()
+      .min(8, '密码至少8位')
+      .regex(/[A-Z]/, '密码必须包含大写字母')
+      .regex(/[a-z]/, '密码必须包含小写字母')
+      .regex(/[0-9]/, '密码必须包含数字'),
+    email: z.string().email('邮箱格式不正确').optional(),
+    realName: z.string().min(1, '姓名不能为空').max(50),
+    phone: z.string().optional(),
+    gender: z.nativeEnum(Gender).optional(),
+  })
+)
 
 /**
  * 修改密码请求验证 schema
  * 新密码需满足强度要求：至少8位，包含大小写字母和数字
  */
-export const changePasswordSchema = z.object({
-  oldPassword: z.string().min(1, '旧密码不能为空'),
-  newPassword: z
-    .string()
-    .min(8, '新密码至少8位')
-    .regex(/[A-Z]/, '新密码必须包含大写字母')
-    .regex(/[a-z]/, '新密码必须包含小写字母')
-    .regex(/[0-9]/, '新密码必须包含数字'),
-})
+export const changePasswordSchema = z.preprocess(
+  (input) =>
+    normalizeKeys(input, {
+      old_password: 'oldPassword',
+      new_password: 'newPassword',
+    }),
+  z.object({
+    oldPassword: z.string().min(1, '旧密码不能为空'),
+    newPassword: z
+      .string()
+      .min(8, '新密码至少8位')
+      .regex(/[A-Z]/, '新密码必须包含大写字母')
+      .regex(/[a-z]/, '新密码必须包含小写字母')
+      .regex(/[0-9]/, '新密码必须包含数字'),
+  })
+)
 
 /**
  * 刷新令牌请求验证 schema
  */
-export const refreshTokenSchema = z.object({
-  refreshToken: z.string().min(1, '刷新令牌不能为空'),
-})
+export const refreshTokenSchema = z.preprocess(
+  (input) => normalizeKeys(input, { refresh_token: 'refreshToken' }),
+  z.object({
+    refreshToken: z.string().min(1, '刷新令牌不能为空'),
+  })
+)
 
 /**
  * 激活账号请求验证 schema
@@ -70,8 +100,9 @@ export const forgotPasswordSchema = z.object({
 /**
  * 重置密码请求验证 schema
  */
-export const resetPasswordSchema = z
-  .object({
+export const resetPasswordSchema = z.preprocess(
+  (input) => normalizeKeys(input, { new_password: 'newPassword' }),
+  z.object({
     token: z.string().min(1, '重置令牌不能为空'),
     newPassword: z
       .string()
@@ -79,12 +110,8 @@ export const resetPasswordSchema = z
       .regex(/[A-Z]/, '新密码必须包含大写字母')
       .regex(/[a-z]/, '新密码必须包含小写字母')
       .regex(/[0-9]/, '新密码必须包含数字'),
-    confirmPassword: z.string().min(8, '确认密码至少8位'),
   })
-  .refine((data) => data.newPassword === data.confirmPassword, {
-    message: '两次输入的新密码不一致',
-    path: ['confirmPassword'],
-  })
+)
 
 /** 登录输入类型 */
 export type LoginInput = z.infer<typeof loginSchema>

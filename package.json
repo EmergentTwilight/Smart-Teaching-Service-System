@@ -9,6 +9,7 @@
     "lint:backend": "pnpm --filter @stss/server lint",
     "lint:frontend": "pnpm --filter @stss/web lint",
     "typecheck": "pnpm -r typecheck",
+    "test:e2e": "pnpm --filter @stss/web test:e2e",
     "dev:backend": "pnpm --filter @stss/server dev",
     "dev:frontend": "pnpm --filter @stss/web dev"
   },

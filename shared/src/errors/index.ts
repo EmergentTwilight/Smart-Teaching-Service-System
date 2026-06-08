@@ -19,7 +19,12 @@ export class AppError extends Error {
 /** 资源不存在 */
 export class NotFoundError extends AppError {
   constructor(resource: string, id?: string) {
-    super('NOT_FOUND', 404, id ? `${resource}不存在: ${id}` : `${resource}不存在`)
+    const message = id
+      ? `${resource}不存在: ${id}`
+      : resource.endsWith('不存在')
+        ? resource
+        : `${resource}不存在`
+    super('NOT_FOUND', 404, message)
   }
 }
 

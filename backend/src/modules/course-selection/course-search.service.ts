@@ -6,16 +6,125 @@ import type {
   CourseOfferingListItem,
   AvailableOfferingItem,
   CourseOfferingDetail,
+  PaginationMeta,
 } from './course-selection.types.js'
+
+import {
+  toCourseTypeValue,
+  toCourseStatusValue,
+} from './course-selection.types.js'
+
+import { 
+  PrismaClient,
+  CourseType,
+  CourseStatus
+} from '@prisma/client'
+
+const prisma = new PrismaClient()
 
 export const courseSearchService = {
   // TODO(C2, FR-C-08, FR-C-09, FR-C-10, FR-C-12, NFR-C-13): 完整实现课程搜索查询
   // - 支持课程名/教师名/课程代码/学期/课程类型筛选
   // - 分页返回并支持按课程状态、是否可选过滤
   // - 负责人 scaffold 不返回 200 空列表，避免把未实现误判为无数据
-  async searchCourses(query: CourseSearchQuery): Promise<PaginatedItems<CourseListItem> | null> {
+  async searchCourses(query: CourseSearchQuery): Promise<PaginatedItems<CourseListItem> | string> {
     void query
-    return null
+
+    const keyword = query.keyword ?? undefined
+    const teacher = query.teacher ?? undefined
+    const teacherId = query.teacherId ?? query.teacher_id ?? undefined
+    const courseType = query.courseType ?? query.course_type ?? undefined
+    const status = query.status ?? 'active'
+    let page = query.page ?? 1
+    page = Math.max(page, 1)
+    let pageSize = query.pageSize ?? 20
+    pageSize = Math.min(pageSize, 100)
+
+    const where: any = {}
+    if(keyword) {
+      where.course =  {
+        OR: [
+          { code: { contains: keyword, mode: 'insensitive' } },
+          { name: { contains: keyword, mode: 'insensitive' } }
+        ]
+      }
+    }
+    else {
+      where.course = {}
+    }
+    if(teacherId) {
+      where.teacherId = teacherId
+    }
+    if(teacher) {
+      where.teacher = {
+        OR: [
+          { userId: { contains: teacher, mode: 'insensitive' } },
+          {
+            user: { realname: { contains: teacher, mode: 'insensitive' } }
+          }
+        ]
+      }
+    }
+    if(courseType === 'required') {
+      where.course.courseType = CourseType.REQUIRED
+    }
+    if(courseType === 'elective') {
+      where.course.courseType = CourseType.ELECTIVE
+    }
+    if(courseType === 'general') {
+      where.course.courseType = CourseType.GENERAL
+    }
+    if(status === 'active') {
+      where.course.status = CourseStatus.ACTIVE
+    }
+    else {
+      where.course.status = CourseStatus.ARCHIVED
+    }
+    const courseOfferings = await prisma.courseOffering.findMany({
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+      orderBy: { courseId: 'asc' },
+      where,
+      include: {
+        course: true,
+        semester: true
+      },
+    })
+
+    let courses: CourseListItem[] = []
+    for(const courseOffering of courseOfferings) {
+      courses.push({
+        courseId: courseOffering.courseId,
+        courseCode: courseOffering.course.code,
+        courseName: courseOffering.course.name,
+        credits: Number(courseOffering.course.credits),
+        courseType: toCourseTypeValue(courseOffering.course.courseType),
+        category: courseOffering.course.category ?? null,
+        assessmentMethod: courseOffering.course.assessmentMethod ?? null,
+        status: toCourseStatusValue(courseOffering.status),
+        offeringSummary: {
+          openCount: Number(courseOffering.capacity),
+          plannedCount: Number(courseOffering.enrolledCount),
+          latestSemesterName: courseOffering.semester ? courseOffering.semester.name : null
+        }
+      })
+    }
+
+    const total = await prisma.courseOffering.count({
+      where
+    })
+    const pagination: PaginationMeta = {
+      page: page,
+      pageSize: pageSize,
+      total: total,
+      totalPages: Math.ceil(total / pageSize)
+    }
+
+    const result: PaginatedItems<CourseListItem> = {
+      items: courses,
+      pagination: pagination
+    }
+    return result
   },
 
   // TODO(C2, FR-C-08, FR-C-15): 实现开课列表查询并返回容量与状态

@@ -19,7 +19,8 @@ import {
   PrismaClient,
   CourseType,
   CourseStatus,
-  OfferingStatus
+  OfferingStatus,
+  EnrollmentStatus
 } from '@prisma/client'
 
 const prisma = new PrismaClient()
@@ -136,17 +137,17 @@ export const courseSearchService = {
   async listOfferings(query: CourseSearchQuery): Promise<PaginatedItems<CourseOfferingListItem> | string> {
     void query
 
-    const semesterId = query.semester_id ?? query.semesterId ?? undefined;
-    const keyword = query.keyword ?? undefined;
-    const teacher = query.teacher ?? undefined;
-    const teacherId = query.teacher_id ?? query.teacherId ?? undefined;
-    const courseType = query.course_type ?? query.courseType ?? undefined;
-    const offeringStatus = query.offering_status ?? query.offeringStatus ?? undefined;
-    const availableOnly = query.available_only ?? query.availableOnly ?? false;
-    let page = query.page ?? 1;
-    page = Math.max(page, 1);
-    let pageSize = query.pageSize ?? 20;
-    pageSize = Math.min(pageSize, 100);
+    const semesterId = query.semester_id ?? query.semesterId ?? undefined
+    const keyword = query.keyword ?? undefined
+    const teacher = query.teacher ?? undefined
+    const teacherId = query.teacher_id ?? query.teacherId ?? undefined
+    const courseType = query.course_type ?? query.courseType ?? undefined
+    const offeringStatus = query.offering_status ?? query.offeringStatus ?? undefined
+    const availableOnly = query.available_only ?? query.availableOnly ?? false
+    let page = query.page ?? 1
+    page = Math.max(page, 1)
+    let pageSize = query.pageSize ?? 20
+    pageSize = Math.min(pageSize, 100)
 
     const where: any = {}
     if(semesterId) {
@@ -198,6 +199,7 @@ export const courseSearchService = {
       where.status = OfferingStatus.CANCELLED
     }
     if(availableOnly) {
+      where.status = OfferingStatus.OPEN
       where.enrolledCount = { lt: where.capacity }//maybe RE
     }
     const courseOfferings = await prisma.courseOffering.findMany({
@@ -288,10 +290,233 @@ export const courseSearchService = {
   async listAvailableOfferings(
     studentId: string,
     query: AvailableOfferingsQuery
-  ): Promise<PaginatedItems<AvailableOfferingItem> | null> {
+  ): Promise<PaginatedItems<AvailableOfferingItem> | string> {
     void studentId
     void query
-    return null
+
+    const student = await prisma.student.findUnique({
+      where: {
+        userId: studentId
+      },
+      include: {
+        major: true,
+        enrollments: {
+          include: {
+            courseOffering: {
+              include: {
+                schedules: true
+              }
+            }
+          }
+        }
+      }
+    })
+    if(!student) {
+      return '无法找到对应学生'
+    }
+    if(!student.majorId || !student.major) {
+      return '无法找到对应专业'
+    }
+
+    const curriculums = await prisma.curriculum.findMany({
+      where: {
+        majorId: student.majorId,
+        year:  student.grade
+      },
+      include: {
+        courses: true
+      }
+    })
+    if(curriculums.length === 0) {
+      return '无法找到对应培养方案'
+    }
+    if(curriculums.length !== 1) {
+      return '对应培养方案不唯一'
+    }
+
+    const curriculum = curriculums[0]
+
+    let semesterId = query.semester_id ?? query.semesterId ?? undefined;
+    const courseType = query.course_type ?? query.courseType ?? undefined;
+    const keyword = query.keyword ?? undefined;
+    let includeUnavailable = query.include_unavailable ?? query.includeUnavailable ?? true
+    let page = query.page ?? 1
+    page = Math.max(page, 1)
+    let pageSize = query.pageSize ?? 20
+    pageSize = Math.min(pageSize, 100)
+
+    const where: any = {}
+    if(!semesterId) {
+      const now = new Date();
+      const currentSemester = await prisma.semester.findMany({
+        where: {
+          startDate: { lte: now },
+          endDate: { gte: now }
+        }
+      })
+      if(currentSemester.length === 0) {
+        return '无法找到当前学期'
+      }
+      if(currentSemester.length !== 1) {
+        return '当前学期不唯一'
+      }
+      semesterId = currentSemester[0].id
+    }
+    where.semesterId = semesterId
+    if(keyword) {
+      where.course =  {
+        OR: [
+          { code: { contains: keyword, mode: 'insensitive' } },
+          { name: { contains: keyword, mode: 'insensitive' } }
+        ]
+      }
+    }
+    else {
+      where.course = {}
+    }
+    if(courseType === 'required') {
+      where.course.courseType = CourseType.REQUIRED
+    }
+    if(courseType === 'elective') {
+      where.course.courseType = CourseType.ELECTIVE
+    }
+    if(courseType === 'general') {
+      where.course.courseType = CourseType.GENERAL
+    }
+    const courseOfferings = await prisma.courseOffering.findMany({
+      orderBy: { id: 'asc' },
+      where,
+      include: {
+        schedules: true,
+        course: {
+          include: {
+            prerequisites: {
+              include: {
+                prerequisite: true
+              }
+            }
+          }
+        },
+        teacher: {
+          include: {
+            user: true
+          }
+        }
+      },
+    })
+
+    let courses: AvailableOfferingItem[] = []
+    let total = 0
+    for(const courseOffering of courseOfferings) {
+      let isEnrolled: boolean = false, hasTimeConflict: boolean = false, prerequisiteSatisfied: boolean = true, withinCurriculum: boolean = false
+      const isFull = courseOffering.capacity <= courseOffering.enrolledCount
+      for(const enrollment of student.enrollments) {
+        if(enrollment.status != EnrollmentStatus.ENROLLED) {
+          continue
+        }
+        if(enrollment.courseOfferingId == courseOffering.id) {
+          isEnrolled = true
+          continue
+        }
+        if(enrollment.courseOffering.semesterId != courseOffering.semesterId) {
+          continue
+        }
+        for(const s1 of enrollment.courseOffering.schedules) {
+          for(const s2 of courseOffering.schedules) {
+            if(s1.dayOfWeek != s2.dayOfWeek) {
+              continue
+            }
+            if(s1.startWeek > s2.endWeek || s2.startWeek > s1.endWeek) {
+              continue
+            }
+            if(s1.startPeriod > s2.endPeriod || s2.startPeriod > s1.endPeriod) {
+              continue
+            }
+            hasTimeConflict = true
+            break
+          }
+          if(hasTimeConflict) {
+            break
+          }
+        }
+      }
+      for(const prerequisites of courseOffering.course.prerequisites) {
+        let x = false
+        for(const enrollment of student.enrollments) {
+          if(enrollment.status != EnrollmentStatus.ENROLLED) {
+            continue
+          }
+          if(prerequisites.prerequisite.id == enrollment.courseOffering.courseId) {
+            x = true
+            break
+          }
+        }
+        if(!x) {
+          prerequisiteSatisfied = false
+          break
+        }
+      }
+      for(const course of curriculum.courses) {
+        if(course.courseId == courseOffering.course.id) {
+          withinCurriculum = true
+          break
+        }
+      }
+      const isAvailable = !isEnrolled && !isFull && !hasTimeConflict && prerequisiteSatisfied && withinCurriculum
+      if(!isAvailable && !includeUnavailable) {
+        continue
+      }
+      ++total
+      courses.push({
+        courseOfferingId: courseOffering.id,
+        courseCode: courseOffering.course.code,
+        courseName: courseOffering.course.name,
+        credits: Number(courseOffering.course.credits),
+        courseType: toCourseTypeValue(courseOffering.course.courseType),
+        teacherName: courseOffering.teacher.user.realName,
+        capacity: courseOffering.capacity,
+        enrolledCount: courseOffering.enrolledCount,
+        remainingCapacity: courseOffering.capacity - courseOffering.enrolledCount,
+        status: toOfferingStatusValue(courseOffering.status),
+        eligibility: {
+          isAvailable: isAvailable,
+          isEnrolled: isEnrolled,
+          isFull: isFull,
+          hasTimeConflict: hasTimeConflict,
+          prerequisiteSatisfied: prerequisiteSatisfied,
+          withinCurriculum: withinCurriculum,
+          reasons: []
+        }
+      })
+      if(isEnrolled) {
+        courses[courses.length - 1].eligibility.reasons.push('课程已选')
+      }
+      if(isFull) {
+        courses[courses.length - 1].eligibility.reasons.push('课程已满')
+      }
+      if(hasTimeConflict) {
+        courses[courses.length - 1].eligibility.reasons.push('课程有时间冲突')
+      }
+      if(!prerequisiteSatisfied) {
+        courses[courses.length - 1].eligibility.reasons.push('课程先修条件不满足')
+      }
+      if(!withinCurriculum) {
+        courses[courses.length - 1].eligibility.reasons.push('课程不在培养方案中')
+      }
+    }
+
+    const pagination: PaginationMeta = {
+      page: page,
+      pageSize: pageSize,
+      total: total,
+      totalPages: Math.ceil(total / pageSize)
+    }
+
+    const result: PaginatedItems<AvailableOfferingItem> = {
+      items: courses.slice((page - 1) * pageSize, page * pageSize),
+      pagination: pagination
+    }
+    return result
   },
 
   // TODO(C2, C3, FR-C-18, FR-C-19, NFR-C-07):

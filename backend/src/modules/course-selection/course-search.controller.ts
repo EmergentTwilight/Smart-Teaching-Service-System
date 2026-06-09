@@ -25,8 +25,8 @@ export const courseSearchController = {
   async listOfferings(req: Request, res: Response) {
     const query = courseSearchQuerySchema.parse(req.query)
     const result = await courseSearchService.listOfferings(query)
-    if (!result) {
-      return error(res, '功能待实现：C2 FR-C-08 FR-C-12 FR-C-15', 501)
+    if (typeof result === 'string') {
+      return error(res, result, 422)
     }
 
     return success(res, result)

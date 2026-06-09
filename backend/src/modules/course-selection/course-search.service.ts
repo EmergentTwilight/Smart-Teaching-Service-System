@@ -12,12 +12,14 @@ import type {
 import {
   toCourseTypeValue,
   toCourseStatusValue,
+  toOfferingStatusValue
 } from './course-selection.types.js'
 
 import { 
   PrismaClient,
   CourseType,
-  CourseStatus
+  CourseStatus,
+  OfferingStatus
 } from '@prisma/client'
 
 const prisma = new PrismaClient()
@@ -83,7 +85,7 @@ export const courseSearchService = {
     const courseOfferings = await prisma.courseOffering.findMany({
       skip: (page - 1) * pageSize,
       take: pageSize,
-      orderBy: { courseId: 'asc' },
+      orderBy: { id: 'asc' },
       where,
       include: {
         course: true,
@@ -131,9 +133,153 @@ export const courseSearchService = {
   // - 基于 CourseOffering 返回课程容量/已选人数/教师
   // - 与课程状态变更一致，不依赖前端过滤
   // - 负责人 scaffold 不返回 200 空列表，避免把未实现误判为无数据
-  async listOfferings(query: CourseSearchQuery): Promise<PaginatedItems<CourseOfferingListItem> | null> {
+  async listOfferings(query: CourseSearchQuery): Promise<PaginatedItems<CourseOfferingListItem> | string> {
     void query
-    return null
+
+    const semesterId = query.semester_id ?? query.semesterId ?? undefined;
+    const keyword = query.keyword ?? undefined;
+    const teacher = query.teacher ?? undefined;
+    const teacherId = query.teacher_id ?? query.teacherId ?? undefined;
+    const courseType = query.course_type ?? query.courseType ?? undefined;
+    const offeringStatus = query.offering_status ?? query.offeringStatus ?? undefined;
+    const availableOnly = query.available_only ?? query.availableOnly ?? false;
+    let page = query.page ?? 1;
+    page = Math.max(page, 1);
+    let pageSize = query.pageSize ?? 20;
+    pageSize = Math.min(pageSize, 100);
+
+    const where: any = {}
+    if(semesterId) {
+      where.semesterId = semesterId
+    }
+    if(keyword) {
+      where.course =  {
+        OR: [
+          { code: { contains: keyword, mode: 'insensitive' } },
+          { name: { contains: keyword, mode: 'insensitive' } }
+        ]
+      }
+    }
+    else {
+      where.course = {}
+    }
+    if(teacherId) {
+      where.teacherId = teacherId
+    }
+    if(teacher) {
+      where.teacher = {
+        OR: [
+          { userId: { contains: teacher, mode: 'insensitive' } },
+          {
+            user: { realname: { contains: teacher, mode: 'insensitive' } }
+          }
+        ]
+      }
+    }
+    if(courseType === 'required') {
+      where.course.courseType = CourseType.REQUIRED
+    }
+    if(courseType === 'elective') {
+      where.course.courseType = CourseType.ELECTIVE
+    }
+    if(courseType === 'general') {
+      where.course.courseType = CourseType.GENERAL
+    }
+    if(offeringStatus == 'planned') {
+      where.status = OfferingStatus.PLANNED
+    }
+    if(offeringStatus == 'open') {
+      where.status = OfferingStatus.OPEN
+    }
+    if(offeringStatus == 'closed') {
+      where.status = OfferingStatus.CLOSED
+    }
+    if(offeringStatus == 'cancelled') {
+      where.status = OfferingStatus.CANCELLED
+    }
+    if(availableOnly) {
+      where.enrolledCount = { lt: where.capacity }//maybe RE
+    }
+    const courseOfferings = await prisma.courseOffering.findMany({
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+      orderBy: { id: 'asc' },
+      where,
+      include: {
+        course: true,
+        semester: true,
+        teacher: {
+          include: {
+            user: true
+          }
+        },
+        schedules: {
+          include: {
+            classroom: true
+          }
+        }
+      },
+    })
+
+    let courses: CourseOfferingListItem[] = []
+    for(const courseOffering of courseOfferings) {
+      courses.push({
+        courseOfferingId: courseOffering.id,
+        course: {
+          id: courseOffering.courseId,
+          code: courseOffering.course.code,
+          name: courseOffering.course.name,
+          credits: Number(courseOffering.course.credits),
+          courseType: toCourseTypeValue(courseOffering.course.courseType),
+        },
+        semester: {
+          id: courseOffering.semesterId,
+          name: courseOffering.semester.name
+        },
+        teacher: {
+          id: courseOffering.teacherId,
+          realName: courseOffering.teacher.user.realName,
+          teacherNumber: courseOffering.teacher.teacherNumber
+        },
+        capacity: courseOffering.capacity,
+        enrolledCount: courseOffering.enrolledCount,
+        remainingCapacity: courseOffering.capacity - courseOffering.enrolledCount,
+        status: toOfferingStatusValue(courseOffering.status),
+        schedules: []
+      })
+      for(const schedule of courseOffering.schedules) {
+        courses[courses.length - 1].schedules.push({
+          id: schedule.id,
+          dayOfWeek: schedule.dayOfWeek,
+          startWeek: schedule.startWeek,
+          endWeek: schedule.endWeek,
+          startPeriod: schedule.startPeriod,
+          endPeriod: schedule.endPeriod,
+          classroom: {
+            building: schedule.classroom.building,
+            roomNumber: schedule.classroom.roomNumber,
+            campus: schedule.classroom.campus,
+          },
+          notes: schedule.notes ?? null
+        })
+      }
+    }
+
+    const total = await prisma.courseOffering.count({
+      where
+    })
+    const pagination: PaginationMeta = {
+      page: page,
+      pageSize: pageSize,
+      total: total,
+      totalPages: Math.ceil(total / pageSize)
+    }
+
+    const result: PaginatedItems<CourseOfferingListItem> = {
+      items: courses,
+      pagination: pagination
+    }
+    return result
   },
 
   // TODO(C2, C3, FR-C-13, FR-C-15, FR-C-16, FR-C-18, NFR-C-07, NFR-C-08): 返回学生可选课程并标记可选原因

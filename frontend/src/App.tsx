@@ -21,6 +21,7 @@ const UserList = lazy(() => import('@/modules/info-management/pages/users/UserLi
 const SystemLogs = lazy(() => import('@/modules/info-management/pages/users/SystemLogs'));
 const DepartmentList = lazy(() => import('@/modules/info-management/pages/departments/DepartmentList'));
 const MajorList = lazy(() => import('@/modules/info-management/pages/majors/MajorList'));
+const TeacherScoreEntryPage = lazy(() => import('@/modules/score-management/pages/TeacherScoreEntryPage'));
 const Profile = lazy(() => import('@/modules/info-management/pages/Profile'));
 const ComingSoon = lazy(() => import('@/shared/components/ComingSoon'));
 
@@ -160,7 +161,7 @@ const App: React.FC = () => {
                   <Route path="exam/results" element={<ComingSoon title="成绩查看" />} />
 
                   {/* 成绩管理 */}
-                  <Route path="grade/entry" element={<ComingSoon title="成绩录入" />} />
+                  <Route path="grade/entry" element={<TeacherScoreEntryPage />} />
                   <Route path="grade/statistics" element={<ComingSoon title="统计分析" />} />
                   <Route path="grade/gpa" element={<ComingSoon title="GPA 计算" />} />
 

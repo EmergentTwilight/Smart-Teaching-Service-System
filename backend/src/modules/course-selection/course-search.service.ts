@@ -7,6 +7,7 @@ import type {
   AvailableOfferingItem,
   CourseOfferingDetail,
   PaginationMeta,
+  CourseEligibilitySnapshot,
 } from './course-selection.types.js'
 
 import {
@@ -333,7 +334,6 @@ export const courseSearchService = {
     if(curriculums.length !== 1) {
       return '对应培养方案不唯一'
     }
-
     const curriculum = curriculums[0]
 
     let semesterId = query.semester_id ?? query.semesterId ?? undefined;
@@ -528,11 +528,244 @@ export const courseSearchService = {
     offeringId: string,
     requesterUserId: string,
     includeEligibility: boolean
-  ): Promise<CourseOfferingDetail | null> {
+  ): Promise<CourseOfferingDetail | string> {
     void offeringId
     void requesterUserId
     void includeEligibility
 
-    return null
+    const user = await prisma.user.findUnique({
+      where: {
+        id: requesterUserId
+      },
+      include: {
+        student: true,
+        teacher: true,
+        admin: true
+      }
+    })
+    if(!user) {
+      return '无法找到对应用户'
+    }
+    if(!user.student && !user.teacher && !user.admin) {
+      return '该用户没有身份'
+    }
+
+    const offering = await prisma.courseOffering.findUnique({
+      where: {
+        id: offeringId
+      },
+      include: {
+        course: {
+          include: {
+            prerequisites: {
+              include: {
+                prerequisite: true
+              }
+            }
+          }
+        },
+        semester: true,
+        teacher: {
+          include: {
+            user: true
+          }
+        },
+        schedules: {
+          include: {
+            classroom: true
+          }
+        }
+      }
+    })
+    if(!offering) {
+      return '无法找到对应课程开设'
+    }
+
+    let result: CourseOfferingDetail = {
+      courseOfferingId: offeringId,
+      course: {
+        id: offering.courseId,
+        code: offering.course.code,
+        name: offering.course.name,
+        credits: Number(offering.course.credits),
+        courseType: toCourseTypeValue(offering.course.courseType),
+        category: offering.course.category ?? null,
+        description: offering.course.description ?? null,
+        assessmentMethod: offering.course.assessmentMethod ?? null,
+        status: toCourseStatusValue(offering.course.status)
+      },
+      semester: {
+        id: offering.semesterId,
+        name: offering.semester.name
+      },
+      teacher: {
+        id: offering.teacherId,
+        realName: offering.teacher.user.realName,
+        teacherNumber: offering.teacher.teacherNumber,
+        title: offering.teacher.title ?? null
+      },
+      capacity: offering.capacity,
+      enrolledCount: offering.enrolledCount,
+      remainingCapacity: offering.capacity - offering.enrolledCount,
+      status: toOfferingStatusValue(offering.status),
+      prerequisites: new Array<{
+        courseId?: string
+        courseCode: string
+        courseName: string
+      }>,
+      schedules: []
+    }
+    for(const course of offering.course.prerequisites) {
+      result.prerequisites.push({
+        courseId: course.prerequisite.id,
+        courseCode: course.prerequisite.code,
+        courseName: course.prerequisite.name
+      })
+    }
+    for(const schedule of offering.schedules) {
+      result.schedules.push({
+        id: schedule.id,
+        dayOfWeek: schedule.dayOfWeek,
+        startWeek: schedule.startWeek,
+        endWeek: schedule.endWeek,
+        startPeriod: schedule.startPeriod,
+        endPeriod: schedule.endPeriod,
+        classroom: {
+          building: schedule.classroom.building,
+          roomNumber: schedule.classroom.roomNumber,
+          campus: schedule.classroom.campus,
+        },
+        notes: schedule.notes ?? null
+      })
+    }
+    if(!user.student || !includeEligibility) {
+      return result
+    }
+
+    const student = await prisma.student.findUnique({
+      where: {
+        userId: requesterUserId
+      },
+      include: {
+        major: true,
+        enrollments: {
+          include: {
+            courseOffering: {
+              include: {
+                schedules: true
+              }
+            }
+          }
+        }
+      }
+    })
+    if(!student) {
+      return '无法找到对应学生'
+    }
+    if(!student.majorId || !student.major) {
+      return '无法找到对应专业'
+    }
+
+    const curriculums = await prisma.curriculum.findMany({
+      where: {
+        majorId: student.majorId,
+        year:  student.grade
+      },
+      include: {
+        courses: true
+      }
+    })
+    if(curriculums.length === 0) {
+      return '无法找到对应培养方案'
+    }
+    if(curriculums.length !== 1) {
+      return '对应培养方案不唯一'
+    }
+    const curriculum = curriculums[0]
+    
+    let isEnrolled: boolean = false, hasTimeConflict: boolean = false, prerequisiteSatisfied: boolean = true, withinCurriculum: boolean = false
+    const isFull = offering.capacity <= offering.enrolledCount
+    for(const enrollment of student.enrollments) {
+      if(enrollment.status != EnrollmentStatus.ENROLLED) {
+        continue
+      }
+      if(enrollment.courseOfferingId == offering.id) {
+        isEnrolled = true
+        continue
+      }
+      if(enrollment.courseOffering.semesterId != offering.semesterId) {
+        continue
+      }
+      for(const s1 of enrollment.courseOffering.schedules) {
+        for(const s2 of offering.schedules) {
+          if(s1.dayOfWeek != s2.dayOfWeek) {
+            continue
+          }
+          if(s1.startWeek > s2.endWeek || s2.startWeek > s1.endWeek) {
+            continue
+          }
+          if(s1.startPeriod > s2.endPeriod || s2.startPeriod > s1.endPeriod) {
+            continue
+          }
+          hasTimeConflict = true
+          break
+        }
+        if(hasTimeConflict) {
+          break
+        }
+      }
+    }
+    for(const prerequisites of offering.course.prerequisites) {
+      let x = false
+      for(const enrollment of student.enrollments) {
+        if(enrollment.status != EnrollmentStatus.ENROLLED) {
+          continue
+        }
+        if(prerequisites.prerequisite.id == enrollment.courseOffering.courseId) {
+          x = true
+          break
+        }
+      }
+      if(!x) {
+        prerequisiteSatisfied = false
+        break
+      }
+    }
+    for(const course of curriculum.courses) {
+      if(course.courseId == offering.course.id) {
+        withinCurriculum = true
+        break
+      }
+    }
+    const isAvailable = !isEnrolled && !isFull && !hasTimeConflict && prerequisiteSatisfied && withinCurriculum
+    let eligibility: CourseEligibilitySnapshot = {
+      isAvailable: isAvailable,
+      isEnrolled: isEnrolled,
+      isFull: isFull,
+      hasTimeConflict: hasTimeConflict,
+      prerequisiteSatisfied: prerequisiteSatisfied,
+      withinCurriculum: withinCurriculum,
+      reasons: []
+    }
+    if(isEnrolled) {
+      eligibility.reasons.push('课程已选')
+    }
+    if(isFull) {
+      eligibility.reasons.push('课程已满')
+    }
+    if(hasTimeConflict) {
+      eligibility.reasons.push('课程有时间冲突')
+    }
+    if(!prerequisiteSatisfied) {
+      eligibility.reasons.push('课程先修条件不满足')
+    }
+    if(!withinCurriculum) {
+      eligibility.reasons.push('课程不在培养方案中')
+    }
+    result.eligibility = {
+      isAvailable: isAvailable,
+      reasons: eligibility.reasons
+    }
+    return result
   },
 }

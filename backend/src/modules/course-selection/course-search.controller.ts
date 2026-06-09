@@ -58,8 +58,8 @@ export const courseSearchController = {
     }
 
     const result = await courseSearchService.getOfferingDetail(id, requesterUserId, query.includeEligibility)
-    if (!result) {
-      return error(res, '功能待实现：C2 FR-C-11 FR-C-18 FR-C-19 NFR-C-07', 501)
+    if (typeof result === 'string') {
+      return error(res, result, 422)
     }
 
     return success(res, result)

@@ -39,6 +39,10 @@ const convertKeysToSnakeCase = <T>(input: T): T => {
     return input.toISOString() as T
   }
 
+  if (typeof input === 'bigint') {
+    return input.toString() as T
+  }
+
   if (input && typeof input === 'object') {
     const entries = Object.entries(input as Record<string, unknown>).map(([key, value]) => [
       toSnakeCase(key),

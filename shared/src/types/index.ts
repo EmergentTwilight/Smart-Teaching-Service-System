@@ -10,78 +10,10 @@
  * 运行 `npx prisma generate` 后自动生成
  */
 
-// 先导入类型（用于本地引用）
-import type {
-  User as UserType,
-  Gender as GenderType,
-  UserStatus as UserStatusType,
-} from '@prisma/client'
-
-// 导出所有 Model 类型
-export type {
-  User,
-  Student,
-  Teacher,
-  Admin,
-  Department,
-  Major,
-  Role,
-  Permission,
-  UserRole,
-  RolePermission,
-  SystemLog,
-  Classroom,
-  Schedule,
-  Semester,
-  Course,
-  CourseOffering,
-  Curriculum,
-  CurriculumCourse,
-  CoursePrerequisite,
-  Enrollment,
-  SelectionPeriod,
-  ForumPost,
-  ForumComment,
-  ForumAttachment,
-  QuestionBank,
-  Question,
-  QuestionOption,
-  TestPaper,
-  TestQuestion,
-  TestResult,
-  Answer,
-  Score,
-  ScoreModificationLog,
-  GPARecord,
-} from '@prisma/client'
-
-// 导出所有枚举类型
-export {
-  Gender,
-  UserStatus,
-  AdminType,
-  DegreeType,
-  RoomType,
-  RoomStatus,
-  SemesterStatus,
-  CourseType,
-  CourseStatus,
-  OfferingStatus,
-  EnrollmentStatus,
-  SelectionPhase,
-  PostType,
-  PostStatus,
-  QuestionType,
-  Difficulty,
-  BankStatus,
-  PaperStatus,
-  TestStatus,
-  ScoreStatus,
-  Prisma, // Prisma 命名空间（包含工具类型）
-} from '@prisma/client'
-
-// 导出 Prisma Client（用于类型推导）
-export { PrismaClient } from '@prisma/client'
+export type GenderType = 'MALE' | 'FEMALE' | 'OTHER'
+export type UserStatusType = 'ACTIVE' | 'INACTIVE' | 'BANNED'
+export type Gender = GenderType
+export type UserStatus = UserStatusType
 
 // ==================== 认证相关 ====================
 
@@ -227,8 +159,6 @@ export interface ApiError {
 }
 
 // ==================== 枚举常量 ====================
-
-import type { UserStatus, Gender } from '@prisma/client'
 
 /** 用户状态标签映射 */
 export const USER_STATUS_LABELS: Record<UserStatus, string> = {

@@ -192,6 +192,131 @@ async function main() {
     },
   })
 
+  const department = await prisma.department.upsert({
+    where: { code: 'CS' },
+    update: {},
+    create: {
+      name: 'Computer Science',
+      code: 'CS',
+      description: 'Demo department for forum testing',
+    },
+  })
+
+  const major = await prisma.major.upsert({
+    where: { code: 'CS-DEMO' },
+    update: {},
+    create: {
+      departmentId: department.id,
+      name: 'Computer Science Demo',
+      code: 'CS-DEMO',
+      degreeType: 'BACHELOR',
+      totalCredits: 160,
+    },
+  })
+
+  await prisma.student.upsert({
+    where: { userId: student.id },
+    update: {
+      majorId: major.id,
+      grade: 2026,
+      className: 'CS-1',
+    },
+    create: {
+      userId: student.id,
+      studentNumber: 'S20260001',
+      majorId: major.id,
+      grade: 2026,
+      className: 'CS-1',
+    },
+  })
+
+  await prisma.teacher.upsert({
+    where: { userId: teacher.id },
+    update: {
+      departmentId: department.id,
+      title: 'Lecturer',
+      officeLocation: 'Room 101',
+    },
+    create: {
+      userId: teacher.id,
+      teacherNumber: 'T20260001',
+      departmentId: department.id,
+      title: 'Lecturer',
+      officeLocation: 'Room 101',
+    },
+  })
+
+  const semester = await prisma.semester.upsert({
+    where: { id: '00000000-0000-4000-8000-000000000101' },
+    update: {},
+    create: {
+      id: '00000000-0000-4000-8000-000000000101',
+      name: '2026 Demo Semester',
+      startDate: new Date('2026-02-24'),
+      endDate: new Date('2026-07-01'),
+      status: 'CURRENT',
+    },
+  })
+
+  const course = await prisma.course.upsert({
+    where: { code: 'CS101' },
+    update: {
+      departmentId: department.id,
+      teacherId: teacher.id,
+    },
+    create: {
+      code: 'CS101',
+      name: 'Introduction to Smart Teaching',
+      credits: 3,
+      hours: 48,
+      courseType: 'REQUIRED',
+      category: 'Demo',
+      departmentId: department.id,
+      teacherId: teacher.id,
+      description: 'Demo course used by the forum module',
+      assessmentMethod: 'Forum participation and final project',
+      status: 'ACTIVE',
+    },
+  })
+
+  const courseOffering = await prisma.courseOffering.upsert({
+    where: { id: '00000000-0000-4000-8000-000000000001' },
+    update: {
+      courseId: course.id,
+      semesterId: semester.id,
+      teacherId: teacher.id,
+      capacity: 60,
+      enrolledCount: 1,
+      status: 'OPEN',
+    },
+    create: {
+      id: '00000000-0000-4000-8000-000000000001',
+      courseId: course.id,
+      semesterId: semester.id,
+      teacherId: teacher.id,
+      capacity: 60,
+      enrolledCount: 1,
+      status: 'OPEN',
+    },
+  })
+
+  await prisma.enrollment.upsert({
+    where: {
+      studentId_courseOfferingId: {
+        studentId: student.id,
+        courseOfferingId: courseOffering.id,
+      },
+    },
+    update: {
+      status: 'ENROLLED',
+    },
+    create: {
+      studentId: student.id,
+      courseOfferingId: courseOffering.id,
+      status: 'ENROLLED',
+    },
+  })
+
   console.log('✅ Database seeded successfully!')
   console.log('📝 Test accounts:')
   console.log('   - admin / Admin123 (超级管理员)')

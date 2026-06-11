@@ -39,14 +39,14 @@ function showToastMessage(type: ToastType, content: string, duration: number) {
   }
 
   // 渲染 Toast
-  root.render(
+  root!.render(
     <ToastItem
       type={type}
       content={content}
       duration={duration}
       onClose={() => {
         // 移除 Toast
-        root.render(null)
+        root!.render(null)
       }}
     />
   )

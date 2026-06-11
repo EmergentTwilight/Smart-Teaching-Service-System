@@ -324,6 +324,8 @@ struct StartExamData {
     test_result_id: String,
     /// 恢复答题时的剩余秒数，首次进入为 null
     remaining_seconds: Option<i32>,
+    /// 考试结束时间（用于前端双重倒计时）
+    end_time: Option<String>,
 }
 
 #[derive(Object)]
@@ -1971,6 +1973,7 @@ impl Api {
                     start_time: existing_start,
                     test_result_id: existing_id,
                     remaining_seconds: Some(remaining),
+                    end_time: paper.get::<_, Option<String>>("end_time"),
                 },
             }));
         }
@@ -2058,6 +2061,7 @@ impl Api {
                 start_time: start_time_str,
                 test_result_id,
                 remaining_seconds: None,
+                end_time: paper.get::<_, Option<String>>("end_time"),
             },
         }))
     }

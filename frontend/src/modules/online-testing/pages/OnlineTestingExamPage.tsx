@@ -54,6 +54,7 @@ interface StartExamData {
   startTime: string;
   testResultId: string;
   remainingSeconds?: number;
+  endTime?: string | null;
 }
 
 interface GradedAnswer {
@@ -127,7 +128,14 @@ const OnlineTestingExamPage: React.FC = () => {
         `/online-testing/test-papers/${paperId}/start`
       );
       setExamData(data);
-      setTimeLeft(data.remainingSeconds ?? data.durationMinutes * 60);
+      let remainingFromDuration = data.remainingSeconds ?? data.durationMinutes * 60;
+      // 如果有考试结束时间，取其与时长倒计时的较小值
+      if (data.endTime) {
+        const endMs = new Date(data.endTime).getTime();
+        const remainingFromEnd = Math.max(0, Math.floor((endMs - Date.now()) / 1000));
+        remainingFromDuration = Math.min(remainingFromDuration, remainingFromEnd);
+      }
+      setTimeLeft(remainingFromDuration);
       // 恢复之前的暂存答案
       try {
         const raw = sessionStorage.getItem(draftKey);

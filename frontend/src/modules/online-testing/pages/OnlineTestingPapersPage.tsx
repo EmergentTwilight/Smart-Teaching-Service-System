@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import {
   Button,
   Card,
+  DatePicker,
   Divider,
   Form,
   Input,
@@ -61,6 +62,8 @@ interface CreateOrUpdatePaperFormValues {
   description?: string;
   totalPoints: number;
   durationMinutes: number;
+  startTime?: string;
+  endTime?: string;
 }
 
 interface QuestionBankItem {
@@ -149,6 +152,8 @@ const OnlineTestingPapersPage: React.FC = () => {
       description: detail.paper.description,
       totalPoints: Number(detail.paper.totalPoints),
       durationMinutes: detail.paper.durationMinutes,
+      startTime: detail.paper.startTime || undefined,
+      endTime: detail.paper.endTime || undefined,
     });
   };
 
@@ -189,11 +194,17 @@ const OnlineTestingPapersPage: React.FC = () => {
     const values = await createForm.validateFields();
     setSubmitting(true);
     try {
+      const fmtTime = (v: unknown): string | undefined => {
+        if (v && typeof v === 'object' && 'toISOString' in (v as object)) return (v as { toISOString(): string }).toISOString();
+        return v ? String(v) : undefined;
+      };
       await request.post('/online-testing/test-papers', {
         title: values.title,
         description: values.description,
         totalPoints: values.totalPoints.toString(),
         durationMinutes: values.durationMinutes,
+        startTime: fmtTime(values.startTime),
+        endTime: fmtTime(values.endTime),
       });
       message.success('试卷创建成功');
       createForm.resetFields();
@@ -226,11 +237,17 @@ const OnlineTestingPapersPage: React.FC = () => {
     const values = await editForm.validateFields();
     setEditorSubmitting(true);
     try {
+      const fmtTime = (v: unknown): string | undefined => {
+        if (v && typeof v === 'object' && 'toISOString' in (v as object)) return (v as { toISOString(): string }).toISOString();
+        return v ? String(v) : undefined;
+      };
       await request.put(`/online-testing/test-papers/${selectedPaper.paper.id}`, {
         title: values.title,
         description: values.description,
         totalPoints: values.totalPoints.toString(),
         durationMinutes: values.durationMinutes,
+        startTime: fmtTime(values.startTime),
+        endTime: fmtTime(values.endTime),
       });
       message.success('试卷信息已更新');
       await Promise.all([fetchPapers(), fetchPaperDetail(selectedPaper.paper.id)]);
@@ -332,6 +349,17 @@ const OnlineTestingPapersPage: React.FC = () => {
     { title: '时长(分)', dataIndex: 'durationMinutes', key: 'durationMinutes', width: 100 },
     { title: '题目数', dataIndex: 'questionCount', key: 'questionCount', width: 90 },
     {
+      title: '考试时间',
+      key: 'timeWindow',
+      width: 200,
+      ellipsis: true,
+      render: (_, r) => {
+        if (!r.startTime && !r.endTime) return <Text type="secondary">不限</Text>;
+        const fmt = (s?: string) => s ? new Date(s).toLocaleString() : '不限';
+        return `${fmt(r.startTime)} ~ ${fmt(r.endTime)}`;
+      },
+    },
+    {
       title: '状态',
       dataIndex: 'status',
       key: 'status',
@@ -431,6 +459,14 @@ const OnlineTestingPapersPage: React.FC = () => {
             <Form.Item name="durationMinutes" label="时长（分钟）" rules={[{ required: true, message: '请输入考试时长' }]}>
               <InputNumber min={1} max={600} style={{ width: '100%' }} />
             </Form.Item>
+            <Space size="large">
+              <Form.Item name="startTime" label="开始时间（可选）" style={{ marginBottom: 0 }}>
+                <DatePicker showTime format="YYYY-MM-DD HH:mm" placeholder="不限" />
+              </Form.Item>
+              <Form.Item name="endTime" label="结束时间（可选）" style={{ marginBottom: 0 }}>
+                <DatePicker showTime format="YYYY-MM-DD HH:mm" placeholder="不限" />
+              </Form.Item>
+            </Space>
             <Space>
               <Button type="primary" loading={submitting} onClick={handleCreatePaper}>
                 创建试卷
@@ -471,6 +507,14 @@ const OnlineTestingPapersPage: React.FC = () => {
                 <Form.Item name="durationMinutes" label="时长（分钟）" rules={[{ required: true, message: '请输入时长' }]}>
                   <InputNumber min={1} max={600} style={{ width: '100%' }} />
                 </Form.Item>
+                <Space size="large">
+                  <Form.Item name="startTime" label="开始时间（可选）" style={{ marginBottom: 0 }}>
+                    <DatePicker showTime format="YYYY-MM-DD HH:mm" placeholder="不限" />
+                  </Form.Item>
+                  <Form.Item name="endTime" label="结束时间（可选）" style={{ marginBottom: 0 }}>
+                    <DatePicker showTime format="YYYY-MM-DD HH:mm" placeholder="不限" />
+                  </Form.Item>
+                </Space>
                 <Button type="primary" loading={editorSubmitting} onClick={handleUpdatePaper}>
                   保存试卷信息
                 </Button>

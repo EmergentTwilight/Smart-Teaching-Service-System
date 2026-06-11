@@ -501,6 +501,22 @@ fn bad_request_error(message: &str) -> Error {
     Error::from_string(message.to_string(), StatusCode::BAD_REQUEST)
 }
 
+/// 兼容解析 PostgreSQL ::text 输出的时间戳（无时区）和 RFC3339
+fn parse_db_timestamp(s: &str) -> chrono::DateTime<chrono::Utc> {
+    // 先尝试 RFC3339（带时区）
+    if let Ok(dt) = chrono::DateTime::parse_from_rfc3339(s) {
+        return dt.with_timezone(&chrono::Utc);
+    }
+    // 再尝试 PostgreSQL 默认格式（YYYY-MM-DD HH:MM:SS[.MS]）
+    if let Ok(naive) = chrono::NaiveDateTime::parse_from_str(s, "%Y-%m-%d %H:%M:%S%.f") {
+        return naive.and_utc();
+    }
+    if let Ok(naive) = chrono::NaiveDateTime::parse_from_str(s, "%Y-%m-%d %H:%M:%S") {
+        return naive.and_utc();
+    }
+    chrono::Utc::now()
+}
+
 fn build_answer_and_options(
     question_type: &QuestionTypeDto,
     option_count: i32,
@@ -1852,12 +1868,8 @@ impl Api {
             paper.get::<_, Option<String>>("end_time"),
         ) {
             let now = chrono::Utc::now();
-            let start = chrono::DateTime::parse_from_rfc3339(&start_str)
-                .map(|dt| dt.with_timezone(&chrono::Utc))
-                .unwrap_or(chrono::Utc::now());
-            let end = chrono::DateTime::parse_from_rfc3339(&end_str)
-                .map(|dt| dt.with_timezone(&chrono::Utc))
-                .unwrap_or(chrono::Utc::now());
+            let start = parse_db_timestamp(&start_str);
+            let end = parse_db_timestamp(&end_str);
             if now < start {
                 return Err(bad_request_error("考试尚未开始"));
             }
@@ -1866,6 +1878,20 @@ impl Api {
             }
         } else {
             tracing::warn!("试卷 {} 没有设置考试时间窗口，默认允许作答", id.0);
+        }
+
+        // 检查是否已交卷
+        let already_graded = state
+            .db
+            .query_opt(
+                "SELECT id FROM test_results \
+                 WHERE test_paper_id = $1 AND student_id = $2 AND status = 'GRADED'",
+                &[&id.0, &student_id],
+            )
+            .await
+            .map_err(internal_error)?;
+        if already_graded.is_some() {
+            return Err(bad_request_error("你已完成该试卷，无法再次作答"));
         }
 
         // 检查是否已有进行中的答题
@@ -1885,9 +1911,7 @@ impl Api {
             let existing_id: String = row.get("id");
             let existing_start: String = row.get("start_time");
             let elapsed = {
-                let start_dt = chrono::DateTime::parse_from_rfc3339(&existing_start)
-                    .map(|dt| dt.with_timezone(&chrono::Utc))
-                    .unwrap_or_else(|_| chrono::Utc::now());
+                let start_dt = parse_db_timestamp(&existing_start);
                 (chrono::Utc::now() - start_dt).num_seconds() as i32
             };
             let duration_secs = paper.get::<_, i32>("duration_minutes") * 60;
@@ -2064,11 +2088,8 @@ impl Api {
 
         // 计算耗时
         let time_spent = {
-            let start_dt = chrono::DateTime::parse_from_rfc3339(&start_time)
-                .map(|dt| dt.with_timezone(&chrono::Utc))
-                .unwrap_or_else(|_| chrono::Utc::now());
-            let now = chrono::Utc::now();
-            (now - start_dt).num_seconds() as i32
+            let start_dt = parse_db_timestamp(&start_time);
+            (chrono::Utc::now() - start_dt).num_seconds() as i32
         };
 
         // 获取试卷的所有题目及其正确答案

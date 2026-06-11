@@ -224,9 +224,19 @@ request.interceptors.response.use(
     }
 
     // 提取后端返回的错误消息
-    const errorMessage =
-      error.response?.data?.message || error.response?.data?.error || error.message
-    return Promise.reject(new Error(errorMessage))
+    // poem-openapi 的错误响应可能是纯文本或 JSON
+    const body = error.response?.data
+    let errorMessage: string
+    if (typeof body === 'string') {
+      errorMessage = body
+    } else if (body && typeof body === 'object') {
+      errorMessage = body.message || body.error || error.message
+    } else {
+      errorMessage = error.message
+    }
+    const wrapped = new Error(errorMessage) as Error & { status?: number }
+    wrapped.status = error.response?.status
+    return Promise.reject(wrapped)
   }
 )
 

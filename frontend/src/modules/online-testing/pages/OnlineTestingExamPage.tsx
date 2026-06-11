@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Button,
   Card,
@@ -82,14 +82,15 @@ const OnlineTestingExamPage: React.FC = () => {
   const navigate = useNavigate();
   const roles = useAuthStore((s) => s.user?.roles ?? []);
 
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true); // 初始即检测中
   const [examData, setExamData] = useState<StartExamData | null>(null);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [timeLeft, setTimeLeft] = useState<number>(0);
   const [submitting, setSubmitting] = useState(false);
   const [submitResult, setSubmitResult] = useState<SubmitResult | null>(null);
-  const [phase, setPhase] = useState<'idle' | 'exam' | 'finished'>('idle');
+  const [phase, setPhase] = useState<'idle' | 'exam' | 'finished' | 'blocked'>('idle');
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [blockReason, setBlockReason] = useState('');
 
   const isStudent = roles.includes('student');
 
@@ -139,13 +140,30 @@ const OnlineTestingExamPage: React.FC = () => {
         }
       } catch { /* ignore */ }
       setPhase('exam');
-    } catch (err) {
+    } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : '开始答题失败';
-      message.error(msg);
+      const status = (err as { status?: number }).status;
+      // 4xx 业务拒绝（已完成 / 无权限 / 未发布等）→ 展示 blocked 页
+      // 401 是未登录，交给拦截器处理
+      if (status !== undefined && status >= 400 && status < 500 && status !== 401) {
+        setBlockReason(msg);
+        setPhase('blocked');
+      } else {
+        message.error(msg);
+      }
     } finally {
       setLoading(false);
     }
   }, [paperId, draftKey]);
+
+  // 进入页面自动检测答题状态（防重入）
+  const autoStarted = useRef(false);
+  useEffect(() => {
+    if (isStudent && paperId && !autoStarted.current) {
+      autoStarted.current = true;
+      handleStart();
+    }
+  }, [isStudent, paperId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 保存答案到 sessionStorage
   const persistAnswers = (next: Record<string, string>) => {
@@ -217,13 +235,40 @@ const OnlineTestingExamPage: React.FC = () => {
     return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
   };
 
-  // 阶段：空闲
+  // 阶段：无法进入（已完成 / 无权限 / 加载中）
+  if (phase === 'blocked' || (phase === 'idle' && loading)) {
+    return (
+      <div className="fade-in">
+        <div className="page-header">
+          <Title level={2}>在线答题</Title>
+        </div>
+        <Card style={{ borderRadius: 12, maxWidth: 600, margin: '0 auto' }}>
+          <Result
+            status={blockReason ? 'info' : undefined}
+            title={blockReason || '正在检测答题状态…'}
+            subTitle={blockReason ? undefined : '请稍候'}
+            extra={
+              <Space>
+                <Button type="primary" onClick={() => navigate('/exam/papers')}>
+                  返回试卷列表
+                </Button>
+                <Button onClick={() => navigate('/exam/results')}>
+                  查看我的成绩
+                </Button>
+              </Space>
+            }
+          />
+        </Card>
+      </div>
+    );
+  }
+
+  // 阶段：空闲（自动检测中 / 检测失败）
   if (phase === 'idle') {
     return (
       <div className="fade-in">
         <div className="page-header">
           <Title level={2}>在线答题</Title>
-          <Text type="secondary">确认信息无误后点击开始答题</Text>
         </div>
         <Card style={{ borderRadius: 12, maxWidth: 600, margin: '0 auto' }}>
           {!isStudent ? (
@@ -237,25 +282,19 @@ const OnlineTestingExamPage: React.FC = () => {
                 </Button>
               }
             />
+          ) : loading ? (
+            <Result title="正在检测答题状态…" />
           ) : (
-            <Space direction="vertical" size="large" style={{ width: '100%' }}>
-              <div style={{ textAlign: 'center' }}>
-                <FileTextOutlined style={{ fontSize: 48, color: '#6366f1', marginBottom: 16 }} />
-                <Title level={4}>准备开始答题</Title>
-                <Paragraph type="secondary">
-                  点击下方按钮后开始计时，请在规定时间内完成作答
-                </Paragraph>
-              </div>
-              <Button
-                type="primary"
-                size="large"
-                block
-                loading={loading}
-                onClick={handleStart}
-              >
-                开始答题
-              </Button>
-            </Space>
+            <Result
+              status="warning"
+              title="检测失败"
+              subTitle="请检查网络连接后重试"
+              extra={
+                <Button type="primary" loading={loading} onClick={handleStart}>
+                  重试
+                </Button>
+              }
+            />
           )}
         </Card>
       </div>

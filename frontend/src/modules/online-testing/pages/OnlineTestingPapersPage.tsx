@@ -107,6 +107,7 @@ const OnlineTestingPapersPage: React.FC = () => {
   const [papers, setPapers] = useState<TestPaperItem[]>([]);
   const [banks, setBanks] = useState<QuestionBankItem[]>([]);
   const [availableQuestions, setAvailableQuestions] = useState<QuestionItem[]>([]);
+  const [submittedPaperIds, setSubmittedPaperIds] = useState<Set<string>>(new Set());
   const [submitting, setSubmitting] = useState(false);
   const [editorLoading, setEditorLoading] = useState(false);
   const [editorSubmitting, setEditorSubmitting] = useState(false);
@@ -154,7 +155,18 @@ const OnlineTestingPapersPage: React.FC = () => {
   useEffect(() => {
     const bootstrap = async () => {
       try {
-        await Promise.all([fetchPapers(), fetchBanks()]);
+        const tasks = [fetchPapers()];
+        if (!isStudent) {
+          tasks.push(fetchBanks());
+        } else {
+          // 学生加载已提交试卷状态
+          request.get<{ testPaperId: string }[], { testPaperId: string }[]>('/online-testing/test-results/my')
+            .then((results) => {
+              setSubmittedPaperIds(new Set(results.map((r) => r.testPaperId)));
+            })
+            .catch(() => { /* ignore */ });
+        }
+        await Promise.all(tasks);
       } catch (err) {
         const msg = err instanceof Error ? err.message : '初始化失败';
         message.error(msg);
@@ -332,7 +344,10 @@ const OnlineTestingPapersPage: React.FC = () => {
       width: isStudent ? 120 : 200,
       render: (_, record) => (
         <Space size="small">
-          {isStudent && record.status === 'published' && (
+          {isStudent && record.status === 'published' && submittedPaperIds.has(record.id) && (
+            <Tag color="success">已交卷</Tag>
+          )}
+          {isStudent && record.status === 'published' && !submittedPaperIds.has(record.id) && (
             <Button size="small" type="primary" onClick={() => navigate(`/exam/exam/${record.id}`)}>
               开始答题
             </Button>
@@ -348,6 +363,11 @@ const OnlineTestingPapersPage: React.FC = () => {
                 </Button>
               </Popconfirm>
             </>
+          )}
+          {!isStudent && (record.status === 'published' || record.status === 'closed') && (
+            <Button size="small" onClick={() => navigate(`/exam/results?paperId=${record.id}`)}>
+              成绩
+            </Button>
           )}
           {!isStudent && record.status === 'published' && (
             <Popconfirm title="确认关闭试卷？关闭后学生无法答题" onConfirm={() => handleClosePaper(record.id)}>

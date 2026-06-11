@@ -407,6 +407,24 @@ struct TestResultDetailResponse {
     data: SubmitExamData,
 }
 
+/// 教师查看的试卷成绩项
+#[derive(Object)]
+struct PaperResultItem {
+    id: String,
+    student_id: String,
+    student_name: String,
+    total_score: Option<String>,
+    status: String,
+    time_spent_seconds: Option<i32>,
+    submit_time: Option<String>,
+}
+
+#[derive(Object)]
+struct PaperResultsResponse {
+    code: u16,
+    message: String,
+    data: Vec<PaperResultItem>,
+}
 #[derive(Object)]
 #[oai(rename_all = "camelCase")]
 struct CreateQuestionBankInput {
@@ -1151,8 +1169,8 @@ impl Api {
             .db
             .query(
                 "SELECT tp.id, tp.course_offering_id, tp.creator_id, tp.title, tp.description, \
-                        tp.total_points::text AS total_points, tp.duration_minutes, tp.start_time::text AS start_time, \
-                        tp.end_time::text AS end_time, tp.is_random, tp.status::text AS status, \
+                        COALESCE(SUM(tq.points), tp.total_points)::text AS total_points, tp.duration_minutes, \
+                        tp.start_time::text AS start_time, tp.end_time::text AS end_time, tp.is_random, tp.status::text AS status, \
                         COUNT(tq.id)::bigint AS question_count \
                  FROM test_papers tp \
                  LEFT JOIN test_questions tq ON tq.test_paper_id = tp.id \
@@ -1185,8 +1203,8 @@ impl Api {
             .db
             .query_opt(
                 "SELECT tp.id, tp.course_offering_id, tp.creator_id, tp.title, tp.description, \
-                        tp.total_points::text AS total_points, tp.duration_minutes, tp.start_time::text AS start_time, \
-                        tp.end_time::text AS end_time, tp.is_random, tp.status::text AS status, \
+                        COALESCE(SUM(tq.points), tp.total_points)::text AS total_points, tp.duration_minutes, \
+                        tp.start_time::text AS start_time, tp.end_time::text AS end_time, tp.is_random, tp.status::text AS status, \
                         COUNT(tq.id)::bigint AS question_count \
                  FROM test_papers tp \
                  LEFT JOIN test_questions tq ON tq.test_paper_id = tp.id \
@@ -1847,7 +1865,8 @@ impl Api {
         let paper = state
             .db
             .query_opt(
-                "SELECT id, title, duration_minutes, total_points::text AS total_points, \
+                "SELECT id, title, duration_minutes, \
+                        COALESCE((SELECT SUM(points) FROM test_questions WHERE test_paper_id = $1), total_points)::text AS total_points, \
                         start_time::text AS start_time, end_time::text AS end_time, status::text AS status \
                  FROM test_papers \
                  WHERE id = $1",
@@ -1856,7 +1875,6 @@ impl Api {
             .await
             .map_err(internal_error)?
             .ok_or_else(|| Error::from_string("试卷不存在", StatusCode::NOT_FOUND))?;
-        tracing::info!("试卷 {} 信息查询成功", id.0);
         let paper_status: String = paper.get("status");
         if paper_status != "PUBLISHED" {
             return Err(bad_request_error("该试卷当前不可作答"));
@@ -2180,10 +2198,8 @@ impl Api {
         }
 
         // 保存答案到 answers 表
-        tracing::info!("准备写入 {} 条答案记录", graded_answers.len());
-        for (i, answer_item) in graded_answers.iter().enumerate() {
+        for answer_item in &graded_answers {
             let answer_id = Uuid::new_v4().to_string();
-            tracing::info!("  answer[{}]: tq_id={}, is_correct={}, score={}", i, &answer_item.test_question_id, answer_item.is_correct, &answer_item.score);
             state
                 .db
                 .execute(
@@ -2201,12 +2217,10 @@ impl Api {
                 .await
                 .map_err(internal_error)?;
         }
-        tracing::info!("答案写入完成");
 
         // 更新 test_results 状态
         let submit_now = chrono::Utc::now().to_rfc3339();
         let total_score_str = total_score.to_string();
-        tracing::info!("更新答题记录: id={}, submit_time={}, total_score={}, time_spent={}", id.0, &submit_now, &total_score_str, time_spent);
         state
             .db
             .execute(
@@ -2220,7 +2234,6 @@ impl Api {
             )
             .await
             .map_err(internal_error)?;
-        tracing::info!("答题记录更新完成");
 
         Ok(Json(SubmitExamResponse {
             code: 200,
@@ -2384,6 +2397,55 @@ impl Api {
                 answers,
             },
         }))
+    }
+
+    /// 教师/管理员查看某试卷的所有学生成绩
+    #[oai(path = "/online-testing/test-papers/:id/results", method = "get")]
+    async fn get_paper_results(
+        &self,
+        state: Data<&AppState>,
+        auth: BearerAuth,
+        id: Path<String>,
+    ) -> poem::Result<Json<PaperResultsResponse>> {
+        ensure_roles(&auth.0, &["super_admin", "admin", "teacher"])?;
+
+        // 验证试卷存在
+        let _paper = state
+            .db
+            .query_opt("SELECT id FROM test_papers WHERE id = $1", &[&id.0])
+            .await
+            .map_err(internal_error)?
+            .ok_or_else(|| Error::from_string("试卷不存在", StatusCode::NOT_FOUND))?;
+
+        let rows = state
+            .db
+            .query(
+                "SELECT tr.id, tr.student_id, u.real_name AS student_name, \
+                        tr.total_score::text AS total_score, tr.status::text AS status, \
+                        tr.time_spent_seconds, tr.submit_time::text AS submit_time \
+                 FROM test_results tr \
+                 JOIN users u ON u.id = tr.student_id \
+                 WHERE tr.test_paper_id = $1 \
+                 ORDER BY tr.id DESC",
+                &[&id.0],
+            )
+            .await
+            .map_err(internal_error)?;
+
+        let data = rows
+            .into_iter()
+            .map(|row| PaperResultItem {
+                id: row.get("id"),
+                student_id: row.get("student_id"),
+                student_name: row.get("student_name"),
+                total_score: row.get("total_score"),
+                status: row.get::<_, String>("status").to_lowercase(),
+                time_spent_seconds: row.get("time_spent_seconds"),
+                submit_time: row.get("submit_time"),
+            })
+            .collect();
+
+        Ok(Json(PaperResultsResponse { code: 200, message: "success".to_string(), data }))
     }
 }
 

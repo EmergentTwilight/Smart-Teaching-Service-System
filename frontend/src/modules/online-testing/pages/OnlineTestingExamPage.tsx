@@ -300,6 +300,18 @@ const OnlineTestingExamPage: React.FC = () => {
     );
   }
 
+  // 将答案序号映射为选项文本
+  const getOptionText = (testQuestionId: string, answerNums: string | null): string => {
+    if (!answerNums || !examData) return '未作答';
+    const q = examData.questions.find((x) => x.testQuestionId === testQuestionId);
+    if (!q) return answerNums;
+    return answerNums.split(',').map((n) => {
+      const num = Number(n.trim());
+      const opt = q.options.find((o) => o.optionOrder === num);
+      return opt ? `${String.fromCharCode(64 + num)}. ${opt.optionText}` : n;
+    }).join(', ');
+  };
+
   // 阶段：已完成
   if (phase === 'finished' && submitResult) {
     return (
@@ -351,9 +363,9 @@ const OnlineTestingExamPage: React.FC = () => {
               }
             >
               <Paragraph>{ans.questionContent}</Paragraph>
-              <Text type="secondary">你的答案：{ans.studentAnswer || '未作答'}</Text>
+              <Text type="secondary">你的答案：{getOptionText(ans.testQuestionId, ans.studentAnswer)}</Text>
               <br />
-              <Text type="success">正确答案：{ans.correctAnswer}</Text>
+              <Text type="success">正确答案：{getOptionText(ans.testQuestionId, ans.correctAnswer)}</Text>
             </Card>
           ))}
         </Card>

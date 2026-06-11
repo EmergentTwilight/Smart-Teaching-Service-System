@@ -16,7 +16,6 @@ import {
 } from 'antd';
 import {
   ClockCircleOutlined,
-  FileTextOutlined,
   CheckCircleOutlined,
   CloseCircleOutlined,
 } from '@ant-design/icons';

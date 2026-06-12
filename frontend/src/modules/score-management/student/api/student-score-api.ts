@@ -27,7 +27,7 @@ import { createMockScoreList, createMockScoreSummary, createMockScoreAnalytics }
 // ==================== Mock 开关 ====================
 // 设置为 true 时使用 mock 数据，不请求后端
 // 使用 F3 的数据进行测试时需要打开
-const USE_MOCK = false
+const USE_MOCK = true
 
 // ==================== 存储键 ====================
 const STORAGE_KEYS = {

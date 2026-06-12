@@ -813,7 +813,9 @@ describe('UsersService', () => {
       })
 
       expect(prismaMock.role.findMany).toHaveBeenCalledWith({
-        where: { OR: [{ id: { in: ['role-1', 'role-2'] } }, { code: { in: ['role-1', 'role-2'] } }] },
+        where: {
+          OR: [{ id: { in: ['role-1', 'role-2'] } }, { code: { in: ['role-1', 'role-2'] } }],
+        },
       })
       expect(prismaMock.userRole.createMany).toHaveBeenCalledWith({
         data: [

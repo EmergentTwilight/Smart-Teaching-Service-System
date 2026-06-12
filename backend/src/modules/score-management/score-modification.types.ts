@@ -5,13 +5,10 @@ import type { ScoreStatus } from '@prisma/client'
  * 所有审批相关字段都在这里集中定义。
  */
 
-export type ScoreField = 'usualScore' | 'midtermScore' | 'finalScore' | 'totalScore'
-
 export interface ProposedScoreChanges {
   usualScore?: number
   midtermScore?: number
   finalScore?: number
-  totalScore?: number
 }
 
 export interface ScoreSnapshot {
@@ -19,6 +16,8 @@ export interface ScoreSnapshot {
   midtermScore: number | null
   finalScore: number | null
   totalScore: number | null
+  gradePoint: number | null
+  gradeLetter: string | null
 }
 
 // 这里是 ModificationRequest 的结构

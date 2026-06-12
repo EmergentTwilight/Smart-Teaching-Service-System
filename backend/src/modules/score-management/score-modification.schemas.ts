@@ -18,19 +18,13 @@ export const proposedScoreChangesSchema = z
     usualScore: scoreValueSchema.optional(),
     midtermScore: scoreValueSchema.optional(),
     finalScore: scoreValueSchema.optional(),
-    totalScore: scoreValueSchema.optional(),
   })
+  .strict('只能修改平时、期中或期末成绩')
   .refine(
-    (changes: {
-      usualScore?: number
-      midtermScore?: number
-      finalScore?: number
-      totalScore?: number
-    }) =>
+    (changes: { usualScore?: number; midtermScore?: number; finalScore?: number }) =>
       changes.usualScore !== undefined ||
       changes.midtermScore !== undefined ||
-      changes.finalScore !== undefined ||
-      changes.totalScore !== undefined,
+      changes.finalScore !== undefined,
     {
       message: '至少需要提供一个拟修改分数字段',
     }

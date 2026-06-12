@@ -27,7 +27,6 @@ const LOGIN_FAILURE_WINDOW_SECONDS = 5 * 60
 const LOGIN_LOCK_SECONDS = 15 * 60
 const LOGIN_FAILURE_LIMIT = 5
 const PASSWORD_RESET_TOKEN_TTL_SECONDS = 60 * 60
-const ACTIVATION_TOKEN_TTL_SECONDS = 24 * 60 * 60
 
 type AuditMeta = {
   ipAddress?: string
@@ -262,25 +261,6 @@ function issueAccessToken(
   )
 }
 
-/**
- * 创建账号激活令牌
- * @param userId 用户 ID
- * @returns 激活令牌
- */
-async function createActivationToken(userId: string): Promise<string> {
-  const token = generateOpaqueToken()
-
-  await prisma.activationToken.create({
-    data: {
-      userId,
-      tokenHash: hashToken(token),
-      expiresAt: new Date(Date.now() + ACTIVATION_TOKEN_TTL_SECONDS * 1000),
-    },
-  })
-
-  return token
-}
-
 export const authService = {
   /**
    * 用户登录
@@ -507,7 +487,7 @@ export const authService = {
         realName: data.realName,
         phone: data.phone,
         gender: data.gender?.toUpperCase() as Gender | undefined,
-        status: 'INACTIVE',
+        status: 'ACTIVE',
       },
     })
 
@@ -524,10 +504,6 @@ export const authService = {
       })
     }
 
-    // 创建激活令牌（仅通过邮件发送，不返回给客户端）
-    await createActivationToken(createdUser.id)
-
-    // 注意：activationToken 不返回给客户端，只通过邮件发送
     return {
       id: createdUser.id,
       username: createdUser.username,
@@ -594,12 +570,16 @@ export const authService = {
       }),
     ])
 
-    await sendPasswordResetEmail({
-      to: email,
-      username: user.username,
-      token,
-      expires_at: expiresAt.toISOString(),
-    })
+    try {
+      await sendPasswordResetEmail({
+        to: email,
+        username: user.username,
+        token,
+        expires_at: expiresAt.toISOString(),
+      })
+    } catch (error) {
+      console.error('Failed to send password reset email:', error)
+    }
   },
 
   /**

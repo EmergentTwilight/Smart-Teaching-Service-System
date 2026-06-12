@@ -156,6 +156,7 @@ describe('POST /api/v1/auth/register', () => {
       username: expect.any(String),
       email: expect.any(String),
       real_name: '新用户',
+      status: 'ACTIVE',
     })
 
     // 验证数据库中存在该用户
@@ -163,6 +164,12 @@ describe('POST /api/v1/auth/register', () => {
       where: { id: response.body.data.id },
     })
     expect(user).not.toBeNull()
+    expect(user!.status).toBe('ACTIVE')
+
+    const activationToken = await prisma.activationToken.findFirst({
+      where: { userId: response.body.data.id },
+    })
+    expect(activationToken).toBeNull()
   })
 
   it('应该拒绝弱密码', async () => {

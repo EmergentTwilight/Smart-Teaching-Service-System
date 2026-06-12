@@ -238,12 +238,12 @@ POST /api/v1/auth/register
     "username": "newuser",
     "email": "user@example.com",
     "real_name": "张三",
-    "status": "INACTIVE"
+    "status": "ACTIVE"
   }
 }
 ```
 
-### 2.6 激活账号
+### 2.6 激活账号 （已废弃）
 
 ```plaintext
 POST /api/v1/auth/activate

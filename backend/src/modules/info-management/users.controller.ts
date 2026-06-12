@@ -144,6 +144,13 @@ export const usersController = {
   async updateStatus(req: Request, res: Response) {
     const id = req.params.id as string
     const data = updateStatusSchema.parse(req.body)
+    console.log('[users.updateStatus] request', {
+      targetUserId: id,
+      operatorUserId: req.user?.userId,
+      operatorRoles: req.user?.roles,
+      body: req.body,
+      parsed: data,
+    })
     const user = await usersService.updateStatus(id, data)
     success(res, user, '状态已更新')
   },

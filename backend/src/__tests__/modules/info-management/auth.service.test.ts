@@ -389,20 +389,19 @@ describe('AuthService', () => {
     })
   })
 
-  // 测试注册流程中的冲突校验、默认角色和激活令牌创建。
+  // 测试注册流程中的冲突校验和默认角色分配。
   describe('register', () => {
-    it('应该成功注册新用户，并分配默认学生角色与激活令牌', async () => {
+    it('应该成功注册新用户，并分配默认学生角色', async () => {
       prismaMock.user.findUnique.mockResolvedValue(null)
       prismaMock.user.create.mockResolvedValue({
         id: 'user-1',
         username: 'alice',
         email: 'alice@example.com',
         realName: 'Alice',
-        status: 'INACTIVE',
+        status: 'ACTIVE',
       })
       prismaMock.role.findUnique.mockResolvedValue({ id: 'role-student', code: 'student' })
       prismaMock.userRole.create.mockResolvedValue({ id: 'user-role-1' })
-      prismaMock.activationToken.create.mockResolvedValue({ id: 'activation-1' })
 
       const result = await authService.register({
         username: 'alice',
@@ -418,13 +417,13 @@ describe('AuthService', () => {
           username: 'alice',
           email: 'alice@example.com',
           real_name: 'Alice',
-          status: 'INACTIVE',
+          status: 'ACTIVE',
         })
       )
       expect(prismaMock.user.create).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({
-            status: 'INACTIVE',
+            status: 'ACTIVE',
             passwordHash: 'hashed:Password123',
             gender: 'FEMALE',
           }),
@@ -436,14 +435,7 @@ describe('AuthService', () => {
           roleId: 'role-student',
         },
       })
-      expect(prismaMock.activationToken.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({
-            userId: 'user-1',
-            // 注意：activationToken 不再返回，所以不验证 tokenHash
-          }),
-        })
-      )
+      expect(prismaMock.activationToken.create).not.toHaveBeenCalled()
     })
 
     it('应该拒绝弱密码、重复用户名和重复邮箱', async () => {

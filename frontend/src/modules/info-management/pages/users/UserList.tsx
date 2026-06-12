@@ -140,8 +140,23 @@ const UserList: React.FC = () => {
   // 处理表单提交
   const handleSubmit = async (values: UserFormData) => {
     if (currentUser) {
-      await usersApi.update(currentUser.id, values)
+      const { status, ...userData } = values
+      console.debug('[UserList] submit user update', {
+        userId: currentUser.id,
+        currentStatus: currentUser.status,
+        requestedStatus: status,
+        userData,
+      })
+      await usersApi.update(currentUser.id, userData)
+      if (status && status !== currentUser.status) {
+        console.debug('[UserList] submit user status update', {
+          userId: currentUser.id,
+          status,
+        })
+        await usersApi.updateStatus(currentUser.id, status)
+      }
     } else {
+      console.debug('[UserList] submit user create', values)
       await usersApi.create(values)
     }
     queryClient.invalidateQueries({ queryKey: ['users'] })

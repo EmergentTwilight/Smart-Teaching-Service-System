@@ -646,9 +646,15 @@ export const usersService = {
     })
 
     if (!user) {
+      console.log('[users.updateStatus] user not found', { userId, status: data.status })
       throw new NotFoundError('用户不存在')
     }
 
+    console.log('[users.updateStatus] applying', {
+      userId,
+      from: user.status,
+      to: data.status,
+    })
     await prisma.user.update({
       where: { id: userId },
       data: { status: data.status },

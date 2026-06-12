@@ -258,7 +258,7 @@ export const curriculumService = {
           semester: true
         }
       })
-      if(!courseoffering || !courseoffering.semester || courseoffering.semester.endDate > date) {
+      if(!courseoffering || !courseoffering.semester || semesterId && courseoffering.semester.endDate > date) {
         continue
       }
       const course = await prisma.course.findUnique({
@@ -269,17 +269,17 @@ export const curriculumService = {
       if(!course) {
         continue
       }
-      a += Number(course.credits)
+      if(enrollment.status === EnrollmentStatus.ENROLLED) a += Number(course.credits)
       if(course.courseType == CourseType.REQUIRED) {
-        b += Number(course.credits)
+        if(enrollment.status === EnrollmentStatus.ENROLLED) b += Number(course.credits)
         ++x
       }
       if(course.courseType == CourseType.ELECTIVE) {
-        c += Number(course.credits)
+        if(enrollment.status === EnrollmentStatus.ENROLLED) c += Number(course.credits)
         ++y
       }
       if(course.courseType == CourseType.GENERAL) {
-        d += Number(course.credits)
+        if(enrollment.status === EnrollmentStatus.ENROLLED) d += Number(course.credits)
         ++z
       }
     }

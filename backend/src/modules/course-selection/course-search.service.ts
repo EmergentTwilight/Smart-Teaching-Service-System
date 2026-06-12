@@ -46,15 +46,10 @@ export const courseSearchService = {
 
     const where: any = {}
     if(keyword) {
-      where.course =  {
-        OR: [
-          { code: { contains: keyword, mode: 'insensitive' } },
-          { name: { contains: keyword, mode: 'insensitive' } }
-        ]
-      }
-    }
-    else {
-      where.course = {}
+      where.OR = [
+        { code: { contains: keyword, mode: 'insensitive' } },
+        { name: { contains: keyword, mode: 'insensitive' } }
+      ]
     }
     if(teacherId) {
       where.teacherId = teacherId
@@ -62,59 +57,74 @@ export const courseSearchService = {
     if(teacher) {
       where.teacher = {
         OR: [
-          { userId: { contains: teacher, mode: 'insensitive' } },
+          { teacherNumber: { contains: teacher, mode: 'insensitive' } },
           {
-            user: { realname: { contains: teacher, mode: 'insensitive' } }
+            user: { realName: { contains: teacher, mode: 'insensitive' } }
           }
         ]
       }
     }
     if(courseType === 'required') {
-      where.course.courseType = CourseType.REQUIRED
+      where.courseType = CourseType.REQUIRED
     }
     if(courseType === 'elective') {
-      where.course.courseType = CourseType.ELECTIVE
+      where.courseType = CourseType.ELECTIVE
     }
     if(courseType === 'general') {
-      where.course.courseType = CourseType.GENERAL
+      where.courseType = CourseType.GENERAL
     }
     if(status === 'active') {
-      where.course.status = CourseStatus.ACTIVE
+      where.status = CourseStatus.ACTIVE
     }
     else {
-      where.course.status = CourseStatus.ARCHIVED
+      where.status = CourseStatus.ARCHIVED
     }
-    const courseOfferings = await prisma.courseOffering.findMany({
+    const courses = await prisma.course.findMany({
       skip: (page - 1) * pageSize,
       take: pageSize,
       orderBy: { id: 'asc' },
       where,
       include: {
-        course: true,
-        semester: true
+        offerings: {
+          include: {
+            semester: true
+          }
+        }
       },
     })
 
-    let courses: CourseListItem[] = []
-    for(const courseOffering of courseOfferings) {
-      courses.push({
-        courseId: courseOffering.courseId,
-        courseCode: courseOffering.course.code,
-        courseName: courseOffering.course.name,
-        credits: Number(courseOffering.course.credits),
-        courseType: toCourseTypeValue(courseOffering.course.courseType),
-        category: courseOffering.course.category ?? null,
-        assessmentMethod: courseOffering.course.assessmentMethod ?? null,
-        status: toCourseStatusValue(courseOffering.status),
+    let results: CourseListItem[] = []
+    for(const course of courses) {
+      let a = 0, b = 0, s: any = null
+      for(const offering of course.offerings) {
+        if(offering.status == OfferingStatus.OPEN) {
+          ++a
+        }
+        if(offering.status == OfferingStatus.PLANNED) {
+          ++b
+        }
+        if(!s || s.endDate < offering.semester.endDate) {
+          s = offering.semester
+        }
+      }
+      results.push({
+        courseId: course.id,
+        courseCode: course.code,
+        courseName: course.name,
+        credits: Number(course.credits),
+        courseType: toCourseTypeValue(course.courseType),
+        category: course.category ?? null,
+        assessmentMethod: course.assessmentMethod ?? null,
+        status: toCourseStatusValue(course.status),
         offeringSummary: {
-          openCount: Number(courseOffering.capacity),
-          plannedCount: Number(courseOffering.enrolledCount),
-          latestSemesterName: courseOffering.semester ? courseOffering.semester.name : null
+          openCount: a,
+          plannedCount: b,
+          latestSemesterName: s ? s.name : null
         }
       })
     }
 
-    const total = await prisma.courseOffering.count({
+    const total = await prisma.course.count({
       where
     })
     const pagination: PaginationMeta = {
@@ -125,7 +135,7 @@ export const courseSearchService = {
     }
 
     const result: PaginatedItems<CourseListItem> = {
-      items: courses,
+      items: results,
       pagination: pagination
     }
     return result
@@ -171,9 +181,9 @@ export const courseSearchService = {
     if(teacher) {
       where.teacher = {
         OR: [
-          { userId: { contains: teacher, mode: 'insensitive' } },
+          { teacherNumber: { contains: teacher, mode: 'insensitive' } },
           {
-            user: { realname: { contains: teacher, mode: 'insensitive' } }
+            user: { realName: { contains: teacher, mode: 'insensitive' } }
           }
         ]
       }
@@ -201,11 +211,8 @@ export const courseSearchService = {
     }
     if(availableOnly) {
       where.status = OfferingStatus.OPEN
-      where.enrolledCount = { lt: where.capacity }//maybe RE
     }
     const courseOfferings = await prisma.courseOffering.findMany({
-      skip: (page - 1) * pageSize,
-      take: pageSize,
       orderBy: { id: 'asc' },
       where,
       include: {
@@ -224,8 +231,16 @@ export const courseSearchService = {
       },
     })
 
+    let total = 0
     let courses: CourseOfferingListItem[] = []
     for(const courseOffering of courseOfferings) {
+      if(availableOnly && courseOffering.capacity <= courseOffering.enrolledCount) {
+        continue
+      }
+      ++total
+      if(Math.ceil(total / pageSize) != page) {
+        continue
+      }
       courses.push({
         courseOfferingId: courseOffering.id,
         course: {
@@ -268,9 +283,6 @@ export const courseSearchService = {
       }
     }
 
-    const total = await prisma.courseOffering.count({
-      where
-    })
     const pagination: PaginationMeta = {
       page: page,
       pageSize: pageSize,
@@ -414,9 +426,8 @@ export const courseSearchService = {
         if(enrollment.status != EnrollmentStatus.ENROLLED) {
           continue
         }
-        if(enrollment.courseOfferingId == courseOffering.id) {
+        if(enrollment.courseOffering.courseId == courseOffering.courseId) {
           isEnrolled = true
-          continue
         }
         if(enrollment.courseOffering.semesterId != courseOffering.semesterId) {
           continue
@@ -689,7 +700,7 @@ export const courseSearchService = {
       if(enrollment.status != EnrollmentStatus.ENROLLED) {
         continue
       }
-      if(enrollment.courseOfferingId == offering.id) {
+      if(enrollment.courseOffering.courseId == offering.courseId) {
         isEnrolled = true
         continue
       }

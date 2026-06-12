@@ -29,6 +29,7 @@ import config from './config/index.js'
 import { swaggerSpec } from './config/swagger.js'
 import swaggerUi from 'swagger-ui-express'
 import prisma from './shared/prisma/client.js'
+import scoreEntryRouter from './modules/score-management/score-entry.routes.js'
 
 const app: Application = express()
 const PORT = config.port
@@ -94,6 +95,8 @@ app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')))
 // JSON 解析
 app.use(express.json())
 app.use(express.urlencoded({ extended: true }))
+
+app.use('/api/v1/course-offerings/:courseOfferingId/scores', scoreEntryRouter)
 
 // ==================== API 文档 (Swagger) ====================
 app.use(

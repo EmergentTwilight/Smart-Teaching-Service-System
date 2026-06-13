@@ -17,6 +17,7 @@ import { ScoreStatusTag } from './ScoreStatusTag';
 interface ScoreEntryTableProps {
   rows: TeacherScoreRow[];
   loading?: boolean;
+  courseLoaded?: boolean;
   selectedRowKeys: Key[];
   draftValues: Record<string, DraftScorePatch>;
   pagination: CourseScoresPagination;
@@ -77,6 +78,7 @@ function ScoreInput({
 export function ScoreEntryTable({
   rows,
   loading = false,
+  courseLoaded = false,
   selectedRowKeys,
   draftValues,
   pagination,
@@ -221,6 +223,7 @@ export function ScoreEntryTable({
       columns={columns}
       dataSource={rows}
       scroll={{ x: 1480 }}
+      locale={{ emptyText: courseLoaded ? '暂无数据' : '请先输入课程 ID 并加载成绩' }}
       rowSelection={{
         selectedRowKeys,
         onChange: onSelectionChange,

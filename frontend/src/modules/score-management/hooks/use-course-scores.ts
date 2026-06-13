@@ -18,6 +18,8 @@ export function useCourseScores(courseOfferingId: string, params?: CourseScoresQ
       courseOfferingId,
       params?.page ?? 1,
       params?.pageSize ?? null,
+      params?.keyword ?? '',
+      params?.status ?? '',
     ],
     enabled: Boolean(courseOfferingId),
     queryFn: async () => {

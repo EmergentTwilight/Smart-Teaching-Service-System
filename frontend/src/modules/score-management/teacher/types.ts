@@ -31,6 +31,9 @@ export interface TeacherScoreRow extends EditableScoreValues {
 export interface CourseScoresQueryParams {
   page?: number
   pageSize?: number
+  // 与 F1 后端 getScoreListQuerySchema 对齐：keyword 同时匹配学号/姓名
+  keyword?: string
+  status?: TeacherScoreStatus
 }
 
 export interface CourseScoresPagination {
@@ -52,6 +55,19 @@ export interface SubmitScoresPayload {
   scoreIds: string[]
 }
 
-export interface ModificationRequestPayload extends EditableScoreValues {
+/**
+ * 改分申请请求体，需与 F2 后端契约对齐：
+ * POST /api/v1/scores/:scoreId/modification-request
+ * body: { proposedChanges: { ...至少一项非空 }, reason }
+ */
+export interface ProposedScoreChanges {
+  usualScore?: number
+  midtermScore?: number
+  finalScore?: number
+  totalScore?: number
+}
+
+export interface ModificationRequestPayload {
+  proposedChanges: ProposedScoreChanges
   reason: string
 }

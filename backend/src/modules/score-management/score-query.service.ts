@@ -2,22 +2,18 @@ import prisma from '../../shared/prisma/client.js'
 import { ForbiddenError, NotFoundError } from '@stss/shared'
 import type { MyScoresQuery } from './score-query.types.js'
 import type { Prisma } from '@prisma/client'
+import {
+  PASS_LINE,
+  SUBMITTED_SCORE_STATUSES,
+  pickEffectiveScoresByCourse,
+  round2,
+  toNumber,
+} from './score-statistics.js'
 
 type JwtUser = {
   userId: string
   roles: string[]
 }
-
-const PASS_LINE = 60
-
-const toNumber = (value: Prisma.Decimal | number | null | undefined): number | null => {
-  if (value === null || value === undefined) {
-    return null
-  }
-  return Number(value)
-}
-
-const round2 = (value: number): number => Math.round(value * 100) / 100
 
 const resolveAccessibleStudentId = async (user: JwtUser, targetStudentId?: string) => {
   const isAdmin = user.roles.some((role) => role === 'admin' || role === 'super_admin')
@@ -54,6 +50,9 @@ export const scoreQueryService = {
 
     const where: Prisma.ScoreWhereInput = {
       studentId,
+      status: {
+        in: [...SUBMITTED_SCORE_STATUSES],
+      },
     }
 
     if (semesterId || keyword) {
@@ -68,7 +67,7 @@ export const scoreQueryService = {
       }
     }
 
-    const [scores, total] = await Promise.all([
+    const [scores, total, allVisibleScores] = await Promise.all([
       prisma.score.findMany({
         where,
         skip,
@@ -82,10 +81,36 @@ export const scoreQueryService = {
             },
           },
         },
-        orderBy: [{ enteredAt: 'desc' }],
+        orderBy: [{ enteredAt: 'desc' }, { id: 'asc' }],
       }),
       prisma.score.count({ where }),
+      prisma.score.findMany({
+        where: {
+          studentId,
+          status: {
+            in: [...SUBMITTED_SCORE_STATUSES],
+          },
+          totalScore: {
+            not: null,
+          },
+        },
+        include: {
+          courseOffering: {
+            include: {
+              course: {
+                select: {
+                  id: true,
+                },
+              },
+            },
+          },
+        },
+      }),
     ])
+
+    const effectiveScoreIds = new Set(
+      pickEffectiveScoresByCourse(allVisibleScores).map((score) => score.id)
+    )
 
     const items = scores.map((score) => ({
       scoreId: score.id,
@@ -106,6 +131,7 @@ export const scoreQueryService = {
       gradeLetter: score.gradeLetter,
       status: score.status,
       hasPendingModificationRequest: Boolean(score.modificationRequest),
+      isEffective: effectiveScoreIds.has(score.id),
     }))
 
     return {
@@ -140,6 +166,7 @@ export const scoreQueryService = {
                       select: {
                         id: true,
                         credits: true,
+                        courseType: true,
                       },
                     },
                   },
@@ -163,7 +190,7 @@ export const scoreQueryService = {
       where: {
         studentId,
         status: {
-          in: ['SUBMITTED', 'CONFIRMED'],
+          in: [...SUBMITTED_SCORE_STATUSES],
         },
       },
       include: {
@@ -173,6 +200,7 @@ export const scoreQueryService = {
               select: {
                 id: true,
                 credits: true,
+                courseType: true,
               },
             },
           },
@@ -180,7 +208,7 @@ export const scoreQueryService = {
       },
     })
 
-    const validScores = scores.filter((score) => score.totalScore !== null)
+    const validScores = pickEffectiveScoresByCourse(scores)
     const passedScores = validScores.filter((score) => Number(score.totalScore) >= PASS_LINE)
 
     const scoreSum = validScores.reduce((sum, score) => sum + Number(score.totalScore), 0)
@@ -207,18 +235,89 @@ export const scoreQueryService = {
 
     const activeCurriculum = student.major?.curriculums?.[0]
     const totalRequiredCredits = activeCurriculum ? Number(activeCurriculum.totalCredits) : null
+    const requiredCredits = activeCurriculum?.requiredCredits
+      ? Number(activeCurriculum.requiredCredits)
+      : null
+    const electiveCredits = activeCurriculum?.electiveCredits
+      ? Number(activeCurriculum.electiveCredits)
+      : null
     const curriculumCourseIds = new Set(
       activeCurriculum?.courses.map((item) => item.courseId) ?? []
+    )
+    const curriculumRequiredCourseIds = new Set(
+      activeCurriculum?.courses
+        .filter((item) => item.courseType === 'REQUIRED')
+        .map((item) => item.courseId) ?? []
+    )
+    const curriculumElectiveCourseIds = new Set(
+      activeCurriculum?.courses
+        .filter((item) => item.courseType !== 'REQUIRED')
+        .map((item) => item.courseId) ?? []
     )
     const curriculumPassedCredits = round2(
       passedScores
         .filter((score) => curriculumCourseIds.has(score.courseOffering.course.id))
         .reduce((sum, score) => sum + Number(score.courseOffering.course.credits), 0)
     )
+    const curriculumRequiredPassedCredits = round2(
+      passedScores
+        .filter((score) => curriculumRequiredCourseIds.has(score.courseOffering.course.id))
+        .reduce((sum, score) => sum + Number(score.courseOffering.course.credits), 0)
+    )
+    const curriculumElectivePassedCredits = round2(
+      passedScores
+        .filter((score) => curriculumElectiveCourseIds.has(score.courseOffering.course.id))
+        .reduce((sum, score) => sum + Number(score.courseOffering.course.credits), 0)
+    )
 
-    const inProgressCredits =
+    const completedCurriculumCourseIds = new Set(
+      passedScores
+        .filter((score) => curriculumCourseIds.has(score.courseOffering.course.id))
+        .map((score) => score.courseOffering.course.id)
+    )
+    const completedCurriculumCourseCount = completedCurriculumCourseIds.size
+    const curriculumCourseCount = activeCurriculum?.courses.length ?? 0
+
+    const completedCourseIds = new Set(validScores.map((score) => score.courseOffering.course.id))
+    const enrolledCourseIds = new Set<string>()
+    const inProgressEnrollments = await prisma.enrollment.findMany({
+      where: {
+        studentId,
+        status: 'ENROLLED',
+        courseOffering: {
+          courseId: {
+            notIn: Array.from(completedCourseIds),
+          },
+        },
+      },
+      include: {
+        courseOffering: {
+          include: {
+            course: {
+              select: {
+                id: true,
+                credits: true,
+              },
+            },
+          },
+        },
+      },
+    })
+
+    const inProgressCredits = round2(
+      inProgressEnrollments.reduce((sum, enrollment) => {
+        const course = enrollment.courseOffering.course
+        if (enrolledCourseIds.has(course.id)) {
+          return sum
+        }
+
+        enrolledCourseIds.add(course.id)
+        return sum + Number(course.credits)
+      }, 0)
+    )
+    const remainingRequiredCredits =
       totalRequiredCredits === null
-        ? 0
+        ? null
         : round2(Math.max(totalRequiredCredits - curriculumPassedCredits, 0))
 
     return {
@@ -230,10 +329,29 @@ export const scoreQueryService = {
       earnedCredits,
       passedCredits,
       inProgressCredits,
+      remainingRequiredCredits,
       gpa,
       averageScore: avgScore,
       passedCourseCount: passedScores.length,
       failedCourseCount: validScores.filter((score) => Number(score.totalScore) < PASS_LINE).length,
+      effectiveScoreRule: '同一课程多次成绩按最高总评计入统计；总评相同时取最近修改或录入记录',
+      curriculumProgress: {
+        curriculumId: activeCurriculum?.id ?? null,
+        curriculumName: activeCurriculum?.name ?? null,
+        totalRequiredCredits,
+        requiredCredits,
+        electiveCredits,
+        passedCredits: curriculumPassedCredits,
+        requiredPassedCredits: curriculumRequiredPassedCredits,
+        electivePassedCredits: curriculumElectivePassedCredits,
+        remainingRequiredCredits,
+        curriculumCourseCount,
+        completedCurriculumCourseCount,
+        completionRate:
+          totalRequiredCredits && totalRequiredCredits > 0
+            ? round2((curriculumPassedCredits / totalRequiredCredits) * 100)
+            : null,
+      },
     }
   },
 }

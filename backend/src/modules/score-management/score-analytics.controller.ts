@@ -16,6 +16,16 @@ export const scoreAnalyticsController = {
     success(res, result)
   },
 
+  async getMyScoreAnalytics(req: Request, res: Response) {
+    const user = req.user
+    if (!user) {
+      return error(res, '未认证', 401)
+    }
+
+    const result = await scoreAnalyticsService.getStudentScoreAnalytics(user, user.userId)
+    success(res, result)
+  },
+
   async getStudentScoreAnalytics(req: Request, res: Response) {
     const user = req.user
     if (!user) {

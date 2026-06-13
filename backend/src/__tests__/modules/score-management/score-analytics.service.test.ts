@@ -38,11 +38,13 @@ describe('scoreAnalyticsService', () => {
       prismaMock.enrollment.count.mockResolvedValue(3)
       prismaMock.score.findMany.mockResolvedValue([
         {
+          id: 'score-1',
           totalScore: 95,
           studentId: 'stu-1',
           student: { studentNumber: '2021001', user: { realName: 'A' } },
         },
         {
+          id: 'score-2',
           totalScore: 80,
           studentId: 'stu-2',
           student: { studentNumber: '2021002', user: { realName: 'B' } },
@@ -86,18 +88,38 @@ describe('scoreAnalyticsService', () => {
       })
       prismaMock.score.findMany.mockResolvedValue([
         {
+          id: 'score-1',
           totalScore: 95,
           gradePoint: 4,
+          enteredAt: new Date('2026-01-01'),
+          modifiedAt: null,
           courseOffering: {
-            course: { courseType: 'REQUIRED', credits: 3 },
+            courseId: 'course-1',
+            course: { id: 'course-1', courseType: 'REQUIRED', credits: 3 },
             semester: { id: 'sem-1', name: '2025-2026-1', startDate: new Date('2025-09-01') },
           },
         },
         {
+          id: 'score-2',
+          totalScore: 78,
+          gradePoint: 3,
+          enteredAt: new Date('2026-06-01'),
+          modifiedAt: null,
+          courseOffering: {
+            courseId: 'course-1',
+            course: { id: 'course-1', courseType: 'REQUIRED', credits: 3 },
+            semester: { id: 'sem-2', name: '2025-2026-2', startDate: new Date('2026-02-20') },
+          },
+        },
+        {
+          id: 'score-3',
           totalScore: 85,
           gradePoint: 3.7,
+          enteredAt: new Date('2026-06-01'),
+          modifiedAt: null,
           courseOffering: {
-            course: { courseType: 'ELECTIVE', credits: 2 },
+            courseId: 'course-2',
+            course: { id: 'course-2', courseType: 'ELECTIVE', credits: 2 },
             semester: { id: 'sem-2', name: '2025-2026-2', startDate: new Date('2026-02-20') },
           },
         },
@@ -110,6 +132,7 @@ describe('scoreAnalyticsService', () => {
 
       expect(result.studentName).toBe('Student A')
       expect(result.semesterTrend).toHaveLength(2)
+      expect(result.semesterTrend[0].averageScore).toBe(95)
       expect(result.scoreDistribution).toHaveLength(5)
       expect(result.courseTypeBreakdown).toHaveLength(2)
     })

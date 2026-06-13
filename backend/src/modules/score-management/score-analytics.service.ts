@@ -1,14 +1,16 @@
 import prisma from '../../shared/prisma/client.js'
 import { ForbiddenError, NotFoundError } from '@stss/shared'
+import {
+  PASS_LINE,
+  SUBMITTED_SCORE_STATUSES,
+  pickEffectiveScoresByCourse,
+  round2,
+} from './score-statistics.js'
 
 type JwtUser = {
   userId: string
   roles: string[]
 }
-
-const PASS_LINE = 60
-
-const round2 = (value: number): number => Math.round(value * 100) / 100
 
 const isAdmin = (roles: string[]) =>
   roles.some((role) => role === 'admin' || role === 'super_admin')
@@ -77,13 +79,14 @@ export const scoreAnalyticsService = {
       prisma.enrollment.count({
         where: {
           courseOfferingId,
+          status: 'ENROLLED',
         },
       }),
       prisma.score.findMany({
         where: {
           courseOfferingId,
           status: {
-            in: ['SUBMITTED', 'CONFIRMED'],
+            in: [...SUBMITTED_SCORE_STATUSES],
           },
           totalScore: {
             not: null,
@@ -162,7 +165,7 @@ export const scoreAnalyticsService = {
       where: {
         studentId,
         status: {
-          in: ['SUBMITTED', 'CONFIRMED'],
+          in: [...SUBMITTED_SCORE_STATUSES],
         },
       },
       include: {
@@ -170,6 +173,7 @@ export const scoreAnalyticsService = {
           include: {
             course: {
               select: {
+                id: true,
                 courseType: true,
                 credits: true,
               },
@@ -186,7 +190,7 @@ export const scoreAnalyticsService = {
       },
     })
 
-    const validScores = scores.filter((score) => score.totalScore !== null)
+    const validScores = pickEffectiveScoresByCourse(scores)
     const scoreValues = validScores.map((score) => Number(score.totalScore))
 
     const semesterMap = new Map<

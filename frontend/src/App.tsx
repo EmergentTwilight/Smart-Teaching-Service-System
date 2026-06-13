@@ -23,6 +23,7 @@ const DepartmentList = lazy(() => import('@/modules/info-management/pages/depart
 const MajorList = lazy(() => import('@/modules/info-management/pages/majors/MajorList'));
 const TeacherScoreEntryPage = lazy(() => import('@/modules/score-management/pages/TeacherScoreEntryPage'));
 const StudentScoreQueryPage = lazy(() => import('@/modules/score-management/student/pages/student-score-query-page'));
+const StudentScoreAnalyticsPage = lazy(() => import('@/modules/score-management/student/pages/student-score-analytics-page'));
 const Profile = lazy(() => import('@/modules/info-management/pages/Profile'));
 const ComingSoon = lazy(() => import('@/shared/components/ComingSoon'));
 
@@ -163,7 +164,7 @@ const App: React.FC = () => {
 
                   {/* 成绩管理 */}
                   <Route path="grade/entry" element={<TeacherScoreEntryPage />} />
-                  <Route path="grade/statistics" element={<ComingSoon title="统计分析" />} />
+                  <Route path="grade/statistics" element={<StudentScoreAnalyticsPage />} />
                   <Route path="grade/gpa" element={<StudentScoreQueryPage />} />
 
                   {/* 系统设置 */}

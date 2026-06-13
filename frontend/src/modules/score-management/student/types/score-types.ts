@@ -9,6 +9,7 @@
  */
 
 import type { ScoreStatus, CourseType, GradeLetter } from '../../shared/types/common-types'
+import type { BackendScoreRange } from '../../shared/types/common-types'
 
 // ==================== 查询参数 ====================
 
@@ -186,11 +187,11 @@ export interface SemesterTrendPoint {
  *
  * @remarks
  * F3 后端返回的是 { range: "0-59", count: number } 格式
- * 前端展示时需转换为前端枚举类型
+ * 前端保留后端分段，避免 60-69 和 70-79 合并后产生重复 key。
  */
 export interface ScoreDistributionPoint {
-  /** 分数段（前端枚举） */
-  range: 'EXCELLENT' | 'GOOD' | 'PASS' | 'FAIL'
+  /** 分数段 */
+  range: BackendScoreRange
   /** 分数段标签 */
   rangeLabel: string
   /** 该分数段课程数 */

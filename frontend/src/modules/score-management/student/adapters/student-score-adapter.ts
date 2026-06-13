@@ -16,7 +16,6 @@ import type {
   StudentScoreAnalytics,
   ScoreListQuery,
   CourseTypeBreakdownPoint,
-  ScoreDistributionPoint,
 } from '../types/score-types'
 import type { BackendScoreRange } from '../../shared/types/common-types'
 import { COURSE_TYPE } from '../../shared/constants/score-constants'
@@ -221,25 +220,9 @@ export class StudentScoreAdapter {
   }
 
   private static adaptScoreDistribution(item: BackendScoreDistribution, total: number) {
-    const rangeMap: Record<BackendScoreRange, ScoreDistributionPoint['range']> = {
-      '90-100': 'EXCELLENT',
-      '80-89': 'GOOD',
-      '70-79': 'PASS',
-      '60-69': 'PASS',
-      '0-59': 'FAIL',
-    }
-
-    const range = rangeMap[item.range] ?? 'FAIL'
-    const labelMap: Record<string, string> = {
-      EXCELLENT: '优秀',
-      GOOD: '良好',
-      PASS: '及格',
-      FAIL: '不及格',
-    }
-
     return {
-      range,
-      rangeLabel: labelMap[range],
+      range: item.range,
+      rangeLabel: item.range,
       count: item.count,
       percentage: total > 0 ? Math.round((item.count / total) * 100) : 0,
     }
@@ -288,7 +271,7 @@ export function createMockScoreList(
       finalScore: 90,
       totalScore: 88,
       gradePoint: 3.7,
-      gradeLetter: 'A-',
+      gradeLetter: 'B',
       status: 'CONFIRMED',
       hasPendingModificationRequest: false,
       isEffective: true,
@@ -309,7 +292,7 @@ export function createMockScoreList(
       finalScore: 82,
       totalScore: 79,
       gradePoint: 3.0,
-      gradeLetter: 'B',
+      gradeLetter: 'C',
       status: 'CONFIRMED',
       hasPendingModificationRequest: false,
       isEffective: true,
@@ -329,8 +312,8 @@ export function createMockScoreList(
       midtermScore: 85,
       finalScore: 88,
       totalScore: 87,
-      gradePoint: 3.3,
-      gradeLetter: 'B+',
+      gradePoint: 3.7,
+      gradeLetter: 'B',
       status: 'CONFIRMED',
       hasPendingModificationRequest: false,
       isEffective: true,
@@ -350,8 +333,8 @@ export function createMockScoreList(
       midtermScore: 80,
       finalScore: 78,
       totalScore: 78,
-      gradePoint: 2.7,
-      gradeLetter: 'B-',
+      gradePoint: 3.0,
+      gradeLetter: 'C',
       status: 'SUBMITTED',
       hasPendingModificationRequest: false,
       isEffective: true,
@@ -372,7 +355,7 @@ export function createMockScoreList(
       finalScore: 74,
       totalScore: 72,
       gradePoint: 2.3,
-      gradeLetter: 'C+',
+      gradeLetter: 'C',
       status: 'CONFIRMED',
       hasPendingModificationRequest: false,
       isEffective: false,
@@ -393,7 +376,7 @@ export function createMockScoreList(
       finalScore: 68,
       totalScore: 68,
       gradePoint: 2.0,
-      gradeLetter: 'C',
+      gradeLetter: 'D',
       status: 'SUBMITTED',
       hasPendingModificationRequest: false,
       isEffective: true,
@@ -496,10 +479,11 @@ export function createMockScoreAnalytics(
       },
     ],
     scoreDistribution: [
-      { range: 'EXCELLENT', rangeLabel: '优秀', count: 1, percentage: 20 },
-      { range: 'GOOD', rangeLabel: '良好', count: 2, percentage: 40 },
-      { range: 'PASS', rangeLabel: '及格', count: 2, percentage: 40 },
-      { range: 'FAIL', rangeLabel: '不及格', count: 0, percentage: 0 },
+      { range: '90-100', rangeLabel: '90-100', count: 1, percentage: 20 },
+      { range: '80-89', rangeLabel: '80-89', count: 2, percentage: 40 },
+      { range: '70-79', rangeLabel: '70-79', count: 1, percentage: 20 },
+      { range: '60-69', rangeLabel: '60-69', count: 1, percentage: 20 },
+      { range: '0-59', rangeLabel: '0-59', count: 0, percentage: 0 },
     ],
     courseTypeBreakdown: [
       { courseType: 'REQUIRED', courseTypeLabel: '必修', earnedCredits: 15, averageScore: 78.25 },

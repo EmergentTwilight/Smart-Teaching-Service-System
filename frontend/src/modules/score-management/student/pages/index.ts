@@ -5,3 +5,4 @@
  */
 
 export { default as StudentScoreQueryPage } from './student-score-query-page'
+export { default as StudentScoreAnalyticsPage } from './student-score-analytics-page'

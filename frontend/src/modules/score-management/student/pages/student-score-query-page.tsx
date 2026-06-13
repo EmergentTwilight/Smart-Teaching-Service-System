@@ -9,13 +9,12 @@
  */
 
 import { useState, useMemo } from 'react'
-import { Row, Col, Space, Empty } from 'antd'
+import { Space } from 'antd'
 import type { ScoreItem, ScoreListQuery } from '../types/score-types'
 import { useStudentScores, useStudentScoreSummary, useStudentScoreAnalytics } from '../hooks'
 import { CreditProgressCard, GPASummaryCard } from '../components/gpa-summary'
 import { ScoreListFilters, ScoreListTable } from '../components/score-list'
 import { ScoreDetailDrawer } from '../components/score-detail'
-import { SemesterTrendChart, ScoreDistributionChart, CourseTypeBreakdownChart } from '../components/analytics'
 
 /**
  * 学生成绩查询页面
@@ -46,11 +45,7 @@ export default function StudentScoreQueryPage() {
   } = useStudentScoreSummary()
 
   // 获取成绩分析
-  const {
-    data: analyticsData,
-    isLoading: analyticsLoading,
-    error: analyticsError,
-  } = useStudentScoreAnalytics()
+  const { data: analyticsData } = useStudentScoreAnalytics()
 
   // 从分析数据中提取学期选项（包含所有学期，不受筛选影响）
   const semesterOptions = useMemo(() => {
@@ -59,16 +54,6 @@ export default function StudentScoreQueryPage() {
       value: item.semesterId,
       label: item.semesterName,
     }))
-  }, [analyticsData])
-
-  const hasAnalyticsContent = useMemo(() => {
-    if (!analyticsData) return false
-
-    return (
-      analyticsData.semesterTrend.length > 0 ||
-      analyticsData.scoreDistribution.some((item) => item.count > 0) ||
-      analyticsData.courseTypeBreakdown.length > 0
-    )
   }, [analyticsData])
 
   // 处理筛选条件变化
@@ -109,12 +94,6 @@ export default function StudentScoreQueryPage() {
           </div>
         )}
 
-        {analyticsError && (
-          <div style={{ padding: 16, background: '#fff2f0', border: '1px solid #ffccc7', borderRadius: 4 }}>
-            加载成绩分析失败：{analyticsError.message}
-          </div>
-        )}
-
         {/* GPA 摘要 */}
         {summaryData && (
           <>
@@ -122,27 +101,6 @@ export default function StudentScoreQueryPage() {
             <CreditProgressCard summary={summaryData} loading={summaryLoading} />
           </>
         )}
-
-        {/* 成绩分析 */}
-        {analyticsData && hasAnalyticsContent && (
-          <Row gutter={[16, 16]}>
-            <Col xs={24} lg={12}>
-              <SemesterTrendChart data={analyticsData.semesterTrend} loading={analyticsLoading} />
-            </Col>
-            <Col xs={24} lg={12}>
-              <ScoreDistributionChart data={analyticsData.scoreDistribution} loading={analyticsLoading} />
-            </Col>
-            <Col xs={24}>
-              <CourseTypeBreakdownChart data={analyticsData.courseTypeBreakdown} loading={analyticsLoading} />
-            </Col>
-          </Row>
-        )}
-
-        {analyticsData && !hasAnalyticsContent && (
-            <div style={{ background: '#fff', borderRadius: 8, padding: 24 }}>
-              <Empty description="暂无可分析的成绩数据" />
-            </div>
-          )}
 
         {/* 成绩列表 */}
         <div>

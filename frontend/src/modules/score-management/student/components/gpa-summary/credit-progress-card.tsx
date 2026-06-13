@@ -8,7 +8,7 @@
  * @module score-management/student/components/gpa-summary
  */
 
-import { Card, Col, Empty, Progress, Row, Statistic } from 'antd'
+import { Card, Col, Empty, Progress, Row, Statistic, Typography } from 'antd'
 import type { StudentScoreSummary } from '../../types/score-types'
 import { formatCredits } from '../../../shared/utils/score-formatter'
 
@@ -28,6 +28,7 @@ interface CreditProgressCardProps {
  */
 export function CreditProgressCard({ summary, loading }: CreditProgressCardProps) {
   const progress = summary.curriculumProgress
+  const statisticValueStyle = { fontSize: 20 }
 
   if (!progress) {
     return (
@@ -54,6 +55,7 @@ export function CreditProgressCard({ summary, loading }: CreditProgressCardProps
             value={completionPercent}
             precision={1}
             suffix="%"
+            valueStyle={statisticValueStyle}
           />
           <Progress percent={completionPercent} status={completionPercent >= 100 ? 'success' : 'active'} />
         </Col>
@@ -61,6 +63,7 @@ export function CreditProgressCard({ summary, loading }: CreditProgressCardProps
           <Statistic
             title="必修学分"
             value={`${formatCredits(progress.requiredPassedCredits)} / ${formatCredits(progress.requiredCredits)}`}
+            valueStyle={statisticValueStyle}
           />
           <Progress percent={Number(requiredPercent.toFixed(1))} strokeColor="#ff7875" />
         </Col>
@@ -68,6 +71,7 @@ export function CreditProgressCard({ summary, loading }: CreditProgressCardProps
           <Statistic
             title="选修学分"
             value={`${formatCredits(progress.electivePassedCredits)} / ${formatCredits(progress.electiveCredits)}`}
+            valueStyle={statisticValueStyle}
           />
           <Progress percent={Number(electivePercent.toFixed(1))} strokeColor="#69c0ff" />
         </Col>
@@ -76,16 +80,23 @@ export function CreditProgressCard({ summary, loading }: CreditProgressCardProps
             title="培养方案课程"
             value={`${progress.completedCurriculumCourseCount} / ${progress.curriculumCourseCount}`}
             suffix="门"
+            valueStyle={statisticValueStyle}
           />
         </Col>
         <Col xs={24} md={8}>
           <Statistic
             title="剩余应修学分"
             value={formatCredits(progress.remainingRequiredCredits)}
+            valueStyle={statisticValueStyle}
           />
         </Col>
         <Col xs={24} md={8}>
-          <Statistic title="培养方案" value={progress.curriculumName ?? '--'} />
+          <Typography.Text type="secondary">培养方案</Typography.Text>
+          <div style={{ marginTop: 4 }}>
+            <Typography.Text strong style={{ fontSize: 16, lineHeight: 1.5 }}>
+              {progress.curriculumName ?? '--'}
+            </Typography.Text>
+          </div>
         </Col>
       </Row>
     </Card>

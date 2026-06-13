@@ -163,7 +163,7 @@ describe('UsersController', () => {
 
       await usersController.create(req as Request, res as Response)
 
-      expect(usersService.createUser).toHaveBeenCalledWith(req.body)
+      expect(usersService.createUser).toHaveBeenCalledWith(req.body, req)
       expect(mockSuccess).toHaveBeenCalledWith(res, mockUser, '用户创建成功', 201)
     })
 
@@ -218,7 +218,7 @@ describe('UsersController', () => {
 
       await usersController.delete(req as Request, res as Response)
 
-      expect(usersService.deleteUser).toHaveBeenCalledWith('user-2')
+      expect(usersService.deleteUser).toHaveBeenCalledWith('user-2', req)
       expect(mockSuccess).toHaveBeenCalledWith(res, null, '用户已删除')
     })
 

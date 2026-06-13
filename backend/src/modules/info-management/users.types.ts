@@ -66,6 +66,7 @@ export const getUsersQuerySchema = z.preprocess(
     keyword: z.string().optional(),
     status: z.nativeEnum(UserStatus).optional(),
     role: z.string().optional(),
+    include_deleted: z.boolean().optional(),
   })
 )
 
@@ -145,18 +146,18 @@ export const batchCreateUsersSchema = z.object({
       z.preprocess(
         (input) => normalizeKeys(input, userFieldAliases),
         z.object({
-        username: z.string().min(3, '用户名至少3位').max(50, '用户名最多50位'),
-        password: z
-          .string()
-          .min(8, '密码至少8位')
-          .regex(/[A-Z]/, '密码必须包含大写字母')
-          .regex(/[a-z]/, '密码必须包含小写字母')
-          .regex(/[0-9]/, '密码必须包含数字'),
-        email: z.string().email('邮箱格式不正确').optional(),
-        phone: z.string().optional(),
-        realName: z.string().min(1, '姓名不能为空').max(50),
-        gender: z.nativeEnum(Gender).optional(),
-        roleIds: z.array(z.string()).optional(),
+          username: z.string().min(3, '用户名至少3位').max(50, '用户名最多50位'),
+          password: z
+            .string()
+            .min(8, '密码至少8位')
+            .regex(/[A-Z]/, '密码必须包含大写字母')
+            .regex(/[a-z]/, '密码必须包含小写字母')
+            .regex(/[0-9]/, '密码必须包含数字'),
+          email: z.string().email('邮箱格式不正确').optional(),
+          phone: z.string().optional(),
+          realName: z.string().min(1, '姓名不能为空').max(50),
+          gender: z.nativeEnum(Gender).optional(),
+          roleIds: z.array(z.string()).optional(),
         })
       )
     )
@@ -180,7 +181,8 @@ export const batchUpdateStatusSchema = z.preprocess(
       roleIds: z.array(z.string()).optional(),
     })
     .refine(
-      (data) => data.status !== undefined || (data.roleIds !== undefined && data.roleIds.length > 0),
+      (data) =>
+        data.status !== undefined || (data.roleIds !== undefined && data.roleIds.length > 0),
       {
         message: '至少需要提供状态或角色之一',
       }

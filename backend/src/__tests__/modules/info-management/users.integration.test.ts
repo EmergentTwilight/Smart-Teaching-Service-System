@@ -9,6 +9,7 @@
  * 注意：此测试只清理 itest_usvc_ 前缀的数据，不影响并行测试
  */
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
+import { Request } from 'express'
 import { PrismaClient } from '@prisma/client'
 import { hashPassword, comparePassword } from '../../../shared/utils/password.js'
 import { usersService } from '../../../modules/info-management/users.service.js'
@@ -102,6 +103,12 @@ async function createTestUser(overrides: Record<string, unknown> = {}) {
   return user
 }
 
+const mockReq = {
+  user: { userId: null },
+  ip: '127.0.0.1',
+  get: () => 'test-user-agent',
+} as unknown as Request
+
 beforeAll(async () => {
   // 连接数据库
   await prisma.$connect()
@@ -154,14 +161,17 @@ describe('UsersService Integration Tests', () => {
   describe('用户 CRUD', () => {
     describe('createUser', () => {
       it('应该成功创建用户并写入数据库', async () => {
-        const result = await usersService.createUser({
-          username: 'itest_usvc_newuser',
-          password: 'Password123',
-          realName: '新用户',
-          email: 'itest_usvc_newuser@test.com',
-          phone: '13800000001',
-          roleIds: [testRoleIds[0]],
-        })
+        const result = await usersService.createUser(
+          {
+            username: 'itest_usvc_newuser',
+            password: 'Password123',
+            realName: '新用户',
+            email: 'itest_usvc_newuser@test.com',
+            phone: '13800000001',
+            roleIds: [testRoleIds[0]],
+          },
+          mockReq
+        )
 
         // 验证返回值
         expect(result.username).toBe('itest_usvc_newuser')
@@ -188,11 +198,14 @@ describe('UsersService Integration Tests', () => {
 
         // 尝试创建同名用户
         await expect(
-          usersService.createUser({
-            username: 'itest_usvc_conflict',
-            password: 'Password123',
-            realName: '冲突用户',
-          })
+          usersService.createUser(
+            {
+              username: 'itest_usvc_conflict',
+              password: 'Password123',
+              realName: '冲突用户',
+            },
+            mockReq
+          )
         ).rejects.toBeInstanceOf(ConflictError)
       })
 
@@ -202,12 +215,15 @@ describe('UsersService Integration Tests', () => {
 
         // 尝试使用相同邮箱创建用户
         await expect(
-          usersService.createUser({
-            username: 'itest_usvc_another',
-            password: 'Password123',
-            realName: '另一个用户',
-            email: 'itest_usvc_conflict_email@test.com',
-          })
+          usersService.createUser(
+            {
+              username: 'itest_usvc_another',
+              password: 'Password123',
+              realName: '另一个用户',
+              email: 'itest_usvc_conflict_email@test.com',
+            },
+            mockReq
+          )
         ).rejects.toBeInstanceOf(ConflictError)
       })
     })
@@ -328,7 +344,7 @@ describe('UsersService Integration Tests', () => {
           username: 'itest_usvc_delete',
         })
 
-        await usersService.deleteUser(user.id)
+        await usersService.deleteUser(user.id, mockReq)
 
         // 验证数据库中已删除
         const dbUser = await prisma.user.findUnique({
@@ -339,7 +355,7 @@ describe('UsersService Integration Tests', () => {
       })
 
       it('用户不存在时应该抛出 NotFoundError', async () => {
-        await expect(usersService.deleteUser('non-existent-id')).rejects.toBeInstanceOf(
+        await expect(usersService.deleteUser('non-existent-id', mockReq)).rejects.toBeInstanceOf(
           NotFoundError
         )
       })
@@ -367,7 +383,7 @@ describe('UsersService Integration Tests', () => {
         })
 
         // 删除用户
-        await usersService.deleteUser(user.id)
+        await usersService.deleteUser(user.id, mockReq)
 
         // 验证级联删除
         const dbUser = await prisma.user.findUnique({

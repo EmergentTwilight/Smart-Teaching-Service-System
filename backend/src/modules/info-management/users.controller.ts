@@ -53,7 +53,7 @@ export const usersController = {
    */
   async create(req: Request, res: Response) {
     const data = createUserSchema.parse(req.body)
-    const user = await usersService.createUser(data)
+    const user = await usersService.createUser(data, req)
     success(res, user, '用户创建成功', 201)
   },
 
@@ -80,7 +80,7 @@ export const usersController = {
       throw new ValidationError('不能删除自己的账号')
     }
 
-    await usersService.deleteUser(id)
+    await usersService.deleteUser(id, req)
     success(res, null, '用户已删除')
   },
 

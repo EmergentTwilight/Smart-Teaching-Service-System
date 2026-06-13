@@ -310,6 +310,11 @@ describe('UsersService', () => {
 
   // ==================== createUser ====================
   describe('createUser', () => {
+    const mockReq = {
+      user: { userId: 'admin-1' },
+      ip: '127.0.0.1',
+      get: vi.fn().mockReturnValue('test-user-agent'),
+    } as unknown as Request
     it('应该成功创建用户', async () => {
       // createUser 内部调用顺序:
       // 1. findUnique (username check)
@@ -325,13 +330,16 @@ describe('UsersService', () => {
       prismaMock.user.create.mockResolvedValue(buildUser({ id: 'new-user' }))
       prismaMock.userRole.createMany.mockResolvedValue({ count: 1 })
 
-      const result = await usersService.createUser({
-        username: 'newuser',
-        password: 'Password123',
-        realName: 'New User',
-        email: 'newuser@example.com',
-        roleIds: ['role-1'],
-      })
+      const result = await usersService.createUser(
+        {
+          username: 'newuser',
+          password: 'Password123',
+          realName: 'New User',
+          email: 'newuser@example.com',
+          roleIds: ['role-1'],
+        },
+        mockReq
+      )
 
       expect(result.id).toBe('new-user')
       expect(passwordMock.hashPassword).toHaveBeenCalledWith('Password123')
@@ -341,11 +349,14 @@ describe('UsersService', () => {
       prismaMock.user.findUnique.mockResolvedValue(buildUser()) // username exists
 
       await expect(
-        usersService.createUser({
-          username: 'alice',
-          password: 'Password123',
-          realName: 'Alice',
-        })
+        usersService.createUser(
+          {
+            username: 'alice',
+            password: 'Password123',
+            realName: 'Alice',
+          },
+          mockReq
+        )
       ).rejects.toBeInstanceOf(ConflictError)
     })
 
@@ -358,12 +369,15 @@ describe('UsersService', () => {
         .mockResolvedValueOnce(buildUser({ email: 'existing@example.com' })) // email check - 冲突
 
       await expect(
-        usersService.createUser({
-          username: 'newuser',
-          password: 'Password123',
-          realName: 'New User',
-          email: 'existing@example.com',
-        })
+        usersService.createUser(
+          {
+            username: 'newuser',
+            password: 'Password123',
+            realName: 'New User',
+            email: 'existing@example.com',
+          },
+          mockReq
+        )
       ).rejects.toBeInstanceOf(ConflictError)
     })
   })

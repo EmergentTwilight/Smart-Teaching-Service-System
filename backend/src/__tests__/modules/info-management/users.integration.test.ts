@@ -161,14 +161,17 @@ describe('UsersService Integration Tests', () => {
   describe('用户 CRUD', () => {
     describe('createUser', () => {
       it('应该成功创建用户并写入数据库', async () => {
-        const result = await usersService.createUser({
-          username: 'itest_usvc_newuser',
-          password: 'Password123',
-          realName: '新用户',
-          email: 'itest_usvc_newuser@test.com',
-          phone: '13800000001',
-          roleIds: [testRoleIds[0]],
-        })
+        const result = await usersService.createUser(
+          {
+            username: 'itest_usvc_newuser',
+            password: 'Password123',
+            realName: '新用户',
+            email: 'itest_usvc_newuser@test.com',
+            phone: '13800000001',
+            roleIds: [testRoleIds[0]],
+          },
+          mockReq
+        )
 
         // 验证返回值
         expect(result.username).toBe('itest_usvc_newuser')
@@ -195,11 +198,14 @@ describe('UsersService Integration Tests', () => {
 
         // 尝试创建同名用户
         await expect(
-          usersService.createUser({
-            username: 'itest_usvc_conflict',
-            password: 'Password123',
-            realName: '冲突用户',
-          })
+          usersService.createUser(
+            {
+              username: 'itest_usvc_conflict',
+              password: 'Password123',
+              realName: '冲突用户',
+            },
+            mockReq
+          )
         ).rejects.toBeInstanceOf(ConflictError)
       })
 
@@ -209,12 +215,15 @@ describe('UsersService Integration Tests', () => {
 
         // 尝试使用相同邮箱创建用户
         await expect(
-          usersService.createUser({
-            username: 'itest_usvc_another',
-            password: 'Password123',
-            realName: '另一个用户',
-            email: 'itest_usvc_conflict_email@test.com',
-          })
+          usersService.createUser(
+            {
+              username: 'itest_usvc_another',
+              password: 'Password123',
+              realName: '另一个用户',
+              email: 'itest_usvc_conflict_email@test.com',
+            },
+            mockReq
+          )
         ).rejects.toBeInstanceOf(ConflictError)
       })
     })

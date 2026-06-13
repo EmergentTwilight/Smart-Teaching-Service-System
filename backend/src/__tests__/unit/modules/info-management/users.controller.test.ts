@@ -163,7 +163,7 @@ describe('UsersController', () => {
 
       await usersController.create(req as Request, res as Response)
 
-      expect(usersService.createUser).toHaveBeenCalledWith(req.body)
+      expect(usersService.createUser).toHaveBeenCalledWith(req.body, req)
       expect(mockSuccess).toHaveBeenCalledWith(res, mockUser, '用户创建成功', 201)
     })
 

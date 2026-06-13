@@ -285,7 +285,7 @@ export const usersService = {
   /**
    * 创建用户
    */
-  async createUser(data: CreateUserInput) {
+  async createUser(data: CreateUserInput, req: Request) {
     // 检查用户名是否存在
     const existingUser = await prisma.user.findUnique({
       where: { username: data.username },
@@ -309,21 +309,48 @@ export const usersService = {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { roleIds, password: _unusedPassword, ...userData } = data
 
-    const user = await prisma.user.create({
-      data: {
-        ...userData,
-        passwordHash: hashedPassword,
-      },
-    })
-
-    if (roleIds && roleIds.length > 0) {
-      await prisma.userRole.createMany({
-        data: roleIds.map((roleId) => ({
-          userId: user.id,
-          roleId,
-        })),
+    // 使用事务确保用户创建、角色分配和日志记录的一致性
+    const user = await prisma.$transaction(async (tx) => {
+      const newUser = await tx.user.create({
+        data: {
+          ...userData,
+          passwordHash: hashedPassword,
+        },
       })
-    }
+
+      if (roleIds && roleIds.length > 0) {
+        await tx.userRole.createMany({
+          data: roleIds.map((roleId) => ({
+            userId: newUser.id,
+            roleId,
+          })),
+        })
+      }
+
+      // 记录系统日志
+      await tx.systemLog.create({
+        data: {
+          userId: req.user?.userId,
+          action: 'create',
+          resourceType: 'user',
+          resourceId: newUser.id,
+          details: JSON.stringify({
+            id: newUser.id,
+            username: newUser.username,
+            email: newUser.email,
+            phone: newUser.phone,
+            real_name: newUser.realName,
+            gender: newUser.gender,
+            status: newUser.status,
+            role_ids: roleIds || [],
+          }),
+          ipAddress: req.ip,
+          userAgent: req.get('User-Agent'),
+        },
+      })
+
+      return newUser
+    })
 
     return this.getUserById(user.id)
   },

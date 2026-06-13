@@ -53,7 +53,7 @@ export const usersController = {
    */
   async create(req: Request, res: Response) {
     const data = createUserSchema.parse(req.body)
-    const user = await usersService.createUser(data)
+    const user = await usersService.createUser(data, req)
     success(res, user, '用户创建成功', 201)
   },
 

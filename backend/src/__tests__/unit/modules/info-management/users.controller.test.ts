@@ -218,7 +218,7 @@ describe('UsersController', () => {
 
       await usersController.delete(req as Request, res as Response)
 
-      expect(usersService.deleteUser).toHaveBeenCalledWith('user-2')
+      expect(usersService.deleteUser).toHaveBeenCalledWith('user-2', req)
       expect(mockSuccess).toHaveBeenCalledWith(res, null, '用户已删除')
     })
 

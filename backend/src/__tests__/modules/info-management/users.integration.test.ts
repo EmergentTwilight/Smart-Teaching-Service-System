@@ -9,6 +9,7 @@
  * 注意：此测试只清理 itest_usvc_ 前缀的数据，不影响并行测试
  */
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
+import { Request } from 'express'
 import { PrismaClient } from '@prisma/client'
 import { hashPassword, comparePassword } from '../../../shared/utils/password.js'
 import { usersService } from '../../../modules/info-management/users.service.js'
@@ -101,6 +102,12 @@ async function createTestUser(overrides: Record<string, unknown> = {}) {
 
   return user
 }
+
+const mockReq = {
+  user: { userId: null },
+  ip: '127.0.0.1',
+  get: () => 'test-user-agent',
+} as unknown as Request
 
 beforeAll(async () => {
   // 连接数据库
@@ -328,7 +335,7 @@ describe('UsersService Integration Tests', () => {
           username: 'itest_usvc_delete',
         })
 
-        await usersService.deleteUser(user.id)
+        await usersService.deleteUser(user.id, mockReq)
 
         // 验证数据库中已删除
         const dbUser = await prisma.user.findUnique({
@@ -339,7 +346,7 @@ describe('UsersService Integration Tests', () => {
       })
 
       it('用户不存在时应该抛出 NotFoundError', async () => {
-        await expect(usersService.deleteUser('non-existent-id')).rejects.toBeInstanceOf(
+        await expect(usersService.deleteUser('non-existent-id', mockReq)).rejects.toBeInstanceOf(
           NotFoundError
         )
       })
@@ -367,7 +374,7 @@ describe('UsersService Integration Tests', () => {
         })
 
         // 删除用户
-        await usersService.deleteUser(user.id)
+        await usersService.deleteUser(user.id, mockReq)
 
         // 验证级联删除
         const dbUser = await prisma.user.findUnique({

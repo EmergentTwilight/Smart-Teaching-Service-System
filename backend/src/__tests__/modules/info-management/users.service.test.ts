@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { Request } from 'express'
 import { ConflictError, NotFoundError, ValidationError } from '@stss/shared'
 import type { Gender, UserStatus } from '@prisma/client'
 
@@ -41,6 +42,7 @@ const prismaMock = vi.hoisted(() => ({
   systemLog: {
     findMany: vi.fn(),
     count: vi.fn(),
+    create: vi.fn(),
   },
   $transaction: vi.fn(),
 }))
@@ -125,6 +127,7 @@ beforeEach(() => {
           create: prismaMock.user.create,
           update: prismaMock.user.update,
           updateMany: prismaMock.user.updateMany,
+          delete: prismaMock.user.delete,
         },
         userRole: {
           createMany: prismaMock.userRole.createMany,
@@ -133,6 +136,10 @@ beforeEach(() => {
         },
         refreshToken: {
           updateMany: prismaMock.refreshToken.updateMany,
+          deleteMany: prismaMock.refreshToken.deleteMany,
+        },
+        systemLog: {
+          create: prismaMock.systemLog.create,
         },
       }
       return input(tx)
@@ -408,22 +415,33 @@ describe('UsersService', () => {
 
   // ==================== deleteUser ====================
   describe('deleteUser', () => {
-    it('应该成功删除用户', async () => {
-      prismaMock.user.findUnique.mockResolvedValue(buildUser())
+    const mockReq = {
+      user: { userId: 'admin-1' },
+      ip: '127.0.0.1',
+      get: vi.fn().mockReturnValue('test-user-agent'),
+    } as unknown as Request
+
+    it('应该成功删除用户并记录日志', async () => {
+      const userWithRoles = buildUserWithRoles()
+      prismaMock.user.findUnique.mockResolvedValue(userWithRoles)
+      prismaMock.refreshToken.deleteMany.mockResolvedValue({ count: 0 })
       prismaMock.user.delete.mockResolvedValue(buildUser())
 
-      await usersService.deleteUser('user-1')
+      await usersService.deleteUser('user-1', mockReq)
 
       expect(prismaMock.user.delete).toHaveBeenCalledWith({
         where: { id: 'user-1' },
       })
+      expect(prismaMock.systemLog.create).toHaveBeenCalled()
     })
 
     it('用户不存在应该抛出 NotFoundError', async () => {
       prismaMock.user.findUnique.mockResolvedValue(null)
 
-      await expect(usersService.deleteUser('missing-user')).rejects.toBeInstanceOf(NotFoundError)
-      await expect(usersService.deleteUser('missing-user')).rejects.toThrow('用户不存在')
+      await expect(usersService.deleteUser('missing-user', mockReq)).rejects.toBeInstanceOf(
+        NotFoundError
+      )
+      await expect(usersService.deleteUser('missing-user', mockReq)).rejects.toThrow('用户不存在')
     })
   })
 

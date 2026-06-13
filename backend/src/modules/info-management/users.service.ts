@@ -3,6 +3,7 @@
  * 处理用户 CRUD 和系统日志查询
  */
 import prisma from '../../shared/prisma/client.js'
+import { Request } from 'express'
 import { hashPassword, comparePassword } from '../../shared/utils/password.js'
 import { NotFoundError, ConflictError, ValidationError, ForbiddenError } from '@stss/shared'
 import type {
@@ -18,13 +19,12 @@ import type {
   AssignRolesInput,
 } from './users.types.js'
 import type { Prisma, Gender } from '@prisma/client'
-
 export const usersService = {
   /**
    * 获取用户列表（分页）
    */
   async getUsers(query: GetUsersQuery) {
-    const { page, pageSize, keyword, status, role } = query
+    const { page, pageSize, keyword, status, role, include_deleted } = query
     const skip = (page - 1) * pageSize
 
     const where: Prisma.UserWhereInput = {}
@@ -83,13 +83,80 @@ export const usersService = {
       updated_at: user.updatedAt,
     }))
 
+    let deletedTotal = 0
+
+    // 如果 include_deleted 为 true，从系统日志中查询已删除的用户
+    if (include_deleted) {
+      const deleteLogs = await prisma.systemLog.findMany({
+        where: {
+          action: 'delete',
+          resourceType: 'user',
+        },
+        orderBy: { createdAt: 'desc' },
+      })
+
+      const deletedItems: Array<{
+        id: string
+        username: string
+        email: string | null
+        phone: string | null
+        real_name: string
+        avatar_url: string | null
+        gender: Gender | null
+        status: string
+        roles: string[]
+        last_login_at: string | null
+        created_at: string
+        updated_at: string
+        deleted_at: Date
+      }> = []
+
+      for (const log of deleteLogs) {
+        if (!log.details) continue
+        try {
+          const details = typeof log.details === 'string' ? JSON.parse(log.details) : log.details
+          // 应用 keyword 过滤
+          if (keyword) {
+            const kw = keyword.toLowerCase()
+            const matchKeyword =
+              details.username?.toLowerCase().includes(kw) ||
+              details.real_name?.toLowerCase().includes(kw) ||
+              details.email?.toLowerCase().includes(kw)
+            if (!matchKeyword) continue
+          }
+          deletedItems.push({
+            id: details.id,
+            username: details.username,
+            email: details.email ?? null,
+            phone: details.phone ?? null,
+            real_name: details.real_name,
+            avatar_url: details.avatar_url ?? null,
+            gender: details.gender ?? null,
+            status: 'DELETED',
+            roles: details.roles || [],
+            last_login_at: details.last_login_at ?? null,
+            created_at: details.created_at,
+            updated_at: details.updated_at,
+            deleted_at: log.createdAt,
+          })
+        } catch {
+          // JSON 解析失败，跳过该条记录
+        }
+      }
+
+      deletedTotal = deletedItems.length
+      items.push(...(deletedItems as unknown as typeof items))
+    }
+
+    const finalTotal = total + deletedTotal
+
     return {
       items,
       pagination: {
         page,
         page_size: pageSize,
-        total,
-        total_pages: Math.ceil(total / pageSize),
+        total: finalTotal,
+        total_pages: Math.ceil(finalTotal / pageSize),
       },
     }
   },
@@ -327,26 +394,77 @@ export const usersService = {
   /**
    * 删除用户
    */
-  async deleteUser(id: string) {
+  async deleteUser(id: string, req: Request) {
+    // 在事务外先查询用户完整信息，用于存入日志 details
     const user = await prisma.user.findUnique({
       where: { id },
+      include: {
+        userRoles: {
+          include: {
+            role: true,
+          },
+        },
+        student: {
+          include: {
+            major: { select: { id: true, name: true } },
+          },
+        },
+        teacher: {
+          include: {
+            department: { select: { id: true, name: true } },
+          },
+        },
+        admin: {
+          include: {
+            department: { select: { id: true, name: true } },
+          },
+        },
+      },
     })
 
     if (!user) {
       throw new NotFoundError('用户不存在')
     }
 
-    // 使用事务确保：先吊销 token，再删除用户（会级联删除 userRoles）
-    await prisma.$transaction([
+    // 构造被删除用户的快照信息
+    const deletedUserSnapshot = {
+      id: user.id,
+      username: user.username,
+      email: user.email,
+      phone: user.phone,
+      real_name: user.realName,
+      avatar_url: user.avatarUrl,
+      gender: user.gender,
+      status: user.status,
+      roles: user.userRoles.map((ur) => ur.role.code),
+      last_login_at: user.lastLoginAt,
+      created_at: user.createdAt,
+      updated_at: user.updatedAt,
+    }
+
+    // 使用事务确保：先吊销 token，再删除用户（会级联删除 userRoles），最后记录日志
+    await prisma.$transaction(async (tx) => {
       // 删除该用户的所有 refresh token
-      prisma.refreshToken.deleteMany({
+      await tx.refreshToken.deleteMany({
         where: { userId: id },
-      }),
+      })
       // 删除用户（会级联删除 userRoles）
-      prisma.user.delete({
+      await tx.user.delete({
         where: { id },
-      }),
-    ])
+      })
+      // 记录系统日志，将被删除用户的信息存入 details
+      await tx.systemLog.create({
+        data: {
+          userId: req.user?.userId,
+          action: 'delete',
+          resourceType: 'user',
+          resourceId: id,
+          details: JSON.stringify(deletedUserSnapshot),
+          ipAddress: req.ip,
+          userAgent: req.get('User-Agent'),
+        },
+      })
+    })
   },
 
   /**

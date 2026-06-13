@@ -80,7 +80,7 @@ export const usersController = {
       throw new ValidationError('不能删除自己的账号')
     }
 
-    await usersService.deleteUser(id)
+    await usersService.deleteUser(id, req)
     success(res, null, '用户已删除')
   },
 

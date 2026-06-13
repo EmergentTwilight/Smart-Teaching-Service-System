@@ -27,6 +27,49 @@ const hasAnyRole = (roles: string[], expectedRoles: string[]) => {
   return roles.some((role) => expectedRoles.includes(role))
 }
 
+const assertAdmin = (roles: string[]) => {
+  if (!hasAnyRole(roles, ['admin', 'super_admin'])) {
+    throw new ForbiddenError('仅管理员可处理成绩修改申请')
+  }
+}
+
+const round2 = (value: number): number => Math.round((value + Number.EPSILON) * 100) / 100
+
+const calcTotalScore = (
+  usualScore: number | null,
+  midtermScore: number | null,
+  finalScore: number | null
+): number | null => {
+  if (usualScore === null || midtermScore === null || finalScore === null) {
+    return null
+  }
+
+  return round2(usualScore * 0.3 + midtermScore * 0.2 + finalScore * 0.5)
+}
+
+const calcGradePoint = (totalScore: number | null): number | null => {
+  if (totalScore === null) return null
+  if (totalScore >= 90) return 4
+  if (totalScore >= 85) return 3.7
+  if (totalScore >= 82) return 3.3
+  if (totalScore >= 78) return 3
+  if (totalScore >= 75) return 2.7
+  if (totalScore >= 72) return 2.3
+  if (totalScore >= 68) return 2
+  if (totalScore >= 64) return 1.5
+  if (totalScore >= 60) return 1
+  return 0
+}
+
+const calcGradeLetter = (totalScore: number | null): string | null => {
+  if (totalScore === null) return null
+  if (totalScore >= 90) return 'A'
+  if (totalScore >= 80) return 'B'
+  if (totalScore >= 70) return 'C'
+  if (totalScore >= 60) return 'D'
+  return 'F'
+}
+
 // 统一转换为 number 或 null，方便后续处理
 const toNumber = (value: Prisma.Decimal | number | null | undefined): number | null => {
   if (value === null || value === undefined) {
@@ -41,12 +84,16 @@ const toScoreSnapshot = (score: {
   midtermScore: Prisma.Decimal | number | null
   finalScore: Prisma.Decimal | number | null
   totalScore: Prisma.Decimal | number | null
+  gradePoint: Prisma.Decimal | number | null
+  gradeLetter: string | null
 }): ScoreSnapshot => {
   return {
     usualScore: toNumber(score.usualScore),
     midtermScore: toNumber(score.midtermScore),
     finalScore: toNumber(score.finalScore),
     totalScore: toNumber(score.totalScore),
+    gradePoint: toNumber(score.gradePoint),
+    gradeLetter: score.gradeLetter,
   }
 }
 
@@ -66,6 +113,8 @@ const toScoreSnapshotFromJson = (value: Prisma.JsonValue): ScoreSnapshot => {
       midtermScore: null,
       finalScore: null,
       totalScore: null,
+      gradePoint: null,
+      gradeLetter: null,
     }
   }
 
@@ -75,6 +124,8 @@ const toScoreSnapshotFromJson = (value: Prisma.JsonValue): ScoreSnapshot => {
     midtermScore: toNullableNumber(json.midtermScore),
     finalScore: toNullableNumber(json.finalScore),
     totalScore: toNullableNumber(json.totalScore),
+    gradePoint: toNullableNumber(json.gradePoint),
+    gradeLetter: typeof json.gradeLetter === 'string' ? json.gradeLetter : null,
   }
 }
 
@@ -107,33 +158,19 @@ const buildUpdatedSnapshot = (
   current: ScoreSnapshot,
   changes: ScoreModificationRequestPayload['proposedChanges']
 ): ScoreSnapshot => {
-  return {
-    usualScore: changes.usualScore ?? current.usualScore,
-    midtermScore: changes.midtermScore ?? current.midtermScore,
-    finalScore: changes.finalScore ?? current.finalScore,
-    totalScore: changes.totalScore ?? current.totalScore,
-  }
-}
+  const usualScore = changes.usualScore ?? current.usualScore
+  const midtermScore = changes.midtermScore ?? current.midtermScore
+  const finalScore = changes.finalScore ?? current.finalScore
+  const totalScore = calcTotalScore(usualScore, midtermScore, finalScore)
 
-// 把 proposedChanges 转成 Prisma 的更新对象，仅更新传入字段
-const toScoreUpdateData = (
-  changes: ScoreModificationRequestPayload['proposedChanges']
-): Prisma.ScoreUpdateManyMutationInput => {
-  const data: Prisma.ScoreUpdateManyMutationInput = {}
-  if (changes.usualScore !== undefined) {
-    data.usualScore = changes.usualScore
+  return {
+    usualScore,
+    midtermScore,
+    finalScore,
+    totalScore,
+    gradePoint: calcGradePoint(totalScore),
+    gradeLetter: calcGradeLetter(totalScore),
   }
-  if (changes.midtermScore !== undefined) {
-    data.midtermScore = changes.midtermScore
-  }
-  if (changes.finalScore !== undefined) {
-    data.finalScore = changes.finalScore
-  }
-  if (changes.totalScore !== undefined) {
-    // 仅更新申请中明确传入的 totalScore 字段，保持“部分更新”语义。
-    data.totalScore = changes.totalScore
-  }
-  return data
 }
 
 // 核心业务逻辑实现，负责所有修改成绩的操作
@@ -243,8 +280,11 @@ export const scoreModificationService = {
 
   // 管理员获取待审批申请列表
   async getPendingModificationRequests(
-    query: GetPendingModificationRequestsQuery
+    query: GetPendingModificationRequestsQuery,
+    requesterRoles: string[]
   ): Promise<PendingModificationRequestsResult> {
+    assertAdmin(requesterRoles)
+
     const { page, pageSize, courseOfferingId, teacherId } = query
     const skip = (page - 1) * pageSize
 
@@ -345,8 +385,11 @@ export const scoreModificationService = {
   async approveModificationRequest(
     scoreId: string,
     approverId: string,
+    approverRoles: string[],
     input: ApproveModificationRequestInput
   ) {
+    assertAdmin(approverRoles)
+
     return prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       // 读取原成绩和申请，并申请新旧快照
       const score = await tx.score.findUnique({
@@ -359,6 +402,8 @@ export const scoreModificationService = {
           midtermScore: true,
           finalScore: true,
           totalScore: true,
+          gradePoint: true,
+          gradeLetter: true,
         },
       })
 
@@ -383,7 +428,13 @@ export const scoreModificationService = {
           modificationRequest: score.modificationRequest,
         },
         data: {
-          ...toScoreUpdateData(request.proposedChanges),
+          usualScore: newSnapshot.usualScore,
+          midtermScore: newSnapshot.midtermScore,
+          finalScore: newSnapshot.finalScore,
+          totalScore: newSnapshot.totalScore,
+          gradePoint: newSnapshot.gradePoint,
+          gradeLetter: newSnapshot.gradeLetter,
+          status: 'CONFIRMED',
           modifiedAt: now,
           modifiedBy: approverId,
           modificationRequest: null,
@@ -425,7 +476,7 @@ export const scoreModificationService = {
 
       return {
         scoreId,
-        status: score.status,
+        status: 'CONFIRMED' as const,
         modifiedAt: now,
         modifiedBy: approverId,
         oldValue: oldSnapshot,
@@ -438,8 +489,11 @@ export const scoreModificationService = {
   async rejectModificationRequest(
     scoreId: string,
     approverId: string,
+    approverRoles: string[],
     input: RejectModificationRequestInput
   ) {
+    assertAdmin(approverRoles)
+
     return prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       // 读取原成绩和申请，检查状态，并解析申请内容
       const score = await tx.score.findUnique({

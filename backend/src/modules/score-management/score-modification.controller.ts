@@ -34,8 +34,7 @@ const handleControllerError = (res: Response, err: unknown, fallbackMessage: str
     return error(res, err.message, err.statusCode)
   }
 
-  const message = err instanceof Error ? err.message : fallbackMessage // #Todo: fallbackMessage 应该是个常量，或者直接写成 '操作失败' 之类的
-  return error(res, message, 400)
+  return error(res, fallbackMessage, 500)
 }
 
 // 统一对外接口，功能上区分于 Service 层
@@ -67,7 +66,8 @@ export const scoreModificationController = {
   async getPendingRequests(req: Request, res: Response) {
     try {
       const query = req.query as unknown as GetPendingModificationRequestsQuery
-      const result = await scoreModificationService.getPendingModificationRequests(query)
+      const roles = req.user?.roles ?? []
+      const result = await scoreModificationService.getPendingModificationRequests(query, roles)
       return paginated(res, result.items, toPaginationMeta(result.pagination))
     } catch (err) {
       return handleControllerError(res, err, '获取待处理申请失败')
@@ -78,6 +78,7 @@ export const scoreModificationController = {
     try {
       const scoreId = req.params.scoreId as string
       const userId = req.user?.userId
+      const roles = req.user?.roles ?? []
       if (!userId) {
         return error(res, '未认证', 401)
       }
@@ -86,6 +87,7 @@ export const scoreModificationController = {
       const result = await scoreModificationService.approveModificationRequest(
         scoreId,
         userId,
+        roles,
         input
       )
       return success(res, result, '审批通过')
@@ -98,6 +100,7 @@ export const scoreModificationController = {
     try {
       const scoreId = req.params.scoreId as string
       const userId = req.user?.userId
+      const roles = req.user?.roles ?? []
       if (!userId) {
         return error(res, '未认证', 401)
       }
@@ -106,6 +109,7 @@ export const scoreModificationController = {
       const result = await scoreModificationService.rejectModificationRequest(
         scoreId,
         userId,
+        roles,
         input
       )
       return success(res, result, '审批驳回成功')

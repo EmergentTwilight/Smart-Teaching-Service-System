@@ -1,11 +1,5 @@
-import type { CourseType, ScoreStatus } from '../types/common-types'
-import {
-  COURSE_TYPE,
-  PASSING_SCORE,
-  SCORE_RANGES,
-  SCORE_STATUS,
-  getGradeLetter,
-} from '../constants/score-constants'
+import type { CourseType, GradeLetter, ScoreStatus } from '../types/common-types'
+import { COURSE_TYPE, PASSING_SCORE, SCORE_RANGES, SCORE_STATUS } from '../constants/score-constants'
 
 export function formatScore(score: number | null, placeholder = '--'): string {
   return score === null ? placeholder : `${score}`
@@ -26,8 +20,8 @@ export function formatPassingStatus(score: number | null): string {
   return score >= PASSING_SCORE ? '及格' : '不及格'
 }
 
-export function formatGradeLetter(score: number | null): string {
-  return score === null ? '--' : getGradeLetter(score)
+export function formatGradeLetter(letter: GradeLetter | null): string {
+  return letter ?? '--'
 }
 
 export function formatGradePoint(point: number | null): string {

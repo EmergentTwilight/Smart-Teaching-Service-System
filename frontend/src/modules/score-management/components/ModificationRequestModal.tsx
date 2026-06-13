@@ -1,7 +1,11 @@
-import { Form, Input, InputNumber, Modal, Space, Typography } from 'antd';
+import { Form, Input, InputNumber, Modal, Space, Typography, message } from 'antd';
 import { useEffect } from 'react';
 import { SCORE_LIMITS } from '../shared';
-import type { ModificationRequestPayload, TeacherScoreRow } from '../teacher/types';
+import type {
+  ModificationRequestPayload,
+  ProposedScoreChanges,
+  TeacherScoreRow,
+} from '../teacher/types';
 
 interface ModificationRequestModalProps {
   open: boolean;
@@ -16,6 +20,25 @@ interface FormValues {
   midtermScore: number | null;
   finalScore: number | null;
   reason: string;
+}
+
+const SCORE_FIELDS = ['usualScore', 'midtermScore', 'finalScore'] as const;
+
+/**
+ * 只挑出"相对原成绩确实发生变化、且非空"的分数字段，
+ * 与 F2 后端 proposedChanges「至少一项」的校验对齐，避免把未改动的原值一并提交。
+ */
+function buildProposedChanges(values: FormValues, row: TeacherScoreRow): ProposedScoreChanges {
+  const changes: ProposedScoreChanges = {};
+
+  for (const field of SCORE_FIELDS) {
+    const next = values[field];
+    if (typeof next === 'number' && next !== row[field]) {
+      changes[field] = next;
+    }
+  }
+
+  return changes;
 }
 
 export function ModificationRequestModal({
@@ -41,8 +64,19 @@ export function ModificationRequestModal({
   }, [form, open, row]);
 
   const handleOk = async () => {
+    if (!row) {
+      return;
+    }
+
     const values = await form.validateFields();
-    await onSubmit(values);
+    const proposedChanges = buildProposedChanges(values, row);
+
+    if (Object.keys(proposedChanges).length === 0) {
+      message.warning('请至少修改一项分数后再提交申请');
+      return;
+    }
+
+    await onSubmit({ proposedChanges, reason: values.reason });
     form.resetFields();
   };
 
@@ -59,7 +93,7 @@ export function ModificationRequestModal({
     >
       <Space direction="vertical" size={16} style={{ width: '100%' }}>
         <Typography.Text type="secondary">
-          已提交或已确认的成绩不能直接改分，需要通过申请流程处理。当前页面只先打通前端表单和请求结构。
+          已提交或已确认的成绩不能直接修改，需提交改分申请，由管理员审批后生效。仅修改了的分数项会进入申请。
         </Typography.Text>
 
         <Form<FormValues> layout="vertical" form={form}>

@@ -54,113 +54,51 @@ function getGradeLetter(value: unknown): GradeLetter {
 }
 
 function pickRecords(data: unknown): UnknownRecord[] {
-  if (Array.isArray(data)) {
-    return data.filter(isRecord)
-  }
-
-  if (!isRecord(data)) {
-    return []
-  }
-
-  const candidates = [data.records, data.items, data.list, data.rows]
-
-  for (const candidate of candidates) {
-    if (Array.isArray(candidate)) {
-      return candidate.filter(isRecord)
-    }
-  }
-
+  if (!isRecord(data)) return []
+  if (Array.isArray(data.items)) return data.items.filter(isRecord)
+  if (Array.isArray(data.rows)) return data.rows.filter(isRecord)
   return []
 }
 
 function pickPagination(data: unknown, params?: CourseScoresQueryParams): CourseScoresPagination {
-  if (!isRecord(data)) {
-    return {
-      page: params?.page ?? 1,
-      pageSize: params?.pageSize ?? DEFAULT_PAGE_SIZE,
-      total: 0,
-    }
-  }
-
-  const nestedPagination = isRecord(data.pagination) ? data.pagination : null
-  const page = getNumber(data.page) ?? getNumber(nestedPagination?.page) ?? params?.page ?? 1
-  const pageSize =
-    getNumber(data.pageSize) ??
-    getNumber(nestedPagination?.pageSize) ??
-    params?.pageSize ??
-    DEFAULT_PAGE_SIZE
-  const total =
-    getNumber(data.total) ??
-    getNumber(nestedPagination?.total) ??
-    getNumber(data.count) ??
-    (Array.isArray(data.records)
-      ? data.records.length
-      : Array.isArray(data.items)
-        ? data.items.length
-        : 0)
-
+  const nested = isRecord(data) && isRecord((data as UnknownRecord).pagination)
+    ? (data as UnknownRecord).pagination as UnknownRecord
+    : null
   return {
-    page,
-    pageSize,
-    total,
+    page: getNumber(nested?.page) ?? params?.page ?? 1,
+    pageSize: getNumber(nested?.pageSize) ?? params?.pageSize ?? DEFAULT_PAGE_SIZE,
+    total: getNumber(nested?.total) ?? 0,
   }
-}
-
-function deriveStatus(rawStatus: string | null, record: UnknownRecord): TeacherScoreStatus {
-  if (rawStatus && isValidScoreStatus(rawStatus)) {
-    return rawStatus
-  }
-
-  const scores = isRecord(record.scores) ? record.scores : null
-  const hasAnyScore =
-    getNumber(record.usualScore) !== null ||
-    getNumber(record.midtermScore) !== null ||
-    getNumber(record.finalScore) !== null ||
-    getNumber(record.totalScore) !== null ||
-    getNumber(scores?.usualScore) !== null ||
-    getNumber(scores?.midtermScore) !== null ||
-    getNumber(scores?.finalScore) !== null ||
-    getNumber(scores?.totalScore) !== null
-
-  return hasAnyScore ? 'DRAFT' : 'EMPTY'
 }
 
 function normalizeRow(record: UnknownRecord, courseOfferingId: string): TeacherScoreRow {
-  const student = isRecord(record.student) ? record.student : {}
-  const scores = isRecord(record.scores) ? record.scores : {}
-  const grade = isRecord(record.grade) ? record.grade : {}
-  const entry = isRecord(record.entry) ? record.entry : {}
-
   const enrollmentId =
     getString(record.enrollmentId) ??
-    getString(record.id) ??
-    getString(student.enrollmentId) ??
-    `${courseOfferingId}-${getString(student.studentNumber) ?? Math.random().toString(36).slice(2, 8)}`
+    `${courseOfferingId}-${getString(record.studentNumber) ?? Math.random().toString(36).slice(2, 8)}`
 
   const rawStatus = getString(record.status)
+  const status: TeacherScoreStatus =
+    rawStatus === 'EMPTY' || isValidScoreStatus(rawStatus ?? '') ? (rawStatus as TeacherScoreStatus) : 'EMPTY'
 
   return {
     id: enrollmentId,
-    scoreId: getString(record.scoreId) ?? getString(record.id),
+    scoreId: getString(record.scoreId),
     enrollmentId,
     courseOfferingId,
-    studentId: getString(record.studentId) ?? getString(student.id) ?? '',
-    studentNumber: getString(record.studentNumber) ?? getString(student.studentNumber) ?? '--',
-    studentName: getString(record.studentName) ?? getString(student.name) ?? '未命名学生',
-    className: getString(record.className) ?? getString(student.className),
-    usualScore: getNumber(record.usualScore) ?? getNumber(scores.usualScore),
-    midtermScore: getNumber(record.midtermScore) ?? getNumber(scores.midtermScore),
-    finalScore: getNumber(record.finalScore) ?? getNumber(scores.finalScore),
-    totalScore: getNumber(record.totalScore) ?? getNumber(scores.totalScore),
-    gradePoint: getNumber(record.gradePoint) ?? getNumber(grade.point),
-    gradeLetter: getGradeLetter(record.gradeLetter) ?? getGradeLetter(grade.letter),
-    status: deriveStatus(rawStatus, record),
-    hasPendingModificationRequest:
-      getBoolean(record.hasPendingModificationRequest) ||
-      getBoolean(record.hasPendingRequest) ||
-      getBoolean(record.pendingModificationRequest),
-    enteredAt: getString(record.enteredAt) ?? getString(entry.enteredAt),
-    modifiedAt: getString(record.modifiedAt) ?? getString(entry.modifiedAt),
+    studentId: getString(record.studentId) ?? '',
+    studentNumber: getString(record.studentNumber) ?? '--',
+    studentName: getString(record.studentName) ?? '未命名学生',
+    className: getString(record.className),
+    usualScore: getNumber(record.usualScore),
+    midtermScore: getNumber(record.midtermScore),
+    finalScore: getNumber(record.finalScore),
+    totalScore: getNumber(record.totalScore),
+    gradePoint: getNumber(record.gradePoint),
+    gradeLetter: getGradeLetter(record.gradeLetter),
+    status,
+    hasPendingModificationRequest: getBoolean(record.hasPendingModificationRequest),
+    enteredAt: getString(record.enteredAt),
+    modifiedAt: getString(record.modifiedAt),
   }
 }
 
@@ -173,10 +111,7 @@ export function normalizeCourseScoresResult(
 
   return {
     rows,
-    pagination: {
-      ...pickPagination(data, params),
-      total: pickPagination(data, params).total || rows.length,
-    },
+    pagination: pickPagination(data, params),
   }
 }
 

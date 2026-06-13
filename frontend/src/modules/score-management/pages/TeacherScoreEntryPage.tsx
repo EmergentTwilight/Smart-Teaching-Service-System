@@ -1,16 +1,18 @@
-import { Alert, Card, Space, Typography, message } from 'antd';
+import { Alert, Space, message } from 'antd';
 import type { Key } from 'react';
 import { useEffect, useState } from 'react';
 import { CourseOfferingSelector } from '../components/CourseOfferingSelector';
 import { ModificationRequestModal } from '../components/ModificationRequestModal';
 import { ScoreBatchToolbar } from '../components/ScoreBatchToolbar';
 import { ScoreEntryTable } from '../components/ScoreEntryTable';
+import { ScoreFilterBar } from '../components/ScoreFilterBar';
 import { useCourseScores } from '../hooks/use-course-scores';
 import type {
   CourseScoresPagination,
   DraftScorePatch,
   ModificationRequestPayload,
   TeacherScoreRow,
+  TeacherScoreStatus,
 } from '../teacher/types';
 import {
   buildDraftPayload,
@@ -26,6 +28,8 @@ export default function TeacherScoreEntryPage() {
   const [courseOfferingId, setCourseOfferingId] = useState('');
   const [selectedRowKeys, setSelectedRowKeys] = useState<Key[]>([]);
   const [draftValues, setDraftValues] = useState<Record<string, DraftScorePatch>>({});
+  const [keyword, setKeyword] = useState('');
+  const [filterStatus, setFilterStatus] = useState<TeacherScoreStatus | ''>('');
   const [activeModificationRow, setActiveModificationRow] = useState<TeacherScoreRow | null>(null);
   const [paginationParams, setPaginationParams] = useState<CourseScoresPagination>({
     page: 1,
@@ -46,6 +50,8 @@ export default function TeacherScoreEntryPage() {
   } = useCourseScores(courseOfferingId, {
     page: paginationParams.page,
     pageSize: paginationParams.pageSize,
+    keyword: keyword || undefined,
+    status: filterStatus || undefined,
   });
 
   useEffect(() => {
@@ -60,6 +66,8 @@ export default function TeacherScoreEntryPage() {
   useEffect(() => {
     setSelectedRowKeys([]);
     setDraftValues({});
+    setKeyword('');
+    setFilterStatus('');
   }, [courseOfferingId]);
 
   const mergedRows = rows.map((row) => ({
@@ -79,6 +87,16 @@ export default function TeacherScoreEntryPage() {
 
     setPaginationParams((current) => ({ ...current, page: 1 }));
     setCourseOfferingId(value);
+  };
+
+  const handleKeywordChange = (value: string) => {
+    setKeyword(value);
+    setPaginationParams((current) => ({ ...current, page: 1 }));
+  };
+
+  const handleFilterStatusChange = (value: TeacherScoreStatus | '') => {
+    setFilterStatus(value);
+    setPaginationParams((current) => ({ ...current, page: 1 }));
   };
 
   const handleDraftChange = (enrollmentId: string, patch: DraftScorePatch) => {
@@ -188,14 +206,6 @@ export default function TeacherScoreEntryPage() {
         onSubmit={handleLoadCourseScores}
       />
 
-      <Card>
-        <Space direction="vertical" size={12} style={{ width: '100%' }}>
-          <Typography.Text type="secondary">
-            已覆盖的前端能力：列表展示、成绩编辑、草稿保存、提交、改分申请、共享类型与工具层。
-          </Typography.Text>
-        </Space>
-      </Card>
-
       {error ? (
         <Alert
           type="error"
@@ -204,6 +214,14 @@ export default function TeacherScoreEntryPage() {
           description={error instanceof Error ? error.message : '请检查接口或登录状态'}
         />
       ) : null}
+
+      <ScoreFilterBar
+        keyword={keyword}
+        status={filterStatus}
+        disabled={!courseOfferingId}
+        onKeywordChange={handleKeywordChange}
+        onStatusChange={handleFilterStatusChange}
+      />
 
       <ScoreBatchToolbar
         selectedCount={selectedRowKeys.length}
@@ -229,6 +247,7 @@ export default function TeacherScoreEntryPage() {
       <ScoreEntryTable
         rows={mergedRows}
         loading={isLoading || isFetching}
+        courseLoaded={Boolean(courseOfferingId)}
         selectedRowKeys={selectedRowKeys}
         draftValues={draftValues}
         pagination={pagination}

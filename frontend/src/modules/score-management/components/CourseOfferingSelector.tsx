@@ -1,4 +1,4 @@
-import { Alert, Button, Card, Input, Space, Typography } from 'antd';
+import { Button, Card, Input, Space, Typography } from 'antd';
 
 interface CourseOfferingSelectorProps {
   value: string;
@@ -36,12 +36,6 @@ export function CourseOfferingSelector({
           </Button>
         </Space>
 
-        <Alert
-          type="info"
-          showIcon
-          message="当前阶段说明"
-          description="这一版先保证教师页结构、编辑流程、批量操作和共享类型稳定，等 F1 接口最终落地后，再把课程选择和真实字段完全接入。"
-        />
       </Space>
     </Card>
   );

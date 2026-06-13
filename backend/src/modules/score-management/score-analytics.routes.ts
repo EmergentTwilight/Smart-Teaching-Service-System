@@ -16,6 +16,12 @@ router.get(
 )
 
 router.get(
+  '/students/me/score-analytics',
+  requireRoles('student'),
+  scoreAnalyticsController.getMyScoreAnalytics
+)
+
+router.get(
   '/students/:studentId/score-analytics',
   requireRoles('student', 'admin', 'super_admin'),
   validate(studentIdParamsSchema, 'params'),

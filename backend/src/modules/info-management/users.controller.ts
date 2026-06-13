@@ -107,7 +107,7 @@ export const usersController = {
    */
   async batchUpdateStatus(req: Request, res: Response) {
     const data = batchUpdateStatusSchema.parse(req.body)
-    const result = await usersService.batchUpdateStatus(data)
+    const result = await usersService.batchUpdateStatus(data, req)
     success(res, result, '批量状态更新完成')
   },
 
@@ -151,7 +151,7 @@ export const usersController = {
       body: req.body,
       parsed: data,
     })
-    const user = await usersService.updateStatus(id, data)
+    const user = await usersService.updateStatus(id, data, req)
     success(res, user, '状态已更新')
   },
 
@@ -286,7 +286,7 @@ export const usersController = {
   async updateStudentMajor(req: Request, res: Response) {
     const id = req.params.id as string
     const { majorId } = req.body as { majorId: string }
-    const result = await usersService.updateStudentMajor(id, majorId)
+    const result = await usersService.updateStudentMajor(id, majorId, req)
     success(res, result, '学生专业更新成功')
   },
 
@@ -296,7 +296,7 @@ export const usersController = {
   async updateTeacherDepartment(req: Request, res: Response) {
     const id = req.params.id as string
     const { departmentId } = req.body as { departmentId: string }
-    const result = await usersService.updateTeacherDepartment(id, departmentId)
+    const result = await usersService.updateTeacherDepartment(id, departmentId, req)
     success(res, result, '教师院系更新成功')
   },
 
@@ -306,7 +306,7 @@ export const usersController = {
   async updateAdminDepartment(req: Request, res: Response) {
     const id = req.params.id as string
     const { departmentId } = req.body as { departmentId: string }
-    const result = await usersService.updateAdminDepartment(id, departmentId)
+    const result = await usersService.updateAdminDepartment(id, departmentId, req)
     success(res, result, '管理员院系更新成功')
   },
 }

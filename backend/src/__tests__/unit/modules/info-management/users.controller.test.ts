@@ -329,7 +329,7 @@ describe('UsersController', () => {
 
       await usersController.batchUpdateStatus(req as Request, res as Response)
 
-      expect(usersService.batchUpdateStatus).toHaveBeenCalledWith(req.body)
+      expect(usersService.batchUpdateStatus).toHaveBeenCalledWith(req.body, req)
       expect(mockSuccess).toHaveBeenCalledWith(res, mockResult, '批量状态更新完成')
     })
   })
@@ -401,7 +401,7 @@ describe('UsersController', () => {
 
       await usersController.updateStatus(req as Request, res as Response)
 
-      expect(usersService.updateStatus).toHaveBeenCalledWith('user-1', req.body)
+      expect(usersService.updateStatus).toHaveBeenCalledWith('user-1', req.body, req)
       expect(mockSuccess).toHaveBeenCalledWith(res, mockUser, '状态已更新')
     })
   })

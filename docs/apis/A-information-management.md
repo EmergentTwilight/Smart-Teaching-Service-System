@@ -197,7 +197,7 @@ Authorization: Bearer <access_token>
     "phone": "13800138000",
     "real_name": "管理员",
     "avatar_url": null,
-    "gender": "male",
+    "gender": "MALE",
     "status": "ACTIVE",
     "last_login_at": "2026-04-01T10:00:00+08:00",
     "roles": [
@@ -456,7 +456,7 @@ Authorization: Bearer <access_token>
     "phone": "13800138000",
     "real_name": "张三",
     "avatar_url": null,
-    "gender": "male",
+    "gender": "MALE",
     "status": "ACTIVE",
     "last_login_at": "2026-04-01T10:00:00+08:00",
     "created_at": "2026-03-01T00:00:00+08:00",

@@ -32,6 +32,15 @@ const prismaMock = vi.hoisted(() => ({
     findMany: vi.fn(),
     findUnique: vi.fn(),
   },
+  student: {
+    create: vi.fn(),
+  },
+  teacher: {
+    create: vi.fn(),
+  },
+  admin: {
+    create: vi.fn(),
+  },
   permission: {
     findMany: vi.fn(),
   },
@@ -72,6 +81,7 @@ function buildUser(overrides: Record<string, unknown> = {}) {
     lastLoginAt: null,
     createdAt: new Date('2026-01-01'),
     updatedAt: new Date('2026-01-01'),
+    deletedAt: null,
     ...overrides,
   }
 }
@@ -134,6 +144,15 @@ beforeEach(() => {
           delete: prismaMock.userRole.delete,
           deleteMany: prismaMock.userRole.deleteMany,
         },
+        student: {
+          create: prismaMock.student.create,
+        },
+        teacher: {
+          create: prismaMock.teacher.create,
+        },
+        admin: {
+          create: prismaMock.admin.create,
+        },
         refreshToken: {
           updateMany: prismaMock.refreshToken.updateMany,
           deleteMany: prismaMock.refreshToken.deleteMany,
@@ -179,7 +198,7 @@ describe('UsersService', () => {
       expect(result.pagination.total_pages).toBe(1)
       expect(result.items[0].roles).toContain('student')
       expect(prismaMock.user.findMany).toHaveBeenCalledWith({
-        where: {},
+        where: { deletedAt: null },
         skip: 0,
         take: 10,
         include: {
@@ -189,7 +208,7 @@ describe('UsersService', () => {
             },
           },
         },
-        orderBy: { createdAt: 'desc' },
+        orderBy: [{ deletedAt: 'desc' }, { createdAt: 'desc' }],
       })
     })
 
@@ -211,6 +230,7 @@ describe('UsersService', () => {
       expect(prismaMock.user.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: {
+            deletedAt: null,
             OR: [
               { username: { contains: 'alice' } },
               { realName: { contains: 'alice' } },
@@ -238,7 +258,7 @@ describe('UsersService', () => {
       expect(result.items).toHaveLength(1)
       expect(prismaMock.user.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { status: 'ACTIVE' },
+          where: { status: 'ACTIVE', deletedAt: null },
         })
       )
     })
@@ -261,6 +281,7 @@ describe('UsersService', () => {
       expect(prismaMock.user.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: {
+            deletedAt: null,
             userRoles: {
               some: {
                 role: {
@@ -419,7 +440,7 @@ describe('UsersService', () => {
       // 2. findUnique (email conflict check)
       prismaMock.user.findUnique
         .mockResolvedValueOnce(buildUser({ email: 'old@example.com' })) // user exists
-        .mockResolvedValueOnce(buildUser({ email: 'existing@example.com' })) // email conflict
+        .mockResolvedValueOnce(buildUser({ id: 'user-2', email: 'existing@example.com' })) // email conflict
 
       await expect(
         usersService.updateUser('user-1', { email: 'existing@example.com' })
@@ -438,14 +459,28 @@ describe('UsersService', () => {
     it('应该成功删除用户并记录日志', async () => {
       const userWithRoles = buildUserWithRoles()
       prismaMock.user.findUnique.mockResolvedValue(userWithRoles)
-      prismaMock.refreshToken.deleteMany.mockResolvedValue({ count: 0 })
-      prismaMock.user.delete.mockResolvedValue(buildUser())
+      prismaMock.refreshToken.updateMany.mockResolvedValue({ count: 0 })
+      prismaMock.user.update.mockResolvedValue(buildUser({ deletedAt: new Date('2026-01-02') }))
 
       await usersService.deleteUser('user-1', mockReq)
 
-      expect(prismaMock.user.delete).toHaveBeenCalledWith({
-        where: { id: 'user-1' },
-      })
+      expect(prismaMock.refreshToken.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { userId: 'user-1' },
+          data: expect.objectContaining({
+            isUsed: true,
+            revokedAt: expect.any(Date),
+          }),
+        })
+      )
+      expect(prismaMock.user.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'user-1' },
+          data: {
+            deletedAt: expect.any(Date),
+          },
+        })
+      )
       expect(prismaMock.systemLog.create).toHaveBeenCalled()
     })
 
@@ -606,6 +641,49 @@ describe('UsersService', () => {
       expect(result.results[0].status).toBe('created')
       expect(result.results[1].status).toBe('created')
       expect(passwordMock.hashPassword).toHaveBeenCalledTimes(2)
+    })
+
+    it('批量创建用户时应该创建扩展身份信息', async () => {
+      const users = [
+        {
+          username: 'student1',
+          password: 'Password123',
+          realName: '学生一',
+          roleIds: ['role-1'],
+          student: {
+            studentNumber: '2023001',
+            majorId: 'major-1',
+            grade: 2023,
+            className: '1班',
+          },
+        },
+      ]
+
+      prismaMock.user.findMany.mockResolvedValueOnce([])
+      prismaMock.user.create.mockResolvedValueOnce({
+        id: 'user-1',
+        username: 'student1',
+        email: null,
+        phone: null,
+        realName: '学生一',
+        gender: null,
+        status: 'ACTIVE',
+      })
+      prismaMock.userRole.createMany.mockResolvedValue({ count: 1 })
+      prismaMock.student.create.mockResolvedValue({ userId: 'user-1' })
+
+      const result = await usersService.batchCreateUsers({ users })
+
+      expect(result.success_count).toBe(1)
+      expect(prismaMock.student.create).toHaveBeenCalledWith({
+        data: {
+          userId: 'user-1',
+          studentNumber: '2023001',
+          majorId: 'major-1',
+          grade: 2023,
+          className: '1班',
+        },
+      })
     })
 
     it('用户名冲突时应返回失败结果', async () => {

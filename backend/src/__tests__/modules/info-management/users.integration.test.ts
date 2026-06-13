@@ -351,7 +351,8 @@ describe('UsersService Integration Tests', () => {
           where: { id: user.id },
         })
 
-        expect(dbUser).toBeNull()
+        expect(dbUser).not.toBeNull()
+        expect(dbUser!.deletedAt).toBeInstanceOf(Date)
       })
 
       it('用户不存在时应该抛出 NotFoundError', async () => {
@@ -396,9 +397,12 @@ describe('UsersService Integration Tests', () => {
           where: { userId: user.id },
         })
 
-        expect(dbUser).toBeNull()
-        expect(dbTokens).toHaveLength(0)
-        expect(dbUserRoles).toHaveLength(0)
+        expect(dbUser).not.toBeNull()
+        expect(dbUser!.deletedAt).toBeInstanceOf(Date)
+        expect(dbTokens).toHaveLength(1)
+        expect(dbTokens[0].isUsed).toBe(true)
+        expect(dbTokens[0].revokedAt).toBeInstanceOf(Date)
+        expect(dbUserRoles.length).toBeGreaterThan(0)
       })
     })
   })

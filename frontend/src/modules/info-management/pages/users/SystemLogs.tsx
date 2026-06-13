@@ -15,10 +15,19 @@ import {
 import { ReloadOutlined } from '@ant-design/icons'
 import { useQuery } from '@tanstack/react-query'
 import { usersApi } from '@/modules/info-management/api/users'
+import type { SystemLogItem } from '@/shared/types'
 import { ACTION_COLOR_MAP, DEFAULT_LOG_PAGE_SIZE } from '@/shared/constants/user'
 import dayjs from 'dayjs'
 
 const { RangePicker } = DatePicker
+
+function formatLogDetails(details: SystemLogItem['details']) {
+  if (!details || Object.keys(details).length === 0) {
+    return '-'
+  }
+
+  return JSON.stringify(details)
+}
 
 const SystemLogs: React.FC = () => {
   const [params, setParams] = useState({
@@ -118,6 +127,7 @@ const SystemLogs: React.FC = () => {
         dataIndex: 'details',
         key: 'details',
         ellipsis: true,
+        render: (details: SystemLogItem['details']) => formatLogDetails(details),
       },
       {
         title: 'IP 地址',

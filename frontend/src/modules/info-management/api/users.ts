@@ -3,7 +3,13 @@
  * 处理用户 CRUD 接口
  */
 import request from '@/shared/utils/request'
-import type { UserDetail, PaginatedData } from '@/shared/types'
+import type {
+  CreateUserDTO,
+  UpdateUserDTO,
+  UserDetail,
+  PaginatedData,
+  SystemLogItem,
+} from '@/shared/types'
 
 /** 用户查询参数 */
 export interface UserQueryParams {
@@ -17,6 +23,8 @@ export interface UserQueryParams {
   role?: string
   /** 状态筛选 */
   status?: string
+  /** 是否包含已删除用户 */
+  includeDeleted?: boolean
 }
 
 export interface UserPermissionsResponse {
@@ -29,6 +37,120 @@ export interface UserPermissionsResponse {
   }>
 }
 
+interface CreateUserPayload {
+  username: string
+  password: string
+  email?: string
+  real_name: string
+  phone?: string
+  gender?: string
+  role_ids?: string[]
+  student?: {
+    student_number: string
+    major_id?: string
+    grade: number
+    class_name?: string
+  }
+  teacher?: {
+    teacher_number: string
+    department_id?: string
+    title?: string
+    office_location?: string
+  }
+  admin?: {
+    admin_type: string
+    department_id?: string
+  }
+}
+
+interface UpdateUserPayload {
+  email?: string
+  real_name?: string
+  phone?: string
+  avatar_url?: string
+  gender?: string
+  role_ids?: string[]
+}
+
+export interface BatchCreateUsersResult {
+  total: number
+  success_count?: number
+  successCount?: number
+  fail_count?: number
+  failCount?: number
+  results: Array<{
+    index: number
+    id?: string
+    error?: string
+    status: 'created' | 'failed'
+  }>
+}
+
+export interface BatchUpdateStatusResult {
+  updated_count?: number
+  updatedCount?: number
+  failed_count?: number
+  failedCount?: number
+}
+
+type RawUserDetail = Omit<UserDetail, 'roles'> & {
+  roles?: string[] | Array<{ code: string; name?: string; id?: string }>
+}
+
+function normalizeUserDetail(user: RawUserDetail): UserDetail {
+  return {
+    ...user,
+    roles: Array.isArray(user.roles)
+      ? user.roles.map((role) => (typeof role === 'string' ? role : role.code))
+      : [],
+  }
+}
+
+function toCreatePayload(data: CreateUserDTO): CreateUserPayload {
+  return {
+    username: data.username,
+    password: data.password,
+    email: data.email,
+    real_name: data.realName,
+    phone: data.phone,
+    gender: data.gender,
+    role_ids: data.roleIds,
+    student: data.student
+      ? {
+          student_number: data.student.studentNumber,
+          major_id: data.student.majorId,
+          grade: data.student.grade,
+          class_name: data.student.className,
+        }
+      : undefined,
+    teacher: data.teacher
+      ? {
+          teacher_number: data.teacher.teacherNumber,
+          department_id: data.teacher.departmentId,
+          title: data.teacher.title,
+          office_location: data.teacher.officeLocation,
+        }
+      : undefined,
+    admin: data.admin
+      ? {
+          admin_type: data.admin.adminType,
+          department_id: data.admin.departmentId,
+        }
+      : undefined,
+  }
+}
+
+function toUpdatePayload(data: UpdateUserDTO): UpdateUserPayload {
+  return {
+    email: data.email,
+    real_name: data.realName,
+    phone: data.phone,
+    avatar_url: data.avatarUrl,
+    gender: data.gender,
+    role_ids: data.roleIds,
+  }
+}
+
 /** 用户管理 API 模块 */
 export const usersApi = {
   /**
@@ -39,7 +161,16 @@ export const usersApi = {
   getList: async (
     params?: UserQueryParams
   ): Promise<{ items: UserDetail[]; pagination: PaginatedData<UserDetail>['pagination'] }> => {
-    return request.get('/users', { params })
+    return request.get('/users', {
+      params: {
+        page: params?.page,
+        page_size: params?.pageSize,
+        keyword: params?.keyword || undefined,
+        role: params?.role || undefined,
+        status: params?.status || undefined,
+        include_deleted: params?.includeDeleted,
+      },
+    })
   },
 
   /**
@@ -64,7 +195,8 @@ export const usersApi = {
    * @returns 用户信息
    */
   getById: async (id: string): Promise<UserDetail> => {
-    return request.get(`/users/${id}`)
+    const user = (await request.get(`/users/${id}`)) as RawUserDetail
+    return normalizeUserDetail(user)
   },
 
   /**
@@ -72,8 +204,9 @@ export const usersApi = {
    * @param data 用户数据
    * @returns 新创建的用户
    */
-  create: async (data: Partial<UserDetail>): Promise<UserDetail> => {
-    return request.post('/users', data)
+  create: async (data: CreateUserDTO): Promise<UserDetail> => {
+    const user = (await request.post('/users', toCreatePayload(data))) as RawUserDetail
+    return normalizeUserDetail(user)
   },
 
   /**
@@ -82,8 +215,9 @@ export const usersApi = {
    * @param data 更新数据
    * @returns 更新后的用户
    */
-  update: async (id: string, data: Partial<UserDetail>): Promise<UserDetail> => {
-    return request.put(`/users/${id}`, data)
+  update: async (id: string, data: UpdateUserDTO): Promise<UserDetail> => {
+    const user = (await request.put(`/users/${id}`, toUpdatePayload(data))) as RawUserDetail
+    return normalizeUserDetail(user)
   },
 
   /**
@@ -99,10 +233,8 @@ export const usersApi = {
    * @param data 用户数据列表
    * @returns 创建结果
    */
-  batchCreate: async (
-    data: Array<Partial<UserDetail>>
-  ): Promise<{ success: number; failed: number }> => {
-    return request.post('/users/batch', { users: data })
+  batchCreate: async (data: CreateUserDTO[]): Promise<BatchCreateUsersResult> => {
+    return request.post('/users/batch', { users: data.map(toCreatePayload) })
   },
 
   /**
@@ -113,9 +245,15 @@ export const usersApi = {
   batchUpdateStatus: async (
     userIds: string[],
     status?: string,
-    roleIds?: string[]
-  ): Promise<void> => {
-    return request.patch('/users/batch/status', { userIds, status, roleIds })
+    roleIds?: string[],
+    reason?: string
+  ): Promise<BatchUpdateStatusResult> => {
+    return request.patch('/users/batch/status', {
+      user_ids: userIds,
+      status,
+      role_ids: roleIds,
+      reason,
+    })
   },
 
   /**
@@ -126,8 +264,8 @@ export const usersApi = {
    */
   changePassword: async (id: string, oldPassword: string, newPassword: string): Promise<void> => {
     return request.patch(`/users/${id}/password`, {
-      oldPassword,
-      newPassword,
+      old_password: oldPassword,
+      new_password: newPassword,
     })
   },
 
@@ -137,7 +275,7 @@ export const usersApi = {
    * @param newPassword 新密码
    */
   resetPassword: async (id: string, newPassword: string): Promise<void> => {
-    return request.post(`/users/${id}/password/reset`, { newPassword })
+    return request.post(`/users/${id}/password/reset`, { new_password: newPassword })
   },
 
   /**
@@ -145,8 +283,46 @@ export const usersApi = {
    * @param id 用户ID
    * @param status 新状态
    */
-  updateStatus: async (id: string, status: string): Promise<void> => {
-    return request.patch(`/users/${id}/status`, { status })
+  updateStatus: async (id: string, status: string, reason?: string): Promise<UserDetail> => {
+    const user = (await request.patch(`/users/${id}/status`, { status, reason })) as RawUserDetail
+    return normalizeUserDetail(user)
+  },
+
+  uploadAvatar: async (id: string, file: File): Promise<{ avatarUrl: string }> => {
+    const formData = new FormData()
+    formData.append('avatar', file)
+    return request.post(`/users/${id}/avatar`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    })
+  },
+
+  updateStudentMajor: async (
+    id: string,
+    majorId: string
+  ): Promise<{ userId: string; majorId: string; majorName: string }> => {
+    return request.patch(`/users/${id}/student/major`, {
+      major_id: majorId,
+    })
+  },
+
+  updateTeacherDepartment: async (
+    id: string,
+    departmentId: string
+  ): Promise<{ userId: string; departmentId: string; departmentName: string }> => {
+    return request.patch(`/users/${id}/teacher/department`, {
+      department_id: departmentId,
+    })
+  },
+
+  updateAdminDepartment: async (
+    id: string,
+    departmentId: string
+  ): Promise<{ userId: string; departmentId: string; departmentName: string }> => {
+    return request.patch(`/users/${id}/admin/department`, {
+      department_id: departmentId,
+    })
   },
 
   /**
@@ -155,7 +331,7 @@ export const usersApi = {
    * @param roleIds 角色ID列表
    */
   assignRoles: async (id: string, roleIds: string[]): Promise<void> => {
-    return request.post(`/users/${id}/roles`, { roleIds })
+    return request.post(`/users/${id}/roles`, { role_ids: roleIds })
   },
 
   /**
@@ -190,19 +366,7 @@ export const usersApi = {
     startDate?: string
     endDate?: string
   }): Promise<{
-    items: Array<{
-      id: string
-      userId: string
-      username: string
-      realName: string
-      action: string
-      resourceType: string
-      resourceId: string
-      ipAddress: string
-      userAgent: string
-      details: string
-      createdAt: string
-    }>
+    items: SystemLogItem[]
     pagination: {
       page: number
       pageSize: number
@@ -210,7 +374,17 @@ export const usersApi = {
       totalPages: number
     }
   }> => {
-    return request.get('/users/logs', { params })
+    return request.get('/users/logs', {
+      params: {
+        page: params?.page,
+        page_size: params?.pageSize,
+        user_id: params?.userId,
+        action: params?.action,
+        resource_type: params?.resourceType,
+        start_date: params?.startDate,
+        end_date: params?.endDate,
+      },
+    })
   },
 
   /**

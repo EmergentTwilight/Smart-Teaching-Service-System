@@ -2,7 +2,7 @@
  * 批量修改弹窗
  */
 import React, { useState, useMemo } from 'react'
-import { Modal, Radio, Space, Select, message, Divider } from 'antd'
+import { Modal, Radio, Space, Select, message, Divider, Input } from 'antd'
 import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query'
 import { usersApi } from '@/modules/info-management/api/users'
 
@@ -21,6 +21,7 @@ const BatchStatusModal: React.FC<BatchStatusModalProps> = ({
 }) => {
   const [status, setStatus] = useState<string | undefined>(undefined)
   const [roleIds, setRoleIds] = useState<string[]>([])
+  const [reason, setReason] = useState('')
   const queryClient = useQueryClient()
 
   // 获取角色列表
@@ -38,10 +39,21 @@ const BatchStatusModal: React.FC<BatchStatusModalProps> = ({
   }, [rolesData])
 
   const { mutate, isPending } = useMutation({
-    mutationFn: () => usersApi.batchUpdateStatus(userIds, status, roleIds.length > 0 ? roleIds : undefined),
-    onSuccess: () => {
-      message.success(`已批量修改 ${userIds.length} 个用户`)
+    mutationFn: () =>
+      usersApi.batchUpdateStatus(
+        userIds,
+        status,
+        roleIds.length > 0 ? roleIds : undefined,
+        reason.trim() || undefined
+      ),
+    onSuccess: (result) => {
+      const updatedCount = result.updatedCount ?? result.updated_count ?? userIds.length
+      const failedCount = result.failedCount ?? result.failed_count ?? 0
+      message.success(`已批量修改 ${updatedCount} 个用户，失败 ${failedCount} 个`)
       queryClient.invalidateQueries({ queryKey: ['users'] })
+      setReason('')
+      setRoleIds([])
+      setStatus(undefined)
       onSuccess()
     },
     onError: () => {
@@ -90,6 +102,19 @@ const BatchStatusModal: React.FC<BatchStatusModalProps> = ({
           value={roleIds}
           onChange={setRoleIds}
           options={roleOptions}
+        />
+      </div>
+
+      <Divider />
+
+      <div>
+        <div style={{ marginBottom: 8, fontWeight: 500 }}>修改原因：</div>
+        <Input.TextArea
+          rows={4}
+          maxLength={200}
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+          placeholder="请输入批量状态修改原因（状态变更时建议填写）"
         />
       </div>
     </Modal>

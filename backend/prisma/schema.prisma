@@ -33,6 +33,8 @@ model User {
   status       UserStatus @default(ACTIVE)
   /// 最后登录时间
   lastLoginAt  DateTime?  @map("last_login_at")
+  /// 软删除时间
+  deletedAt    DateTime?  @map("deleted_at")
   /// 创建时间
   createdAt    DateTime   @default(now()) @map("created_at")
   /// 更新时间
@@ -52,6 +54,7 @@ model User {
 
   // 索引优化：常用查询字段
   @@index([status]) // 按状态筛选用户
+  @@index([deletedAt]) // 软删除筛选
   @@index([realName]) // 按姓名搜索
   @@index([createdAt]) // 按创建时间排序
   @@map("users")

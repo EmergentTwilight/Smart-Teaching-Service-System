@@ -779,7 +779,8 @@ describe('DELETE /api/v1/users/:id', () => {
     const deletedUser = await prisma.user.findUnique({
       where: { id: targetUser.id },
     })
-    expect(deletedUser).toBeNull()
+    expect(deletedUser).not.toBeNull()
+    expect(deletedUser!.deletedAt).toBeInstanceOf(Date)
   })
 
   it('应该防止删除自己的账号', async () => {

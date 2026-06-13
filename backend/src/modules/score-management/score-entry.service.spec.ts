@@ -19,18 +19,18 @@ describe('scoreEntryService', () => {
   describe('saveDraft', () => {
     it('教师操作自己的课程 - 正常保存', async () => {
       // 模拟教师存在
-      vi.mocked(prisma.teacher.findUnique).mockResolvedValue({ userId: 'u1' } as any)
+      vi.mocked(prisma.teacher.findUnique).mockResolvedValue({ userId: 'u1' } as never)
       vi.mocked(prisma.courseOffering.findUnique).mockResolvedValue({
         id: 'co1',
         teacherId: 'u1',
-      } as any)
+      } as never)
       vi.mocked(prisma.enrollment.findUnique).mockResolvedValue({
         id: 'e1',
         courseOfferingId: 'co1',
         studentId: 's1',
         score: null,
-      } as any)
-      vi.mocked(prisma.score.upsert).mockResolvedValue({} as any)
+      } as never)
+      vi.mocked(prisma.score.upsert).mockResolvedValue({} as never)
 
       const result = await scoreEntryService.saveDraft(
         'co1',
@@ -44,17 +44,17 @@ describe('scoreEntryService', () => {
     })
 
     it('已提交成绩不能再保存草稿 - 应跳过', async () => {
-      vi.mocked(prisma.teacher.findUnique).mockResolvedValue({ userId: 'u1' } as any)
+      vi.mocked(prisma.teacher.findUnique).mockResolvedValue({ userId: 'u1' } as never)
       vi.mocked(prisma.courseOffering.findUnique).mockResolvedValue({
         id: 'co1',
         teacherId: 'u1',
-      } as any)
+      } as never)
       vi.mocked(prisma.enrollment.findUnique).mockResolvedValue({
         id: 'e1',
         courseOfferingId: 'co1',
         studentId: 's1',
         score: { status: 'SUBMITTED' },
-      } as any)
+      } as never)
 
       const result = await scoreEntryService.saveDraft(
         'co1',
@@ -68,12 +68,12 @@ describe('scoreEntryService', () => {
     })
 
     it('教师操作别人的课程 - 应抛出 ForbiddenError', async () => {
-      vi.mocked(prisma.teacher.findUnique).mockResolvedValue({ userId: 'u1' } as any)
+      vi.mocked(prisma.teacher.findUnique).mockResolvedValue({ userId: 'u1' } as never)
       // teacherId 是 't2'，不是当前教师
       vi.mocked(prisma.courseOffering.findUnique).mockResolvedValue({
         id: 'co1',
         teacherId: 't2',
-      } as any)
+      } as never)
 
       await expect(
         scoreEntryService.saveDraft('co1', { scores: [] }, 'u1', ['teacher'])
@@ -83,16 +83,16 @@ describe('scoreEntryService', () => {
 
   describe('submitScores', () => {
     it('只有 DRAFT 状态才能提交', async () => {
-      vi.mocked(prisma.teacher.findUnique).mockResolvedValue({ userId: 'u1' } as any)
+      vi.mocked(prisma.teacher.findUnique).mockResolvedValue({ userId: 'u1' } as never)
       vi.mocked(prisma.courseOffering.findUnique).mockResolvedValue({
         id: 'co1',
         teacherId: 'u1',
-      } as any)
+      } as never)
       vi.mocked(prisma.score.findUnique).mockResolvedValue({
         id: 'sc1',
         courseOfferingId: 'co1',
         status: 'SUBMITTED', // 已经提交过了
-      } as any)
+      } as never)
 
       const result = await scoreEntryService.submitScores('co1', { scoreIds: ['sc1'] }, 'u1', [
         'teacher',

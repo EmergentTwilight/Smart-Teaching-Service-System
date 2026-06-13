@@ -45,6 +45,7 @@ interface BackendScoreItem {
   gradeLetter: string | null
   status: string
   hasPendingModificationRequest: boolean
+  isEffective?: boolean
   enteredAt?: string | null
   modifiedAt?: string | null
 }
@@ -78,6 +79,9 @@ interface BackendStudentScoreSummary {
   averageScore: number | null
   passedCourseCount: number
   failedCourseCount: number
+  remainingRequiredCredits: number | null
+  effectiveScoreRule: string
+  curriculumProgress: StudentScoreSummary['curriculumProgress']
 }
 
 /**
@@ -162,6 +166,7 @@ export class StudentScoreAdapter {
       gradeLetter: item.gradeLetter as ScoreItem['gradeLetter'],
       status: item.status as ScoreItem['status'],
       hasPendingModificationRequest: item.hasPendingModificationRequest,
+      isEffective: item.isEffective ?? true,
       enteredAt: item.enteredAt ?? null,
       modifiedAt: item.modifiedAt ?? null,
     }
@@ -184,6 +189,9 @@ export class StudentScoreAdapter {
       averageScore: backend.averageScore,
       passedCourseCount: backend.passedCourseCount,
       failedCourseCount: backend.failedCourseCount,
+      remainingRequiredCredits: backend.remainingRequiredCredits,
+      effectiveScoreRule: backend.effectiveScoreRule,
+      curriculumProgress: backend.curriculumProgress,
     }
   }
 
@@ -283,6 +291,7 @@ export function createMockScoreList(
       gradeLetter: 'A-',
       status: 'CONFIRMED',
       hasPendingModificationRequest: false,
+      isEffective: true,
     },
     {
       scoreId: 'score-2',
@@ -303,6 +312,7 @@ export function createMockScoreList(
       gradeLetter: 'B',
       status: 'CONFIRMED',
       hasPendingModificationRequest: false,
+      isEffective: true,
     },
     {
       scoreId: 'score-3',
@@ -323,6 +333,7 @@ export function createMockScoreList(
       gradeLetter: 'B+',
       status: 'CONFIRMED',
       hasPendingModificationRequest: false,
+      isEffective: true,
     },
     {
       scoreId: 'score-4',
@@ -343,6 +354,28 @@ export function createMockScoreList(
       gradeLetter: 'B-',
       status: 'SUBMITTED',
       hasPendingModificationRequest: false,
+      isEffective: true,
+    },
+    {
+      scoreId: 'score-4-old',
+      enrollmentId: 'enrollment-4-old',
+      courseOfferingId: 'co-4-old',
+      courseId: 'course-4',
+      courseCode: 'CS102',
+      courseName: '数据结构与算法',
+      credits: 4,
+      courseType: 'REQUIRED',
+      semesterId: 'semester-2025-1',
+      semesterName: '2025-2026-1',
+      usualScore: 70,
+      midtermScore: 72,
+      finalScore: 74,
+      totalScore: 72,
+      gradePoint: 2.3,
+      gradeLetter: 'C+',
+      status: 'CONFIRMED',
+      hasPendingModificationRequest: false,
+      isEffective: false,
     },
     {
       scoreId: 'score-5',
@@ -363,6 +396,7 @@ export function createMockScoreList(
       gradeLetter: 'C',
       status: 'SUBMITTED',
       hasPendingModificationRequest: false,
+      isEffective: true,
     },
   ]
 
@@ -411,11 +445,27 @@ export function createMockScoreSummary(
     gpa: 3.24,
     averageScore: 80.6,
     totalRequiredCredits: 120,
-    earnedCredits: 19,
-    passedCredits: 19,
+    earnedCredits: 17,
+    passedCredits: 17,
     inProgressCredits: 8,
+    remainingRequiredCredits: 103,
     passedCourseCount: 5,
     failedCourseCount: 0,
+    effectiveScoreRule: '同一课程多次成绩按最高总评计入统计；总评相同时取最近修改或录入记录',
+    curriculumProgress: {
+      curriculumId: 'curriculum-1',
+      curriculumName: '计算机科学与技术 2023 培养方案',
+      totalRequiredCredits: 120,
+      requiredCredits: 90,
+      electiveCredits: 30,
+      passedCredits: 17,
+      requiredPassedCredits: 15,
+      electivePassedCredits: 2,
+      remainingRequiredCredits: 103,
+      curriculumCourseCount: 8,
+      completedCurriculumCourseCount: 5,
+      completionRate: 14.17,
+    },
     ...override,
   }
 }
@@ -435,7 +485,7 @@ export function createMockScoreAnalytics(
         semesterName: '2025-2026-1',
         gpa: 3.47,
         averageScore: 85.7,
-        earnedCredits: 11,
+        earnedCredits: 9,
       },
       {
         semesterId: 'semester-2025-2',
@@ -452,8 +502,8 @@ export function createMockScoreAnalytics(
       { range: 'FAIL', rangeLabel: '不及格', count: 0, percentage: 0 },
     ],
     courseTypeBreakdown: [
-      { courseType: 'REQUIRED', courseTypeLabel: '必修', earnedCredits: 13, averageScore: 81.5 },
-      { courseType: 'ELECTIVE', courseTypeLabel: '选修', earnedCredits: 4, averageScore: 78.0 },
+      { courseType: 'REQUIRED', courseTypeLabel: '必修', earnedCredits: 15, averageScore: 78.25 },
+      { courseType: 'ELECTIVE', courseTypeLabel: '选修', earnedCredits: 0, averageScore: null },
       { courseType: 'GENERAL', courseTypeLabel: '通识', earnedCredits: 2, averageScore: 87.0 },
     ],
     ...override,

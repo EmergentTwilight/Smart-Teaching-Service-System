@@ -116,9 +116,13 @@ export function GPASummaryCard({ summary, loading }: GPASummaryCardProps) {
             <div>已获学分：{formatCredits(summary.passedCredits)}</div>
           </Col>
           <Col xs={24} sm={8}>
+            <div>剩余应修：{formatCredits(summary.remainingRequiredCredits)}</div>
+          </Col>
+          <Col xs={24} sm={8}>
             <div>专业：{summary.majorName ?? '未知'}</div>
           </Col>
         </Row>
+        <div style={{ marginTop: 8 }}>统计规则：{summary.effectiveScoreRule}</div>
       </div>
     </Card>
   )

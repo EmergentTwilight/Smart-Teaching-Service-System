@@ -45,7 +45,9 @@ const resolveAccessibleStudentId = async (user: JwtUser, targetStudentId?: strin
 export const scoreQueryService = {
   async getMyScores(user: JwtUser, query: MyScoresQuery) {
     const studentId = await resolveAccessibleStudentId(user)
-    const { page, pageSize, semesterId, keyword } = query
+    const page = Number(query.page) || 1
+    const pageSize = Number(query.pageSize) || 20
+    const { semesterId, keyword } = query
     const skip = (page - 1) * pageSize
 
     const where: Prisma.ScoreWhereInput = {

@@ -137,11 +137,16 @@ export function ScoreListTable({
       title: '状态',
       dataIndex: 'status',
       key: 'status',
-      width: 100,
-      render: (status) => (
-        <Tag color={getScoreStatusColor(status)}>
-          {formatScoreStatus(status)}
-        </Tag>
+      width: 130,
+      render: (status, record) => (
+        <>
+          <Tag color={getScoreStatusColor(status)}>
+            {formatScoreStatus(status)}
+          </Tag>
+          <Tag color={record.isEffective ? 'success' : 'default'}>
+            {record.isEffective ? '计入统计' : '不计入统计'}
+          </Tag>
+        </>
       ),
     },
     {

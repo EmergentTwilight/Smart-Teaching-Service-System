@@ -74,6 +74,8 @@ export interface ScoreItem {
   status: ScoreStatus
   /** 是否有待处理的改分申请 */
   hasPendingModificationRequest: boolean
+  /** 是否为同一课程多次成绩中的有效成绩 */
+  isEffective: boolean
   /** 成绩录入时间 */
   enteredAt?: string | null
   /** 成绩最后修改时间 */
@@ -132,12 +134,33 @@ export interface StudentScoreSummary {
   passedCredits: number
   /** 在修学分（未出成绩） */
   inProgressCredits: number
+  /** 培养方案剩余应修学分 */
+  remainingRequiredCredits: number | null
 
   // 课程统计
   /** 已通过课程数 */
   passedCourseCount: number
   /** 未通过课程数 */
   failedCourseCount: number
+  /** 有效成绩规则说明 */
+  effectiveScoreRule: string
+  /** 培养方案进度 */
+  curriculumProgress: CurriculumProgress
+}
+
+export interface CurriculumProgress {
+  curriculumId: string | null
+  curriculumName: string | null
+  totalRequiredCredits: number | null
+  requiredCredits: number | null
+  electiveCredits: number | null
+  passedCredits: number
+  requiredPassedCredits: number
+  electivePassedCredits: number
+  remainingRequiredCredits: number | null
+  curriculumCourseCount: number
+  completedCurriculumCourseCount: number
+  completionRate: number | null
 }
 
 // ==================== 成绩分析 ====================

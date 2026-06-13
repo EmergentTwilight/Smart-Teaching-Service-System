@@ -115,6 +115,11 @@ export function ScoreDetailDrawer({ score, open, onClose, loading }: ScoreDetail
             {formatScoreStatus(score.status)}
           </Tag>
         </Descriptions.Item>
+        <Descriptions.Item label="统计口径">
+          <Tag color={score.isEffective ? 'success' : 'default'}>
+            {score.isEffective ? '计入 GPA / 学分统计' : '同课多次成绩中不计入统计'}
+          </Tag>
+        </Descriptions.Item>
       </Descriptions>
 
       {/* 录入信息 */}

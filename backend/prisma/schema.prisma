@@ -207,13 +207,17 @@ model Admin {
 /// 院系表
 model Department {
   /// 院系ID
-  id          String  @id @default(uuid())
+  id          String   @id @default(uuid())
   /// 院系名称
-  name        String  @db.VarChar(100)
+  name        String   @db.VarChar(100)
   /// 院系代码
-  code        String? @unique @db.VarChar(20)
+  code        String?  @unique @db.VarChar(20)
   /// 描述
-  description String? @db.Text
+  description String?  @db.Text
+  /// 创建时间
+  createdAt   DateTime @default(now()) @map("created_at")
+  /// 更新时间
+  updatedAt   DateTime @updatedAt @map("updated_at")
 
   majors   Major[]
   teachers Teacher[]

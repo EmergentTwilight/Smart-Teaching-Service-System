@@ -80,7 +80,9 @@ const DepartmentList: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ['departments'] });
     },
     onError: (error: unknown) => {
-      const errorMessage = (error as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      const errorMessage =
+        (error as { message?: string })?.message ||
+        (error as { response?: { data?: { message?: string } } })?.response?.data?.message;
       message.error(errorMessage || '删除失败');
     },
   });
@@ -334,6 +336,16 @@ const DepartmentList: React.FC = () => {
         {departmentToDelete && departmentToDelete.majorCount != null && departmentToDelete.majorCount > 0 && (
           <p style={{ color: '#f59e0b', marginTop: 8 }}>
             该部门下还有 {departmentToDelete.majorCount} 个专业，删除前请先删除相关专业。
+          </p>
+        )}
+        {departmentToDelete && departmentToDelete.adminCount != null && departmentToDelete.adminCount > 0 && (
+          <p style={{ color: '#f59e0b', marginTop: 8 }}>
+            该部门下还有 {departmentToDelete.adminCount} 名管理员，删除前请先转移或删除相关管理员。
+          </p>
+        )}
+        {departmentToDelete && departmentToDelete.courseCount != null && departmentToDelete.courseCount > 0 && (
+          <p style={{ color: '#f59e0b', marginTop: 8 }}>
+            该部门下还有 {departmentToDelete.courseCount} 门课程，删除前请先转移或删除相关课程。
           </p>
         )}
       </Modal>

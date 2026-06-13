@@ -24,7 +24,7 @@ const normalizeKeys = (
  * 部门 ID 参数 schema
  */
 export const departmentIdSchema = z.object({
-  id: z.string().min(1, 'ID is required'),
+  id: z.string().uuid('院系ID格式无效'),
 })
 
 /**

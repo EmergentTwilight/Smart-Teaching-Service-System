@@ -71,6 +71,9 @@ const DepartmentDetail: React.FC<DepartmentDetailProps> = ({ visible, onClose, d
         <Descriptions.Item label="创建时间">
           {data.createdAt ? dayjs(data.createdAt).format('YYYY-MM-DD HH:mm') : '-'}
         </Descriptions.Item>
+        <Descriptions.Item label="更新时间">
+          {data.updatedAt ? dayjs(data.updatedAt).format('YYYY-MM-DD HH:mm') : '-'}
+        </Descriptions.Item>
         <Descriptions.Item label="描述" span={2}>
           {data.description || '-'}
         </Descriptions.Item>
@@ -82,6 +85,12 @@ const DepartmentDetail: React.FC<DepartmentDetailProps> = ({ visible, onClose, d
         </Descriptions.Item>
         <Descriptions.Item label="专业数量">
           <Tag color="orange">{data.majorCount ?? 0} 个</Tag>
+        </Descriptions.Item>
+        <Descriptions.Item label="管理员数量">
+          <Tag color="purple">{data.adminCount ?? 0} 人</Tag>
+        </Descriptions.Item>
+        <Descriptions.Item label="课程数量">
+          <Tag color="cyan">{data.courseCount ?? 0} 门</Tag>
         </Descriptions.Item>
       </Descriptions>
 

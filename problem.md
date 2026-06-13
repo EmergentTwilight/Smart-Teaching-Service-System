@@ -219,77 +219,49 @@
 
 本文以下内容以 `docs/apis/A-information-management.md` 中 `## 四、院系管理 API` 为标准，对当前实现的不一致点进行整理。
 
-## 4.1 获取院系列表
+## 4.1 获取院系列表（已解决）
 
-### 后端情况
+### 已解决
 
 - 后端已支持 `page`、`page_size`、`keyword` 查询参数。
-- 后端响应结构与文档主体基本一致，返回 `items + pagination`。
-
-### 后端问题
-
-- `created_at` 当前不是直接取 `Department.createdAt`，而是通过 `SystemLog` 中的 `department:create` / `create` 日志回填：
-  - 如果历史数据缺少创建日志，`created_at` 会返回 `null`。
-  - 这与文档中将其视为稳定字段的语义不完全一致。
-
-### 前端情况
-
+- 后端响应结构与文档主体一致，返回 `items + pagination`。
+- `created_at` 已改为直接取 `Department.createdAt`，不再依赖 `SystemLog` 回填。
+- 已为 `Department` 模型补充稳定的 `created_at`、`updated_at` 字段。
 - `departmentsApi.getList` 已按文档发送 `page_size`。
 - 列表页已支持关键词搜索、分页展示。
 
-## 4.2 获取院系详情
+## 4.2 获取院系详情（已解决）
 
-### 后端情况
+### 已解决
 
 - 后端已返回文档要求的基础字段、`majors`、`teachers`、`created_at`、`updated_at`。
+- `:id` 参数校验已改为严格 UUID 校验：
+  - 传入非法 UUID 时会按文档语义返回 `400` 参数错误，
+  - 合法但不存在的 UUID 仍返回 `404`。
+- 前端院系详情弹窗已补充展示 `updated_at`。
 
-### 后端问题
+## 4.3 创建院系（已解决）
 
-- `:id` 参数校验当前仅使用 `z.string().min(1)`，没有按文档要求校验 UUID 格式：
-  - 传入非法 UUID 时，当前更可能落到“查不到数据”分支返回 `404`，
-  - 而不是文档语义更明确的 `400` 参数错误。
-
-### 前端问题
-
-- 院系详情弹窗当前未展示 `updated_at`，文档中该字段属于详情响应的一部分。
-
-## 4.3 创建院系
-
-### 后端情况
+### 已解决
 
 - 后端已实现创建接口，并限制为 `super_admin`。
 - 请求字段 `name`、`code`、`description` 与文档一致。
 - 创建时已记录 `SystemLog`。
-
-### 前端情况
-
 - 页面已提供新建院系入口。
 - `departmentsApi.create` 已按文档字段提交请求。
+- 前端已将创建接口返回类型收敛为真实响应 `{ id, name, code }`，不再错误声明为完整 `Department`。
 
-### 前端问题
+## 4.4 更新院系（已解决）
 
-- `departmentsApi.create` 的返回类型声明为完整 `Department`，但后端实际仅返回 `{ id, name, code }`：
-  - 类型上要求的 `teacherCount`、`studentCount`、`majorCount`、`createdAt` 等字段并不会在创建响应中返回。
-  - 当前页面依赖较弱，暂未明显触发运行时错误，但这是类型定义与接口事实不一致。
-
-## 4.4 更新院系
-
-### 后端情况
+### 已解决
 
 - 后端已实现更新接口，并限制为 `admin`、`super_admin`。
 - 请求体仅支持 `name`、`description`，与文档一致。
 - 更新时已记录 `SystemLog`。
-
-### 后端问题
-
-- `:id` 参数同样未严格校验 UUID，存在与 4.2 相同的问题。
-- 后端更新前只检查院系是否存在，没有检查“更新后的名称是否与其他院系重复”：
-  - 创建接口会校验名称和代码唯一性，
-  - 更新接口当前缺少同类唯一性约束，可能导致重复名称。
-
-### 前端问题
-
-- `departmentsApi.update` 的返回类型同样声明为完整 `Department`，但后端实际响应仅返回 `{ id, name, code }`，与真实接口不一致。
+- `:id` 参数已使用严格 UUID 校验，非法参数会返回 `400`。
+- 后端更新前已补充“院系名称重复”校验：
+  - 若更新后的名称与其他院系重复，会返回 `409`。
+- `departmentsApi.update` 返回类型已收敛为真实响应 `{ id, name, code }`，不再错误声明为完整 `Department`。
 
 ## 4.5 删除院系
 

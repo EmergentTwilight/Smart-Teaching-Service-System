@@ -162,7 +162,6 @@ const UserList: React.FC = () => {
       const {
         status,
         avatarFile,
-        avatarPreviewUrl: _avatarPreviewUrl,
         student,
         teacher,
         admin,

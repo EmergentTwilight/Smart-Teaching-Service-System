@@ -302,24 +302,25 @@ describe('GET /api/v1/departments/:id', () => {
     const user = await createTestUser()
     const token = generateTestToken(user.id, user.username)
 
+    const nonExistentId = '550e8400-e29b-41d4-a716-446655440000'
     const response = await request(app)
-      .get('/api/v1/departments/nonexistent-id')
+      .get(`/api/v1/departments/${nonExistentId}`)
       .set('Authorization', `Bearer ${token}`)
       .expect(404)
 
     expect(response.body.message).toContain('院系不存在')
   })
 
-  it('应该返回 404 当 UUID 无效或不存在', async () => {
+  it('应该返回 400 当 UUID 无效', async () => {
     const user = await createTestUser()
     const token = generateTestToken(user.id, user.username)
 
     const response = await request(app)
       .get('/api/v1/departments/invalid-uuid-format')
       .set('Authorization', `Bearer ${token}`)
-      .expect(404)
+      .expect(400)
 
-    expect(response.body.message).toBeDefined()
+    expect(response.body.message).toContain('参数校验失败')
   })
 
   it('未认证时应该拒绝访问', async () => {
@@ -491,6 +492,29 @@ describe('PUT /api/v1/departments/:id', () => {
       .expect(404)
 
     expect(response.body.message).toBeDefined()
+  })
+
+  it('更新为重复院系名称时应该返回 409', async () => {
+    const admin = await createTestUser('admin')
+    const token = generateTestToken(admin.id, admin.username, ['admin'])
+    const sourceDepartment = await createTestDepartment({
+      name: 'itest_dept_源院系名称',
+      code: 'ITD304',
+    })
+    await createTestDepartment({
+      name: 'itest_dept_目标重复名称',
+      code: 'ITD305',
+    })
+
+    const response = await request(app)
+      .put(`/api/v1/departments/${sourceDepartment.id}`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        name: 'itest_dept_目标重复名称',
+      })
+      .expect(409)
+
+    expect(response.body.message).toContain('部门名称已存在')
   })
 })
 

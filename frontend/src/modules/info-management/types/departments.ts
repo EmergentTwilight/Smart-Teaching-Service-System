@@ -18,10 +18,21 @@ export interface Department {
   studentCount: number
   /** 专业数量 */
   majorCount: number
+  /** 管理员数量 */
+  adminCount?: number
+  /** 课程数量 */
+  courseCount?: number
   /** 创建时间 */
   createdAt: string | null
   /** 更新时间 */
   updatedAt?: string | null
+}
+
+/** 创建/更新接口返回的精简院系信息 */
+export interface DepartmentSummary {
+  id: string
+  name: string
+  code: string
 }
 
 /** 部门详情（包含关联信息） */

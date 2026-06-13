@@ -1,6 +1,6 @@
-# A 模块用户管理 API 更新记录
+# A 模块信息管理 API 更新记录
 
-本文用于配合 `problem.md` 交接当前处理进度，当前记录范围聚焦 `docs/apis/A-information-management.md` 中 `## 三、用户管理 API` 已完成和刚完成的修复。
+本文用于配合 `problem.md` 交接当前处理进度，当前记录范围聚焦 `docs/apis/A-information-management.md` 中 `## 三、用户管理 API` 与 `## 四、院系管理 API` 已完成和刚完成的修复。
 
 ## 本阶段已处理
 
@@ -255,9 +255,113 @@
 - `frontend/src/modules/info-management/pages/users/UserList.tsx`
   - 提交编辑时，如管理员院系变化，会额外调用 `PATCH /users/:id/admin/department`。
 
+## 四、院系管理 API
+
+### 4.1 获取院系列表
+
+#### 后端更新
+
+- `backend/prisma/schema.prisma`
+  - `Department` 模型已补充稳定时间字段：
+    - `createdAt` -> `created_at`
+    - `updatedAt` -> `updated_at`
+
+- `backend/prisma/migrations/20260613213000_add_department_timestamps/migration.sql`
+  - 已新增 `departments.created_at` 与 `departments.updated_at` 字段迁移脚本。
+
+- `backend/src/modules/info-management/departments.routes.ts`
+  - 院系列表 `created_at` 已改为直接取 `Department.createdAt`。
+  - 已移除通过 `SystemLog` 回填 `created_at` / `updated_at` 的旧逻辑。
+
+#### 前端情况
+
+- 前端列表页原有 `page_size`、关键词搜索、分页展示逻辑可直接复用，无需额外调整。
+
+### 4.2 获取院系详情
+
+#### 后端更新
+
+- `backend/src/modules/info-management/departments.types.ts`
+  - `departmentIdSchema` 已改为严格 UUID 校验。
+  - 非法 `:id` 现在会按参数错误返回 `400`，不再误落为 `404`。
+
+- `backend/src/__tests__/integration/modules/info-management/departments.routes.integration.test.ts`
+  - 已拆分测试语义：
+    - 合法但不存在的 UUID 返回 `404`
+    - 非法 UUID 返回 `400`
+
+#### 前端更新
+
+- `frontend/src/modules/info-management/components/DepartmentDetail.tsx`
+  - 院系详情弹窗已补充展示 `updatedAt`。
+
+### 4.3 创建院系
+
+#### 前端更新
+
+- `frontend/src/modules/info-management/types/departments.ts`
+  - 已新增 `DepartmentSummary`，用于表示创建/更新接口返回的精简结构。
+
+- `frontend/src/modules/info-management/api/departments.ts`
+  - `departmentsApi.create` 返回类型已从错误的完整 `Department` 改为真实响应：
+    - `{ id, name, code }`
+
+#### 说明
+
+- 页面逻辑本身未依赖创建接口返回完整院系对象，因此本次主要是类型收敛与接口事实对齐。
+
+### 4.4 更新院系
+
+#### 后端更新
+
+- `backend/src/modules/info-management/departments.routes.ts`
+  - 更新院系前已补充“名称重复”校验。
+  - 当更新后的名称与其他院系重复时，会返回 `409` 与 `部门名称已存在`。
+
+- `backend/src/__tests__/integration/modules/info-management/departments.routes.integration.test.ts`
+  - 已新增“更新为重复院系名称时应该返回 409”的集成测试。
+
+#### 前端更新
+
+- `frontend/src/modules/info-management/api/departments.ts`
+  - `departmentsApi.update` 返回类型已从错误的完整 `Department` 改为真实响应：
+    - `{ id, name, code }`
+
+### 4.5 删除院系
+
+#### 后端更新
+
+- 后端删除接口本身可用，且 `:id` 的 UUID 校验问题已随 4.2 一并修复。
+- 后端严格删除阻塞条件保持不变：
+  - `majors`
+  - `teachers`
+  - `admins`
+  - `courses`
+- `backend/src/modules/info-management/departments.routes.ts`
+  - 院系列表和详情响应已补充 `admin_count`、`course_count`，用于前端展示完整删除阻塞信息。
+
+#### 前端更新
+
+- `frontend/src/modules/info-management/types/departments.ts`
+  - `Department` 已新增可选 `adminCount`、`courseCount`。
+
+- `frontend/src/modules/info-management/pages/departments/DepartmentList.tsx`
+  - 删除确认弹窗已补充管理员关联、课程关联提示。
+  - 删除失败提示已兼容请求拦截器抛出的 `Error.message`。
+
+- `frontend/src/modules/info-management/components/DepartmentDetail.tsx`
+  - 院系详情已展示管理员数量、课程数量。
+
+#### 文档同步
+
+- `docs/apis/A-information-management.md`
+  - 4.1 / 4.2 示例响应已补充 `admin_count`、`course_count`。
+  - 4.5 删除前置条件已改为“院系下无关联教师、专业、管理员、课程”。
+  - 4.5 成功消息已对齐后端真实返回：`院系删除成功`。
+
 ## 当前进行中
 
-### 无
+- 暂无。
 
 ## 已验证
 

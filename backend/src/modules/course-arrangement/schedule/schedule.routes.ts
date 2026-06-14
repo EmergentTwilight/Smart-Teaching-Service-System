@@ -1,4 +1,5 @@
 import { Router } from 'express'
+import { authMiddleware } from '../../../shared/middleware/auth.js'
 import {
   createSchedule,
   validateSchedule,
@@ -9,6 +10,9 @@ import {
 } from './schedule.controller.js'
 
 const router: Router = Router()
+
+// 所有排课管理接口需登录鉴权
+router.use(authMiddleware)
 
 router.get('/', getSchedules)
 router.post('/', createSchedule)

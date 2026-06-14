@@ -1,4 +1,3 @@
-// frontend/src/modules/course-arrangement/api/constraint.ts
 import request from '@/shared/utils/request'
 import {
   batchDeleteSchema,

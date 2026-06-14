@@ -10,8 +10,11 @@ import {
 
 const router: Router = Router()
 
+// 所有课表接口需登录鉴权
+router.use(authMiddleware)
+
 // 1. 综合查询 (6.3.3)
-router.get('/', authMiddleware, getTimetables)
+router.get('/', getTimetables)
 
 // 2. 导出接口 (6.3.4) - 必须放在变量路由前面
 router.get('/export', exportTimetable)

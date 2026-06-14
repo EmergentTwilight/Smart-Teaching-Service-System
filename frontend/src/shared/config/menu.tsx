@@ -22,6 +22,7 @@ import {
   LineChartOutlined,
   CalculatorOutlined,
   BuildOutlined,
+  CheckCircleOutlined,
 } from '@ant-design/icons';
 
 export const MENU_ITEMS: MenuProps['items'] = [
@@ -91,6 +92,7 @@ export const MENU_ITEMS: MenuProps['items'] = [
       { key: '/grade/entry', icon: <EditOutlined />, label: '成绩录入' },
       { key: '/grade/statistics', icon: <LineChartOutlined />, label: '统计分析' },
       { key: '/grade/gpa', icon: <CalculatorOutlined />, label: 'GPA 计算' },
+      { key: '/grade/approval', icon: <CheckCircleOutlined />, label: '改分审批' },
     ],
   },
   {

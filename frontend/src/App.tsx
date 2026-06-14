@@ -22,6 +22,7 @@ const SystemLogs = lazy(() => import('@/modules/info-management/pages/users/Syst
 const DepartmentList = lazy(() => import('@/modules/info-management/pages/departments/DepartmentList'));
 const MajorList = lazy(() => import('@/modules/info-management/pages/majors/MajorList'));
 const TeacherScoreEntryPage = lazy(() => import('@/modules/score-management/pages/TeacherScoreEntryPage'));
+const AdminScoreApprovalPage = lazy(() => import('@/modules/score-management/admin/pages/AdminScoreApprovalPage'));
 const StudentScoreQueryPage = lazy(() => import('@/modules/score-management/student/pages/student-score-query-page'));
 const StudentScoreAnalyticsPage = lazy(() => import('@/modules/score-management/student/pages/student-score-analytics-page'));
 const Profile = lazy(() => import('@/modules/info-management/pages/Profile'));
@@ -166,6 +167,14 @@ const App: React.FC = () => {
                   <Route path="grade/entry" element={<TeacherScoreEntryPage />} />
                   <Route path="grade/statistics" element={<StudentScoreAnalyticsPage />} />
                   <Route path="grade/gpa" element={<StudentScoreQueryPage />} />
+                  <Route
+                    path="grade/approval"
+                    element={
+                      <ProtectedRoute requiredRoles={['admin', 'super_admin']}>
+                        <AdminScoreApprovalPage />
+                      </ProtectedRoute>
+                    }
+                  />
 
                   {/* 系统设置 */}
                   <Route path="settings" element={<ComingSoon title="系统设置" />} />

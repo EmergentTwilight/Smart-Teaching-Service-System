@@ -1,228 +1,376 @@
 ---
 filename: F-score-management.md
-title: STSS F 模块 · 接口与 DTO（F1 成绩录入）
+title: STSS F 模块 · 成绩管理接口文档
 status: draft
-version: 0.2.0
-last_updated_at: 2026-06-12
-last_updated_by: 高诗奇
-description: F 模块（成绩管理）中 F1（教师成绩录入）接口与 DTO 说明，供前端 F4 联调使用。
+version: 1.0.0
+last_updated_at: 2026-06-14
+last_updated_by: F6
+description: 成绩管理子系统接口、页面、权限与验收链路说明。
 ---
 
-# F-模块接口与 DTO（F1：教师成绩录入）
+# STSS F 模块 · 成绩管理接口文档
 
-此文档为前后端联调用的 F1（教师成绩录入）接口与 DTO 说明，供 F4 前端对接使用。
+## 1. 模块范围
 
-**注意**：最终字段以后端仓库中 `score-entry` 的实现为准；如果前端和后端对于字段命名（snake_case vs camelCase）有约定，请以项目统一规范为准（本项目响应采用 snake_case）。
+F 模块围绕 `Score`、`Enrollment`、`CourseOffering` 完成课程最终成绩管理，覆盖：
 
----
+- 教师成绩录入、草稿保存、正式提交。
+- 教师对已提交成绩发起改分申请。
+- 管理员审批或驳回改分申请，并生成审计日志。
+- 学生查询本人成绩、GPA、学分进展和个人成绩分析。
+- 教师或管理员查看课程成绩统计。
 
-## 1. 通用枚举 / 规则
+在线测试成绩来源可作为后续扩展，本模块不负责在线考试流程。
 
-- Score.status：`DRAFT` | `SUBMITTED` | `CONFIRMED` | `EMPTY`
-  - `EMPTY`：后端在没有 Score 记录时返回的占位状态（前端展示为可录入项）。
-  - `DRAFT`：草稿，可反复保存与覆盖。
-  - `SUBMITTED`：教师提交后状态，普通录入接口不可再修改。
-  - `CONFIRMED`：审批通过的最终状态（由 F2 产生），F1 识别但不产生。
+## 2. 通用约定
 
-- 分数校验：单项分数 `usualScore` / `midtermScore` / `finalScore` 必须在 0 ~ 100（包含），后端使用 Zod 校验；总评 `totalScore` 由后端重算，前端可不传或作为建议值。
+### 2.1 响应格式
 
-- 清空分数的规则：如果前端显式把某一项字段设置为 `null` 并发送，后端 `saveDraft` 应支持把该字段写成 `null`（表示清空）。如果前端不传该字段，后端应保留原值（或使用 Enrollment 中的默认占位）。
-
----
-
-## 2. DTO：数据结构（TypeScript 风格）
-
-interface ScoreItem {
-id: string | null // score 主键，若无则为 null
-enrollment_id: string // Enrollment id
-student_id: string
-student_number: string
-student_name: string
-course_offering_id: string
-course_id: string
-course_code: string
-course_name: string
-semester_id: string
-semester_name: string
-usual_score: number | null
-midterm_score: number | null
-final_score: number | null
-total_score: number | null // 后端重算总评
-grade_point: number | null
-grade_letter: string | null
-status: 'DRAFT' | 'SUBMITTED' | 'CONFIRMED' | 'EMPTY'
-entered_by: string | null
-entered_at: string | null // ISO timestamp
-modified_at: string | null
-modified_by: string | null
-has_pending_modification_request: boolean
-}
-
-interface StudentScoreSummary {
-student_id: string
-student_name: string
-major_name: string | null
-grade: number | null
-total_required_credits: number | null
-earned_credits: number
-passed_credits: number
-in_progress_credits: number
-gpa: number | null
-average_score: number | null
-passed_course_count: number
-failed_course_count: number
-}
-
-interface CourseScoreAnalytics {
-course_offering_id: string
-course_name: string
-teacher_name: string
-total_students: number
-submitted_count: number
-average_score: number | null
-max_score: number | null
-min_score: number | null
-pass_count: number
-fail_count: number
-distribution: Array<{ range: string; count: number }>
-ranking_top_10: Array<{ student_id: string; student_number: string; student_name: string; total_score: number; rank: number }>
-}
-
----
-
-## 3. F1 接口清单（教师端）
-
-### 3.1 获取某开课下的成绩录入列表
-
-- 方法：GET
-- 路径：`/api/v1/course-offerings/:courseOfferingId/scores`（路由已挂载）
-- 权限：需登录；`teacher`（仅限自己任课）或 `admin` / `super_admin`（可查看所有）
-- Query 参数（zod 校验）：
-  - `page?: number`（默认 1）
-  - `pageSize?: number`（默认 20，最大 100）
-  - `keyword?: string`（同时匹配学号或姓名）
-  - `status?: 'DRAFT' | 'SUBMITTED' | 'CONFIRMED' | 'EMPTY'`
-
-- 返回示例（成功）:
+成功响应：
 
 ```json
 {
   "code": 200,
-  "message": "OK",
+  "message": "Success",
+  "data": {}
+}
+```
+
+分页响应：
+
+```json
+{
+  "code": 200,
+  "message": "Success",
   "data": {
-    "page": 1,
-    "page_size": 20,
-    "total": 123,
-    "total_pages": 7,
-    "items": [
-      /* ScoreItem[] */
-    ]
+    "items": [],
+    "pagination": {
+      "page": 1,
+      "page_size": 20,
+      "total": 0,
+      "total_pages": 0
+    }
   }
 }
 ```
 
-- 行为说明：
-  - 后端以 `Enrollment` 为准生成学生名单；若某学生无 Score 记录，后端会返回一条占位 `ScoreItem`（`status: 'EMPTY'`），方便前端渲染可录入项。
-  - 前端按需展示 `DRAFT` 项可编辑，`SUBMITTED` / `CONFIRMED` 项只读。
+错误响应：
 
-### 3.2 保存草稿（批量 upsert）
+```json
+{
+  "code": 400,
+  "message": "错误信息",
+  "errors": {}
+}
+```
 
-- 方法：POST
-- 路径：`/api/v1/course-offerings/:courseOfferingId/scores/draft`
-- 权限：教师（仅限自己任课）或管理员
-- Body（zod 校验）示例：
+后端统一输出 `snake_case`，前端请求封装会转换为 `camelCase`。
+
+### 2.2 成绩状态
+
+| 状态        | 说明                                              |
+| ----------- | ------------------------------------------------- |
+| `EMPTY`     | 仅列表 DTO 使用，表示选课记录存在但尚无 `Score`。 |
+| `DRAFT`     | 草稿成绩，可通过录入接口反复保存。                |
+| `SUBMITTED` | 教师已提交，普通录入接口不可再修改。              |
+| `CONFIRMED` | 管理员审批改分后确认。                            |
+
+### 2.3 分数规则
+
+- 分项成绩：`usual_score`、`midterm_score`、`final_score`，范围 `0-100`。
+- 总评成绩：后端统一按 `平时 30% + 期中 20% + 期末 50%` 计算。
+- GPA、等级、平均分、学分进展以后端计算结果为准。
+- 重修或同一课程多次成绩按后端有效成绩规则选取。
+
+## 3. 权限矩阵
+
+| 操作                 | student  | teacher       | admin | super_admin |
+| -------------------- | -------- | ------------- | ----- | ----------- |
+| 查询本人成绩         | 是       | 否            | 否    | 否          |
+| 查询自己任课课程成绩 | 否       | 是            | 是    | 是          |
+| 保存草稿             | 否       | 自己任课      | 是    | 是          |
+| 提交成绩             | 否       | 自己任课      | 是    | 是          |
+| 发起改分申请         | 否       | 自己任课/录入 | 是    | 是          |
+| 审批改分申请         | 否       | 否            | 是    | 是          |
+| 查看修改日志         | 本人相关 | 任课相关      | 是    | 是          |
+| 查看课程成绩分析     | 否       | 自己任课      | 是    | 是          |
+| 查看学生成绩统计     | 本人     | 否            | 是    | 是          |
+
+## 4. 教师成绩录入接口
+
+### 4.1 查询成绩录入列表
+
+`GET /api/v1/course-offerings/:courseOfferingId/scores`
+
+Query：
+
+| 参数       | 类型                              | 说明                |
+| ---------- | --------------------------------- | ------------------- |
+| `page`     | number                            | 默认 1。            |
+| `pageSize` | number                            | 默认 20，最大 100。 |
+| `keyword`  | string                            | 学号或姓名关键词。  |
+| `status`   | `EMPTY/DRAFT/SUBMITTED/CONFIRMED` | 状态筛选。          |
+
+说明：
+
+- 后端以 `Enrollment` 生成名单。
+- 没有 `Score` 的学生也返回 `EMPTY` 占位项。
+- 教师只能查看自己任课课程。
+
+### 4.2 批量保存草稿
+
+`POST /api/v1/course-offerings/:courseOfferingId/scores/draft`
+
+Body：
 
 ```json
 {
   "scores": [
     {
-      "enrollmentId": "e1",
-      "usualScore": 80,
-      "midtermScore": 70,
+      "enrollmentId": "uuid",
+      "usualScore": 86,
+      "midtermScore": 82,
       "finalScore": 88
-    },
-    {
-      "enrollmentId": "e2",
-      "usualScore": null // 显式传 null 表示清空该项
     }
   ]
 }
 ```
 
-- 返回示例：
+说明：
+
+- 使用 upsert 语义。
+- 仅 `EMPTY` 或 `DRAFT` 可保存。
+- `SUBMITTED`、`CONFIRMED` 会跳过。
+- 前端显式传 `null` 表示清空该项成绩。
+
+### 4.3 批量提交成绩
+
+`POST /api/v1/course-offerings/:courseOfferingId/scores/submit`
+
+Body：
 
 ```json
 {
-  "code": 200,
-  "message": "草稿保存成功",
-  "data": { "savedCount": 2, "skippedCount": 0, "errors": [] }
+  "scoreIds": ["uuid"]
 }
 ```
 
-- 行为与校验：
-  - 后端会对 `0 <= score <= 100` 进行校验；校验失败会在 `errors` 中返回条目级错误。
-  - 对于每条成绩：若 Score 不存在，后端会 `create`；若存在则 `update`（upsert）。
-  - 如果 enrollment 不属于当前 courseOffering 或不存在，后端会把该条记录计入 `errors` 并跳过。
-  - 若当前记录状态为 `SUBMITTED` 或 `CONFIRMED`，后端会跳过并计入 `skippedCount`。
+说明：
 
-### 3.3 提交成绩（批量提交）
+- 仅 `DRAFT` 可提交。
+- 提交后状态变为 `SUBMITTED`。
+- 后续修改必须走审批流程。
 
-- 方法：POST
-- 路径：`/api/v1/course-offerings/:courseOfferingId/scores/submit`
-- 权限：教师（仅限自己任课）或管理员
-- Body（zod 校验）示例：
+## 5. 改分申请与审批接口
 
-```json
-{ "scoreIds": ["sc1", "sc2"] }
-```
+### 5.1 发起改分申请
 
-- 返回示例：
+`POST /api/v1/scores/:scoreId/modification-request`
+
+Body：
 
 ```json
 {
-  "code": 200,
-  "message": "成绩提交成功",
-  "data": { "submittedCount": 2, "skippedCount": 0, "errors": [] }
+  "proposedChanges": {
+    "usualScore": 90,
+    "midtermScore": 86,
+    "finalScore": 92
+  },
+  "reason": "试卷复核后需调整期末成绩"
 }
 ```
 
-- 行为说明：
-  - 后端只允许把 `DRAFT` 状态改为 `SUBMITTED`。
-  - 提交时后端会统一重算 `total_score`、`grade_point`、`grade_letter`，并写入 `entered_by` / `entered_at`。
-  - 提交后该条成绩通过常规录入接口不可再修改；若需改分需要走 F2 的改分申请流程。
+说明：
 
----
+- 仅 `SUBMITTED` 或 `CONFIRMED` 可申请。
+- 不直接覆盖成绩，只写入 `Score.modificationRequest`。
+- 已存在待审批申请时返回冲突错误。
+- 系统会写入 `SystemLog`，记录申请行为。
 
-## 4. 额外说明（给 F4 的协作要点）
+### 5.2 获取待审批申请列表
 
-- 字段命名：后端响应使用 `snake_case`（如 `student_number`、`total_score`）；前端接收后可按项目风格转换为 camelCase，但建议在请求/响应层尽量保持原样以避免混淆。
+`GET /api/v1/scores/modification-requests`
 
-- “清空分数”交互：
-  - 如果前端允许教师把已有分数置空（例如把平时分置空），请前端在请求体中显式传 `null`（而不是不包含该字段）。后端会将 `null` 写入数据库。
-  - 若前端不传该字段，后端将保留旧值（实现上用 `"key" in item` 判断）。
+Query：
 
-- 状态展示：
-  - `EMPTY`——列表占位，前端应显示可录入空白行。
-  - `DRAFT`——可编辑，且可保存/提交。
-  - `SUBMITTED` / `CONFIRMED`——只读，提交按钮/编辑按钮应禁用。
+| 参数               | 类型   | 说明         |
+| ------------------ | ------ | ------------ |
+| `page`             | number | 默认 1。     |
+| `pageSize`         | number | 默认 20。    |
+| `courseOfferingId` | uuid   | 按开课筛选。 |
+| `teacherId`        | uuid   | 按教师筛选。 |
 
-- 错误显示：后端在批量操作中会返回 `errors` 数组（每条包含 `enrollmentId/scoreId`、`field`、`message`），前端应把条目级错误展示到对应行。
+权限：`admin`、`super_admin`。
 
-- 权限：后端会根据 `req.user` 判断所属角色与教师身份（teacher.userId 与 courseOffering.teacherId 匹配），请前端传 Authorization header（Bearer token），后端中间件会填充 `req.user`。
+### 5.3 审批通过
 
----
+`POST /api/v1/scores/:scoreId/modification-request/approve`
 
-## 5. 开始联调的建议与交付方式
+Body：
 
-- 推荐做法：把这份文件（以及后端分支）推到远端仓库并发 PR 给 `dev/F-migration`，并在工作群/微信上把 PR 链接发给 F4 同学，这样便于版本控制与后续修改追踪。
+```json
+{
+  "comment": "同意复核结果"
+}
+```
 
-- 临时快速交付：如果 F4 需要立刻开始实现，可以把本文件临时导出为 PDF/Markdown 发微信给对方，但仍然建议把最终版本放到仓库（`docs/apis/F-score-management.md`），以便统一维护。
+通过后：
 
-- 我可以代为提交并开 PR（若你同意把 `backend/package.json` 和 `pnpm-lock.yaml` 的 devDeps 也提交），或者我可以只把文档文件 commit 到当前分支并 push。请确认你想要我做哪种：
-  - 1.  我代你 commit + push 并发起 PR（推荐）；
-  - 2.  我只在本地生成文件，你手动 review 后提交；
-  - 3.  只导出 Markdown 内容，你用微信发送给同学（不做 git 操作）。
+- 更新 `Score` 分项成绩。
+- 后端重算总评、绩点、等级。
+- 状态更新为 `CONFIRMED`。
+- 清空 `modificationRequest`。
+- 写入 `ScoreModificationLog`。
+- 写入 `SystemLog`。
 
----
+### 5.4 审批驳回
 
-如果你需要我一并生成 `mock/score-entry.mock.json` 示例数据包或把 DTO 转为 front-end friendly 的 TypeScript 接口（camelCase），我也可以一并生成。
+`POST /api/v1/scores/:scoreId/modification-request/reject`
+
+Body：
+
+```json
+{
+  "reason": "依据不足，驳回申请"
+}
+```
+
+驳回后：
+
+- 原成绩不变。
+- 清空 `modificationRequest`。
+- 写入 `SystemLog`。
+
+### 5.5 查看修改日志
+
+`GET /api/v1/scores/:scoreId/modification-logs`
+
+Query：
+
+| 参数       | 类型   | 说明      |
+| ---------- | ------ | --------- |
+| `page`     | number | 默认 1。  |
+| `pageSize` | number | 默认 20。 |
+
+权限：
+
+- 学生只能看本人相关成绩。
+- 教师只能看本人任课或本人录入成绩。
+- 管理员可查看全部。
+
+## 6. 学生成绩查询接口
+
+### 6.1 查询本人成绩
+
+`GET /api/v1/students/me/scores`
+
+Query：
+
+| 参数         | 类型   | 说明               |
+| ------------ | ------ | ------------------ |
+| `page`       | number | 默认 1。           |
+| `pageSize`   | number | 默认 20。          |
+| `semesterId` | uuid   | 学期筛选。         |
+| `keyword`    | string | 课程名或课程代码。 |
+
+说明：
+
+- 仅返回当前登录学生本人数据。
+- 仅返回已提交或已确认成绩。
+- 返回字段包含课程、学期、学分、分项成绩、总评、绩点、等级、是否有效成绩。
+
+### 6.2 查询本人 GPA 与学分摘要
+
+`GET /api/v1/students/me/score-summary`
+
+返回内容包括：
+
+- GPA
+- 平均分
+- 已修学分
+- 通过学分
+- 应修学分
+- 必修/选修完成情况
+- 已完成课程数
+- 未通过课程数
+
+### 6.3 查询某学生成绩摘要
+
+`GET /api/v1/students/:studentId/score-summary`
+
+权限：学生仅本人，管理员可指定学生。
+
+## 7. 成绩分析接口
+
+### 7.1 查询课程成绩分析
+
+`GET /api/v1/course-offerings/:courseOfferingId/score-analytics`
+
+返回内容包括：
+
+- 课程平均分、最高分、最低分。
+- 已提交人数、通过人数、未通过人数。
+- 分数段分布。
+- 课程成绩排名 Top10。
+
+权限：
+
+- 教师只能看自己任课课程。
+- 管理员可看全部课程。
+
+### 7.2 查询学生个人分析
+
+`GET /api/v1/students/:studentId/score-analytics`
+
+返回内容包括：
+
+- 学期 GPA / 均分趋势。
+- 分数段分布。
+- 课程类型学分完成情况。
+
+权限：学生仅本人，管理员可指定学生。
+
+## 8. 前端页面
+
+| 页面           | 路径                | 说明                                 |
+| -------------- | ------------------- | ------------------------------------ |
+| 教师成绩录入   | `/grade/entry`      | 录入、保存草稿、提交、发起改分申请。 |
+| 学生成绩查询   | `/grade/gpa`        | 本人成绩列表、GPA、学分进展。        |
+| 成绩统计分析   | `/grade/statistics` | 学生个人分析图表。                   |
+| 管理员改分审批 | `/grade/approval`   | 待审批列表、通过、驳回、查看日志。   |
+
+## 9. Seed 演示数据
+
+`backend/prisma/seed.ts` 已包含 F 模块演示数据：
+
+- `admin / Admin123`
+- `teacher / teacher123`
+- `student / student123`
+- 演示课程：`F-DEMO-001`
+- 演示开课：`33333333-3333-4333-8333-333333333333`
+- 一条已提交成绩。
+- 一条待审批改分申请。
+
+可按以下链路演示：
+
+1. 使用 `teacher` 登录。
+2. 进入 `/grade/entry`，输入演示开课 ID。
+3. 查看已提交成绩，可发起新的改分申请。
+4. 使用 `admin` 登录。
+5. 进入 `/grade/approval`，通过或驳回改分申请。
+6. 使用 `student` 登录。
+7. 进入 `/grade/gpa` 和 `/grade/statistics` 查看成绩与统计。
+
+## 10. 验收清单
+
+- 教师能查看自己任课课程学生名单。
+- 无成绩学生返回可录入占位项。
+- 草稿可反复保存。
+- 成绩提交后不能通过普通录入接口修改。
+- 教师可对已提交成绩发起改分申请。
+- 管理员可审批或驳回改分申请。
+- 审批通过写入 `ScoreModificationLog` 与 `SystemLog`。
+- 驳回不改变原成绩。
+- 学生只能查询本人已公开成绩。
+- GPA、平均分和学分进展以后端计算为准。
+- 前端路由、菜单、接口文档与真实实现一致。

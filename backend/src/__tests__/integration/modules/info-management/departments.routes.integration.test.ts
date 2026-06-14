@@ -320,7 +320,7 @@ describe('GET /api/v1/departments/:id', () => {
       .set('Authorization', `Bearer ${token}`)
       .expect(400)
 
-    expect(response.body.message).toContain('参数校验失败')
+    expect(response.body.message).toContain('验证失败')
   })
 
   it('未认证时应该拒绝访问', async () => {

@@ -4,9 +4,17 @@
  */
 import prisma from '../../shared/prisma/client.js'
 import { Request } from 'express'
-import { NotFoundError } from '@stss/shared'
+import { ConflictError, NotFoundError } from '@stss/shared'
 import type { Prisma } from '@prisma/client'
 import type { CreateMajorSchema, GetMajorListSchema, UpdateMajorSchema } from './major.types.js'
+
+function serializeMajorSummary(major: { id: string; name: string; code: string | null }) {
+  return {
+    id: major.id,
+    name: major.name,
+    code: major.code,
+  }
+}
 
 export const majorService = {
   async getMajorList(params: GetMajorListSchema) {
@@ -22,10 +30,6 @@ export const majorService = {
       ]
     }
     const { items, total } = await prisma.$transaction(async (tx) => {
-      /**
-       * 先查询专业列表，然后根据专业ID列表查询创建日志，最后在内存中合并数据返回。
-       */
-      // 查询专业列表
       const majors = await tx.major.findMany({
         where,
         skip: (page - 1) * page_size,
@@ -43,30 +47,11 @@ export const majorService = {
             },
           },
         },
+        orderBy: { name: 'asc' },
       })
 
       const total = await tx.major.count({ where })
 
-      const majorIds = majors.map((m) => m.id)
-      //查询对应专业ID的创建日志
-      const creationLogs = await tx.systemLog.findMany({
-        where: {
-          resourceType: 'major',
-          resourceId: { in: majorIds },
-          action: 'create',
-        },
-        select: {
-          createdAt: true,
-          resourceId: true,
-        },
-      })
-      // 将日志转换为Map，方便后续根据专业ID获取创建时间
-      const logMap = new Map<string, Date>()
-      creationLogs.forEach((log) => {
-        //因为前面有限制：resourceId in majorIds，所以这里的log.resourceId一定不为null
-        logMap.set(log.resourceId!, log.createdAt)
-      })
-      // 在内存中合并专业数据和创建时间，构造最终返回的列表项
       const items = majors.map((m) => ({
         id: m.id,
         name: m.name,
@@ -76,7 +61,7 @@ export const majorService = {
         degree_type: m.degreeType,
         total_credits: m.totalCredits?.toNumber() || 0,
         student_count: m._count.students,
-        created_at: logMap.get(m.id) || new Date(0), // 如果没有日志记录，默认时间为1970-01-01
+        created_at: m.createdAt,
       }))
       return { items, total }
     })
@@ -100,7 +85,6 @@ export const majorService = {
             select: {
               id: true,
               name: true,
-              description: true,
             },
           },
           students: {
@@ -123,33 +107,6 @@ export const majorService = {
         },
       })
       if (!major) throw new NotFoundError('专业')
-      //查找SystemLog中更新该专业信息的日志，获取最近一次更新时间
-      const updateLog = await tx.systemLog.findFirst({
-        where: {
-          resourceType: 'major',
-          resourceId: id,
-          action: 'update',
-        },
-        orderBy: {
-          createdAt: 'desc',
-        },
-        select: {
-          createdAt: true,
-        },
-      })
-      const createLog = await tx.systemLog.findFirst({
-        where: {
-          resourceType: 'major',
-          resourceId: id,
-          action: 'create',
-        },
-        orderBy: {
-          createdAt: 'desc',
-        },
-        select: {
-          createdAt: true,
-        },
-      })
       return {
         id: major.id,
         name: major.name,
@@ -158,7 +115,7 @@ export const majorService = {
         department_name: major.department.name,
         degree_type: major.degreeType,
         total_credits: major.totalCredits?.toNumber() || 0,
-        description: major.department.description,
+        description: major.description,
         curriculums: major.curriculums.map((c) => ({
           id: c.id,
           name: c.name,
@@ -171,8 +128,8 @@ export const majorService = {
           real_name: s.user.realName,
           grade: s.grade,
         })),
-        created_at: createLog?.createdAt || new Date(0),
-        updated_at: updateLog?.createdAt || new Date(0),
+        created_at: major.createdAt,
+        updated_at: major.updatedAt,
       }
     })
   },
@@ -180,6 +137,32 @@ export const majorService = {
   async createMajor(data: CreateMajorSchema, req: Request) {
     const { department_id, code, name, degree_type, total_credits } = data
     const major = await prisma.$transaction(async (tx) => {
+      const department = await tx.department.findUnique({
+        where: { id: department_id },
+        select: { id: true },
+      })
+      if (!department) {
+        throw new NotFoundError('院系不存在')
+      }
+
+      const duplicateName = await tx.major.findFirst({
+        where: { name },
+        select: { id: true },
+      })
+      if (duplicateName) {
+        throw new ConflictError('专业名称已存在')
+      }
+
+      if (code) {
+        const duplicateCode = await tx.major.findUnique({
+          where: { code },
+          select: { id: true },
+        })
+        if (duplicateCode) {
+          throw new ConflictError('专业代码已存在')
+        }
+      }
+
       const major = await tx.major.create({
         data: {
           department: {
@@ -202,7 +185,7 @@ export const majorService = {
           details: `创建了专业 ${name} (ID: ${major.id})`,
         },
       })
-      return major
+      return serializeMajorSummary(major)
     })
     return major
   },
@@ -212,6 +195,18 @@ export const majorService = {
       const major = await tx.major.findUnique({ where: { id } })
       if (!major) {
         throw new NotFoundError('专业不存在')
+      }
+      if (data.name && data.name !== major.name) {
+        const duplicateName = await tx.major.findFirst({
+          where: {
+            name: data.name,
+            id: { not: id },
+          },
+          select: { id: true },
+        })
+        if (duplicateName) {
+          throw new ConflictError('专业名称已存在')
+        }
       }
       const updatedMajor = await tx.major.update({
         where: { id },
@@ -234,14 +229,7 @@ export const majorService = {
 
       return updatedMajor
     })
-    return {
-      id: updated.id,
-      name: updated.name,
-      code: updated.code,
-      department_id: updated.departmentId,
-      degree_type: updated.degreeType,
-      total_credits: updated.totalCredits?.toNumber() || 0,
-    }
+    return serializeMajorSummary(updated)
   },
 
   async deleteMajor(id: string, req: Request) {
@@ -249,6 +237,10 @@ export const majorService = {
       const major = await tx.major.findUnique({ where: { id } })
       if (!major) {
         throw new NotFoundError('专业不存在')
+      }
+      const studentCount = await tx.student.count({ where: { majorId: id } })
+      if (studentCount > 0) {
+        throw new ConflictError('专业下存在关联学生，无法删除')
       }
       await tx.major.delete({ where: { id } })
       await tx.systemLog.create({

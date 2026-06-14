@@ -217,7 +217,7 @@ model Department {
   /// 创建时间
   createdAt   DateTime @default(now()) @map("created_at")
   /// 更新时间
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at")
 
   majors   Major[]
   teachers Teacher[]
@@ -238,10 +238,16 @@ model Major {
   name         String      @db.VarChar(100)
   /// 专业代码
   code         String?     @unique @db.VarChar(20)
+  /// 描述
+  description  String?     @db.Text
   /// 学位类型
   degreeType   DegreeType? @map("degree_type")
   /// 总学分要求
   totalCredits Decimal?    @map("total_credits") @db.Decimal(5, 1)
+  /// 创建时间
+  createdAt    DateTime    @default(now()) @map("created_at")
+  /// 更新时间
+  updatedAt    DateTime    @default(now()) @updatedAt @map("updated_at")
 
   students    Student[]
   curriculums Curriculum[]

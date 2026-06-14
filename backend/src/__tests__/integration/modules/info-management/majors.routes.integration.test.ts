@@ -46,6 +46,10 @@ async function cleanupMajorsData() {
       },
     },
   })
+  // 删除测试创建的学生（先删除，因为有专业外键约束）
+  await prisma.student.deleteMany({
+    where: { user: { username: { startsWith: 'itest_major_' } } },
+  })
   // 删除测试创建的专业
   await prisma.major.deleteMany({
     where: {
@@ -58,9 +62,6 @@ async function cleanupMajorsData() {
   })
 
   // 清理本测试创建的用户和关联数据
-  await prisma.student.deleteMany({
-    where: { user: { username: { startsWith: 'itest_major_' } } },
-  })
   await prisma.systemLog.deleteMany({
     where: { user: { username: { startsWith: 'itest_major_' } } },
   })
@@ -461,7 +462,8 @@ describe('POST /api/v1/majors', () => {
 
     expect(response.body.data.id).toBeDefined()
     expect(response.body.data.name).toBe('itest_major_计算机科学与技术')
-    expect(response.body.message).toBe('创建成功')
+    expect(response.body.message).toBe('专业创建成功')
+    expect(Object.keys(response.body.data).sort()).toEqual(['code', 'id', 'name'])
   })
 
   it('应该记录创建日志', async () => {
@@ -626,7 +628,8 @@ describe('PUT /api/v1/majors/:id', () => {
       })
       .expect(200)
 
-    expect(response.body.message).toBe('更新成功')
+    expect(response.body.message).toBe('专业更新成功')
+    expect(Object.keys(response.body.data).sort()).toEqual(['code', 'id', 'name'])
   })
 
   it('应该成功更新专业（admin）', async () => {
@@ -704,6 +707,19 @@ describe('PUT /api/v1/majors/:id', () => {
     expect(response.body.message).toContain('专业不存在')
   })
 
+  it('非法 UUID 应该返回 400', async () => {
+    const admin = await createTestUser('super_admin')
+    const token = generateTestToken(admin.id, admin.username, ['super_admin'])
+
+    await request(app)
+      .put('/api/v1/majors/invalid-uuid-format')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        name: 'itest_major_新名称',
+      })
+      .expect(400)
+  })
+
   it('应该验证 name 长度', async () => {
     const admin = await createTestUser('super_admin')
     const token = generateTestToken(admin.id, admin.username, ['super_admin'])
@@ -768,7 +784,7 @@ describe('DELETE /api/v1/majors/:id', () => {
       .set('Authorization', `Bearer ${token}`)
       .expect(200)
 
-    expect(response.body.message).toBe('删除成功')
+    expect(response.body.message).toBe('专业已删除')
 
     // 验证已删除
     const deleted = await prisma.major.findUnique({ where: { id: major.id } })
@@ -836,6 +852,40 @@ describe('DELETE /api/v1/majors/:id', () => {
       .expect(404)
 
     expect(response.body.message).toContain('专业不存在')
+  })
+
+  it('非法 UUID 应该返回 400', async () => {
+    const admin = await createTestUser('super_admin')
+    const token = generateTestToken(admin.id, admin.username, ['super_admin'])
+
+    await request(app)
+      .delete('/api/v1/majors/invalid-uuid-format')
+      .set('Authorization', `Bearer ${token}`)
+      .expect(400)
+  })
+
+  it('专业下有关联学生时应该返回 409', async () => {
+    const admin = await createTestUser('super_admin')
+    const token = generateTestToken(admin.id, admin.username, ['super_admin'])
+
+    const department = await createTestDepartment()
+    const major = await createTestMajor(department.id)
+    const studentUser = await createTestUser('student')
+    await prisma.student.create({
+      data: {
+        userId: studentUser.id,
+        studentNumber: `IMST${Math.random().toString(36).slice(2, 8)}`,
+        majorId: major.id,
+        grade: 2026,
+      },
+    })
+
+    const response = await request(app)
+      .delete(`/api/v1/majors/${major.id}`)
+      .set('Authorization', `Bearer ${token}`)
+      .expect(409)
+
+    expect(response.body.message).toContain('关联学生')
   })
 
   it('未认证时应该拒绝访问', async () => {

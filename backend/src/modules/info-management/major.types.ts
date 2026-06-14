@@ -9,7 +9,7 @@ import { DegreeType } from '@prisma/client'
  * 专业 ID schema
  */
 export const getMajorIdSchema = z.object({
-  id: z.string().uuid(),
+  id: z.string().uuid('专业ID格式无效'),
 })
 
 /**
@@ -17,9 +17,9 @@ export const getMajorIdSchema = z.object({
  */
 export const getMajorListSchema = z.object({
   page: z.coerce.number().int().positive().optional().default(1),
-  page_size: z.coerce.number().int().positive().optional().default(10),
+  page_size: z.coerce.number().int().positive().max(100).optional().default(20),
   department_id: z.string().uuid().optional(),
-  keyword: z.string().optional(),
+  keyword: z.string().trim().optional(),
 })
 
 /**
@@ -41,10 +41,14 @@ export const createMajorSchema = z.object({
 /**
  * 更新专业请求验证 schema
  */
-export const updateMajorSchema = z.object({
-  name: z.string().min(1).max(100).optional(),
-  total_credits: z.number().multipleOf(0.1).positive().max(9999).optional(),
-})
+export const updateMajorSchema = z
+  .object({
+    name: z.string().min(1).max(100).optional(),
+    total_credits: z.number().multipleOf(0.1).positive().max(9999).optional(),
+  })
+  .refine((data) => data.name !== undefined || data.total_credits !== undefined, {
+    message: '至少需要提供 name 或 total_credits 之一',
+  })
 
 export type GetMajorIdSchema = z.infer<typeof getMajorIdSchema>
 export type GetMajorListSchema = z.infer<typeof getMajorListSchema>

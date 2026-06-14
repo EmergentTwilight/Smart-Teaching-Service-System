@@ -3,13 +3,14 @@
  * 测试专业 CRUD 操作的业务逻辑
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { NotFoundError } from '@stss/shared'
+import { ConflictError, NotFoundError } from '@stss/shared'
 import type { DegreeType } from '@prisma/client'
 
 const prismaMock = vi.hoisted(() => ({
   major: {
     findMany: vi.fn(),
     findUnique: vi.fn(),
+    findFirst: vi.fn(),
     create: vi.fn(),
     update: vi.fn(),
     delete: vi.fn(),
@@ -20,6 +21,7 @@ const prismaMock = vi.hoisted(() => ({
   },
   student: {
     findMany: vi.fn(),
+    count: vi.fn(),
   },
   curriculum: {
     findMany: vi.fn(),
@@ -110,10 +112,17 @@ beforeEach(() => {
         major: {
           findMany: prismaMock.major.findMany,
           findUnique: prismaMock.major.findUnique,
+          findFirst: prismaMock.major.findFirst,
           create: prismaMock.major.create,
           update: prismaMock.major.update,
           delete: prismaMock.major.delete,
           count: prismaMock.major.count,
+        },
+        department: {
+          findUnique: prismaMock.department.findUnique,
+        },
+        student: {
+          count: prismaMock.student.count,
         },
         systemLog: {
           findMany: prismaMock.systemLog.findMany,
@@ -219,24 +228,18 @@ describe('MajorService', () => {
       )
     })
 
-    it('应该包含创建时间（从 systemLog 获取）', async () => {
+    it('应该包含创建时间（从 Major.createdAt 获取）', async () => {
+      const createdAt = new Date('2026-01-01T10:00:00Z')
       const majors = [
         {
-          ...buildMajor({ id: 'major-1' }),
+          ...buildMajor({ id: 'major-1', createdAt }),
           department: buildDepartment(),
           _count: { students: 100 },
         },
       ]
 
-      const createdAt = new Date('2026-01-01T10:00:00Z')
       prismaMock.major.findMany.mockResolvedValue(majors)
       prismaMock.major.count.mockResolvedValue(1)
-      prismaMock.systemLog.findMany.mockResolvedValue([
-        {
-          resourceId: 'major-1',
-          createdAt,
-        },
-      ])
 
       const result = await majorService.getMajorList({
         page: 1,
@@ -246,10 +249,11 @@ describe('MajorService', () => {
       expect(result.items[0].created_at).toEqual(createdAt)
     })
 
-    it('当没有创建日志时应该返回默认时间', async () => {
+    it('不依赖创建日志，应该返回 Major.createdAt', async () => {
+      const createdAt = new Date('2026-01-01T00:00:00Z')
       const majors = [
         {
-          ...buildMajor({ id: 'major-1' }),
+          ...buildMajor({ id: 'major-1', createdAt }),
           department: buildDepartment(),
           _count: { students: 100 },
         },
@@ -264,7 +268,7 @@ describe('MajorService', () => {
         page_size: 10,
       })
 
-      expect(result.items[0].created_at).toEqual(new Date(0))
+      expect(result.items[0].created_at).toEqual(createdAt)
     })
 
     it('应该正确计算总页数', async () => {
@@ -351,24 +355,22 @@ describe('MajorService', () => {
       expect(result.curriculums[0].year).toBe(2021)
     })
 
-    it('应该包含创建和更新时间', async () => {
+    it('应该包含创建和更新时间（从 Major 字段获取）', async () => {
+      const createdAt = new Date('2026-01-01T10:00:00Z')
+      const updatedAt = new Date('2026-01-02T10:00:00Z')
       const major = {
-        ...buildMajor(),
+        ...buildMajor({ createdAt, updatedAt }),
         department: buildDepartment(),
         students: [],
         curriculums: [],
       }
 
       prismaMock.major.findUnique.mockResolvedValue(major)
-      // 代码中先查询 updateLog，后查询 createLog
-      prismaMock.systemLog.findFirst
-        .mockResolvedValueOnce({ createdAt: new Date('2026-01-02T10:00:00Z') }) // updateLog
-        .mockResolvedValueOnce({ createdAt: new Date('2026-01-01T10:00:00Z') }) // createLog
 
       const result = await majorService.getMajorDetail('major-1')
 
-      expect(result.created_at).toEqual(new Date('2026-01-01T10:00:00Z'))
-      expect(result.updated_at).toEqual(new Date('2026-01-02T10:00:00Z'))
+      expect(result.created_at).toEqual(createdAt)
+      expect(result.updated_at).toEqual(updatedAt)
     })
 
     it('专业不存在应该抛出 NotFoundError', async () => {
@@ -380,9 +382,11 @@ describe('MajorService', () => {
       await expect(majorService.getMajorDetail('missing-major')).rejects.toThrow('专业不存在')
     })
 
-    it('当没有日志时应该返回默认时间', async () => {
+    it('不依赖日志，应该返回 Major 时间字段', async () => {
+      const createdAt = new Date('2026-01-01T00:00:00Z')
+      const updatedAt = new Date('2026-01-02T00:00:00Z')
       const major = {
-        ...buildMajor(),
+        ...buildMajor({ createdAt, updatedAt }),
         department: buildDepartment(),
         students: [],
         curriculums: [],
@@ -393,8 +397,8 @@ describe('MajorService', () => {
 
       const result = await majorService.getMajorDetail('major-1')
 
-      expect(result.created_at).toEqual(new Date(0))
-      expect(result.updated_at).toEqual(new Date(0))
+      expect(result.created_at).toEqual(createdAt)
+      expect(result.updated_at).toEqual(updatedAt)
     })
   })
 
@@ -402,6 +406,9 @@ describe('MajorService', () => {
   describe('createMajor', () => {
     it('应该成功创建专业', async () => {
       const newMajor = buildMajor({ id: 'new-major' })
+      prismaMock.department.findUnique.mockResolvedValue(buildDepartment())
+      prismaMock.major.findFirst.mockResolvedValue(null)
+      prismaMock.major.findUnique.mockResolvedValue(null)
       prismaMock.major.create.mockResolvedValue(newMajor)
       prismaMock.systemLog.create.mockResolvedValue({})
 
@@ -430,6 +437,8 @@ describe('MajorService', () => {
 
     it('应该创建 systemLog 记录', async () => {
       const newMajor = buildMajor({ id: 'new-major', name: '软件工程' })
+      prismaMock.department.findUnique.mockResolvedValue(buildDepartment())
+      prismaMock.major.findFirst.mockResolvedValue(null)
       prismaMock.major.create.mockResolvedValue(newMajor)
       prismaMock.systemLog.create.mockResolvedValue({})
 
@@ -461,6 +470,8 @@ describe('MajorService', () => {
         degreeType: null,
         totalCredits: null,
       })
+      prismaMock.department.findUnique.mockResolvedValue(buildDepartment())
+      prismaMock.major.findFirst.mockResolvedValue(null)
       prismaMock.major.create.mockResolvedValue(newMajor)
       prismaMock.systemLog.create.mockResolvedValue({})
 
@@ -482,6 +493,35 @@ describe('MajorService', () => {
         },
       })
     })
+
+    it('院系不存在应该抛出 NotFoundError', async () => {
+      prismaMock.department.findUnique.mockResolvedValue(null)
+
+      await expect(
+        majorService.createMajor(
+          {
+            department_id: 'missing-dept',
+            name: '新专业',
+          },
+          mockRequest
+        )
+      ).rejects.toBeInstanceOf(NotFoundError)
+    })
+
+    it('专业名称重复应该抛出 ConflictError', async () => {
+      prismaMock.department.findUnique.mockResolvedValue(buildDepartment())
+      prismaMock.major.findFirst.mockResolvedValue({ id: 'major-2' })
+
+      await expect(
+        majorService.createMajor(
+          {
+            department_id: 'dept-1',
+            name: '计算机科学与技术',
+          },
+          mockRequest
+        )
+      ).rejects.toBeInstanceOf(ConflictError)
+    })
   })
 
   // ==================== updateMajor ====================
@@ -489,7 +529,10 @@ describe('MajorService', () => {
     it('应该成功更新专业名称和学分', async () => {
       const existingMajor = buildMajor({ name: '计算机科学与技术', totalCredits: 150 })
       prismaMock.major.findUnique.mockResolvedValue(existingMajor)
-      prismaMock.major.update.mockResolvedValue({})
+      prismaMock.major.findFirst.mockResolvedValue(null)
+      prismaMock.major.update.mockResolvedValue(
+        buildMajor({ name: '计算机科学', totalCredits: 160 })
+      )
       prismaMock.systemLog.create.mockResolvedValue({})
 
       await majorService.updateMajor(
@@ -513,7 +556,10 @@ describe('MajorService', () => {
     it('应该创建 systemLog 记录并包含修改前后的值', async () => {
       const existingMajor = buildMajor({ name: '计算机科学与技术', totalCredits: 150 })
       prismaMock.major.findUnique.mockResolvedValue(existingMajor)
-      prismaMock.major.update.mockResolvedValue({})
+      prismaMock.major.findFirst.mockResolvedValue(null)
+      prismaMock.major.update.mockResolvedValue(
+        buildMajor({ name: '计算机科学', totalCredits: 160 })
+      )
       prismaMock.systemLog.create.mockResolvedValue({})
 
       await majorService.updateMajor(
@@ -551,7 +597,8 @@ describe('MajorService', () => {
     it('应该支持只更新名称', async () => {
       const existingMajor = buildMajor({ name: '计算机科学与技术' })
       prismaMock.major.findUnique.mockResolvedValue(existingMajor)
-      prismaMock.major.update.mockResolvedValue({})
+      prismaMock.major.findFirst.mockResolvedValue(null)
+      prismaMock.major.update.mockResolvedValue(buildMajor({ name: '计算机科学' }))
       prismaMock.systemLog.create.mockResolvedValue({})
 
       await majorService.updateMajor('major-1', { name: '计算机科学' }, mockRequest)
@@ -568,7 +615,7 @@ describe('MajorService', () => {
     it('应该支持只更新学分', async () => {
       const existingMajor = buildMajor({ totalCredits: 150 })
       prismaMock.major.findUnique.mockResolvedValue(existingMajor)
-      prismaMock.major.update.mockResolvedValue({})
+      prismaMock.major.update.mockResolvedValue(buildMajor({ totalCredits: 160 }))
       prismaMock.systemLog.create.mockResolvedValue({})
 
       await majorService.updateMajor('major-1', { total_credits: 160 }, mockRequest)
@@ -588,6 +635,7 @@ describe('MajorService', () => {
     it('应该成功删除专业', async () => {
       const existingMajor = buildMajor({ name: '计算机科学与技术' })
       prismaMock.major.findUnique.mockResolvedValue(existingMajor)
+      prismaMock.student.count.mockResolvedValue(0)
       prismaMock.major.delete.mockResolvedValue(existingMajor)
       prismaMock.systemLog.create.mockResolvedValue({})
 
@@ -601,6 +649,7 @@ describe('MajorService', () => {
     it('应该创建 systemLog 记录', async () => {
       const existingMajor = buildMajor({ id: 'major-1', name: '计算机科学与技术' })
       prismaMock.major.findUnique.mockResolvedValue(existingMajor)
+      prismaMock.student.count.mockResolvedValue(0)
       prismaMock.major.delete.mockResolvedValue(existingMajor)
       prismaMock.systemLog.create.mockResolvedValue({})
 
@@ -627,6 +676,16 @@ describe('MajorService', () => {
       )
       await expect(majorService.deleteMajor('missing-major', mockRequest)).rejects.toThrow(
         '专业不存在'
+      )
+    })
+
+    it('存在关联学生应该抛出 ConflictError', async () => {
+      const existingMajor = buildMajor({ id: 'major-1', name: '计算机科学与技术' })
+      prismaMock.major.findUnique.mockResolvedValue(existingMajor)
+      prismaMock.student.count.mockResolvedValue(1)
+
+      await expect(majorService.deleteMajor('major-1', mockRequest)).rejects.toBeInstanceOf(
+        ConflictError
       )
     })
   })

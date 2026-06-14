@@ -359,6 +359,105 @@
   - 4.5 删除前置条件已改为“院系下无关联教师、专业、管理员、课程”。
   - 4.5 成功消息已对齐后端真实返回：`院系删除成功`。
 
+## 五、专业管理 API
+
+### 5.1 获取专业列表
+
+#### 后端更新
+
+- `backend/prisma/schema.prisma`
+  - `Major` 模型已补充稳定字段：
+    - `description`
+    - `createdAt` -> `created_at`
+    - `updatedAt` -> `updated_at`
+
+- `backend/prisma/migrations/20260614093000_add_major_timestamps/migration.sql`
+  - 已新增 `majors.description`、`majors.created_at`、`majors.updated_at` 字段迁移脚本。
+
+- `backend/src/modules/info-management/major.service.ts`
+  - 专业列表 `created_at` 已改为直接取 `Major.createdAt`。
+  - 已移除通过 `SystemLog` 回填 `created_at` 的旧逻辑。
+  - 列表已按名称稳定排序。
+
+#### 前端情况
+
+- 前端列表页已有 `page_size`、`department_id`、关键词搜索、分页展示逻辑，可直接复用。
+
+### 5.2 获取专业详情
+
+#### 后端更新
+
+- `backend/src/modules/info-management/major.types.ts`
+  - `getMajorIdSchema` 已改为严格 UUID 校验。
+
+- `backend/src/modules/info-management/major.routes.ts`
+  - 专业更新、删除路由已补充 `:id` 参数校验。
+
+- `backend/src/modules/info-management/major.service.ts`
+  - 专业详情 `created_at`、`updated_at` 已改为直接取 `Major.createdAt`、`Major.updatedAt`。
+  - `description` 已改为使用 `Major.description`，不再错误返回院系描述。
+
+### 5.3 创建专业
+
+#### 后端更新
+
+- `backend/src/modules/info-management/major.service.ts`
+  - 创建前已补充院系存在校验。
+  - 创建前已补充专业名称、专业代码重复校验。
+  - 创建接口返回已收敛为文档结构：`{ id, name, code }`。
+
+- `backend/src/modules/info-management/major.controller.ts`
+  - 创建成功消息已对齐文档：`专业创建成功`。
+
+#### 前端更新
+
+- `frontend/src/modules/info-management/types/majors.ts`
+  - 新增 `MajorSummary`，用于表示创建/更新接口返回的精简结构。
+
+- `frontend/src/modules/info-management/api/majors.ts`
+  - `majorsApi.create` 返回类型已从错误的完整 `Major` 改为真实响应 `{ id, name, code }`。
+
+### 5.4 更新专业
+
+#### 后端更新
+
+- `backend/src/modules/info-management/major.types.ts`
+  - `updateMajorSchema` 已要求至少提供 `name` 或 `total_credits` 之一。
+
+- `backend/src/modules/info-management/major.service.ts`
+  - 更新前已补充“专业名称重复”校验。
+  - 更新接口返回已收敛为文档结构：`{ id, name, code }`。
+
+- `backend/src/modules/info-management/major.controller.ts`
+  - 更新成功消息已对齐文档：`专业更新成功`。
+
+#### 前端更新
+
+- `frontend/src/modules/info-management/api/majors.ts`
+  - `majorsApi.update` 返回类型已从错误的完整 `Major` 改为真实响应 `{ id, name, code }`。
+
+### 5.5 删除专业
+
+#### 后端更新
+
+- `backend/src/modules/info-management/major.service.ts`
+  - 删除前已显式校验专业下是否有关联学生。
+  - 如果存在关联学生，会返回 `409` 与 `专业下存在关联学生，无法删除`。
+
+- `backend/src/modules/info-management/major.controller.ts`
+  - 删除成功消息已对齐文档：`专业已删除`。
+
+#### 前端情况
+
+- 前端删除弹窗已有学生数量提示，可直接复用。
+
+#### 测试更新
+
+- `backend/src/__tests__/integration/modules/info-management/majors.routes.integration.test.ts`
+  - 已更新创建、更新、删除成功消息断言。
+  - 已新增更新/删除非法 UUID 返回 `400` 的断言。
+  - 已新增专业下有关联学生时删除返回 `409` 的断言。
+
 ## 当前进行中
 
 - 暂无。
@@ -369,12 +468,16 @@
 - `pnpm --filter @stss/web typecheck` 通过。
 - `UsersController > updateStatus > 应该成功修改用户状态` 单测已通过。
 - `pnpm --filter @stss/server db:generate` 已完成，Prisma Client 已包含 `deletedAt` 软删除字段。
+- 本阶段新增验证：
+  - `pnpm --filter @stss/server db:generate` 通过，Prisma Client 已包含 `Major.description`、`Major.createdAt`、`Major.updatedAt`。
+  - `pnpm --filter @stss/server typecheck` 通过。
+  - `pnpm --filter @stss/web typecheck` 通过。
+  - `pnpm --filter @stss/server exec vitest run src/__tests__/modules/info-management/major.service.test.ts` 通过，26 个专业服务单测全部通过。
 
 ## 当前未处理 / 残留问题
 
 - 未跑完整测试套件；当前本地集成测试受 `localhost:5432` 和 `127.0.0.1:6379` 不可达影响。
-- `3.9 批量修改状态` 仍未记录修改原因。
-- `3.10 修改密码（用户自己）` 的路由权限表达仍不够清晰。
+- 本阶段尝试运行 `pnpm --filter @stss/server test:integration -- src/__tests__/integration/modules/info-management/majors.routes.integration.test.ts`，失败原因仍是 `localhost:5432` 数据库不可达，且 Redis `127.0.0.1:6379` 连接受限。
 - 头像旧文件异步清理仍未处理。
 
 ## 注意事项

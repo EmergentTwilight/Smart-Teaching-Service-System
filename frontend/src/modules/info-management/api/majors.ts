@@ -5,10 +5,10 @@
 import request from '@/shared/utils/request'
 import type {
   CreateMajorDTO,
-  Major,
   MajorDetail,
   MajorListResponse,
   MajorQueryParams,
+  MajorSummary,
   UpdateMajorDTO,
 } from '../types/majors'
 
@@ -68,14 +68,14 @@ export const majorsApi = {
   /**
    * 创建专业
    */
-  create: async (data: CreateMajorDTO): Promise<Major> => {
+  create: async (data: CreateMajorDTO): Promise<MajorSummary> => {
     return request.post('/majors', toCreatePayload(data))
   },
 
   /**
    * 更新专业
    */
-  update: async (id: string, data: UpdateMajorDTO): Promise<Major> => {
+  update: async (id: string, data: UpdateMajorDTO): Promise<MajorSummary> => {
     return request.put(`/majors/${id}`, toUpdatePayload(data))
   },
 

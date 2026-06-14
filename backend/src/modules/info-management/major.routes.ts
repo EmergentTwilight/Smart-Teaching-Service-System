@@ -73,6 +73,7 @@ router.post('/', requireRoles('super_admin'), validate(createMajorSchema), major
 router.put(
   '/:id',
   requireRoles('super_admin', 'admin'),
+  validate(getMajorIdSchema, 'params'),
   validate(updateMajorSchema),
   majorController.update
 )
@@ -86,6 +87,11 @@ router.put(
  *     security:
  *       - bearerAuth: []
  */
-router.delete('/:id', requireRoles('super_admin'), majorController.delete)
+router.delete(
+  '/:id',
+  requireRoles('super_admin'),
+  validate(getMajorIdSchema, 'params'),
+  majorController.delete
+)
 
 export default router

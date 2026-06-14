@@ -4,7 +4,7 @@
  */
 import 'dotenv/config'
 // Express 5 已内置 async 错误处理支持，无需 express-async-errors
-import express, { type Application } from 'express'
+import express, { type Application, type RequestHandler } from 'express'
 import cors from 'cors'
 import helmet from 'helmet'
 import compression from 'compression'
@@ -67,7 +67,7 @@ app.use(
 )
 
 // 安全头部
-app.use(helmet())
+app.use(helmet() as unknown as RequestHandler)
 
 // 响应压缩
 app.use(compression())

@@ -168,7 +168,7 @@ async function main() {
 
   const otherOffering = await prisma.courseOffering.upsert({
     where: { id: OTHER_OFFERING_ID },
-    update: { status: OfferingStatus.OPEN },
+    update: { status: OfferingStatus.OPEN, enrolledCount: 0 },
     create: {
       id: OTHER_OFFERING_ID,
       courseId: course.id,
@@ -177,6 +177,13 @@ async function main() {
       capacity: 40,
       enrolledCount: 0,
       status: OfferingStatus.OPEN,
+    },
+  })
+
+  await prisma.enrollment.deleteMany({
+    where: {
+      studentId: studentUser.id,
+      courseOfferingId: otherOffering.id,
     },
   })
 

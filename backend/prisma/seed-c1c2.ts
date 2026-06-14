@@ -17,18 +17,19 @@ import {
 
 const prisma = new PrismaClient()
 
-const semester1 = '00000000-0000-0000-0000-000000000001'
-const semester2 = '00000000-0000-0000-0000-000000000002'
+const semester1 = '10000000-0000-4000-8000-000000000001'
+const semester2 = '10000000-0000-4000-8000-000000000002'
+const selectionPeriod = '10000000-0000-4000-8000-000000000003'
 
-const courseOffering1 = '11111111-1111-1111-1111-111111111111'
-const courseOffering2 = '22222222-2222-2222-2222-222222222222'
-const courseOffering3 = '33333333-3333-3333-3333-333333333333'
-const courseOffering4 = '44444444-4444-4444-4444-444444444444'
-const courseOffering5 = '55555555-5555-5555-5555-555555555555'
-const courseOffering6 = '66666666-6666-6666-6666-666666666666'
-const courseOffering7 = '77777777-7777-7777-7777-777777777777'
-const courseOffering8 = '88888888-8888-8888-8888-888888888888'
-const courseOffering9 = '99999999-9999-9999-9999-999999999999'
+const courseOffering1 = '10000000-0000-4000-8000-000000000011'
+const courseOffering2 = '10000000-0000-4000-8000-000000000012'
+const courseOffering3 = '10000000-0000-4000-8000-000000000013'
+const courseOffering4 = '10000000-0000-4000-8000-000000000014'
+const courseOffering5 = '10000000-0000-4000-8000-000000000015'
+const courseOffering6 = '10000000-0000-4000-8000-000000000016'
+const courseOffering7 = '10000000-0000-4000-8000-000000000017'
+const courseOffering8 = '10000000-0000-4000-8000-000000000018'
+const courseOffering9 = '10000000-0000-4000-8000-000000000019'
 
 async function main() {
     const studentUser = await prisma.user.findUnique({ where: { username: 'student' } })
@@ -36,11 +37,40 @@ async function main() {
     if (!studentUser || !teacherUser) {
         throw new Error('Run db:seed first (student/teacher users missing)')
     }
+    const studentRole = await prisma.role.findUnique({ where: { code: 'student' } })
+    const student2User = await prisma.user.upsert({
+        where: { username: 'student2' },
+        update: {},
+        create: {
+            username: 'student2',
+            passwordHash: '$2b$10$VmS5HSLRcNOoEtR3jZ.EwOMCJJ4R/V81UIqQJU3D06tGFjx1n4aiq',
+            email: 'student2@stss.edu',
+            realName: '测试学生二',
+            gender: 'FEMALE',
+            status: 'ACTIVE',
+        },
+    })
+    if (studentRole) {
+        await prisma.userRole.upsert({
+            where: {
+                userId_roleId: {
+                    userId: student2User.id,
+                    roleId: studentRole.id,
+                },
+            },
+            update: {},
+            create: {
+                userId: student2User.id,
+                roleId: studentRole.id,
+            },
+        })
+    }
 
     await prisma.schedule.deleteMany()
     await prisma.classroom.deleteMany()
     await prisma.coursePrerequisite.deleteMany()
     await prisma.enrollment.deleteMany()
+    await prisma.selectionPeriod.deleteMany()
     await prisma.curriculumCourse.deleteMany()
     await prisma.schedule.deleteMany()
     await prisma.courseOffering.deleteMany()
@@ -84,6 +114,22 @@ async function main() {
             majorId: 'majorId',
             grade: 2026,
             className: 'CS-1'
+        }
+    })
+
+    await prisma.student.upsert({
+        where: { userId: student2User.id },
+        update: {
+            majorId: 'majorId',
+            grade: 2026,
+            className: 'CS-2',
+        },
+        create: {
+            userId: student2User.id,
+            studentNumber: '20260002',
+            majorId: 'majorId',
+            grade: 2026,
+            className: 'CS-2',
         }
     })
 
@@ -304,6 +350,29 @@ async function main() {
         }
     })
 
+    await prisma.selectionPeriod.upsert({
+        where: {
+            id: selectionPeriod
+        },
+        update: {
+            semesterId: semester2,
+            phase: SelectionPhase.ADJUSTMENT,
+            startTime: new Date(now.getTime() - 7 * 86400000),
+            endTime: new Date(now.getTime() + 30 * 86400000),
+            maxCredits: 30,
+            isActive: true
+        },
+        create: {
+            id: selectionPeriod,
+            semesterId: semester2,
+            phase: SelectionPhase.ADJUSTMENT,
+            startTime: new Date(now.getTime() - 7 * 86400000),
+            endTime: new Date(now.getTime() + 30 * 86400000),
+            maxCredits: 30,
+            isActive: true
+        }
+    })
+
     await prisma.courseOffering.upsert({
         where: {
             id: courseOffering1
@@ -366,7 +435,7 @@ async function main() {
             semesterId: semester2,
             teacherId: teacherUser.id,
             capacity: 400,
-            enrolledCount: 44,
+            enrolledCount: 45,
             status: OfferingStatus.OPEN
         }
     })
@@ -494,6 +563,24 @@ async function main() {
             id: 'enrollment3',
             studentId: studentUser.id,
             courseOfferingId: courseOffering8,
+            status: EnrollmentStatus.ENROLLED
+        }
+    })
+
+    await prisma.enrollment.upsert({
+        where: {
+            id: '10000000-0000-4000-8000-000000000021'
+        },
+        update: {
+            studentId: student2User.id,
+            courseOfferingId: courseOffering4,
+            status: EnrollmentStatus.ENROLLED,
+            droppedAt: null,
+        },
+        create: {
+            id: '10000000-0000-4000-8000-000000000021',
+            studentId: student2User.id,
+            courseOfferingId: courseOffering4,
             status: EnrollmentStatus.ENROLLED
         }
     })

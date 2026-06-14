@@ -1,6 +1,11 @@
+# Historical C4/C5-only verifier. Current C group acceptance entrypoint is:
+# scripts/verify-course-selection.sh
+# This script is kept only for old Windows manual checks.
+#
 # C4/C5 API 手动验收脚本（需 docker compose up -d，建议先 db:seed:c4c5）
 # 用法：powershell -ExecutionPolicy Bypass -File scripts\verify-c4-c5.ps1
 param(
+  [switch]$AllowLegacy,
   [string]$BaseUrl = 'http://localhost:3000/api/v1',
   [string]$MyOfferingId = '',
   [string]$OtherOfferingId = '',
@@ -8,6 +13,12 @@ param(
   [string]$AcademicPass = '',
   [switch]$SeedData
 )
+
+if (-not $AllowLegacy) {
+  Write-Host 'This C4/C5-only verifier is historical. Use scripts/verify-course-selection.sh for current C group acceptance.' -ForegroundColor Yellow
+  Write-Host 'Pass -AllowLegacy only when intentionally replaying the old C4/C5 manual path.' -ForegroundColor Yellow
+  exit 2
+}
 
 $idsPath = Join-Path $PSScriptRoot '.c4c5-verify-ids.json'
 if ($SeedData) {

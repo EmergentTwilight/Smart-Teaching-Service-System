@@ -1,3 +1,16 @@
+# Historical C4/C5-only verifier. Current C group acceptance entrypoint is:
+# scripts/verify-course-selection.sh
+# This script is kept only for old Windows manual checks.
+param(
+  [switch]$AllowLegacy
+)
+
+if (-not $AllowLegacy) {
+  Write-Host 'This C4/C5-only verifier is historical. Use scripts/verify-course-selection.sh for current C group acceptance.' -ForegroundColor Yellow
+  Write-Host 'Pass -AllowLegacy only when intentionally replaying the old C4/C5 manual path.' -ForegroundColor Yellow
+  exit 2
+}
+
 # C4/C5 一键验收：等待 Docker → compose up → seed:c4c5 → verify-c4-c5.ps1
 $ErrorActionPreference = 'Stop'
 $root = Resolve-Path (Join-Path $PSScriptRoot '..')
@@ -33,4 +46,4 @@ docker compose exec -T server sh -c 'cd /app/backend && pnpm db:seed:c4c5'
 if ($LASTEXITCODE -ne 0) { exit 1 }
 
 Write-Host "API ready. Running C4/C5 verify..." -ForegroundColor Green
-& (Join-Path $PSScriptRoot 'verify-c4-c5.ps1')
+& (Join-Path $PSScriptRoot 'verify-c4-c5.ps1') -AllowLegacy

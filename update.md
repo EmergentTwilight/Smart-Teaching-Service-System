@@ -682,6 +682,110 @@
 - `frontend/src/modules/info-management/components/CurriculumDetail.tsx`
   - 培养方案课程列表已提供编辑和移除入口。
 
+## 八、角色权限与令牌管理 API
+
+### 8.1 / 8.2 获取角色列表和详情
+
+#### 后端更新
+
+- `backend/src/modules/info-management/roles.controller.ts`
+  - 角色列表和详情成功响应 message 已显式对齐文档为 `success`。
+
+- `backend/src/modules/info-management/roles.types.ts`
+  - 角色 `:id` 参数已改为严格 UUID 校验。
+
+#### 前端更新
+
+- `frontend/src/modules/info-management/types/roles.ts`
+  - 新增角色、权限、令牌相关类型定义。
+
+- `frontend/src/modules/info-management/api/roles.ts`
+  - 新增 `/roles`、`/permissions`、用户令牌管理 API 封装。
+
+- `frontend/src/modules/info-management/pages/roles/RoleList.tsx`
+  - 新增角色权限管理页面，支持角色列表、筛选、详情查看。
+
+- `frontend/src/App.tsx`
+  - `/info/roles` 已从 `ComingSoon` 替换为角色权限管理页面，并限制 `admin`、`super_admin` 访问。
+
+### 8.3 / 8.4 / 8.5 创建、更新、删除角色
+
+#### 后端更新
+
+- `backend/src/modules/info-management/roles.types.ts`
+  - `updateRoleSchema` 已要求至少提供一个更新字段。
+
+#### 前端更新
+
+- `frontend/src/modules/info-management/components/RoleModal.tsx`
+  - 新增角色创建和编辑表单。
+  - 创建角色时可选择初始权限。
+  - 编辑角色时不允许修改 `code`。
+
+- `frontend/src/modules/info-management/pages/roles/RoleList.tsx`
+  - 已提供创建、编辑、删除角色入口。
+  - 删除按钮会对系统内置角色和已被用户引用的角色置灰。
+
+### 8.6 获取权限列表
+
+#### 后端更新
+
+- `backend/prisma/schema.prisma`
+  - `Permission` 模型已新增可空 `description` 字段。
+
+- `backend/prisma/migrations/20260614093000_add_major_timestamps/migration.sql`
+  - 已补充 `permissions.description` 字段迁移。
+
+- `backend/src/modules/info-management/roles.service.ts`
+  - 权限列表响应已返回 `description`。
+
+- `backend/prisma/seed.ts`
+  - 已为现有基础权限补充描述字段。
+
+#### 前端更新
+
+- `frontend/src/modules/info-management/pages/roles/RoleList.tsx`
+  - 已提供权限列表查看入口，并支持 `resource`、`action`、`keyword` 筛选。
+
+### 8.7 / 8.8 分配和撤销角色权限
+
+#### 后端更新
+
+- `backend/src/modules/info-management/roles.types.ts`
+  - `:permission_id` 参数已改为严格 UUID 校验。
+
+- `backend/src/modules/info-management/roles.service.ts`
+  - 撤销 `super_admin` 角色的角色/权限管理关键权限时会返回冲突错误，避免破坏超级管理员关键管理能力。
+
+#### 前端更新
+
+- `frontend/src/modules/info-management/components/AssignPermissionsModal.tsx`
+  - 新增为角色分配权限弹窗。
+
+- `frontend/src/modules/info-management/components/RoleDetail.tsx`
+  - 角色详情中已提供撤销角色权限入口。
+
+### 8.9 / 8.10 / 8.11 用户活跃令牌管理
+
+#### 后端更新
+
+- `backend/src/modules/info-management/users.types.ts`
+  - 用户令牌相关 `:id`、`:token_id` 参数已改为严格 UUID 校验。
+
+- `backend/src/modules/info-management/users.controller.ts`
+  - 活跃令牌列表成功响应 message 已显式对齐文档为 `success`。
+
+#### 前端更新
+
+- `frontend/src/modules/info-management/components/UserTokensModal.tsx`
+  - 新增用户活跃令牌弹窗，支持查看、吊销指定令牌、吊销全部令牌。
+
+- `frontend/src/modules/info-management/api/users.ts`
+  - 已补充用户令牌列表、吊销指定令牌、吊销全部令牌 API。
+
+- `frontend/src/modules/info-management/pages/users/UserList.tsx`
+  - 用户列表操作列已新增“令牌”入口。
+
 ## 当前进行中
 
 - 暂无。
@@ -711,12 +815,20 @@
     - `DATABASE_URL=postgresql://user:pass@localhost:5432/db pnpm --filter @stss/server exec prisma validate` 通过。
     - `pnpm --filter @stss/web lint` 通过，有 1 个既有 `Toast.tsx` 的 `any` warning。
     - `pnpm --filter @stss/server lint` 通过，有若干既有测试文件 `any` warning。
+  - 第八章新增验证：
+    - `pnpm --filter @stss/server db:generate` 通过，Prisma Client 已包含 `Permission.description`。
+    - `pnpm --filter @stss/server typecheck` 通过。
+    - `pnpm --filter @stss/web typecheck` 通过。
+    - `DATABASE_URL=postgresql://user:pass@localhost:5432/db pnpm --filter @stss/server exec prisma validate` 通过。
+    - `pnpm --filter @stss/web lint` 通过，有 1 个既有 `Toast.tsx` 的 `any` warning。
+    - `pnpm --filter @stss/server lint` 通过，有若干既有测试文件 `any` warning。
 
 ## 当前未处理 / 残留问题
 
 - 未跑完整测试套件；当前本地集成测试受 `localhost:5432` 和 `127.0.0.1:6379` 不可达影响。
 - 本阶段尝试运行 `pnpm --filter @stss/server test:integration -- src/__tests__/integration/modules/info-management/majors.routes.integration.test.ts`，失败原因仍是 `localhost:5432` 数据库不可达，且 Redis `127.0.0.1:6379` 连接受限。
 - 本阶段尝试运行 `pnpm --filter @stss/server exec vitest run src/__tests__/integration/modules/info-management/curriculums.routes.integration.test.ts`，15 个用例因 `localhost:5432` 数据库不可达被跳过并导致 suite 初始化失败。
+- 本阶段尝试运行 `pnpm --filter @stss/server exec vitest run src/__tests__/integration/modules/info-management/roles.routes.integration.test.ts`，7 个用例因 `localhost:5432` 数据库不可达被跳过并导致 suite 初始化失败。
 - 头像旧文件异步清理仍未处理。
 
 ## 注意事项

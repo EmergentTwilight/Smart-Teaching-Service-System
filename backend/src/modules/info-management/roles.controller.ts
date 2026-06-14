@@ -24,7 +24,7 @@ export const rolesController = {
   async list(req: Request, res: Response) {
     const params = getRoleListSchema.parse(req.query)
     const result = await rolesService.getRoleList(params)
-    success(res, result)
+    success(res, result, 'success')
   },
 
   /**
@@ -33,7 +33,7 @@ export const rolesController = {
   async detail(req: Request, res: Response) {
     const { id } = roleIdSchema.parse(req.params)
     const role = await rolesService.getRoleDetail(id)
-    success(res, role)
+    success(res, role, 'success')
   },
 
   /**
@@ -72,7 +72,7 @@ export const rolesController = {
   async listPermissions(req: Request, res: Response) {
     const params = getPermissionListSchema.parse(req.query)
     const result = await rolesService.getPermissionList(params)
-    success(res, result)
+    success(res, result, 'success')
   },
 
   /**

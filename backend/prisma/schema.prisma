@@ -275,15 +275,17 @@ model Role {
 /// 权限表
 model Permission {
   /// 权限ID
-  id       String @id @default(uuid())
+  id          String  @id @default(uuid())
   /// 权限名称
-  name     String @db.VarChar(100)
+  name        String  @db.VarChar(100)
   /// 权限代码
-  code     String @unique @db.VarChar(100)
+  code        String  @unique @db.VarChar(100)
   /// 资源
-  resource String @db.VarChar(50)
+  resource    String  @db.VarChar(50)
   /// 操作
-  action   String @db.VarChar(20)
+  action      String  @db.VarChar(20)
+  /// 描述
+  description String? @db.Text
 
   roles RolePermission[]
 

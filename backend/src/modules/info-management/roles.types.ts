@@ -10,15 +10,15 @@ import { z } from 'zod'
  * 角色 ID 参数 schema
  */
 export const roleIdSchema = z.object({
-  id: z.string().min(1, '角色ID不能为空'),
+  id: z.string().uuid('角色ID格式不正确'),
 })
 
 /**
  * 角色权限参数 schema（用于撤销权限）
  */
 export const rolePermissionParamsSchema = z.object({
-  id: z.string().min(1, '角色ID不能为空'),
-  permission_id: z.string().min(1, '权限ID不能为空'),
+  id: z.string().uuid('角色ID格式不正确'),
+  permission_id: z.string().uuid('权限ID格式不正确'),
 })
 
 /**
@@ -50,10 +50,14 @@ export const createRoleSchema = z.object({
 /**
  * 更新角色请求验证 schema
  */
-export const updateRoleSchema = z.object({
-  name: z.string().min(1, '角色名称不能为空').max(50, '角色名称最多50位').optional(),
-  description: z.string().optional(),
-})
+export const updateRoleSchema = z
+  .object({
+    name: z.string().min(1, '角色名称不能为空').max(50, '角色名称最多50位').optional(),
+    description: z.string().optional(),
+  })
+  .refine((data) => data.name !== undefined || data.description !== undefined, {
+    message: '至少需要提供一个更新字段',
+  })
 
 /**
  * 分配权限请求验证 schema

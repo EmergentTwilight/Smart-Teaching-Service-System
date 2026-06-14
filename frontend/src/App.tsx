@@ -21,6 +21,7 @@ const UserList = lazy(() => import('@/modules/info-management/pages/users/UserLi
 const SystemLogs = lazy(() => import('@/modules/info-management/pages/users/SystemLogs'));
 const DepartmentList = lazy(() => import('@/modules/info-management/pages/departments/DepartmentList'));
 const MajorList = lazy(() => import('@/modules/info-management/pages/majors/MajorList'));
+const RoleList = lazy(() => import('@/modules/info-management/pages/roles/RoleList'));
 const CourseList = lazy(() => import('@/modules/info-management/pages/courses/CourseList'));
 const CurriculumList = lazy(() => import('@/modules/info-management/pages/curriculums/CurriculumList'));
 const Profile = lazy(() => import('@/modules/info-management/pages/Profile'));
@@ -137,7 +138,14 @@ const App: React.FC = () => {
                   <Route path="profile" element={<Profile />} />
                   <Route path="info/departments" element={<DepartmentList />} />
                   <Route path="info/majors" element={<MajorList />} />
-                  <Route path="info/roles" element={<ComingSoon title="角色权限" />} />
+                  <Route
+                    path="info/roles"
+                    element={
+                      <ProtectedRoute requiredRoles={['admin', 'super_admin']}>
+                        <RoleList />
+                      </ProtectedRoute>
+                    }
+                  />
                   <Route path="info/courses" element={<CourseList />} />
                   <Route path="info/curriculums" element={<CurriculumList />} />
                   <Route path="info/classrooms" element={<ComingSoon title="教室管理" />} />

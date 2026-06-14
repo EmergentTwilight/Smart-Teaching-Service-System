@@ -27,6 +27,7 @@ import {
   KeyOutlined,
   SafetyOutlined,
   TeamOutlined,
+  ApiOutlined,
 } from '@ant-design/icons'
 import type { ColumnsType, TableProps } from 'antd/es/table'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -43,6 +44,8 @@ import RoleAssignModal from './RoleAssignModal'
 import UserPermissionsDrawer from './UserPermissionsDrawer'
 import ResetPasswordModal from './ResetPasswordModal'
 import UserStatusModal from './UserStatusModal'
+import UserTokensModal from '../../components/UserTokensModal'
+import type { RefreshTokenItem } from '../../types/roles'
 
 const { Search } = Input
 
@@ -78,6 +81,7 @@ const UserList: React.FC = () => {
   const [permissionsOpen, setPermissionsOpen] = useState(false)
   const [resetPasswordOpen, setResetPasswordOpen] = useState(false)
   const [statusModalOpen, setStatusModalOpen] = useState(false)
+  const [tokensOpen, setTokensOpen] = useState(false)
   const [operatingUser, setOperatingUser] = useState<UserDetail | null>(null)
   
   // 删除确认弹窗状态
@@ -99,6 +103,16 @@ const UserList: React.FC = () => {
     queryFn: () => usersApi.getList(params),
   })
 
+  const {
+    data: tokensData = [],
+    isLoading: tokensLoading,
+    refetch: refetchTokens,
+  } = useQuery({
+    queryKey: ['user-tokens', operatingUser?.id],
+    queryFn: () => usersApi.getTokens(operatingUser!.id),
+    enabled: tokensOpen && !!operatingUser?.id,
+  })
+
   // 获取角色列表
   const { data: rolesData } = useQuery({
     queryKey: ['roles'],
@@ -107,6 +121,24 @@ const UserList: React.FC = () => {
 
   // 角色列表（从 API 获取）
   const availableRoles = rolesData || []
+
+  const revokeTokenMutation = useMutation({
+    mutationFn: ({ userId, tokenId }: { userId: string; tokenId: string }) => usersApi.revokeToken(userId, tokenId),
+    onSuccess: () => {
+      message.success('令牌已吊销')
+      refetchTokens()
+    },
+    onError: (error: Error) => message.error(error.message || '令牌吊销失败'),
+  })
+
+  const revokeAllTokensMutation = useMutation({
+    mutationFn: (userId: string) => usersApi.revokeAllTokens(userId),
+    onSuccess: (result) => {
+      message.success(`已吊销 ${result.revokedCount} 个令牌`)
+      refetchTokens()
+    },
+    onError: (error: Error) => message.error(error.message || '吊销全部令牌失败'),
+  })
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => usersApi.delete(id),
@@ -226,6 +258,11 @@ const UserList: React.FC = () => {
   const openPermissions = useCallback((user: UserDetail) => {
     setOperatingUser(user)
     setPermissionsOpen(true)
+  }, [])
+
+  const openTokens = useCallback((user: UserDetail) => {
+    setOperatingUser(user)
+    setTokensOpen(true)
   }, [])
 
   const openResetPassword = useCallback((user: UserDetail) => {
@@ -419,6 +456,14 @@ const UserList: React.FC = () => {
               >
                 权限
               </Button>
+              <Button
+                type="link"
+                size="small"
+                icon={<ApiOutlined />}
+                onClick={() => openTokens(record)}
+              >
+                令牌
+              </Button>
               {isAdmin && (
                 <Button
                   type="link"
@@ -463,6 +508,7 @@ const UserList: React.FC = () => {
       handleEdit,
       handleOpenDeleteModal,
       openPermissions,
+      openTokens,
       openResetPassword,
       openRoleAssign,
       openStatusModal,
@@ -693,6 +739,32 @@ const UserList: React.FC = () => {
         onSuccess={() => {
           setStatusModalOpen(false)
           setOperatingUser(null)
+        }}
+      />
+
+      <UserTokensModal
+        visible={tokensOpen}
+        userName={operatingUser?.realName || operatingUser?.username || ''}
+        data={tokensData}
+        loading={tokensLoading}
+        onClose={() => {
+          setTokensOpen(false)
+          setOperatingUser(null)
+        }}
+        onRevoke={(token: RefreshTokenItem) => {
+          if (!operatingUser) return
+          revokeTokenMutation.mutate({ userId: operatingUser.id, tokenId: token.id })
+        }}
+        onRevokeAll={() => {
+          if (!operatingUser) return
+          Modal.confirm({
+            title: '确认吊销全部令牌',
+            content: `确定要吊销 ${operatingUser.realName || operatingUser.username} 的全部活跃令牌吗？`,
+            okText: '确定',
+            cancelText: '取消',
+            okButtonProps: { danger: true },
+            onOk: () => revokeAllTokensMutation.mutateAsync(operatingUser.id),
+          })
         }}
       />
 

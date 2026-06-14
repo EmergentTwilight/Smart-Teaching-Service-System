@@ -71,14 +71,14 @@ const booleanQuerySchema = z.preprocess((value) => {
  * 用户 ID 参数 schema
  */
 export const userIdParamsSchema = z.object({
-  id: z.string().min(1, '用户ID不能为空'),
+  id: z.string().uuid('用户ID格式不正确'),
 })
 
 /**
  * 用户和角色 ID 参数 schema
  */
 export const userRoleParamsSchema = z.object({
-  id: z.string().min(1, '用户ID不能为空'),
+  id: z.string().uuid('用户ID格式不正确'),
   role_id: z.string().min(1, '角色ID不能为空'),
 })
 
@@ -341,8 +341,8 @@ export const assignRolesSchema = z.preprocess(
  * 令牌 ID 参数 schema（用于吊销指定令牌）
  */
 export const tokenParamsSchema = z.object({
-  id: z.string().min(1, '用户ID不能为空'),
-  token_id: z.string().min(1, '令牌ID不能为空'),
+  id: z.string().uuid('用户ID格式不正确'),
+  token_id: z.string().uuid('令牌ID格式不正确'),
 })
 
 /** 批量创建用户输入类型 */

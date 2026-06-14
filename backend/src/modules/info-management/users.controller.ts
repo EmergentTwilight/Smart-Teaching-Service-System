@@ -221,7 +221,7 @@ export const usersController = {
     }
 
     const tokens = await usersService.getUserTokens(id)
-    success(res, tokens)
+    success(res, tokens, 'success')
   },
 
   /**

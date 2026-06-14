@@ -10,6 +10,7 @@ import type {
   PaginatedData,
   SystemLogItem,
 } from '@/shared/types'
+import type { RefreshTokenItem, RevokeAllTokensResponse } from '../types/roles'
 
 /** 用户查询参数 */
 export interface UserQueryParams {
@@ -400,5 +401,17 @@ export const usersApi = {
     }>
   > => {
     return request.get('/users/roles')
+  },
+
+  getTokens: async (id: string): Promise<RefreshTokenItem[]> => {
+    return request.get(`/users/${id}/tokens`)
+  },
+
+  revokeToken: async (id: string, tokenId: string): Promise<void> => {
+    await request.delete(`/users/${id}/tokens/${tokenId}`)
+  },
+
+  revokeAllTokens: async (id: string): Promise<RevokeAllTokensResponse> => {
+    return request.post(`/users/${id}/tokens/revoke-all`)
   },
 }

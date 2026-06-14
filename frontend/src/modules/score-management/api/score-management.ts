@@ -18,6 +18,67 @@ export interface CourseScoresApiResult {
   pagination: CourseScoresPagination
 }
 
+export interface ScoreSnapshot {
+  usualScore: number | null
+  midtermScore: number | null
+  finalScore: number | null
+  totalScore: number | null
+  gradePoint: number | null
+  gradeLetter: string | null
+}
+
+export interface PendingModificationRequest {
+  scoreId: string
+  status: TeacherScoreStatus
+  courseOfferingId: string
+  teacherId: string
+  studentId: string
+  request: {
+    proposedChanges: {
+      usualScore?: number
+      midtermScore?: number
+      finalScore?: number
+    }
+    reason: string
+    applicantId: string
+    appliedAt: string
+  }
+  student: {
+    id: string
+    username: string
+    realName: string
+  } | null
+  teacher: {
+    id: string
+    username: string
+    realName: string
+  } | null
+}
+
+export interface ModificationLogItem {
+  id: string
+  scoreId: string
+  modifierId: string
+  modifierUsername: string | null
+  modifierRealName: string | null
+  oldValue: ScoreSnapshot
+  newValue: ScoreSnapshot
+  reason: string | null
+  createdAt: string
+}
+
+export interface ModificationRequestQuery {
+  page?: number
+  pageSize?: number
+  courseOfferingId?: string
+  teacherId?: string
+}
+
+export interface PaginatedApiResult<T> {
+  items: T[]
+  pagination: CourseScoresPagination
+}
+
 function isRecord(value: unknown): value is UnknownRecord {
   return typeof value === 'object' && value !== null
 }
@@ -61,9 +122,10 @@ function pickRecords(data: unknown): UnknownRecord[] {
 }
 
 function pickPagination(data: unknown, params?: CourseScoresQueryParams): CourseScoresPagination {
-  const nested = isRecord(data) && isRecord((data as UnknownRecord).pagination)
-    ? (data as UnknownRecord).pagination as UnknownRecord
-    : null
+  const nested =
+    isRecord(data) && isRecord((data as UnknownRecord).pagination)
+      ? ((data as UnknownRecord).pagination as UnknownRecord)
+      : null
   return {
     page: getNumber(nested?.page) ?? params?.page ?? 1,
     pageSize: getNumber(nested?.pageSize) ?? params?.pageSize ?? DEFAULT_PAGE_SIZE,
@@ -78,7 +140,9 @@ function normalizeRow(record: UnknownRecord, courseOfferingId: string): TeacherS
 
   const rawStatus = getString(record.status)
   const status: TeacherScoreStatus =
-    rawStatus === 'EMPTY' || isValidScoreStatus(rawStatus ?? '') ? (rawStatus as TeacherScoreStatus) : 'EMPTY'
+    rawStatus === 'EMPTY' || isValidScoreStatus(rawStatus ?? '')
+      ? (rawStatus as TeacherScoreStatus)
+      : 'EMPTY'
 
   return {
     id: enrollmentId,
@@ -138,6 +202,37 @@ export const scoreManagementApi = {
     return request.post<ModificationRequestPayload, unknown>(
       `/scores/${scoreId}/modification-request`,
       payload
+    )
+  },
+
+  getPendingModificationRequests(params?: ModificationRequestQuery) {
+    return request.get<unknown, PaginatedApiResult<PendingModificationRequest>>(
+      '/scores/modification-requests',
+      { params }
+    )
+  },
+
+  approveModificationRequest(scoreId: string, comment?: string) {
+    return request.post<{ comment?: string }, unknown>(
+      `/scores/${scoreId}/modification-request/approve`,
+      comment ? { comment } : {}
+    )
+  },
+
+  rejectModificationRequest(scoreId: string, reason: string) {
+    return request.post<{ reason: string }, unknown>(
+      `/scores/${scoreId}/modification-request/reject`,
+      { reason }
+    )
+  },
+
+  getModificationLogs(
+    scoreId: string,
+    params?: Pick<ModificationRequestQuery, 'page' | 'pageSize'>
+  ) {
+    return request.get<unknown, PaginatedApiResult<ModificationLogItem>>(
+      `/scores/${scoreId}/modification-logs`,
+      { params }
     )
   },
 }

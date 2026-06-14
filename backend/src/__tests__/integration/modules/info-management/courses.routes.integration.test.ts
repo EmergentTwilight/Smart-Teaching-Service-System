@@ -27,6 +27,15 @@ const prisma = new PrismaClient({
 })
 
 async function cleanupCoursesData() {
+  await prisma.curriculumCourse.deleteMany({
+    where: {
+      OR: [
+        { course: { name: { startsWith: 'itest_course_' } } },
+        { curriculum: { name: { startsWith: 'itest_course_' } } },
+      ],
+    },
+  })
+
   await prisma.coursePrerequisite.deleteMany({
     where: {
       OR: [
@@ -46,6 +55,14 @@ async function cleanupCoursesData() {
     where: {
       OR: [{ name: { startsWith: 'itest_course_' } }, { code: { startsWith: 'ITC' } }],
     },
+  })
+
+  await prisma.curriculum.deleteMany({
+    where: { name: { startsWith: 'itest_course_' } },
+  })
+
+  await prisma.major.deleteMany({
+    where: { name: { startsWith: 'itest_course_' } },
   })
 
   await prisma.teacher.deleteMany({
@@ -170,6 +187,33 @@ async function createTestCourse(overrides: Record<string, unknown> = {}) {
       category: '专业核心课',
       description: '课程模块测试课程',
       assessmentMethod: '考试',
+      ...overrides,
+    },
+  })
+}
+
+async function createTestMajor(departmentId: string, overrides: Record<string, unknown> = {}) {
+  const random = Math.random().toString(36).slice(2, 6).toUpperCase()
+  return prisma.major.create({
+    data: {
+      code: `ICM${random}`,
+      name: `itest_course_专业_${random}`,
+      departmentId,
+      degreeType: 'BACHELOR',
+      totalCredits: 160,
+      ...overrides,
+    },
+  })
+}
+
+async function createTestCurriculum(majorId: string, overrides: Record<string, unknown> = {}) {
+  const random = Math.random().toString(36).slice(2, 6).toUpperCase()
+  return prisma.curriculum.create({
+    data: {
+      name: `itest_course_培养方案_${random}`,
+      majorId,
+      year: 2026,
+      totalCredits: 160,
       ...overrides,
     },
   })
@@ -452,7 +496,7 @@ describe('POST /api/v1/courses', () => {
       })
       .expect(201)
 
-    expect(response.body.message).toBe('创建成功')
+    expect(response.body.message).toBe('课程创建成功')
     expect(response.body.data.id).toBeDefined()
 
     const created = await prisma.course.findUnique({ where: { code: 'ITC402' } })
@@ -503,7 +547,7 @@ describe('PUT /api/v1/courses/:course_id', () => {
       })
       .expect(200)
 
-    expect(response.body.message).toBe('更新成功')
+    expect(response.body.message).toBe('课程更新成功')
 
     const updated = await prisma.course.findUnique({
       where: { id: course.id },
@@ -580,7 +624,7 @@ describe('DELETE /api/v1/courses/:course_id', () => {
       .set('Authorization', `Bearer ${token}`)
       .expect(200)
 
-    expect(response.body.message).toBe('删除成功')
+    expect(response.body.message).toBe('课程已删除')
     const deleted = await prisma.course.findUnique({ where: { id: course.id } })
     expect(deleted).toBeNull()
   })
@@ -594,6 +638,30 @@ describe('DELETE /api/v1/courses/:course_id', () => {
       .delete(`/api/v1/courses/${course.id}`)
       .set('Authorization', `Bearer ${token}`)
       .expect(403)
+  })
+
+  it('课程被培养方案引用时应该返回 409', async () => {
+    const admin = await createTestUser('super_admin')
+    const token = generateTestToken(admin.id, admin.username, ['super_admin'])
+    const department = await createTestDepartment()
+    const major = await createTestMajor(department.id)
+    const curriculum = await createTestCurriculum(major.id)
+    const course = await createTestCourse({ code: 'ITC603' })
+
+    await prisma.curriculumCourse.create({
+      data: {
+        curriculumId: curriculum.id,
+        courseId: course.id,
+        courseType: 'REQUIRED',
+      },
+    })
+
+    const response = await request(app)
+      .delete(`/api/v1/courses/${course.id}`)
+      .set('Authorization', `Bearer ${token}`)
+      .expect(409)
+
+    expect(response.body.message).toContain('培养方案引用')
   })
 })
 

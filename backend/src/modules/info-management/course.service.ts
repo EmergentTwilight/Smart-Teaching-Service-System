@@ -3,9 +3,72 @@
  */
 import prisma from '../../shared/prisma/client.js'
 import { Request } from 'express'
-import { NotFoundError } from '@stss/shared'
+import { ConflictError, NotFoundError } from '@stss/shared'
 import type { Prisma } from '@prisma/client'
 import type { CreateCourseInput, GetCoursesListInput, UpdateCourseInput } from './course.types.js'
+
+function serializeCourseSummary(course: { id: string; code: string; name: string }) {
+  return {
+    id: course.id,
+    code: course.code,
+    name: course.name,
+  }
+}
+
+async function ensureCourseRelations(
+  tx: Prisma.TransactionClient,
+  data: {
+    code?: string
+    department_id?: string
+    teacher_id?: string
+    prerequisite_ids?: string[]
+  },
+  currentCourseId?: string
+) {
+  if (data.code) {
+    const duplicateCourse = await tx.course.findUnique({
+      where: { code: data.code },
+      select: { id: true },
+    })
+    if (duplicateCourse && duplicateCourse.id !== currentCourseId) {
+      throw new ConflictError('课程代码已存在')
+    }
+  }
+
+  if (data.department_id) {
+    const department = await tx.department.findUnique({
+      where: { id: data.department_id },
+      select: { id: true },
+    })
+    if (!department) {
+      throw new NotFoundError('院系不存在')
+    }
+  }
+
+  if (data.teacher_id) {
+    const teacher = await tx.teacher.findUnique({
+      where: { userId: data.teacher_id },
+      select: { userId: true },
+    })
+    if (!teacher) {
+      throw new NotFoundError('教师不存在')
+    }
+  }
+
+  if (data.prerequisite_ids && data.prerequisite_ids.length > 0) {
+    if (currentCourseId && data.prerequisite_ids.includes(currentCourseId)) {
+      throw new ConflictError('课程不能将自身设为先修课程')
+    }
+
+    const uniqueIds = [...new Set(data.prerequisite_ids)]
+    const existingCount = await tx.course.count({
+      where: { id: { in: uniqueIds } },
+    })
+    if (existingCount !== uniqueIds.length) {
+      throw new NotFoundError('先修课程不存在')
+    }
+  }
+}
 
 export const courseService = {
   async getCourseList(params: GetCoursesListInput) {
@@ -144,6 +207,8 @@ export const courseService = {
 
   async createCourse(data: CreateCourseInput, req: Request) {
     const course = await prisma.$transaction(async (tx) => {
+      await ensureCourseRelations(tx, data)
+
       const course = await tx.course.create({
         data: {
           code: data.code,
@@ -158,12 +223,14 @@ export const courseService = {
           assessmentMethod: data.assessment_method,
         },
       })
-      await tx.coursePrerequisite.createMany({
-        data: (data.prerequisite_ids || []).map((id) => ({
-          courseId: course.id,
-          prerequisiteId: id,
-        })),
-      })
+      if (data.prerequisite_ids && data.prerequisite_ids.length > 0) {
+        await tx.coursePrerequisite.createMany({
+          data: data.prerequisite_ids.map((id) => ({
+            courseId: course.id,
+            prerequisiteId: id,
+          })),
+        })
+      }
       await tx.systemLog.create({
         data: {
           userId: req.user?.userId || null,
@@ -177,12 +244,7 @@ export const courseService = {
       })
       return course
     })
-    const result = {
-      id: course.id,
-      code: course.code,
-      name: course.name,
-    }
-    return result
+    return serializeCourseSummary(course)
   },
 
   async updateCourse(course_id: string, data: UpdateCourseInput, req: Request) {
@@ -191,6 +253,8 @@ export const courseService = {
       throw new NotFoundError('课程不存在')
     }
     const updated = await prisma.$transaction(async (tx) => {
+      await ensureCourseRelations(tx, { prerequisite_ids: data.prerequisite_ids }, course_id)
+
       if (data.prerequisite_ids) {
         await tx.coursePrerequisite.deleteMany({
           where: { courseId: course_id },
@@ -229,7 +293,7 @@ export const courseService = {
       })
       return updated
     })
-    return updated
+    return serializeCourseSummary(updated)
   },
 
   async deleteCourse(course_id: string, req: Request) {
@@ -237,6 +301,12 @@ export const courseService = {
       const course = await tx.course.findUnique({ where: { id: course_id } })
       if (!course) {
         throw new NotFoundError('课程不存在')
+      }
+      const curriculumCourseCount = await tx.curriculumCourse.count({
+        where: { courseId: course_id },
+      })
+      if (curriculumCourseCount > 0) {
+        throw new ConflictError('课程已被培养方案引用，无法删除')
       }
       await tx.course.delete({ where: { id: course_id } })
       await tx.systemLog.create({
@@ -256,10 +326,11 @@ export const courseService = {
   async batchCreateCourses(coursesData: CreateCourseInput[], req: Request) {
     const createResults = []
     let failedCount = 0
-    for (const dataInd in coursesData) {
-      const data = coursesData[dataInd]
+    for (const [index, data] of coursesData.entries()) {
       try {
         const course = await prisma.$transaction(async (tx) => {
+          await ensureCourseRelations(tx, data)
+
           const course = await tx.course.create({
             data: {
               code: data.code,
@@ -296,11 +367,11 @@ export const courseService = {
           })
           return course
         })
-        createResults.push({ index: dataInd, id: course.id, status: 'created' })
+        createResults.push({ index, id: course.id, status: 'created' })
       } catch (error) {
         failedCount++
         createResults.push({
-          index: dataInd,
+          index,
           error: error instanceof Error ? error.message.split('\n').pop() : '未知错误',
           status: 'failed',
         })

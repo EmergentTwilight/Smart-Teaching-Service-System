@@ -458,6 +458,133 @@
   - 已新增更新/删除非法 UUID 返回 `400` 的断言。
   - 已新增专业下有关联学生时删除返回 `409` 的断言。
 
+## 六、课程管理 API
+
+### 6.1 获取课程列表
+
+#### 后端更新
+
+- `backend/src/modules/info-management/course.controller.ts`
+  - 课程列表成功响应 message 已显式对齐文档为 `success`。
+
+#### 前端更新
+
+- `frontend/src/modules/info-management/types/courses.ts`
+  - 新增课程列表、详情、创建、更新、批量创建相关类型。
+
+- `frontend/src/modules/info-management/api/courses.ts`
+  - 新增 `coursesApi.getList`，按文档发送 `page_size`、`department_id`、`course_type`、`status`。
+
+- `frontend/src/modules/info-management/components/CourseTable.tsx`
+  - 新增课程表格，展示文档列表字段。
+
+- `frontend/src/modules/info-management/pages/courses/CourseList.tsx`
+  - `/info/courses` 已从占位页改为课程列表页。
+  - 已支持关键词搜索、院系筛选、课程类型筛选、状态筛选和分页。
+
+### 6.2 获取课程详情
+
+#### 后端更新
+
+- `backend/prisma/schema.prisma`
+  - `Course.updatedAt` 已补 `@default(now())`，避免已有表通过 `prisma db push` 新增必填更新时间字段时报错。
+
+- `backend/src/modules/info-management/course.controller.ts`
+  - 课程详情成功响应 message 已显式对齐文档为 `success`。
+
+#### 前端更新
+
+- `frontend/src/modules/info-management/api/courses.ts`
+  - 新增 `coursesApi.getById`。
+
+- `frontend/src/modules/info-management/components/CourseDetail.tsx`
+  - 新增课程详情弹窗，展示基础信息、考核方式、课程描述、先修课程、创建/更新时间。
+
+### 6.3 创建课程
+
+#### 后端更新
+
+- `backend/src/modules/info-management/course.service.ts`
+  - 创建前已显式校验课程代码重复、院系存在、教师存在、先修课程存在。
+  - `prerequisite_ids` 为空或未传时不再调用空 `createMany`。
+
+- `backend/src/modules/info-management/course.controller.ts`
+  - 创建成功消息已对齐文档：`课程创建成功`。
+
+#### 前端更新
+
+- `frontend/src/modules/info-management/api/courses.ts`
+  - 新增 `coursesApi.create`，请求字段已转为文档 snake_case。
+
+- `frontend/src/modules/info-management/components/CourseModal.tsx`
+  - 新增课程创建表单。
+
+### 6.4 更新课程
+
+#### 后端更新
+
+- `backend/src/modules/info-management/course.types.ts`
+  - `updateCourseSchema` 已要求至少提供一个更新字段。
+
+- `backend/src/modules/info-management/course.service.ts`
+  - 更新先修课程前已显式校验先修课程存在。
+  - 更新接口返回已收敛为 `{ id, code, name }`。
+
+- `backend/src/modules/info-management/course.controller.ts`
+  - 更新成功消息已对齐文档：`课程更新成功`。
+
+#### 前端更新
+
+- `frontend/src/modules/info-management/api/courses.ts`
+  - 新增 `coursesApi.update`。
+
+- `frontend/src/modules/info-management/components/CourseModal.tsx`
+  - 编辑课程时按文档提交 `name`、`credits`、`description`、`prerequisite_ids`。
+
+### 6.5 删除课程
+
+#### 后端更新
+
+- `backend/src/modules/info-management/course.service.ts`
+  - 删除前已显式检查课程是否被培养方案引用。
+  - 如果存在引用，会返回 `409` 与 `课程已被培养方案引用，无法删除`。
+
+- `backend/src/modules/info-management/course.controller.ts`
+  - 删除成功消息已对齐文档：`课程已删除`。
+
+#### 前端更新
+
+- `frontend/src/modules/info-management/pages/courses/CourseList.tsx`
+  - 课程列表已提供删除入口和确认弹窗。
+
+### 6.6 批量创建课程
+
+#### 后端更新
+
+- `backend/src/modules/info-management/course.service.ts`
+  - 批量创建结果 `index` 已改为数字下标。
+  - 每条课程创建时已复用课程代码重复、院系存在、教师存在、先修课程存在校验。
+
+#### 前端更新
+
+- `frontend/src/modules/info-management/api/courses.ts`
+  - 新增 `coursesApi.batchCreate`。
+
+- `frontend/src/modules/info-management/components/CourseBatchModal.tsx`
+  - 新增 CSV 文本批量创建课程弹窗。
+
+- `frontend/src/modules/info-management/pages/courses/CourseList.tsx`
+  - 课程列表已提供批量创建入口。
+
+#### 测试更新
+
+- `backend/src/__tests__/modules/info-management/course.service.test.ts`
+  - 已补课程代码重复、先修课程不存在、课程被培养方案引用、批量数字下标等断言。
+
+- `backend/src/__tests__/integration/modules/info-management/courses.routes.integration.test.ts`
+  - 已更新创建、更新、删除成功消息断言。
+  - 已新增课程被培养方案引用时删除返回 `409` 的断言。
+
 ## 当前进行中
 
 - 暂无。
@@ -473,6 +600,13 @@
   - `pnpm --filter @stss/server typecheck` 通过。
   - `pnpm --filter @stss/web typecheck` 通过。
   - `pnpm --filter @stss/server exec vitest run src/__tests__/modules/info-management/major.service.test.ts` 通过，26 个专业服务单测全部通过。
+  - `pnpm --filter @stss/server db:generate` 通过，Prisma Client 已包含 `Course.updatedAt @default(now())`。
+  - `pnpm --filter @stss/server typecheck` 通过。
+  - `pnpm --filter @stss/web typecheck` 通过。
+  - `pnpm --filter @stss/server exec vitest run src/__tests__/modules/info-management/course.service.test.ts` 通过，14 个课程服务单测全部通过。
+  - `DATABASE_URL=postgresql://user:pass@localhost:5432/db pnpm --filter @stss/server exec prisma validate` 通过。
+  - `pnpm --filter @stss/web lint` 通过，有 1 个既有 `Toast.tsx` 的 `any` warning。
+  - `pnpm --filter @stss/server lint` 通过，有若干测试文件 `any` warning。
 
 ## 当前未处理 / 残留问题
 

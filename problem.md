@@ -415,3 +415,168 @@
 - 已修复：存在关联学生时返回 `409` 与 `专业下存在关联学生，无法删除`。
 - 已修复：删除路由已补充 `:id` UUID 校验。
 - 已修复：删除成功消息已对齐为 `专业已删除`。
+
+## 六、课程管理 API
+
+本文以下内容以 `docs/apis/A-information-management.md` 中 `## 六、课程管理 API` 为标准，对当前前后端实现的不一致点进行整理。
+
+## 6.1 获取课程列表
+
+### 当前对齐情况
+
+- 后端已实现 `GET /api/v1/courses`。
+- 后端已支持 `page`、`page_size`、`keyword`、`department_id`、`course_type`、`status` 查询参数。
+- 后端列表响应主体包含文档要求的字段：`id`、`code`、`name`、`credits`、`hours`、`course_type`、`category`、`department_id`、`department_name`、`teacher_id`、`teacher_name`、`status`、`created_at`。
+
+### 发现的问题
+
+- 前端 `/info/courses` 当前仍是 `ComingSoon` 页面，没有课程列表页。
+- 前端缺少课程管理 API 封装，例如 `frontend/src/modules/info-management/api/courses.ts`。
+- 前端缺少课程相关类型定义，例如 `frontend/src/modules/info-management/types/courses.ts`。
+- 前端缺少课程表格、筛选、分页等页面组件。
+- 后端成功响应 message 当前沿用全局默认 `Success`，文档示例为 `success`，如果严格校验大小写则不一致。
+- 后端 service 内部返回字段混用 camelCase 和 snake_case，例如 `courseType`、`teacherName`，依赖响应工具再转换；最终响应大概率正确，但实现风格不稳定。
+
+### 处理状态
+
+- 已修复：`/info/courses` 已从 `ComingSoon` 改为课程管理页面。
+- 已修复：已新增 `frontend/src/modules/info-management/api/courses.ts`。
+- 已修复：已新增 `frontend/src/modules/info-management/types/courses.ts`。
+- 已修复：已新增课程表格、筛选、分页页面组件。
+- 已修复：课程列表接口已显式返回 message `success`。
+- 已保留：后端 service 内部字段混用不影响最终响应，后续可作为代码风格清理。
+
+## 6.2 获取课程详情
+
+### 当前对齐情况
+
+- 后端已实现 `GET /api/v1/courses/:course_id`。
+- 后端已返回文档要求的基础字段、`description`、`assessment_method`、`prerequisites`、`created_at`、`updated_at`。
+- 后端详情路由已校验 `:course_id` UUID。
+
+### 发现的问题
+
+- 文档路径参数为 `:id`，当前后端路由和参数 schema 使用 `:course_id`。Express 实际路径仍可匹配 `/courses/:id` 形式的 URL，但参数命名与文档不一致。
+- 前端没有课程详情页或详情弹窗。
+- 后端成功响应 message 当前沿用全局默认 `Success`，文档示例为 `success`，如果严格校验大小写则不一致。
+- `Course.updatedAt` 在 Prisma schema 中当前只有 `@updatedAt`，没有 `@default(now())`。如果已有数据表通过 `prisma db push` 新增该字段，可能出现与院系/专业时间字段相同的“必填列无默认值”问题。
+
+### 处理状态
+
+- 已修复：已新增课程详情弹窗。
+- 已修复：课程详情接口已显式返回 message `success`。
+- 已修复：`Course.updatedAt` 已补充 `@default(now())`，避免已有数据表通过 `prisma db push` 新增字段时报必填列无默认值。
+- 已保留：后端内部参数名仍为 `course_id`，外部路径 `/api/v1/courses/:id` 形式不受影响。
+
+## 6.3 创建课程
+
+### 当前对齐情况
+
+- 后端已实现 `POST /api/v1/courses`。
+- 后端创建接口权限限制为 `admin`、`super_admin`。
+- 后端 schema 支持文档请求字段：`code`、`name`、`credits`、`hours`、`course_type`、`category`、`department_id`、`teacher_id`、`description`、`assessment_method`、`prerequisite_ids`。
+- 后端创建响应 data 已返回 `{ id, code, name }`。
+
+### 发现的问题
+
+- 前端没有课程新增表单。
+- 前端没有调用创建课程接口的 API 封装。
+- 后端创建成功消息当前为 `创建成功`，文档要求 `课程创建成功`。
+- 后端创建课程前缺少显式课程代码重复校验，可能依赖数据库唯一约束错误。
+- 后端创建课程前缺少显式院系存在校验，可能依赖数据库外键错误。
+- 后端创建课程前缺少显式教师存在校验，可能依赖数据库外键错误。
+- 后端创建课程前缺少显式先修课程存在校验，可能依赖数据库外键错误。
+- 如果 `prerequisite_ids` 为空或未传，当前仍会调用 `createMany({ data: [] })`，需确认 Prisma 当前版本是否稳定接受空数组。
+
+### 处理状态
+
+- 已修复：已新增课程新增表单。
+- 已修复：已新增创建课程 API 封装。
+- 已修复：后端创建成功消息已对齐为 `课程创建成功`。
+- 已修复：后端创建前已显式校验课程代码重复、院系存在、教师存在、先修课程存在。
+- 已修复：`prerequisite_ids` 为空或未传时不再调用空 `createMany`。
+
+### 待确认
+
+- 前端课程新增表单暂未提供 `teacher_id` 选择，因为当前 A 模块没有可直接复用的教师列表 API；后端仍支持提交 `teacher_id`。
+
+## 6.4 更新课程
+
+### 当前对齐情况
+
+- 后端已实现 `PUT /api/v1/courses/:course_id`。
+- 后端更新接口权限限制为 `admin`、`super_admin`。
+- 后端支持文档示例中的 `name`、`credits`、`description`、`prerequisite_ids`。
+- 后端更新路由已校验 `:course_id` UUID。
+
+### 发现的问题
+
+- 前端没有课程编辑表单。
+- 前端没有调用更新课程接口的 API 封装。
+- 文档路径参数为 `:id`，当前后端路由和参数 schema 使用 `:course_id`，参数命名与文档不一致。
+- 后端更新成功消息当前为 `更新成功`，文档要求 `课程更新成功`。
+- 后端 `updateCourseSchema` 没有要求至少提供一个更新字段，可能允许空请求体。
+- 后端更新先修课程前缺少显式先修课程存在校验，可能依赖数据库外键错误。
+- 后端当前只允许更新 `name`、`credits`、`description`、`prerequisite_ids`；文档示例也是这些字段，因此暂不视为不一致，但如果产品要求可编辑更多课程字段，需要扩展文档和实现。
+
+### 处理状态
+
+- 已修复：已新增课程编辑表单。
+- 已修复：已新增更新课程 API 封装。
+- 已修复：后端更新成功消息已对齐为 `课程更新成功`。
+- 已修复：`updateCourseSchema` 已要求至少提供一个更新字段。
+- 已修复：后端更新先修课程前已显式校验先修课程存在。
+- 已保留：后端内部参数名仍为 `course_id`，外部路径 `/api/v1/courses/:id` 形式不受影响。
+
+## 6.5 删除课程
+
+### 当前对齐情况
+
+- 后端已实现 `DELETE /api/v1/courses/:course_id`。
+- 后端删除接口权限限制为 `super_admin`。
+- 后端删除路由已校验 `:course_id` UUID。
+
+### 发现的问题
+
+- 前端没有课程删除入口。
+- 文档路径参数为 `:id`，当前后端路由和参数 schema 使用 `:course_id`，参数命名与文档不一致。
+- 后端删除成功消息当前为 `删除成功`，文档要求 `课程已删除`。
+- 文档前置条件要求“课程未被任何培养方案引用”，但当前后端直接删除课程。
+- 当前 Prisma schema 中 `CurriculumCourse.course` 对 `Course` 使用 `onDelete: Cascade`，删除课程时可能级联删除培养方案课程关联，而不是按文档阻止删除。
+- 后端删除课程时没有显式检查 `curriculumCourses` 引用数量。
+
+### 处理状态
+
+- 已修复：前端课程页面已提供删除入口。
+- 已修复：后端删除成功消息已对齐为 `课程已删除`。
+- 已修复：后端删除课程前已显式检查 `curriculumCourses` 引用数量。
+- 已修复：课程被培养方案引用时返回 `409` 与 `课程已被培养方案引用，无法删除`。
+- 已保留：Prisma 关系仍存在 `onDelete: Cascade`，但业务层已先阻止被培养方案引用的课程删除。
+- 已保留：后端内部参数名仍为 `course_id`，外部路径 `/api/v1/courses/:id` 形式不受影响。
+
+## 6.6 批量创建课程
+
+### 当前对齐情况
+
+- 后端已实现 `POST /api/v1/courses/batch`。
+- 后端批量创建接口权限限制为 `admin`、`super_admin`。
+- 后端响应主体包含 `total`、`success_count`、`fail_count`、`results`，整体结构与文档一致。
+- 后端成功消息已是 `批量创建完成`。
+
+### 发现的问题
+
+- 前端没有批量创建课程入口。
+- 前端没有批量创建课程 API 封装。
+- 后端批量结果中的 `index` 当前来自 `for...in` 的字符串下标，文档示例是数字下标。
+- 后端批量创建每条课程时同样缺少课程代码重复、院系存在、教师存在、先修课程存在等显式校验。
+- 后端批量创建失败时直接截取底层错误消息，可能返回 Prisma 原始错误，不稳定也不够贴近文档示例中的 `课程代码已存在`。
+- 后端没有限制单次批量创建数量；文档未明确上限，此项属于稳定性建议，不一定是文档不一致。
+
+### 处理状态
+
+- 已修复：前端课程页面已提供批量创建入口。
+- 已修复：已新增批量创建课程 API 封装。
+- 已修复：后端批量结果 `index` 已改为数字下标。
+- 已修复：后端批量创建每条课程时已复用课程代码重复、院系存在、教师存在、先修课程存在校验。
+- 已保留：失败错误仍来自业务错误或底层异常的 message；显式业务校验已覆盖常见文档示例 `课程代码已存在`。
+- 暂未处理：单次批量创建数量限制。文档未明确上限，此项作为稳定性建议保留。

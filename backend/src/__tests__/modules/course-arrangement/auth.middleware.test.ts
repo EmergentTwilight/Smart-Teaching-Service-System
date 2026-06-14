@@ -10,6 +10,7 @@
  */
 import { describe, expect, it, vi } from 'vitest'
 import type { Request, Response } from 'express'
+import express from 'express'
 import jwt from 'jsonwebtoken'
 import config from '../../../config/index.js'
 import {
@@ -222,5 +223,31 @@ describe('requireSelfOrAdmin', () => {
 
     expect(res.status).toHaveBeenCalledWith(401)
     expect(next).not.toHaveBeenCalled()
+  })
+})
+
+// ==================== 路由集成测试 ====================
+describe('B 模块路由 — 鉴权集成', () => {
+  it('所有 B 模块路由文件均已导入并挂载 authMiddleware', async () => {
+    // 路由模块的依赖链会加载 prisma client，需确保 DATABASE_URL 可用
+    process.env.DATABASE_URL ??= 'postgresql://test:test@localhost:5432/stss_test'
+    const routers = await Promise.all([
+      import('../../../modules/course-arrangement/classroom/classroom.routes.js'),
+      import('../../../modules/course-arrangement/schedule/schedule.routes.js'),
+      import('../../../modules/course-arrangement/timetable/timetable.routes.js'),
+      import('../../../modules/course-arrangement/rules/rule.routes.js'),
+      import('../../../modules/course-arrangement/auto-schedule/auto-schedule.routes.js'),
+    ])
+
+    for (const mod of routers) {
+      const router: express.Router = mod.default
+      // router.use(authMiddleware) 会在 router.stack 的第一层插入一个 Layer
+      const hasAuthMw = router.stack.some(
+        (layer: { handle: (req: Request, res: Response, next: import('express').NextFunction) => void }) =>
+          layer.handle === authMiddleware ||
+          (typeof layer.handle === 'function' && layer.handle.name === 'authMiddleware')
+      )
+      expect(hasAuthMw).toBe(true)
+    }
   })
 })

@@ -585,6 +585,103 @@
   - 已更新创建、更新、删除成功消息断言。
   - 已新增课程被培养方案引用时删除返回 `409` 的断言。
 
+## 七、培养方案管理 API
+
+### 7.1 / 7.2 获取培养方案列表和详情
+
+#### 后端更新
+
+- `backend/prisma/schema.prisma`
+  - `Curriculum` 模型已新增稳定的 `createdAt`、`updatedAt` 字段。
+
+- `backend/prisma/migrations/20260614093000_add_major_timestamps/migration.sql`
+  - 已补充 `curriculums.created_at`、`curriculums.updated_at` 字段迁移，使用默认时间避免已有数据表推送失败。
+
+- `backend/src/modules/info-management/curriculums.service.ts`
+  - 列表和详情的 `created_at` / `updated_at` 已改为直接读取 `Curriculum` 字段，不再依赖 `SystemLog` 回填。
+
+- `backend/src/modules/info-management/curriculums.controller.ts`
+  - 列表和详情成功响应 message 已显式对齐文档为 `success`。
+
+#### 前端更新
+
+- `frontend/src/modules/info-management/types/curriculums.ts`
+  - 新增培养方案列表、详情、课程关联和请求 DTO 类型。
+
+- `frontend/src/modules/info-management/api/curriculums.ts`
+  - 新增培养方案 API 封装，请求字段已转为文档 snake_case。
+
+- `frontend/src/modules/info-management/pages/curriculums/CurriculumList.tsx`
+  - 新增培养方案列表页面，支持专业和年份筛选、分页、详情查看。
+
+- `frontend/src/modules/info-management/components/CurriculumTable.tsx`
+  - 新增培养方案列表表格。
+
+- `frontend/src/modules/info-management/components/CurriculumDetail.tsx`
+  - 新增培养方案详情弹窗，展示课程列表、创建时间和更新时间。
+
+- `frontend/src/App.tsx`、`frontend/src/shared/config/menu.tsx`
+  - 已新增 `/info/curriculums` 路由和“培养方案”菜单入口。
+
+### 7.3 / 7.4 创建和更新培养方案
+
+#### 后端更新
+
+- `backend/src/modules/info-management/curriculums.types.ts`
+  - `updateCurriculumSchema` 已要求至少提供一个更新字段。
+
+- `backend/src/modules/info-management/curriculums.service.ts`
+  - 创建前已显式校验专业存在。
+  - 创建和更新名称时已按同专业、同年份、同名称校验重复培养方案。
+
+#### 前端更新
+
+- `frontend/src/modules/info-management/components/CurriculumModal.tsx`
+  - 新增培养方案创建和编辑表单。
+  - 编辑时仅提交文档 7.4 要求的可更新字段。
+
+### 7.5 删除培养方案
+
+#### 前端更新
+
+- `frontend/src/modules/info-management/pages/curriculums/CurriculumList.tsx`
+  - 培养方案列表已提供删除入口和确认弹窗。
+
+### 7.6 / 7.7 添加课程到培养方案
+
+#### 后端更新
+
+- `backend/src/modules/info-management/curriculums.service.ts`
+  - 单个添加课程前已显式校验课程是否已在培养方案中。
+  - 批量添加课程时，单条创建失败会计入 `fail_count`，不会直接中断整个批量流程。
+
+#### 前端更新
+
+- `frontend/src/modules/info-management/components/CurriculumCourseModal.tsx`
+  - 新增单个添加课程弹窗。
+
+- `frontend/src/modules/info-management/components/CurriculumBatchCourseModal.tsx`
+  - 新增批量添加课程弹窗。
+
+- `frontend/src/modules/info-management/pages/curriculums/CurriculumList.tsx`
+  - 培养方案详情内已接入单个添加和批量添加课程操作。
+
+### 7.8 / 7.9 移除和更新培养方案课程
+
+#### 后端更新
+
+- `backend/src/modules/info-management/curriculums.types.ts`
+  - 已新增 `curriculumCourseParamsSchema` 校验 `:id` 和 `:course_id`。
+  - `updateCurriculumCourseSchema` 已改为 `course_type`、`semester_suggestion` 可选但至少提供一个。
+
+- `backend/src/modules/info-management/curriculums.service.ts`
+  - 移除和更新课程前已显式校验培养方案课程关联存在。
+
+#### 前端更新
+
+- `frontend/src/modules/info-management/components/CurriculumDetail.tsx`
+  - 培养方案课程列表已提供编辑和移除入口。
+
 ## 当前进行中
 
 - 暂无。
@@ -607,11 +704,19 @@
   - `DATABASE_URL=postgresql://user:pass@localhost:5432/db pnpm --filter @stss/server exec prisma validate` 通过。
   - `pnpm --filter @stss/web lint` 通过，有 1 个既有 `Toast.tsx` 的 `any` warning。
   - `pnpm --filter @stss/server lint` 通过，有若干测试文件 `any` warning。
+  - 第七章新增验证：
+    - `pnpm --filter @stss/server db:generate` 通过，Prisma Client 已包含 `Curriculum.createdAt`、`Curriculum.updatedAt`。
+    - `pnpm --filter @stss/server typecheck` 通过。
+    - `pnpm --filter @stss/web typecheck` 通过。
+    - `DATABASE_URL=postgresql://user:pass@localhost:5432/db pnpm --filter @stss/server exec prisma validate` 通过。
+    - `pnpm --filter @stss/web lint` 通过，有 1 个既有 `Toast.tsx` 的 `any` warning。
+    - `pnpm --filter @stss/server lint` 通过，有若干既有测试文件 `any` warning。
 
 ## 当前未处理 / 残留问题
 
 - 未跑完整测试套件；当前本地集成测试受 `localhost:5432` 和 `127.0.0.1:6379` 不可达影响。
 - 本阶段尝试运行 `pnpm --filter @stss/server test:integration -- src/__tests__/integration/modules/info-management/majors.routes.integration.test.ts`，失败原因仍是 `localhost:5432` 数据库不可达，且 Redis `127.0.0.1:6379` 连接受限。
+- 本阶段尝试运行 `pnpm --filter @stss/server exec vitest run src/__tests__/integration/modules/info-management/curriculums.routes.integration.test.ts`，15 个用例因 `localhost:5432` 数据库不可达被跳过并导致 suite 初始化失败。
 - 头像旧文件异步清理仍未处理。
 
 ## 注意事项

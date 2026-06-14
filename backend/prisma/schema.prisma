@@ -528,6 +528,10 @@ model Curriculum {
   requiredCredits Decimal? @map("required_credits") @db.Decimal(5, 1)
   /// 选修学分
   electiveCredits Decimal? @map("elective_credits") @db.Decimal(5, 1)
+  /// 创建时间
+  createdAt       DateTime @default(now()) @map("created_at")
+  /// 更新时间
+  updatedAt       DateTime @default(now()) @updatedAt @map("updated_at")
 
   major   Major              @relation(fields: [majorId], references: [id])
   courses CurriculumCourse[]

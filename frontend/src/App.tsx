@@ -22,6 +22,7 @@ const SystemLogs = lazy(() => import('@/modules/info-management/pages/users/Syst
 const DepartmentList = lazy(() => import('@/modules/info-management/pages/departments/DepartmentList'));
 const MajorList = lazy(() => import('@/modules/info-management/pages/majors/MajorList'));
 const CourseList = lazy(() => import('@/modules/info-management/pages/courses/CourseList'));
+const CurriculumList = lazy(() => import('@/modules/info-management/pages/curriculums/CurriculumList'));
 const Profile = lazy(() => import('@/modules/info-management/pages/Profile'));
 const ComingSoon = lazy(() => import('@/shared/components/ComingSoon'));
 
@@ -138,6 +139,7 @@ const App: React.FC = () => {
                   <Route path="info/majors" element={<MajorList />} />
                   <Route path="info/roles" element={<ComingSoon title="角色权限" />} />
                   <Route path="info/courses" element={<CourseList />} />
+                  <Route path="info/curriculums" element={<CurriculumList />} />
                   <Route path="info/classrooms" element={<ComingSoon title="教室管理" />} />
 
                   {/* 自动排课 */}

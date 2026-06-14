@@ -215,8 +215,7 @@ describe('exportTimetableSchema', () => {
   describe('format validation', () => {
     it('应该拒绝 pdf 格式', () => {
       const result = exportTimetableSchema.safeParse({
-        // @ts-expect-error — 测试非法格式
-        format: 'pdf',
+        format: 'pdf' as const,
         targetType: 'classroom',
         targetId: 'cls-001',
       })
@@ -225,8 +224,7 @@ describe('exportTimetableSchema', () => {
 
     it('应该拒绝 excel 格式', () => {
       const result = exportTimetableSchema.safeParse({
-        // @ts-expect-error — 测试非法格式
-        format: 'excel',
+        format: 'excel' as const,
         targetType: 'classroom',
         targetId: 'cls-001',
       })

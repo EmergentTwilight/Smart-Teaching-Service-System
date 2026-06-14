@@ -11,9 +11,9 @@ vi.hoisted(() => {
     process.env.DATABASE_URL || 'postgresql://test:test@localhost:5432/test'
 })
 
-import crypto from 'crypto'
 import jwt from 'jsonwebtoken'
 import express from 'express'
+import type { Request, Response, NextFunction } from 'express'
 import { describe, expect, it, vi } from 'vitest'
 
 import {
@@ -23,20 +23,30 @@ import {
 } from '../../../shared/middleware/auth.js'
 
 // ─── Helper ──────────────────────────────────────────────────────────────────
+interface MockUser {
+  userId: string
+  username: string
+  roles: string[]
+}
+
 function mockReqRes(
-  opts: { headers?: Record<string, string>; user?: any; params?: Record<string, string> } = {}
+  opts: { headers?: Record<string, string>; user?: MockUser; params?: Record<string, string> } = {}
 ) {
-  const req: any = {
-    headers: { ...opts.headers },
+  const req = {
+    headers: opts.headers ?? {},
     user: opts.user,
-    params: { ...opts.params },
+    params: opts.params ?? {},
   }
-  const res: any = {
+  const res = {
     status: vi.fn().mockReturnThis(),
     json: vi.fn().mockReturnThis(),
   }
   const next = vi.fn()
-  return { req, res, next }
+  return {
+    req: req as unknown as Request,
+    res: res as unknown as Response,
+    next: next as unknown as NextFunction,
+  }
 }
 
 const JWT_SECRET = process.env.JWT_SECRET || 'stss-super-secret-jwt-key-2026-dev-only'
@@ -193,7 +203,7 @@ describe('B 模块路由 — 鉴权集成', () => {
       const router: express.Router = mod.default
       // router.use(authMiddleware) 会在 router.stack 的第一层插入一个 Layer
       const hasAuthMw = router.stack.some(
-        (layer: any) =>
+        (layer: { handle: (req: Request, res: Response, next: NextFunction) => void }) =>
           layer.handle === authMiddleware ||
           (typeof layer.handle === 'function' && layer.handle.name === 'authMiddleware')
       )

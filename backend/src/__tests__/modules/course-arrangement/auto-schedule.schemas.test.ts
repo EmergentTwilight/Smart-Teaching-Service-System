@@ -101,6 +101,7 @@ describe('scheduleSchema (auto-schedule)', () => {
   })
 
   it('应该拒绝缺失 teacherId', () => {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { teacherId: _, ...rest } = validSchedule
     expect(scheduleSchema.safeParse(rest).success).toBe(false)
   })
@@ -133,6 +134,7 @@ describe('scheduleSuccessSchema', () => {
   })
 
   it('应该拒绝缺失必填字段', () => {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { courseOfferingId: _, ...rest } = validSuccess
     expect(scheduleSuccessSchema.safeParse(rest).success).toBe(false)
   })

@@ -159,14 +159,17 @@ describe('scheduleInPrismaSchema', () => {
 
   describe('missing fields', () => {
     it('应该拒绝缺失 courseOfferingId', () => {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { courseOfferingId: _, ...rest } = validSchedule
       expect(scheduleInPrismaSchema.safeParse(rest).success).toBe(false)
     })
     it('应该拒绝缺失 classroomId', () => {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { classroomId: _, ...rest } = validSchedule
       expect(scheduleInPrismaSchema.safeParse(rest).success).toBe(false)
     })
     it('应该拒绝缺失 dayOfWeek', () => {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { dayOfWeek: _, ...rest } = validSchedule
       expect(scheduleInPrismaSchema.safeParse(rest).success).toBe(false)
     })

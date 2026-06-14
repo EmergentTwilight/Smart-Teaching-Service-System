@@ -361,6 +361,7 @@ describe('overviewStatsResponseSchema', () => {
   })
 
   it('应该拒绝缺失 classrooms', () => {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { classrooms: _, ...rest } = validStats
     expect(overviewStatsResponseSchema.safeParse(rest).success).toBe(false)
   })

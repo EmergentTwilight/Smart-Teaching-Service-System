@@ -11,8 +11,12 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { Request, Response } from 'express'
 import jwt from 'jsonwebtoken'
-import config from '../../config/index.js'
-import { authMiddleware, requireRoles, requireSelfOrAdmin } from '../../shared/middleware/auth.js'
+import config from '../../../config/index.js'
+import {
+  authMiddleware,
+  requireRoles,
+  requireSelfOrAdmin,
+} from '../../../shared/middleware/auth.js'
 
 function mockReq(overrides: Partial<Request> = {}): Partial<Request> {
   return {

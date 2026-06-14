@@ -215,22 +215,27 @@ describe('classroomInPrismaSchema', () => {
 
   describe('missing fields', () => {
     it('应该拒绝缺失 building', () => {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { building, ...rest } = validClassroom
       expect(classroomInPrismaSchema.safeParse(rest).success).toBe(false)
     })
     it('应该拒绝缺失 roomNumber', () => {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { roomNumber, ...rest } = validClassroom
       expect(classroomInPrismaSchema.safeParse(rest).success).toBe(false)
     })
     it('应该拒绝缺失 campus', () => {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { campus, ...rest } = validClassroom
       expect(classroomInPrismaSchema.safeParse(rest).success).toBe(false)
     })
     it('应该拒绝缺失 capacity', () => {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { capacity, ...rest } = validClassroom
       expect(classroomInPrismaSchema.safeParse(rest).success).toBe(false)
     })
     it('应该拒绝缺失 roomType', () => {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { roomType, ...rest } = validClassroom
       expect(classroomInPrismaSchema.safeParse(rest).success).toBe(false)
     })

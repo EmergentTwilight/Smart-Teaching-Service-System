@@ -20,7 +20,8 @@ function normalizeRule(rule: SchedulingRule): SchedulingRule {
     ...rule,
     hardConstraints: {
       ...rule.hardConstraints,
-      requiredRoomType: requiredRoomType?.toUpperCase(),
+      requiredRoomType: (requiredRoomType?.toUpperCase() ??
+        undefined) as SchedulingRule['hardConstraints']['requiredRoomType'],
     },
   }
 }

@@ -836,7 +836,7 @@ model Answer {
   /// 学生答案
   studentAnswer  String?  @map("student_answer") @db.Text
   /// 是否正确
-  isCorrect      Boolean?
+  isCorrect      Boolean? @map("is_correct")
   /// 得分
   score          Decimal?
 

@@ -9,7 +9,7 @@ import './Toast.css'
 type ToastType = 'success' | 'error' | 'warning' | 'info'
 
 let container: HTMLDivElement | null = null
-let root: any = null
+let root: ReturnType<typeof createRoot> | null = null
 
 /**
  * 显示 Toast 提示
@@ -39,14 +39,14 @@ function showToastMessage(type: ToastType, content: string, duration: number) {
   }
 
   // 渲染 Toast
-  root.render(
+  root!.render(
     <ToastItem
       type={type}
       content={content}
       duration={duration}
       onClose={() => {
         // 移除 Toast
-        root.render(null)
+        root!.render(null)
       }}
     />
   )

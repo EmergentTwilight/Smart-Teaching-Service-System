@@ -26,6 +26,21 @@ const AdminScoreApprovalPage = lazy(() => import('@/modules/score-management/adm
 const StudentScoreQueryPage = lazy(() => import('@/modules/score-management/student/pages/student-score-query-page'));
 const StudentScoreAnalyticsPage = lazy(() => import('@/modules/score-management/student/pages/student-score-analytics-page'));
 const Profile = lazy(() => import('@/modules/info-management/pages/Profile'));
+const OnlineTestingPingPage = lazy(
+  () => import('@/modules/online-testing/pages/OnlineTestingPingPage')
+);
+const OnlineTestingQuestionsPage = lazy(
+  () => import('@/modules/online-testing/pages/OnlineTestingQuestionsPage')
+);
+const OnlineTestingPapersPage = lazy(
+  () => import('@/modules/online-testing/pages/OnlineTestingPapersPage')
+);
+const OnlineTestingExamPage = lazy(
+  () => import('@/modules/online-testing/pages/OnlineTestingExamPage')
+);
+const OnlineTestingResultsPage = lazy(
+  () => import('@/modules/online-testing/pages/OnlineTestingResultsPage')
+);
 const ComingSoon = lazy(() => import('@/shared/components/ComingSoon'));
 
 // 加载中组件
@@ -159,9 +174,11 @@ const App: React.FC = () => {
                   <Route path="forum/notifications" element={<ComingSoon title="消息通知" />} />
 
                   {/* 在线测试 */}
-                  <Route path="exam/questions" element={<ComingSoon title="题库管理" />} />
-                  <Route path="exam/papers" element={<ComingSoon title="组卷考试" />} />
-                  <Route path="exam/results" element={<ComingSoon title="成绩查看" />} />
+                  <Route path="exam/ping" element={<OnlineTestingPingPage />} />
+                  <Route path="exam/questions" element={<OnlineTestingQuestionsPage />} />
+                  <Route path="exam/papers" element={<OnlineTestingPapersPage />} />
+                  <Route path="exam/exam/:paperId" element={<OnlineTestingExamPage />} />
+                  <Route path="exam/results" element={<OnlineTestingResultsPage />} />
 
                   {/* 成绩管理 */}
                   <Route path="grade/entry" element={<TeacherScoreEntryPage />} />

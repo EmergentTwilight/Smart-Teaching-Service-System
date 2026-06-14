@@ -53,3 +53,6 @@ SETUP.md
 backend/.omc/
 backend/RUN_INTEGRATION_TESTS.md
 backend/TEST_PLAN.md
+
+.codewhale
+.copilot

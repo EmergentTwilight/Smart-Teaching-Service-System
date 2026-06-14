@@ -39,6 +39,10 @@ restart:
 shell-server:
 	docker exec -it stss-server sh
 
+# 进入 E 组 Rust 后端容器
+shell-e-server:
+	docker exec -it stss-e-server sh
+
 # 进入前端容器
 shell-web:
 	docker exec -it stss-web sh
@@ -56,4 +60,8 @@ lint:
 	docker exec stss-server pnpm lint
 	docker exec stss-web pnpm lint
 
-.PHONY: up up-d down build logs ps clean restart shell-server shell-web db-seed db-studio lint
+# 查看 E 组 Rust 后端日志
+logs-e:
+	docker compose -f $(COMPOSE_FILE) logs -f e-server
+
+.PHONY: up up-d down build logs ps clean restart shell-server shell-e-server shell-web db-seed db-studio lint up-e web-use-e web-use-node web-split-e logs-e

@@ -21,6 +21,10 @@ const UserList = lazy(() => import('@/modules/info-management/pages/users/UserLi
 const SystemLogs = lazy(() => import('@/modules/info-management/pages/users/SystemLogs'));
 const DepartmentList = lazy(() => import('@/modules/info-management/pages/departments/DepartmentList'));
 const MajorList = lazy(() => import('@/modules/info-management/pages/majors/MajorList'));
+const TeacherScoreEntryPage = lazy(() => import('@/modules/score-management/pages/TeacherScoreEntryPage'));
+const AdminScoreApprovalPage = lazy(() => import('@/modules/score-management/admin/pages/AdminScoreApprovalPage'));
+const StudentScoreQueryPage = lazy(() => import('@/modules/score-management/student/pages/student-score-query-page'));
+const StudentScoreAnalyticsPage = lazy(() => import('@/modules/score-management/student/pages/student-score-analytics-page'));
 const Profile = lazy(() => import('@/modules/info-management/pages/Profile'));
 const ComingSoon = lazy(() => import('@/shared/components/ComingSoon'));
 
@@ -160,9 +164,17 @@ const App: React.FC = () => {
                   <Route path="exam/results" element={<ComingSoon title="成绩查看" />} />
 
                   {/* 成绩管理 */}
-                  <Route path="grade/entry" element={<ComingSoon title="成绩录入" />} />
-                  <Route path="grade/statistics" element={<ComingSoon title="统计分析" />} />
-                  <Route path="grade/gpa" element={<ComingSoon title="GPA 计算" />} />
+                  <Route path="grade/entry" element={<TeacherScoreEntryPage />} />
+                  <Route path="grade/statistics" element={<StudentScoreAnalyticsPage />} />
+                  <Route path="grade/gpa" element={<StudentScoreQueryPage />} />
+                  <Route
+                    path="grade/approval"
+                    element={
+                      <ProtectedRoute requiredRoles={['admin', 'super_admin']}>
+                        <AdminScoreApprovalPage />
+                      </ProtectedRoute>
+                    }
+                  />
 
                   {/* 系统设置 */}
                   <Route path="settings" element={<ComingSoon title="系统设置" />} />

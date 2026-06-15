@@ -38,6 +38,21 @@ const prisma = new PrismaClient({
 
 // 清理函数
 async function cleanupDepartmentsData() {
+  const departments = await prisma.department.findMany({
+    where: { name: { startsWith: 'itest_dept_' } },
+    select: { id: true },
+  })
+  const departmentIds = departments.map((department) => department.id)
+
+  if (departmentIds.length > 0) {
+    await prisma.systemLog.deleteMany({
+      where: {
+        resourceType: 'department',
+        resourceId: { in: departmentIds },
+      },
+    })
+  }
+
   // 删除测试创建的院系（先删除关联的专业）
   await prisma.major.deleteMany({
     where: {
@@ -371,6 +386,36 @@ describe('POST /api/v1/departments', () => {
     expect(created?.description).toBe('新建学院描述')
   })
 
+  it('创建院系时应该记录 systemLog', async () => {
+    const admin = await createTestUser('super_admin')
+    const token = generateTestToken(admin.id, admin.username, ['super_admin'])
+
+    const response = await request(app)
+      .post('/api/v1/departments')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        name: 'itest_dept_日志创建学院',
+        code: 'ITD_LOG_CREATE',
+        description: '日志创建描述',
+      })
+      .expect(201)
+
+    const log = await prisma.systemLog.findFirst({
+      where: {
+        action: 'department:create',
+        resourceType: 'department',
+        resourceId: response.body.data.id,
+      },
+    })
+
+    expect(log).not.toBeNull()
+    expect(log?.userId).toBe(admin.id)
+    expect(log?.details).toMatchObject({
+      name: 'itest_dept_日志创建学院',
+      code: 'ITD_LOG_CREATE',
+    })
+  })
+
   it('应该拒绝 admin 创建院系', async () => {
     const admin = await createTestUser('admin')
     const token = generateTestToken(admin.id, admin.username, ['admin'])
@@ -466,6 +511,46 @@ describe('PUT /api/v1/departments/:id', () => {
     expect(updated?.description).toBe('更新后的描述')
   })
 
+  it('更新院系时应该记录修改前后的 systemLog', async () => {
+    const admin = await createTestUser('admin')
+    const token = generateTestToken(admin.id, admin.username, ['admin'])
+    const department = await createTestDepartment({
+      name: 'itest_dept_日志更新前学院',
+      code: 'ITD_LOG_UPDATE',
+      description: '更新前描述',
+    })
+
+    await request(app)
+      .put(`/api/v1/departments/${department.id}`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        name: 'itest_dept_日志更新后学院',
+        description: '更新后描述',
+      })
+      .expect(200)
+
+    const log = await prisma.systemLog.findFirst({
+      where: {
+        action: 'department:update',
+        resourceType: 'department',
+        resourceId: department.id,
+      },
+    })
+
+    expect(log).not.toBeNull()
+    expect(log?.userId).toBe(admin.id)
+    expect(log?.details).toMatchObject({
+      before: {
+        name: 'itest_dept_日志更新前学院',
+        description: '更新前描述',
+      },
+      after: {
+        name: 'itest_dept_日志更新后学院',
+        description: '更新后描述',
+      },
+    })
+  })
+
   it('应该拒绝 student 更新院系', async () => {
     const student = await createTestUser('student')
     const token = generateTestToken(student.id, student.username, ['student'])
@@ -537,6 +622,35 @@ describe('DELETE /api/v1/departments/:id', () => {
     expect(response.body.message).toBe('院系删除成功')
     const deleted = await prisma.department.findUnique({ where: { id: department.id } })
     expect(deleted).toBeNull()
+  })
+
+  it('删除院系时应该记录 systemLog', async () => {
+    const admin = await createTestUser('super_admin')
+    const token = generateTestToken(admin.id, admin.username, ['super_admin'])
+    const department = await createTestDepartment({
+      name: 'itest_dept_日志删除学院',
+      code: 'ITD_LOG_DELETE',
+    })
+
+    await request(app)
+      .delete(`/api/v1/departments/${department.id}`)
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200)
+
+    const log = await prisma.systemLog.findFirst({
+      where: {
+        action: 'department:delete',
+        resourceType: 'department',
+        resourceId: department.id,
+      },
+    })
+
+    expect(log).not.toBeNull()
+    expect(log?.userId).toBe(admin.id)
+    expect(log?.details).toMatchObject({
+      name: 'itest_dept_日志删除学院',
+      code: 'ITD_LOG_DELETE',
+    })
   })
 
   it('应该拒绝 admin 删除院系', async () => {

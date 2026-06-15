@@ -15,7 +15,7 @@
     "db:seed": "tsx prisma/seed.ts",
     "lint": "eslint src",
     "test": "vitest",
-    "test:run": "vitest run",
+    "test:run": "vitest run --pool=forks --poolOptions.forks.singleFork=true",
     "test:coverage": "vitest run --coverage",
     "test:unit": "vitest run --exclude='**/*.integration.test.ts' --exclude='**/*.e2e.test.ts'",
     "test:integration": "vitest run src/__tests__/integration src/__tests__/modules/info-management/users.integration.test.ts",

@@ -347,7 +347,7 @@ describe('GET /api/v1/users/:id', () => {
     const token = generateTestToken(user.id, user.username, ['student'])
 
     await request(app)
-      .get('/api/v1/users/nonexistent-id')
+      .get('/api/v1/users/00000000-0000-0000-0000-000000000000')
       .set('Authorization', `Bearer ${token}`)
       .expect(403)
   })
@@ -503,7 +503,7 @@ describe('PATCH /api/v1/users/:id/status', () => {
     const token = generateTestToken(adminUser.id, adminUser.username, ['admin'])
 
     await request(app)
-      .patch('/api/v1/users/nonexistent-id/status')
+      .patch('/api/v1/users/00000000-0000-0000-0000-000000000000/status')
       .set('Authorization', `Bearer ${token}`)
       .send({ status: 'INACTIVE' })
       .expect(404)

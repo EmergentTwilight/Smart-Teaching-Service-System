@@ -42,6 +42,19 @@ const OnlineTestingResultsPage = lazy(
   () => import('@/modules/online-testing/pages/OnlineTestingResultsPage')
 );
 const ComingSoon = lazy(() => import('@/shared/components/ComingSoon'));
+const StudentCurriculumPage = lazy(() => import('@/modules/course-selection/pages/StudentCurriculumPage'));
+const StudentTimetablePage = lazy(() => import('@/modules/course-selection/pages/StudentTimetablePage'));
+const AdminManualEnrollmentPage = lazy(
+  () => import('@/modules/course-selection/pages/AdminManualEnrollmentPage')
+);
+const TeacherRosterPage = lazy(() => import('@/modules/course-selection/pages/TeacherRosterPage'));
+const CourseSelectionAiPage = lazy(() => import('@/modules/course-selection/pages/CourseSelectionAiPage'));
+const StudentCourseSelectionPage = lazy(
+  () => import('@/modules/course-selection/pages/StudentCourseSelectionPage')
+);
+const AdminSelectionPeriodPage = lazy(
+  () => import('@/modules/course-selection/pages/AdminSelectionPeriodPage')
+);
 
 // group B: course arrangement
 const ClassroomList = lazy(() => import('@/modules/course-arrangement/pages/classroom-list'));
@@ -170,9 +183,63 @@ const App: React.FC = () => {
                   <Route path="schedule/manual" element={<ScheduleList />} />
 
                   {/* 智能选课 */}
-                  <Route path="selection/courses" element={<ComingSoon title="课程列表" />} />
-                  <Route path="selection/my" element={<ComingSoon title="我的选课" />} />
-                  <Route path="selection/ai" element={<ComingSoon title="AI 推荐" />} />
+                  <Route
+                    path="selection/courses"
+                    element={
+                      <ProtectedRoute requiredRoles={['student']}>
+                        <StudentCourseSelectionPage />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route path="selection/my" element={<Navigate to="/selection/courses" replace />} />
+                  <Route
+                    path="selection/curriculum"
+                    element={
+                      <ProtectedRoute requiredRoles={['student']}>
+                        <StudentCurriculumPage />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="selection/timetable"
+                    element={
+                      <ProtectedRoute requiredRoles={['student']}>
+                        <StudentTimetablePage />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="selection/ai"
+                    element={
+                      <ProtectedRoute requiredRoles={['student']}>
+                        <CourseSelectionAiPage />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="selection/admin/periods"
+                    element={
+                      <ProtectedRoute requiredRoles={['admin', 'super_admin']}>
+                        <AdminSelectionPeriodPage />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="selection/admin/manual-enrollment"
+                    element={
+                      <ProtectedRoute requiredRoles={['admin', 'super_admin']}>
+                        <AdminManualEnrollmentPage />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="selection/teacher/roster"
+                    element={
+                      <ProtectedRoute requiredRoles={['teacher']}>
+                        <TeacherRosterPage />
+                      </ProtectedRoute>
+                    }
+                  />
 
                   {/* 论坛交流 */}
                   <Route path="forum/posts" element={<ComingSoon title="帖子列表" />} />

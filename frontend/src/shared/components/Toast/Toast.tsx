@@ -4,12 +4,13 @@
  */
 import React, { useState } from 'react'
 import { createRoot } from 'react-dom/client'
+import type { Root } from 'react-dom/client'
 import './Toast.css'
 
 type ToastType = 'success' | 'error' | 'warning' | 'info'
 
 let container: HTMLDivElement | null = null
-let root: any = null
+let root: Root | null = null
 
 /**
  * 显示 Toast 提示
@@ -39,14 +40,14 @@ function showToastMessage(type: ToastType, content: string, duration: number) {
   }
 
   // 渲染 Toast
-  root.render(
+  root?.render(
     <ToastItem
       type={type}
       content={content}
       duration={duration}
       onClose={() => {
         // 移除 Toast
-        root.render(null)
+        root?.render(null)
       }}
     />
   )

@@ -60,21 +60,6 @@ const ATTACHMENT_CONFIG = {
 // 帖子类型枚举值
 const POST_TYPE_VALUES = ['QUESTION', 'DISCUSSION', 'SHARE', 'ANNOUNCEMENT'];
 
-type ForumPostWhereInput = {
-  id?: string;
-  title?: string | { contains: string; mode?: 'insensitive' };
-  content?: string | { contains: string; mode?: 'insensitive' };
-  postType?: string;
-  isAnnouncement?: boolean;
-  isPinned?: boolean;
-  status?: string;
-  authorId?: string;
-  courseOfferingId?: string | { in: string[] };
-  createdAt?: Date | { gte?: Date; lte?: Date };
-  OR?: Array<{ [key: string]: any }>;
-  [key: string]: any;
-};
-
 export class ForumService {
   // ==================== 辅助方法 ====================
   

@@ -23,6 +23,7 @@ import {
   OfferingStatus,
   EnrollmentStatus
 } from '@prisma/client'
+import type { Prisma, Semester } from '@prisma/client'
 
 const prisma = new PrismaClient()
 
@@ -44,7 +45,7 @@ export const courseSearchService = {
     let pageSize = query.pageSize ?? 20
     pageSize = Math.min(pageSize, 100)
 
-    const where: any = {}
+    const where: Prisma.CourseWhereInput = {}
     if(keyword) {
       where.OR = [
         { code: { contains: keyword, mode: 'insensitive' } },
@@ -93,9 +94,10 @@ export const courseSearchService = {
       },
     })
 
-    let results: CourseListItem[] = []
+    const results: CourseListItem[] = []
     for(const course of courses) {
-      let a = 0, b = 0, s: any = null
+      let a = 0, b = 0
+      let s: Semester | null = null
       for(const offering of course.offerings) {
         if(offering.status == OfferingStatus.OPEN) {
           ++a
@@ -160,21 +162,18 @@ export const courseSearchService = {
     let pageSize = query.pageSize ?? 20
     pageSize = Math.min(pageSize, 100)
 
-    const where: any = {}
+    const where: Prisma.CourseOfferingWhereInput = {}
+    const courseWhere: Prisma.CourseWhereInput = {}
     if(semesterId) {
       where.semesterId = semesterId
     }
     if(keyword) {
-      where.course =  {
-        OR: [
-          { code: { contains: keyword, mode: 'insensitive' } },
-          { name: { contains: keyword, mode: 'insensitive' } }
-        ]
-      }
+      courseWhere.OR = [
+        { code: { contains: keyword, mode: 'insensitive' } },
+        { name: { contains: keyword, mode: 'insensitive' } }
+      ]
     }
-    else {
-      where.course = {}
-    }
+    where.course = courseWhere
     if(teacherId) {
       where.teacherId = teacherId
     }
@@ -189,13 +188,13 @@ export const courseSearchService = {
       }
     }
     if(courseType === 'required') {
-      where.course.courseType = CourseType.REQUIRED
+      courseWhere.courseType = CourseType.REQUIRED
     }
     if(courseType === 'elective') {
-      where.course.courseType = CourseType.ELECTIVE
+      courseWhere.courseType = CourseType.ELECTIVE
     }
     if(courseType === 'general') {
-      where.course.courseType = CourseType.GENERAL
+      courseWhere.courseType = CourseType.GENERAL
     }
     if(offeringStatus == 'planned') {
       where.status = OfferingStatus.PLANNED
@@ -232,7 +231,7 @@ export const courseSearchService = {
     })
 
     let total = 0
-    let courses: CourseOfferingListItem[] = []
+    const courses: CourseOfferingListItem[] = []
     for(const courseOffering of courseOfferings) {
       if(availableOnly && courseOffering.capacity <= courseOffering.enrolledCount) {
         continue
@@ -351,13 +350,14 @@ export const courseSearchService = {
     let semesterId = query.semester_id ?? query.semesterId ?? undefined;
     const courseType = query.course_type ?? query.courseType ?? undefined;
     const keyword = query.keyword ?? undefined;
-    let includeUnavailable = query.include_unavailable ?? query.includeUnavailable ?? true
+    const includeUnavailable = query.include_unavailable ?? query.includeUnavailable ?? true
     let page = query.page ?? 1
     page = Math.max(page, 1)
     let pageSize = query.pageSize ?? 20
     pageSize = Math.min(pageSize, 100)
 
-    const where: any = {}
+    const where: Prisma.CourseOfferingWhereInput = {}
+    const courseWhere: Prisma.CourseWhereInput = {}
     if(!semesterId) {
       const now = new Date();
       const currentSemester = await prisma.semester.findMany({
@@ -376,24 +376,20 @@ export const courseSearchService = {
     }
     where.semesterId = semesterId
     if(keyword) {
-      where.course =  {
-        OR: [
-          { code: { contains: keyword, mode: 'insensitive' } },
-          { name: { contains: keyword, mode: 'insensitive' } }
-        ]
-      }
+      courseWhere.OR = [
+        { code: { contains: keyword, mode: 'insensitive' } },
+        { name: { contains: keyword, mode: 'insensitive' } }
+      ]
     }
-    else {
-      where.course = {}
-    }
+    where.course = courseWhere
     if(courseType === 'required') {
-      where.course.courseType = CourseType.REQUIRED
+      courseWhere.courseType = CourseType.REQUIRED
     }
     if(courseType === 'elective') {
-      where.course.courseType = CourseType.ELECTIVE
+      courseWhere.courseType = CourseType.ELECTIVE
     }
     if(courseType === 'general') {
-      where.course.courseType = CourseType.GENERAL
+      courseWhere.courseType = CourseType.GENERAL
     }
     const courseOfferings = await prisma.courseOffering.findMany({
       orderBy: { id: 'asc' },
@@ -417,7 +413,7 @@ export const courseSearchService = {
       },
     })
 
-    let courses: AvailableOfferingItem[] = []
+    const courses: AvailableOfferingItem[] = []
     let total = 0
     for(const courseOffering of courseOfferings) {
       let isEnrolled: boolean = false, hasTimeConflict: boolean = false, prerequisiteSatisfied: boolean = true, withinCurriculum: boolean = false
@@ -592,7 +588,7 @@ export const courseSearchService = {
       return '无法找到对应课程开设'
     }
 
-    let result: CourseOfferingDetail = {
+    const result: CourseOfferingDetail = {
       courseOfferingId: offeringId,
       course: {
         id: offering.courseId,
@@ -749,7 +745,7 @@ export const courseSearchService = {
       }
     }
     const isAvailable = !isEnrolled && !isFull && !hasTimeConflict && prerequisiteSatisfied && withinCurriculum
-    let eligibility: CourseEligibilitySnapshot = {
+    const eligibility: CourseEligibilitySnapshot = {
       isAvailable: isAvailable,
       isEnrolled: isEnrolled,
       isFull: isFull,

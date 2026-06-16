@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import {
   Alert,
   Button,
@@ -67,7 +67,8 @@ const StudentCourseSelectionPage: React.FC = () => {
     queryFn: () => curriculumApi.getMyCurriculumProgress({ includeDropped: false }),
   });
 
-  const offeringRows = availableOfferingsQuery.data?.items ?? [];
+  const offeringItems = availableOfferingsQuery.data?.items;
+  const offeringRows = useMemo(() => offeringItems ?? [], [offeringItems]);
   const pagination = availableOfferingsQuery.data?.pagination ?? null;
 
   const studentProgress = curriculumProgressQuery.data ?? null;
@@ -75,16 +76,20 @@ const StudentCourseSelectionPage: React.FC = () => {
     ? extractErrorMessage(curriculumProgressQuery.error, '学分进展加载失败')
     : null;
 
-  const enrollments = myEnrollmentsQuery.data?.items ?? [];
+  const enrollmentItems = myEnrollmentsQuery.data?.items;
+  const enrollments = useMemo(() => enrollmentItems ?? [], [enrollmentItems]);
   const hasActiveEnrollments = enrollments.some((item) => item.status === 'enrolled');
 
   // Build a map from courseOfferingId -> enrollmentId for drop operations
-  const enrollmentByOfferingId = new Map<string, string>();
-  for (const e of enrollments) {
-    if (e.status === 'enrolled' && e.courseOffering?.id) {
-      enrollmentByOfferingId.set(e.courseOffering.id, e.enrollmentId);
+  const enrollmentByOfferingId = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const e of enrollments) {
+      if (e.status === 'enrolled' && e.courseOffering?.id) {
+        map.set(e.courseOffering.id, e.enrollmentId);
+      }
     }
-  }
+    return map;
+  }, [enrollments]);
 
   // ---- Invalidate related queries after mutation ----
   const invalidateSelectionData = useCallback(() => {

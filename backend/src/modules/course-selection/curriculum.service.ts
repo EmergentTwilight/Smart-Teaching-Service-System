@@ -21,6 +21,7 @@ import {
   CourseStatus,
   EnrollmentStatus
 } from '@prisma/client'
+import type { Prisma } from '@prisma/client'
 
 const prisma = new PrismaClient()
 
@@ -92,9 +93,9 @@ export const curriculumService = {
       query.includeCourses ?? query.include_courses ?? true
     const courseType =
       query.courseType ?? query.course_type ?? undefined
-    let courseGroups: CurriculumCourseGroup[] = []
+    const courseGroups: CurriculumCourseGroup[] = []
     if(includeCourses) {
-      const where: any = { curriculumId: curriculum.id };
+      const where: Prisma.CurriculumCourseWhereInput = { curriculumId: curriculum.id };
       if (courseType === 'required') {
         where.courseType = CourseType.REQUIRED
         courseGroups.push({
@@ -290,7 +291,7 @@ export const curriculumService = {
       generalCredits: d
     }
 
-    let remaining: Partial<CurriculumCreditSummary> = {}
+    const remaining: Partial<CurriculumCreditSummary> = {}
     if(a < requirements.totalCredits) {
       remaining.totalCredits = requirements.totalCredits - a
     }

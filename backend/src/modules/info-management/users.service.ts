@@ -17,7 +17,7 @@ import type {
   UpdateStatusInput,
   AssignRolesInput,
 } from './users.types.js'
-import type { Prisma, Gender, UserStatus } from '@prisma/client'
+import type { Gender, Prisma, UserStatus } from '@prisma/client'
 
 export const usersService = {
   /**

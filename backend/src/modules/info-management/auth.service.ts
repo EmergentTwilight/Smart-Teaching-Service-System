@@ -163,7 +163,7 @@ function serializeUser(
     realName: user.realName,
     avatarUrl: user.avatarUrl,
     gender: user.gender,
-    status: user.status.toLowerCase(),
+    status: user.status,
     lastLoginAt: user.lastLoginAt,
     roles,
     roleDetails,

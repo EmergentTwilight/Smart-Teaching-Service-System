@@ -12,18 +12,56 @@ import {
   TeamOutlined,
   CommentOutlined,
   FileTextOutlined,
+  SearchOutlined,
+  NotificationOutlined,
   BarChartOutlined,
   SafetyOutlined,
   HomeOutlined,
   RobotOutlined,
-  BellOutlined,
   EditOutlined,
   DatabaseOutlined,
   LineChartOutlined,
   CalculatorOutlined,
 } from '@ant-design/icons';
+import {
+  FORUM_EXPORT_ROLES,
+  FORUM_STATS_ROLES,
+  FORUM_TEACHER_ROLES,
+} from '@/modules/forum/constants/forum';
 
-export const MENU_ITEMS: MenuProps['items'] = [
+type MenuItem = Exclude<NonNullable<MenuProps['items']>[number], null>;
+
+const FORUM_ANNOUNCE_ROLES = FORUM_TEACHER_ROLES;
+
+function hasAnyRole(roles: string[], allowed: readonly string[]) {
+  return allowed.some((r) => roles.includes(r));
+}
+
+/** 论坛子菜单（按角色过滤） */
+function getForumChildren(roles: string[]): MenuItem[] {
+  const items: MenuItem[] = [
+    { key: '/forum/posts', icon: <FileTextOutlined />, label: '课程论坛' },
+    { key: '/forum/search', icon: <SearchOutlined />, label: '帖子检索' },
+    { key: '/forum/my', icon: <UserOutlined />, label: '我的发布' },
+  ];
+  if (hasAnyRole(roles, FORUM_ANNOUNCE_ROLES)) {
+    items.push({
+      key: '/forum/announcements',
+      icon: <NotificationOutlined />,
+      label: '公告管理',
+    });
+  }
+  if (hasAnyRole(roles, FORUM_STATS_ROLES)) {
+    items.push({
+      key: '/forum/stats',
+      icon: <BarChartOutlined />,
+      label: '论坛统计',
+    });
+  }
+  return items;
+}
+
+export const MENU_ITEMS: MenuItem[] = [
   {
     key: '/',
     icon: <DashboardOutlined />,
@@ -64,11 +102,7 @@ export const MENU_ITEMS: MenuProps['items'] = [
     key: 'forum',
     icon: <CommentOutlined />,
     label: '论坛交流',
-    children: [
-      { key: '/forum/posts', icon: <FileTextOutlined />, label: '帖子列表' },
-      { key: '/forum/my', icon: <UserOutlined />, label: '我的发布' },
-      { key: '/forum/notifications', icon: <BellOutlined />, label: '消息通知' },
-    ],
+    children: getForumChildren([]),
   },
   {
     key: 'exam',
@@ -96,3 +130,18 @@ export const MENU_ITEMS: MenuProps['items'] = [
     label: '系统设置',
   },
 ];
+
+/** 根据用户角色生成菜单（论坛子项按权限过滤） */
+export function getMenuItemsForRoles(roles: string[]): MenuProps['items'] {
+  return MENU_ITEMS.map((item): MenuItem => {
+    if (item.key === 'forum' && 'children' in item) {
+      return { ...item, children: getForumChildren(roles) };
+    }
+    return item;
+  });
+}
+
+/** 是否可导出论坛统计（供页面内按钮使用） */
+export function canExportForumStats(roles: string[]) {
+  return hasAnyRole(roles, FORUM_EXPORT_ROLES);
+}

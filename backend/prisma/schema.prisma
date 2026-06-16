@@ -648,7 +648,7 @@ model ForumAttachment {
   /// 附件ID
   id         String   @id @default(uuid())
   /// 帖子ID
-  postId     String   @map("post_id")
+  postId     String?  @map("post_id")
   /// 文件名
   fileName   String   @map("file_name") @db.VarChar(255)
   /// 文件路径
@@ -656,11 +656,11 @@ model ForumAttachment {
   /// 文件大小
   fileSize   BigInt   @map("file_size")
   /// 文件类型
-  fileType   String?  @map("file_type") @db.VarChar(50)
+  fileType   String?  @map("file_type") @db.VarChar(150)
   /// 上传时间
   uploadedAt DateTime @default(now()) @map("uploaded_at")
 
-  post ForumPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  post ForumPost? @relation(fields: [postId], references: [id], onDelete: Cascade)
 
   @@map("forum_attachments")
 }

@@ -5,6 +5,7 @@
 import { Request, Response } from 'express'
 import { error, paginated, success } from '../../shared/utils/response.js'
 import { selectionPeriodService } from './selection-period.service.js'
+import { toPaginationResponseMeta } from './course-selection.support.js'
 import {
   selectionPeriodQuerySchema,
   createSelectionPeriodBodySchema,
@@ -17,7 +18,7 @@ export const selectionPeriodController = {
   async listPeriods(req: Request, res: Response) {
     const query = selectionPeriodQuerySchema.parse(req.query)
     const result = await selectionPeriodService.listPeriods(query)
-    return paginated(res, result.items, result.pagination)
+    return paginated(res, result.items, toPaginationResponseMeta(result.pagination))
   },
 
   async createPeriod(req: Request, res: Response) {

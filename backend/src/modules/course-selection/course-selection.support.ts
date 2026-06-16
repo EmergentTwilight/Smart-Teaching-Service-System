@@ -43,6 +43,13 @@ export const buildPaginationMeta = (page: number, pageSize: number, total: numbe
   totalPages: total === 0 ? 0 : Math.ceil(total / pageSize),
 })
 
+export const toPaginationResponseMeta = (pagination: PaginationMeta) => ({
+  page: pagination.page,
+  page_size: pagination.pageSize,
+  total: pagination.total,
+  total_pages: pagination.totalPages,
+})
+
 export const parseEnrollmentStatusFilter = (status?: string): EnrollmentStatus | undefined => {
   if (!status) {
     return undefined

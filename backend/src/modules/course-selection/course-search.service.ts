@@ -21,7 +21,8 @@ import {
   CourseType,
   CourseStatus,
   OfferingStatus,
-  EnrollmentStatus
+  EnrollmentStatus,
+  SemesterStatus
 } from '@prisma/client'
 import type { Prisma, Semester } from '@prisma/client'
 
@@ -359,20 +360,15 @@ export const courseSearchService = {
     const where: Prisma.CourseOfferingWhereInput = {}
     const courseWhere: Prisma.CourseWhereInput = {}
     if(!semesterId) {
-      const now = new Date();
-      const currentSemester = await prisma.semester.findMany({
-        where: {
-          startDate: { lte: now },
-          endDate: { gte: now }
-        }
+      const currentSemester = await prisma.semester.findFirst({
+        where: { status: SemesterStatus.CURRENT },
+        orderBy: { startDate: 'desc' },
+        select: { id: true }
       })
-      if(currentSemester.length === 0) {
+      if(!currentSemester) {
         return '无法找到当前学期'
       }
-      if(currentSemester.length !== 1) {
-        return '当前学期不唯一'
-      }
-      semesterId = currentSemester[0].id
+      semesterId = currentSemester.id
     }
     where.semesterId = semesterId
     if(keyword) {

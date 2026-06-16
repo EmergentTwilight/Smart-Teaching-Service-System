@@ -14,7 +14,6 @@ import {
   FileTextOutlined,
   BarChartOutlined,
   SafetyOutlined,
-  HomeOutlined,
   RobotOutlined,
   BellOutlined,
   EditOutlined,
@@ -41,7 +40,6 @@ export const MENU_ITEMS: MenuProps['items'] = [
       { key: '/info/roles', icon: <SafetyOutlined />, label: '角色权限' },
       { key: '/info/courses', icon: <BookOutlined />, label: '课程信息' },
       { key: '/info/curriculums', icon: <BookOutlined />, label: '培养方案' },
-      { key: '/info/classrooms', icon: <HomeOutlined />, label: '教室管理' },
     ],
   },
   {

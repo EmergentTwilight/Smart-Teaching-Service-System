@@ -148,7 +148,6 @@ const App: React.FC = () => {
                   />
                   <Route path="info/courses" element={<CourseList />} />
                   <Route path="info/curriculums" element={<CurriculumList />} />
-                  <Route path="info/classrooms" element={<ComingSoon title="教室管理" />} />
 
                   {/* 自动排课 */}
                   <Route path="schedule/tasks" element={<ComingSoon title="排课任务" />} />

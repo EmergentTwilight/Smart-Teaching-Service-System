@@ -17,6 +17,52 @@ import { useAuthStore } from '@/shared/stores/authStore';
 import { USER_ROLE_LABELS, type UserRoleType } from '@/shared/types';
 
 const { Header, Sider, Content } = Layout;
+type MenuItem = NonNullable<MenuProps['items']>[number];
+
+const C_SELECTION_MENU_ROLE_RULES: Record<string, string[]> = {
+  '/selection/courses': ['student'],
+  '/selection/curriculum': ['student'],
+  '/selection/timetable': ['student'],
+  '/selection/ai': ['student'],
+  '/selection/admin/periods': ['admin', 'super_admin'],
+  '/selection/admin/manual-enrollment': ['admin', 'super_admin'],
+  '/selection/teacher/roster': ['teacher'],
+};
+
+const hasMenuRole = (userRoles: string[], allowedRoles?: string[]) =>
+  !allowedRoles || allowedRoles.some((role) => userRoles.includes(role));
+
+const filterMenuItemsByRole = (
+  items: MenuProps['items'],
+  userRoles: string[]
+): NonNullable<MenuProps['items']> => {
+  if (!items) {
+    return [];
+  }
+
+  return items.reduce<NonNullable<MenuProps['items']>>((filtered, item) => {
+    if (!item) {
+      return filtered;
+    }
+
+    const key = 'key' in item && item.key !== undefined ? String(item.key) : undefined;
+    if (!hasMenuRole(userRoles, key ? C_SELECTION_MENU_ROLE_RULES[key] : undefined)) {
+      return filtered;
+    }
+
+    if ('children' in item && item.children) {
+      const children = filterMenuItemsByRole(item.children as MenuProps['items'], userRoles);
+      if (key === 'selection' && children.length === 0) {
+        return filtered;
+      }
+      filtered.push({ ...item, children } as MenuItem);
+      return filtered;
+    }
+
+    filtered.push(item);
+    return filtered;
+  }, []);
+};
 
 const MainLayout: React.FC = () => {
   const navigate = useNavigate();
@@ -41,6 +87,10 @@ const MainLayout: React.FC = () => {
   }, [navigate]);
 
   const selectedKeys = useMemo(() => [location.pathname], [location.pathname]);
+  const menuItems = useMemo(
+    () => filterMenuItemsByRole(MENU_ITEMS, user?.roles ?? []),
+    [user?.roles]
+  );
 
   const handleOpenChange: MenuProps['onOpenChange'] = useCallback((keys: string[]) => {
     const latestOpenKey = keys.find((key: string) => !openKeys.includes(key)) as string;
@@ -148,7 +198,7 @@ const MainLayout: React.FC = () => {
           selectedKeys={selectedKeys}
           openKeys={collapsed ? [] : openKeys}
           onOpenChange={handleOpenChange}
-          items={MENU_ITEMS}
+          items={menuItems}
           onClick={handleMenuClick}
           style={{
             background: 'transparent',

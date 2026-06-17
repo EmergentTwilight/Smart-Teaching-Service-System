@@ -183,13 +183,7 @@ const StudentCourseSelectionPage: React.FC = () => {
 
   // ---- Drop handler with confirmation ----
   const handleDrop = useCallback(
-    ({ offeringId }: { offeringId: string }) => {
-      const enrollmentId = enrollmentByOfferingId.get(offeringId);
-      if (!enrollmentId) {
-        message.error('未找到对应的选课记录，无法退选');
-        return;
-      }
-
+    ({ offeringId, enrollmentId }: { offeringId: string; enrollmentId: string }) => {
       const offering = offeringRows.find((r) => r.courseOfferingId === offeringId);
       const courseLabel = offering
         ? `${offering.courseName}（${offering.courseCode}）`
@@ -221,7 +215,7 @@ const StudentCourseSelectionPage: React.FC = () => {
         },
       });
     },
-    [offeringRows, enrollmentByOfferingId, dropMutation]
+    [offeringRows, dropMutation]
   );
 
   // ---- Pagination handler ----
@@ -351,6 +345,7 @@ const StudentCourseSelectionPage: React.FC = () => {
                 onDrop={handleDrop}
                 onViewDetail={setOfferingIdInDrawer}
                 enrollLoading={enrollingId}
+                enrollmentIdByOfferingId={enrollmentByOfferingId}
               />
             </div>
           </Card>

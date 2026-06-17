@@ -31,9 +31,10 @@ interface CourseOfferingTableProps {
   pagination?: PaginationMeta | null;
   onPageChange?: (page: number, pageSize: number) => void;
   onEnroll?: (offeringId: string) => void;
-  onDrop?: (enrollmentInfo: { offeringId: string }) => void;
+  onDrop?: (enrollmentInfo: { offeringId: string; enrollmentId: string }) => void;
   onViewDetail?: (offeringId: string) => void;
   enrollLoading?: string | null;
+  enrollmentIdByOfferingId?: ReadonlyMap<string, string>;
 }
 
 /**
@@ -54,6 +55,7 @@ export const CourseOfferingTable: FC<CourseOfferingTableProps> = ({
   onDrop,
   onViewDetail,
   enrollLoading,
+  enrollmentIdByOfferingId,
 }) => {
   const columns: TableProps<AvailableOfferingItem>['columns'] = [
     {
@@ -191,18 +193,19 @@ export const CourseOfferingTable: FC<CourseOfferingTableProps> = ({
       width: 120,
       render: (_value: unknown, record: AvailableOfferingItem) => {
         const isBusy = enrollLoading === record.courseOfferingId;
+        const enrollmentId = enrollmentIdByOfferingId?.get(record.courseOfferingId);
 
         return (
           <Space direction="vertical" size={4}>
             {record.eligibility.isEnrolled ? (
-              onDrop ? (
+              onDrop && enrollmentId ? (
                 <Button
                   size="small"
                   danger
                   loading={isBusy}
                   onClick={(e) => {
                     e.stopPropagation();
-                    onDrop({ offeringId: record.courseOfferingId });
+                    onDrop({ offeringId: record.courseOfferingId, enrollmentId });
                   }}
                 >
                   退选

@@ -130,7 +130,7 @@ export interface CourseOfferingDetail {
   status: 'planned' | 'open' | 'closed' | 'cancelled';
   schedules: CourseOfferingSchedule[];
   prerequisites: CourseOfferingPrerequisite[];
-  eligibility?: Pick<CourseEligibilitySnapshot, 'isAvailable' | 'reasons'>;
+  eligibility?: CourseEligibilitySnapshot;
 }
 
 export interface CourseOfferingPrerequisite {

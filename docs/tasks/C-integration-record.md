@@ -129,15 +129,33 @@ Docker 服务状态：
 | `./scripts/codex-docker-run.sh 'pnpm --filter @stss/shared build && pnpm --filter @stss/server typecheck'` | `server` | `/app` | 通过 |
 | `CODEX_DOCKER_SERVICE=web CODEX_DOCKER_WORKDIR=/app ./scripts/codex-docker-run.sh 'pnpm --filter @stss/web typecheck'` | `web` | `/app` | 通过 |
 
+## 2026-06-17 前端页面联调重跑记录
+
+联调结论来源：人工页面重跑反馈，详细记录见 `docs/tasks/C-frontend-acceptance-result.md`。
+
+本次重跑范围：
+
+| 页面 | 路径 | 重跑账号 | 结果 | 备注 |
+| --- | --- | --- | --- | --- |
+| 选课阶段管理 | `/selection/admin/periods` | `academic / Admin123` | 通过 | 使用教务管理员账号重跑成功，说明先前失败主要是联调账号/权限口径问题。 |
+| 手动加课 | `/selection/admin/manual-enrollment` | `academic / Admin123` | 通过 | 使用当前数据重跑成功：学生 ID `3326b889-4b93-447b-afad-a802424e182f`，课程开设 ID `10000000-0000-4000-8000-000000000016`。 |
+
+数据写入说明：
+
+- 手动加课属于写操作，会创建 Enrollment 并更新对应 CourseOffering 的已选人数。
+- 同一组学生和课程开设 ID 第二次执行可能返回重复选课/已存在，后续复测应更换未选过的课程开设或先回滚测试数据。
+
 是否允许进入前端页面联调：
 
-- `C-INT-20260616-01` 已解除，可以进入前端页面联调。
-- 页面联调仍需覆盖 C6 501 降级展示、C3 成功选课/退选回滚数据方案、C4 非任课教师越权场景。
+- `C-INT-20260616-01` 已解除，当前已进入前端页面联调阶段。
+- C5 选课阶段管理和手动加课页面已于 2026-06-17 重跑通过。
+- 页面联调剩余重点：C6 501 降级展示、C3 成功选课/退选回滚数据方案、C4 非任课教师越权场景，以及 `docs/tasks/C-frontend-acceptance-result.md` 中记录的学生端非阻塞问题。
 
 是否允许合入 dev/C：
 
 - 当前集成分支本身基础 typecheck 通过。
 - 默认学期解析修复提交后，可以作为前端页面联调前置修复合入。
+- 前端页面联调已有 C5 重跑通过记录；是否继续合入需结合剩余学生端非阻塞问题和 AI TODO 判断。
 
 是否允许从 dev/C 合入上级分支：
 

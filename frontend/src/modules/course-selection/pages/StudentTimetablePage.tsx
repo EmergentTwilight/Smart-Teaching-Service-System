@@ -69,7 +69,7 @@ const StudentTimetablePage: React.FC = () => {
 
   return (
     <div className="fade-in">
-      <div className="page-header" style={{ marginBottom: 16 }}>
+      <div className="page-header course-selection-print-hidden" style={{ marginBottom: 16 }}>
         <Title level={2} style={{ margin: 0 }}>
           我的课表
         </Title>
@@ -79,7 +79,7 @@ const StudentTimetablePage: React.FC = () => {
       </div>
 
       {/* ---- Filter bar ---- */}
-      <Card style={{ marginBottom: 16 }}>
+      <Card className="course-selection-print-hidden" style={{ marginBottom: 16 }}>
         <Form layout="inline">
           <Form.Item label="学期 ID">
             <Input
@@ -112,7 +112,7 @@ const StudentTimetablePage: React.FC = () => {
 
       {/* ---- Summary info ---- */}
       {timetable && !timetableQuery.isLoading ? (
-        <Card size="small" style={{ marginBottom: 16 }}>
+        <Card className="course-selection-print-hidden" size="small" style={{ marginBottom: 16 }}>
           <Descriptions size="small" column={4}>
             <Descriptions.Item label="学期">{timetable.semester.name}</Descriptions.Item>
             <Descriptions.Item label="排课条目">{slots.length}</Descriptions.Item>
@@ -152,7 +152,7 @@ const StudentTimetablePage: React.FC = () => {
       )}
 
       {/* ---- Enrollment summary ---- */}
-      <Card title="选课概况" style={{ marginTop: 16 }}>
+      <Card className="course-selection-print-hidden" title="选课概况" style={{ marginTop: 16 }}>
         {enrollmentsQuery.isLoading ? (
           <Text type="secondary">加载中...</Text>
         ) : !hasSelection ? (

@@ -80,7 +80,7 @@ export const TimetableGrid: FC<TimetableGridProps> = ({
   }
 
   return (
-    <div className="timetable-grid-container">
+    <div className="timetable-grid-container course-selection-timetable-print">
       <Card
         title={`课表${semesterName ? `（${semesterName}）` : ''}`}
         styles={{ body: { padding: 12 } }}
@@ -204,6 +204,35 @@ export const TimetableGrid: FC<TimetableGridProps> = ({
       {/* ---- Print styles ---- */}
       <style>{`
         @media print {
+          @page {
+            margin: 12mm;
+          }
+          body * {
+            visibility: hidden;
+          }
+          .course-selection-timetable-print,
+          .course-selection-timetable-print * {
+            visibility: visible;
+          }
+          .course-selection-timetable-print {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            background: #fff;
+          }
+          .course-selection-timetable-print .ant-card {
+            box-shadow: none !important;
+          }
+          .course-selection-timetable-print .ant-card-head {
+            padding: 0 0 8px 0 !important;
+          }
+          .course-selection-timetable-print .ant-card-body {
+            padding: 0 !important;
+          }
+          .course-selection-print-hidden {
+            display: none !important;
+          }
           .timetable-grid-container {
             width: 100%;
           }

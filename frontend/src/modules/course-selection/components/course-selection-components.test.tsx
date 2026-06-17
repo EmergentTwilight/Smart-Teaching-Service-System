@@ -2,7 +2,9 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { CourseDetailDrawer } from './CourseDetailDrawer';
 import { CourseOfferingTable } from './CourseOfferingTable';
+import { TimetableGrid } from './TimetableGrid';
 import type { AvailableOfferingItem, CourseOfferingDetail } from '../types/course';
+import type { TimetableSlot } from '../types/enrollment';
 
 const buildOffering = (overrides?: Partial<AvailableOfferingItem>): AvailableOfferingItem => ({
   courseOfferingId: 'offering-1',
@@ -118,5 +120,35 @@ describe('CourseDetailDrawer', () => {
     expect(await screen.findByText('已选')).toBeInTheDocument();
     expect(screen.queryByText('不可选')).not.toBeInTheDocument();
     expect(screen.queryByText('课程不在培养方案中')).not.toBeInTheDocument();
+  });
+});
+
+describe('TimetableGrid', () => {
+  it('contains print isolation styles for the timetable area', () => {
+    const slot: TimetableSlot = {
+      enrollmentId: 'enrollment-1',
+      courseOfferingId: 'offering-1',
+      courseName: '程序设计基础',
+      courseCode: 'CS101',
+      teacherName: '王老师',
+      credits: 4,
+      dayOfWeek: 1,
+      startWeek: 1,
+      endWeek: 16,
+      startPeriod: 1,
+      endPeriod: 2,
+      classroom: '第一教学楼 101',
+    };
+
+    render(<TimetableGrid slots={[slot]} semesterName="2025-2026 春季" />);
+
+    expect(document.querySelector('.course-selection-timetable-print')).toBeInTheDocument();
+    const styleText = Array.from(document.querySelectorAll('style'))
+      .map((style) => style.textContent ?? '')
+      .join('\n');
+
+    expect(styleText).toContain('body *');
+    expect(styleText).toContain('.course-selection-timetable-print');
+    expect(styleText).toContain('.course-selection-print-hidden');
   });
 });

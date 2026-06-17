@@ -220,9 +220,9 @@ curl -X GET "https://stss.example.com/api/v1/course-selection/curriculum/me?incl
       }
     ],
     "confirmation": {
-      "required_before_selection": true,
-      "confirmed": false,
-      "message": "请先查看并确认培养方案后再进入正式选课流程"
+      "required_before_selection": false,
+      "confirmed": true,
+      "message": "当前培养方案仅供查看，暂无需额外确认。"
     }
   }
 }
@@ -232,7 +232,7 @@ curl -X GET "https://stss.example.com/api/v1/course-selection/curriculum/me?incl
 
 - 若当前学生无法匹配培养方案，返回 `422`，并阻止自动生成可选课程列表。
 - 培养方案、课程分类和课程代码只读取主数据，不由 C 模块复制或新建。
-- TODO-C-01（`FR-C-04`）：当前数据库设计未提供培养方案确认记录字段或表。后续需确认“确认”是否仅作为前端流程状态，或通过已有用户配置能力承载；不得在 C 模块擅自新增业务表。
+- TODO-C-01（`FR-C-04`）：当前数据库设计未提供培养方案确认记录字段或表。未落库前 `required_before_selection` 必须为 `false`，不得用无法完成的确认流程阻断选课；后续需确认“确认”是否仅作为前端流程状态，或通过已有用户配置能力承载，不得在 C 模块擅自新增业务表。
 
 ### 3.2 查看本人培养方案进度
 

@@ -99,7 +99,7 @@ const StudentCurriculumPage: React.FC = () => {
       ) : null}
 
       {/* ---- 确认状态提示 ---- */}
-      {confirmation && !confirmation.confirmed ? (
+      {confirmation?.requiredBeforeSelection && !confirmation.confirmed ? (
         <Alert
           type="info"
           icon={<InfoCircleOutlined />}

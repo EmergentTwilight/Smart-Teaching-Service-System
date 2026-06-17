@@ -159,9 +159,9 @@ export const curriculumService = {
     }
 
     const confirmation: CurriculumConfirmation = {
-      requiredBeforeSelection: true,
-      confirmed: false,
-      message: '请先查看并确认培养方案后再进入正式选课流程'
+      requiredBeforeSelection: false,
+      confirmed: true,
+      message: '当前培养方案仅供查看，暂无需额外确认。'
     }
 
     const payload: CurriculumPayload = {

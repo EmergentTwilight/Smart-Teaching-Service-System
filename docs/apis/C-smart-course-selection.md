@@ -663,6 +663,11 @@ curl -X GET "https://stss.example.com/api/v1/course-selection/offerings/8bb51f34
     ],
     "eligibility": {
       "is_available": true,
+      "is_enrolled": false,
+      "is_full": false,
+      "has_time_conflict": false,
+      "prerequisite_satisfied": true,
+      "within_curriculum": true,
       "reasons": []
     }
   }
@@ -673,6 +678,7 @@ curl -X GET "https://stss.example.com/api/v1/course-selection/offerings/8bb51f34
 
 - 不存在的课程开设返回 `404`。
 - 课程已归档或课程开设关闭时仍可查看详情，但 `eligibility.is_available` 必须为 `false`。
+- `eligibility.is_enrolled` 以当前学生是否已选中同一个 `CourseOffering.id` 为准，不应把同一课程的其它开课误标为已选。
 - TODO-C-07（`FR-C-11`）：课程详情页应与 B 子系统排课结果保持一致，排课数据缺失时返回空 `schedules` 并给出前端可展示提示。
 
 ### 3.7 查看本人选课记录

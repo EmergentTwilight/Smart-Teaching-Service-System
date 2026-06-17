@@ -418,8 +418,9 @@ export const courseSearchService = {
         if(enrollment.status != EnrollmentStatus.ENROLLED) {
           continue
         }
-        if(enrollment.courseOffering.courseId == courseOffering.courseId) {
+        if(enrollment.courseOffering.id == courseOffering.id) {
           isEnrolled = true
+          continue
         }
         if(enrollment.courseOffering.semesterId != courseOffering.semesterId) {
           continue
@@ -692,7 +693,7 @@ export const courseSearchService = {
       if(enrollment.status != EnrollmentStatus.ENROLLED) {
         continue
       }
-      if(enrollment.courseOffering.courseId == offering.courseId) {
+      if(enrollment.courseOffering.id == offering.id) {
         isEnrolled = true
         continue
       }
@@ -765,10 +766,7 @@ export const courseSearchService = {
     if(!withinCurriculum) {
       eligibility.reasons.push('课程不在培养方案中')
     }
-    result.eligibility = {
-      isAvailable: isAvailable,
-      reasons: eligibility.reasons
-    }
+    result.eligibility = eligibility
     return result
   },
 }

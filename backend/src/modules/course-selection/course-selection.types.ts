@@ -393,7 +393,7 @@ export interface CourseOfferingDetail {
     courseName: string
   }>
   schedules: CourseOfferingScheduleItem[]
-  eligibility?: Pick<CourseEligibilitySnapshot, 'isAvailable' | 'reasons'>
+  eligibility?: CourseEligibilitySnapshot
 }
 
 export interface EnrollmentItem {

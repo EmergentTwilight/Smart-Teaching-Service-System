@@ -202,6 +202,7 @@ export const CourseOfferingTable: FC<CourseOfferingTableProps> = ({
                 <Button
                   size="small"
                   danger
+                  aria-label="退选"
                   loading={isBusy}
                   onClick={(e) => {
                     e.stopPropagation();

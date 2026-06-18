@@ -43,7 +43,9 @@ class StudentScoreAPI {
       return createMockScoreSummary()
     }
 
-    const data = await request.get<unknown, BackendStudentScoreSummary>('/students/me/score-summary')
+    const data = await request.get<unknown, BackendStudentScoreSummary>(
+      '/students/me/score-summary'
+    )
     return StudentScoreAdapter.adaptScoreSummary(data)
   }
 

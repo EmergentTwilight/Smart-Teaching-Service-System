@@ -72,6 +72,13 @@ export interface UpdateMajorDTO {
   totalCredits?: number
 }
 
+/** 专业创建/更新响应摘要 */
+export interface MajorSummary {
+  id: string
+  name: string
+  code?: string | null
+}
+
 /** 专业列表响应 */
 export interface MajorListResponse {
   items: Major[]

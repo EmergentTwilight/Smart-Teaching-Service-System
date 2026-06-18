@@ -246,7 +246,6 @@ router.delete(
 router.patch(
   '/:id/password',
   validate(userIdParamsSchema, 'params'),
-  requireSelfOrAdmin('admin', 'super_admin'),
   validate(changePasswordSchema, 'body'),
   usersController.changePassword
 )

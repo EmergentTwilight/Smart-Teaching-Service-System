@@ -9,6 +9,7 @@
  * 注意：此测试只清理 itest_usvc_ 前缀的数据，不影响并行测试
  */
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
+import { Request } from 'express'
 import { PrismaClient } from '@prisma/client'
 import { hashPassword, comparePassword } from '../../../shared/utils/password.js'
 import { usersService } from '../../../modules/info-management/users.service.js'
@@ -30,8 +31,51 @@ const prisma = new PrismaClient({
 // 测试数据
 const testRoleIds: string[] = []
 
+async function cleanupUserLogsBySnapshotPrefix() {
+  const logs = await prisma.systemLog.findMany({
+    where: {
+      resourceType: 'user',
+      action: { in: ['create', 'delete'] },
+    },
+    select: {
+      id: true,
+      details: true,
+    },
+  })
+  const logIds = logs
+    .filter((log) => {
+      if (typeof log.details !== 'string') return false
+      try {
+        const details = JSON.parse(log.details) as { username?: string; email?: string }
+        return (
+          details.username?.startsWith('itest_usvc_') ||
+          details.email?.startsWith('itest_usvc_') ||
+          false
+        )
+      } catch {
+        return false
+      }
+    })
+    .map((log) => log.id)
+
+  if (logIds.length > 0) {
+    await prisma.systemLog.deleteMany({
+      where: { id: { in: logIds } },
+    })
+  }
+}
+
+function parseLogDetails(details: unknown): Record<string, unknown> {
+  if (typeof details === 'string') {
+    return JSON.parse(details) as Record<string, unknown>
+  }
+  return details as Record<string, unknown>
+}
+
 // 清理函数 - 只清理本测试文件创建的数据（使用 itest_usvc_ 前缀）
 async function cleanupDatabase() {
+  await cleanupUserLogsBySnapshotPrefix()
+
   // 按依赖顺序删除：先删除关联表，再删除主表
   // 只删除本测试文件前缀的数据，避免影响并行运行的其他测试文件
   await prisma.systemLog.deleteMany({
@@ -102,6 +146,12 @@ async function createTestUser(overrides: Record<string, unknown> = {}) {
   return user
 }
 
+const mockReq = {
+  user: { userId: null },
+  ip: '127.0.0.1',
+  get: () => 'test-user-agent',
+} as unknown as Request
+
 beforeAll(async () => {
   // 连接数据库
   await prisma.$connect()
@@ -126,6 +176,7 @@ afterAll(async () => {
 beforeEach(async () => {
   // 每个测试前清理本测试文件的用户数据（保留角色）
   // 只清理 itest_usvc_ 前缀的数据，避免影响并行运行的其他测试文件
+  await cleanupUserLogsBySnapshotPrefix()
   await prisma.systemLog.deleteMany({
     where: { user: { username: { startsWith: 'itest_usvc_' } } },
   })
@@ -154,14 +205,17 @@ describe('UsersService Integration Tests', () => {
   describe('用户 CRUD', () => {
     describe('createUser', () => {
       it('应该成功创建用户并写入数据库', async () => {
-        const result = await usersService.createUser({
-          username: 'itest_usvc_newuser',
-          password: 'Password123',
-          realName: '新用户',
-          email: 'itest_usvc_newuser@test.com',
-          phone: '13800000001',
-          roleIds: [testRoleIds[0]],
-        })
+        const result = await usersService.createUser(
+          {
+            username: 'itest_usvc_newuser',
+            password: 'Password123',
+            realName: '新用户',
+            email: 'itest_usvc_newuser@test.com',
+            phone: '13800000001',
+            roleIds: [testRoleIds[0]],
+          },
+          mockReq
+        )
 
         // 验证返回值
         expect(result.username).toBe('itest_usvc_newuser')
@@ -182,17 +236,59 @@ describe('UsersService Integration Tests', () => {
         expect(dbUser!.userRoles[0].roleId).toBe(testRoleIds[0])
       })
 
+      it('创建用户时应该记录 systemLog', async () => {
+        const operator = await createTestUser({
+          username: 'itest_usvc_create_operator',
+          email: 'itest_usvc_create_operator@test.com',
+        })
+        const req = {
+          ...mockReq,
+          user: { userId: operator.id },
+        } as unknown as Request
+
+        const result = await usersService.createUser(
+          {
+            username: 'itest_usvc_logged_create',
+            password: 'Password123',
+            realName: '日志创建用户',
+            email: 'itest_usvc_logged_create@test.com',
+            roleIds: [testRoleIds[0]],
+          },
+          req
+        )
+
+        const log = await prisma.systemLog.findFirst({
+          where: {
+            action: 'create',
+            resourceType: 'user',
+            resourceId: result.id,
+          },
+        })
+
+        expect(log).not.toBeNull()
+        expect(log?.userId).toBe(operator.id)
+        expect(parseLogDetails(log?.details)).toMatchObject({
+          id: result.id,
+          username: 'itest_usvc_logged_create',
+          real_name: '日志创建用户',
+          role_ids: [testRoleIds[0]],
+        })
+      })
+
       it('用户名冲突时应该抛出 ConflictError', async () => {
         // 先创建一个用户
         await createTestUser({ username: 'itest_usvc_conflict' })
 
         // 尝试创建同名用户
         await expect(
-          usersService.createUser({
-            username: 'itest_usvc_conflict',
-            password: 'Password123',
-            realName: '冲突用户',
-          })
+          usersService.createUser(
+            {
+              username: 'itest_usvc_conflict',
+              password: 'Password123',
+              realName: '冲突用户',
+            },
+            mockReq
+          )
         ).rejects.toBeInstanceOf(ConflictError)
       })
 
@@ -202,12 +298,15 @@ describe('UsersService Integration Tests', () => {
 
         // 尝试使用相同邮箱创建用户
         await expect(
-          usersService.createUser({
-            username: 'itest_usvc_another',
-            password: 'Password123',
-            realName: '另一个用户',
-            email: 'itest_usvc_conflict_email@test.com',
-          })
+          usersService.createUser(
+            {
+              username: 'itest_usvc_another',
+              password: 'Password123',
+              realName: '另一个用户',
+              email: 'itest_usvc_conflict_email@test.com',
+            },
+            mockReq
+          )
         ).rejects.toBeInstanceOf(ConflictError)
       })
     })
@@ -328,18 +427,19 @@ describe('UsersService Integration Tests', () => {
           username: 'itest_usvc_delete',
         })
 
-        await usersService.deleteUser(user.id)
+        await usersService.deleteUser(user.id, mockReq)
 
         // 验证数据库中已删除
         const dbUser = await prisma.user.findUnique({
           where: { id: user.id },
         })
 
-        expect(dbUser).toBeNull()
+        expect(dbUser).not.toBeNull()
+        expect(dbUser!.deletedAt).toBeInstanceOf(Date)
       })
 
       it('用户不存在时应该抛出 NotFoundError', async () => {
-        await expect(usersService.deleteUser('non-existent-id')).rejects.toBeInstanceOf(
+        await expect(usersService.deleteUser('non-existent-id', mockReq)).rejects.toBeInstanceOf(
           NotFoundError
         )
       })
@@ -367,7 +467,7 @@ describe('UsersService Integration Tests', () => {
         })
 
         // 删除用户
-        await usersService.deleteUser(user.id)
+        await usersService.deleteUser(user.id, mockReq)
 
         // 验证级联删除
         const dbUser = await prisma.user.findUnique({
@@ -380,9 +480,80 @@ describe('UsersService Integration Tests', () => {
           where: { userId: user.id },
         })
 
-        expect(dbUser).toBeNull()
-        expect(dbTokens).toHaveLength(0)
-        expect(dbUserRoles).toHaveLength(0)
+        expect(dbUser).not.toBeNull()
+        expect(dbUser!.deletedAt).toBeInstanceOf(Date)
+        expect(dbTokens).toHaveLength(1)
+        expect(dbTokens[0].isUsed).toBe(true)
+        expect(dbTokens[0].revokedAt).toBeInstanceOf(Date)
+        expect(dbUserRoles.length).toBeGreaterThan(0)
+      })
+
+      it('删除用户时应该保存快照日志并支持 include_deleted 查询', async () => {
+        const operator = await createTestUser({
+          username: 'itest_usvc_delete_operator',
+          email: 'itest_usvc_delete_operator@test.com',
+        })
+        const user = await createTestUser({
+          username: 'itest_usvc_deleted_snapshot',
+          email: 'itest_usvc_deleted_snapshot@test.com',
+          realName: '删除快照用户',
+        })
+        await prisma.userRole.create({
+          data: {
+            userId: user.id,
+            roleId: testRoleIds[0],
+          },
+        })
+        const req = {
+          ...mockReq,
+          user: { userId: operator.id },
+        } as unknown as Request
+
+        await usersService.deleteUser(user.id, req)
+
+        const log = await prisma.systemLog.findFirst({
+          where: {
+            action: 'delete',
+            resourceType: 'user',
+            resourceId: user.id,
+          },
+        })
+        expect(log).not.toBeNull()
+        expect(log?.userId).toBe(operator.id)
+        expect(parseLogDetails(log?.details)).toMatchObject({
+          id: user.id,
+          username: 'itest_usvc_deleted_snapshot',
+          email: 'itest_usvc_deleted_snapshot@test.com',
+          real_name: '删除快照用户',
+          roles: ['itest_student'],
+        })
+
+        const withoutDeleted = await usersService.getUsers({
+          page: 1,
+          pageSize: 20,
+          keyword: 'deleted_snapshot',
+        })
+        expect(withoutDeleted.items.some((item) => item.id === user.id)).toBe(false)
+
+        const withDeleted = await usersService.getUsers({
+          page: 1,
+          pageSize: 20,
+          keyword: 'deleted_snapshot',
+          include_deleted: true,
+        })
+        const deletedItem = withDeleted.items.find((item) => item.id === user.id)
+
+        expect(deletedItem).toBeDefined()
+        expect(deletedItem).toMatchObject({
+          id: user.id,
+          username: 'itest_usvc_deleted_snapshot',
+          real_name: '删除快照用户',
+          status: 'DELETED',
+          roles: ['itest_student'],
+        })
+        expect(withDeleted.pagination.total).toBeGreaterThanOrEqual(
+          withoutDeleted.pagination.total + 1
+        )
       })
     })
   })

@@ -204,7 +204,9 @@ export class StudentScoreAdapter {
       studentId: backend.studentId,
       studentName: backend.studentName,
       semesterTrend: backend.semesterTrend.map(this.adaptSemesterTrend),
-      scoreDistribution: backend.scoreDistribution.map(d => this.adaptScoreDistribution(d, totalCount)),
+      scoreDistribution: backend.scoreDistribution.map((d) =>
+        this.adaptScoreDistribution(d, totalCount)
+      ),
       courseTypeBreakdown: backend.courseTypeBreakdown.map(this.adaptCourseTypeBreakdown),
     }
   }
@@ -387,14 +389,13 @@ export function createMockScoreList(
   let filtered = mockScores
 
   if (query?.semesterId) {
-    filtered = filtered.filter(s => s.semesterId === query.semesterId)
+    filtered = filtered.filter((s) => s.semesterId === query.semesterId)
   }
 
   if (query?.keyword) {
     const kw = query.keyword.toLowerCase()
-    filtered = filtered.filter(s =>
-      s.courseCode.toLowerCase().includes(kw) ||
-      s.courseName.toLowerCase().includes(kw)
+    filtered = filtered.filter(
+      (s) => s.courseCode.toLowerCase().includes(kw) || s.courseName.toLowerCase().includes(kw)
     )
   }
 

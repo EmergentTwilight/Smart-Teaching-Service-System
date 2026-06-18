@@ -3,6 +3,7 @@
  * 处理用户 CRUD 和系统日志查询
  */
 import prisma from '../../shared/prisma/client.js'
+import { Request } from 'express'
 import { hashPassword, comparePassword } from '../../shared/utils/password.js'
 import { NotFoundError, ConflictError, ValidationError, ForbiddenError } from '@stss/shared'
 import type {
@@ -19,37 +20,56 @@ import type {
 } from './users.types.js'
 import type { Prisma, Gender } from '@prisma/client'
 
+function buildLogContext(req?: Request) {
+  return {
+    userId: req?.user?.userId,
+    ipAddress: req?.ip,
+    userAgent: req?.get('User-Agent'),
+  }
+}
+
+function buildActiveUserWhere(
+  query: Pick<GetUsersQuery, 'keyword' | 'status' | 'role'>,
+  includeDeleted = false
+): Prisma.UserWhereInput {
+  const where: Prisma.UserWhereInput = {
+    deletedAt: includeDeleted ? undefined : null,
+  }
+
+  if (query.keyword) {
+    where.OR = [
+      { username: { contains: query.keyword } },
+      { realName: { contains: query.keyword } },
+      { email: { contains: query.keyword } },
+    ]
+  }
+
+  if (query.status) {
+    where.status = query.status
+  }
+
+  if (query.role) {
+    where.userRoles = {
+      some: {
+        role: {
+          code: query.role,
+        },
+      },
+    }
+  }
+
+  return where
+}
+
 export const usersService = {
   /**
    * 获取用户列表（分页）
    */
   async getUsers(query: GetUsersQuery) {
-    const { page, pageSize, keyword, status, role } = query
+    const { page, pageSize, keyword, status, role, include_deleted } = query
     const skip = (page - 1) * pageSize
 
-    const where: Prisma.UserWhereInput = {}
-
-    if (keyword) {
-      where.OR = [
-        { username: { contains: keyword } },
-        { realName: { contains: keyword } },
-        { email: { contains: keyword } },
-      ]
-    }
-
-    if (status) {
-      where.status = status
-    }
-
-    if (role) {
-      where.userRoles = {
-        some: {
-          role: {
-            code: role,
-          },
-        },
-      }
-    }
+    const where = buildActiveUserWhere({ keyword, status, role }, include_deleted)
 
     const [users, total] = await Promise.all([
       prisma.user.findMany({
@@ -63,7 +83,7 @@ export const usersService = {
             },
           },
         },
-        orderBy: { createdAt: 'desc' },
+        orderBy: [{ deletedAt: 'desc' }, { createdAt: 'desc' }],
       }),
       prisma.user.count({ where }),
     ])
@@ -76,11 +96,12 @@ export const usersService = {
       real_name: user.realName,
       avatar_url: user.avatarUrl,
       gender: user.gender,
-      status: user.status,
+      status: user.deletedAt ? 'DELETED' : user.status,
       roles: user.userRoles.map((ur) => ur.role.code),
       last_login_at: user.lastLoginAt,
       created_at: user.createdAt,
       updated_at: user.updatedAt,
+      deleted_at: user.deletedAt,
     }))
 
     return {
@@ -99,10 +120,10 @@ export const usersService = {
    */
   async getUserStats() {
     const [total, active, inactive, banned] = await Promise.all([
-      prisma.user.count(),
-      prisma.user.count({ where: { status: 'ACTIVE' } }),
-      prisma.user.count({ where: { status: 'INACTIVE' } }),
-      prisma.user.count({ where: { status: 'BANNED' } }),
+      prisma.user.count({ where: { deletedAt: null } }),
+      prisma.user.count({ where: { status: 'ACTIVE', deletedAt: null } }),
+      prisma.user.count({ where: { status: 'INACTIVE', deletedAt: null } }),
+      prisma.user.count({ where: { status: 'BANNED', deletedAt: null } }),
     ])
 
     const roleCounts = await prisma.userRole.groupBy({
@@ -167,7 +188,7 @@ export const usersService = {
       },
     })
 
-    if (!user) {
+    if (!user || user.deletedAt) {
       throw new NotFoundError('用户不存在')
     }
 
@@ -218,13 +239,13 @@ export const usersService = {
   /**
    * 创建用户
    */
-  async createUser(data: CreateUserInput) {
+  async createUser(data: CreateUserInput, req: Request) {
     // 检查用户名是否存在
     const existingUser = await prisma.user.findUnique({
       where: { username: data.username },
     })
 
-    if (existingUser) {
+    if (existingUser && !existingUser.deletedAt) {
       throw new ConflictError('用户名已存在')
     }
 
@@ -233,16 +254,105 @@ export const usersService = {
       const existingEmail = await prisma.user.findUnique({
         where: { email: data.email },
       })
-      if (existingEmail) {
+      if (existingEmail && !existingEmail.deletedAt) {
         throw new ConflictError(`邮箱 ${data.email} 已被注册`)
       }
     }
 
-    const hashedPassword = await hashPassword(data.password)
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { roleIds, password: _unusedPassword, ...userData } = data
+    const { roleIds, password, student, teacher, admin, ...userData } = data
+    const hashedPassword = await hashPassword(password)
 
-    const user = await prisma.user.create({
+    // 使用事务确保用户创建、角色分配、扩展身份和日志记录的一致性
+    const user = await prisma.$transaction(async (tx) => {
+      const createdUser = await tx.user.create({
+        data: {
+          ...userData,
+          passwordHash: hashedPassword,
+        },
+      })
+
+      if (roleIds && roleIds.length > 0) {
+        await tx.userRole.createMany({
+          data: roleIds.map((roleId) => ({
+            userId: createdUser.id,
+            roleId,
+          })),
+        })
+      }
+
+      if (student) {
+        await tx.student.create({
+          data: {
+            userId: createdUser.id,
+            studentNumber: student.studentNumber,
+            majorId: student.majorId,
+            grade: student.grade,
+            className: student.className,
+          },
+        })
+      }
+
+      if (teacher) {
+        await tx.teacher.create({
+          data: {
+            userId: createdUser.id,
+            teacherNumber: teacher.teacherNumber,
+            departmentId: teacher.departmentId,
+            title: teacher.title,
+            officeLocation: teacher.officeLocation,
+          },
+        })
+      }
+
+      if (admin) {
+        await tx.admin.create({
+          data: {
+            userId: createdUser.id,
+            adminType: admin.adminType,
+            departmentId: admin.departmentId,
+          },
+        })
+      }
+
+      // 记录系统日志
+      await tx.systemLog.create({
+        data: {
+          userId: req.user?.userId,
+          action: 'create',
+          resourceType: 'user',
+          resourceId: createdUser.id,
+          details: JSON.stringify({
+            id: createdUser.id,
+            username: createdUser.username,
+            email: createdUser.email,
+            phone: createdUser.phone,
+            real_name: createdUser.realName,
+            gender: createdUser.gender,
+            status: createdUser.status,
+            role_ids: roleIds || [],
+          }),
+          ipAddress: req.ip,
+          userAgent: req.get('User-Agent'),
+        },
+      })
+
+      return createdUser
+    })
+
+    return this.getUserById(user.id)
+  },
+
+  /**
+   * 批量创建时使用的单用户创建逻辑
+   */
+  async createUserRecord(
+    tx: Prisma.TransactionClient,
+    data: Omit<CreateUserInput, 'password'> & { password: string }
+  ) {
+    const { roleIds, password, student, teacher, admin, ...userData } = data
+    const hashedPassword = await hashPassword(password)
+
+    const createdUser = await tx.user.create({
       data: {
         ...userData,
         passwordHash: hashedPassword,
@@ -250,15 +360,49 @@ export const usersService = {
     })
 
     if (roleIds && roleIds.length > 0) {
-      await prisma.userRole.createMany({
+      await tx.userRole.createMany({
         data: roleIds.map((roleId) => ({
-          userId: user.id,
+          userId: createdUser.id,
           roleId,
         })),
       })
     }
 
-    return this.getUserById(user.id)
+    if (student) {
+      await tx.student.create({
+        data: {
+          userId: createdUser.id,
+          studentNumber: student.studentNumber,
+          majorId: student.majorId,
+          grade: student.grade,
+          className: student.className,
+        },
+      })
+    }
+
+    if (teacher) {
+      await tx.teacher.create({
+        data: {
+          userId: createdUser.id,
+          teacherNumber: teacher.teacherNumber,
+          departmentId: teacher.departmentId,
+          title: teacher.title,
+          officeLocation: teacher.officeLocation,
+        },
+      })
+    }
+
+    if (admin) {
+      await tx.admin.create({
+        data: {
+          userId: createdUser.id,
+          adminType: admin.adminType,
+          departmentId: admin.departmentId,
+        },
+      })
+    }
+
+    return createdUser
   },
 
   /**
@@ -272,7 +416,7 @@ export const usersService = {
       where: { id },
     })
 
-    if (!user) {
+    if (!user || user.deletedAt) {
       throw new NotFoundError('用户不存在')
     }
 
@@ -283,7 +427,7 @@ export const usersService = {
       const existingEmail = await prisma.user.findUnique({
         where: { email },
       })
-      if (existingEmail) {
+      if (existingEmail && existingEmail.id !== id && !existingEmail.deletedAt) {
         throw new ConflictError(`邮箱 ${email} 已被注册`)
       }
     }
@@ -327,26 +471,89 @@ export const usersService = {
   /**
    * 删除用户
    */
-  async deleteUser(id: string) {
+  async deleteUser(id: string, req: Request) {
+    // 在事务外先查询用户完整信息，用于存入日志 details
     const user = await prisma.user.findUnique({
       where: { id },
+      include: {
+        userRoles: {
+          include: {
+            role: true,
+          },
+        },
+        student: {
+          include: {
+            major: { select: { id: true, name: true } },
+          },
+        },
+        teacher: {
+          include: {
+            department: { select: { id: true, name: true } },
+          },
+        },
+        admin: {
+          include: {
+            department: { select: { id: true, name: true } },
+          },
+        },
+      },
     })
 
-    if (!user) {
+    if (!user || user.deletedAt) {
       throw new NotFoundError('用户不存在')
     }
 
-    // 使用事务确保：先吊销 token，再删除用户（会级联删除 userRoles）
-    await prisma.$transaction([
-      // 删除该用户的所有 refresh token
-      prisma.refreshToken.deleteMany({
+    // 构造被删除用户的快照信息
+    const deletedUserSnapshot = {
+      id: user.id,
+      username: user.username,
+      email: user.email,
+      phone: user.phone,
+      real_name: user.realName,
+      avatar_url: user.avatarUrl,
+      gender: user.gender,
+      status: user.status,
+      roles: user.userRoles.map((ur) => ur.role.code),
+      last_login_at: user.lastLoginAt,
+      created_at: user.createdAt,
+      updated_at: user.updatedAt,
+    }
+
+    const deletedAt = new Date()
+
+    // 使用事务确保：先吊销 token，再软删除用户，最后记录日志
+    await prisma.$transaction(async (tx) => {
+      await tx.refreshToken.updateMany({
         where: { userId: id },
-      }),
-      // 删除用户（会级联删除 userRoles）
-      prisma.user.delete({
+        data: {
+          isUsed: true,
+          revokedAt: deletedAt,
+        },
+      })
+
+      await tx.user.update({
         where: { id },
-      }),
-    ])
+        data: {
+          deletedAt,
+        },
+      })
+
+      await tx.systemLog.create({
+        data: {
+          userId: req.user?.userId,
+          action: 'delete',
+          resourceType: 'user',
+          resourceId: id,
+          details: JSON.stringify({
+            ...deletedUserSnapshot,
+            deleted_at: deletedAt,
+            delete_mode: 'soft',
+          }),
+          ipAddress: req.ip,
+          userAgent: req.get('User-Agent'),
+        },
+      })
+    })
   },
 
   /**
@@ -446,7 +653,7 @@ export const usersService = {
     // 预查询已存在的用户名和邮箱
     const usernames = data.users.map((u) => u.username)
     const existingUsers = await prisma.user.findMany({
-      where: { username: { in: usernames } },
+      where: { username: { in: usernames }, deletedAt: null },
       select: { username: true },
     })
     const existingUsernameSet = new Set(existingUsers.map((u) => u.username))
@@ -455,7 +662,7 @@ export const usersService = {
     let existingEmailSet = new Set<string>()
     if (emails.length > 0) {
       const existingEmails = await prisma.user.findMany({
-        where: { email: { in: emails } },
+        where: { email: { in: emails }, deletedAt: null },
         select: { email: true },
       })
       existingEmailSet = new Set(existingEmails.map((u) => u.email!))
@@ -478,28 +685,8 @@ export const usersService = {
           continue
         }
 
-        const { roleIds, password, ...createData } = userData
-        const hashedPassword = await hashPassword(password)
-
         const user = await prisma.$transaction(async (tx) => {
-          const newUser = await tx.user.create({
-            data: {
-              ...createData,
-              passwordHash: hashedPassword,
-            },
-          })
-
-          // 分配角色
-          if (roleIds && roleIds.length > 0) {
-            await tx.userRole.createMany({
-              data: roleIds.map((roleId) => ({
-                userId: newUser.id,
-                roleId,
-              })),
-            })
-          }
-
-          return newUser
+          return this.createUserRecord(tx, userData)
         })
 
         // 更新已知集合，避免同批次重复
@@ -526,8 +713,8 @@ export const usersService = {
   /**
    * 批量修改用户状态
    */
-  async batchUpdateStatus(data: BatchUpdateStatusInput) {
-    const { userIds, status, roleIds } = data
+  async batchUpdateStatus(data: BatchUpdateStatusInput, req?: Request) {
+    const { userIds, status, roleIds, reason } = data
 
     // 数量上限检查
     if (userIds.length > 100) {
@@ -535,7 +722,7 @@ export const usersService = {
     }
 
     const existingUsers = await prisma.user.findMany({
-      where: { id: { in: userIds } },
+      where: { id: { in: userIds }, deletedAt: null },
     })
 
     if (existingUsers.length !== userIds.length) {
@@ -546,10 +733,31 @@ export const usersService = {
     await prisma.$transaction(async (tx) => {
       // 更新状态
       if (status !== undefined) {
+        const previousStatuses = new Map(existingUsers.map((user) => [user.id, user.status]))
+
         await tx.user.updateMany({
           where: { id: { in: userIds } },
           data: { status },
         })
+
+        for (const userId of userIds) {
+          await tx.systemLog.create({
+            data: {
+              userId: req?.user?.userId,
+              action: 'update_status',
+              resourceType: 'user',
+              resourceId: userId,
+              details: JSON.stringify({
+                from_status: previousStatuses.get(userId),
+                to_status: status,
+                reason,
+                batch: true,
+              }),
+              ipAddress: req?.ip,
+              userAgent: req?.get('User-Agent'),
+            },
+          })
+        }
       }
 
       // 更新角色
@@ -584,7 +792,7 @@ export const usersService = {
       where: { id: userId },
     })
 
-    if (!user) {
+    if (!user || user.deletedAt) {
       throw new NotFoundError('用户不存在')
     }
 
@@ -617,7 +825,7 @@ export const usersService = {
       where: { id: userId },
     })
 
-    if (!user) {
+    if (!user || user.deletedAt) {
       throw new NotFoundError('用户不存在')
     }
 
@@ -640,18 +848,42 @@ export const usersService = {
   /**
    * 修改用户状态
    */
-  async updateStatus(userId: string, data: UpdateStatusInput) {
+  async updateStatus(userId: string, data: UpdateStatusInput, req?: Request) {
     const user = await prisma.user.findUnique({
       where: { id: userId },
     })
 
-    if (!user) {
+    if (!user || user.deletedAt) {
+      console.log('[users.updateStatus] user not found', { userId, status: data.status })
       throw new NotFoundError('用户不存在')
     }
 
-    await prisma.user.update({
-      where: { id: userId },
-      data: { status: data.status },
+    console.log('[users.updateStatus] applying', {
+      userId,
+      from: user.status,
+      to: data.status,
+    })
+    await prisma.$transaction(async (tx) => {
+      await tx.user.update({
+        where: { id: userId },
+        data: { status: data.status },
+      })
+
+      await tx.systemLog.create({
+        data: {
+          userId: req?.user?.userId,
+          action: 'update_status',
+          resourceType: 'user',
+          resourceId: userId,
+          details: JSON.stringify({
+            from_status: user.status,
+            to_status: data.status,
+            reason: data.reason,
+          }),
+          ipAddress: req?.ip,
+          userAgent: req?.get('User-Agent'),
+        },
+      })
     })
 
     return this.getUserById(userId)
@@ -672,7 +904,7 @@ export const usersService = {
       include: { userRoles: { include: { role: true } } },
     })
 
-    if (!user) {
+    if (!user || user.deletedAt) {
       throw new NotFoundError('用户不存在')
     }
 
@@ -811,7 +1043,7 @@ export const usersService = {
       },
     })
 
-    if (!user) {
+    if (!user || user.deletedAt) {
       throw new NotFoundError('用户不存在')
     }
 
@@ -972,7 +1204,7 @@ export const usersService = {
   /**
    * 更新学生专业
    */
-  async updateStudentMajor(userId: string, majorId: string) {
+  async updateStudentMajor(userId: string, majorId: string, req?: Request) {
     const student = await prisma.student.findUnique({
       where: { userId },
     })
@@ -990,9 +1222,24 @@ export const usersService = {
       throw new NotFoundError('专业不存在')
     }
 
-    await prisma.student.update({
-      where: { userId },
-      data: { majorId },
+    await prisma.$transaction(async (tx) => {
+      await tx.student.update({
+        where: { userId },
+        data: { majorId },
+      })
+
+      await tx.systemLog.create({
+        data: {
+          ...buildLogContext(req),
+          action: 'update_student_major',
+          resourceType: 'user',
+          resourceId: userId,
+          details: JSON.stringify({
+            major_id: major.id,
+            major_name: major.name,
+          }),
+        },
+      })
     })
 
     return {
@@ -1005,7 +1252,7 @@ export const usersService = {
   /**
    * 更新教师院系
    */
-  async updateTeacherDepartment(userId: string, departmentId: string) {
+  async updateTeacherDepartment(userId: string, departmentId: string, req?: Request) {
     const teacher = await prisma.teacher.findUnique({
       where: { userId },
     })
@@ -1023,9 +1270,24 @@ export const usersService = {
       throw new NotFoundError('院系不存在')
     }
 
-    await prisma.teacher.update({
-      where: { userId },
-      data: { departmentId },
+    await prisma.$transaction(async (tx) => {
+      await tx.teacher.update({
+        where: { userId },
+        data: { departmentId },
+      })
+
+      await tx.systemLog.create({
+        data: {
+          ...buildLogContext(req),
+          action: 'update_teacher_department',
+          resourceType: 'user',
+          resourceId: userId,
+          details: JSON.stringify({
+            department_id: department.id,
+            department_name: department.name,
+          }),
+        },
+      })
     })
 
     return {
@@ -1038,7 +1300,7 @@ export const usersService = {
   /**
    * 更新管理员院系
    */
-  async updateAdminDepartment(userId: string, departmentId: string) {
+  async updateAdminDepartment(userId: string, departmentId: string, req?: Request) {
     const admin = await prisma.admin.findUnique({
       where: { userId },
     })
@@ -1056,9 +1318,24 @@ export const usersService = {
       throw new NotFoundError('院系不存在')
     }
 
-    await prisma.admin.update({
-      where: { userId },
-      data: { departmentId },
+    await prisma.$transaction(async (tx) => {
+      await tx.admin.update({
+        where: { userId },
+        data: { departmentId },
+      })
+
+      await tx.systemLog.create({
+        data: {
+          ...buildLogContext(req),
+          action: 'update_admin_department',
+          resourceType: 'user',
+          resourceId: userId,
+          details: JSON.stringify({
+            department_id: department.id,
+            department_name: department.name,
+          }),
+        },
+      })
     })
 
     return {

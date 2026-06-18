@@ -1,6 +1,6 @@
 ---
 filename: project-requirements.md
-title: Smart-Teaching-Service-System 项目要求
+title: 项目要求
 status: active
 version: 1.1.0
 last_updated_at: 2026-05-22
@@ -9,7 +9,7 @@ description: 智慧教学服务系统项目要求，包含大程要求、系统�
 link: https://tcncx9czflpz.feishu.cn/wiki/Ayj6w5oK6i85b8knw89cVv8fnSV
 ---
 
-# Smart-Teaching-Service-System 项目要求
+# 项目要求
 
 ---
 

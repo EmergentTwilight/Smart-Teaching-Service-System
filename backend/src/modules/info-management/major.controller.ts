@@ -28,19 +28,19 @@ export const majorController = {
   async create(req: Request, res: Response) {
     const data = createMajorSchema.parse(req.body)
     const major = await majorService.createMajor(data, req)
-    success(res, major, '创建成功', 201)
+    success(res, major, '专业创建成功', 201)
   },
 
   async update(req: Request, res: Response) {
-    const id = req.params.id as string
+    const id = getMajorIdSchema.parse(req.params).id
     const data = updateMajorSchema.parse(req.body)
     const major = await majorService.updateMajor(id, data, req)
-    success(res, major, '更新成功')
+    success(res, major, '专业更新成功')
   },
 
   async delete(req: Request, res: Response) {
-    const id = req.params.id as string
+    const id = getMajorIdSchema.parse(req.params).id
     await majorService.deleteMajor(id, req)
-    success(res, null, '删除成功')
+    success(res, null, '专业已删除')
   },
 }

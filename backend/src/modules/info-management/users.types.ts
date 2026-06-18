@@ -3,7 +3,7 @@
  * 包含用户查询、创建、更新的 schema 和类型
  */
 import { z } from 'zod'
-import { Gender, UserStatus } from '@prisma/client'
+import { AdminType, Gender, UserStatus } from '@prisma/client'
 
 const normalizeKeys = (
   input: unknown,
@@ -28,6 +28,23 @@ const userFieldAliases = {
   role_ids: 'roleIds',
 } satisfies Record<string, string>
 
+const studentFieldAliases = {
+  student_number: 'studentNumber',
+  major_id: 'majorId',
+  class_name: 'className',
+} satisfies Record<string, string>
+
+const teacherFieldAliases = {
+  teacher_number: 'teacherNumber',
+  department_id: 'departmentId',
+  office_location: 'officeLocation',
+} satisfies Record<string, string>
+
+const adminFieldAliases = {
+  admin_type: 'adminType',
+  department_id: 'departmentId',
+} satisfies Record<string, string>
+
 const paginationAliases = {
   page_size: 'pageSize',
 } satisfies Record<string, string>
@@ -40,18 +57,28 @@ const logQueryAliases = {
   end_date: 'endDate',
 } satisfies Record<string, string>
 
+const booleanQuerySchema = z.preprocess((value) => {
+  if (value === undefined || value === '') return undefined
+  if (typeof value === 'boolean') return value
+  if (typeof value === 'string') {
+    if (value.toLowerCase() === 'true') return true
+    if (value.toLowerCase() === 'false') return false
+  }
+  return value
+}, z.boolean().optional())
+
 /**
  * 用户 ID 参数 schema
  */
 export const userIdParamsSchema = z.object({
-  id: z.string().min(1, '用户ID不能为空'),
+  id: z.string().uuid('用户ID格式不正确'),
 })
 
 /**
  * 用户和角色 ID 参数 schema
  */
 export const userRoleParamsSchema = z.object({
-  id: z.string().min(1, '用户ID不能为空'),
+  id: z.string().uuid('用户ID格式不正确'),
   role_id: z.string().min(1, '角色ID不能为空'),
 })
 
@@ -66,6 +93,7 @@ export const getUsersQuerySchema = z.preprocess(
     keyword: z.string().optional(),
     status: z.nativeEnum(UserStatus).optional(),
     role: z.string().optional(),
+    include_deleted: booleanQuerySchema,
   })
 )
 
@@ -88,6 +116,37 @@ export const createUserSchema = z.preprocess(
     realName: z.string().min(1, '姓名不能为空').max(50),
     gender: z.nativeEnum(Gender).optional(),
     roleIds: z.array(z.string()).optional(),
+    student: z
+      .preprocess(
+        (input) => normalizeKeys(input, studentFieldAliases),
+        z.object({
+          studentNumber: z.string().min(1, '学号不能为空').max(20),
+          majorId: z.string().optional(),
+          grade: z.coerce.number().int().min(1900).max(2100),
+          className: z.string().max(20).optional(),
+        })
+      )
+      .optional(),
+    teacher: z
+      .preprocess(
+        (input) => normalizeKeys(input, teacherFieldAliases),
+        z.object({
+          teacherNumber: z.string().min(1, '工号不能为空').max(20),
+          departmentId: z.string().optional(),
+          title: z.string().max(50).optional(),
+          officeLocation: z.string().max(100).optional(),
+        })
+      )
+      .optional(),
+    admin: z
+      .preprocess(
+        (input) => normalizeKeys(input, adminFieldAliases),
+        z.object({
+          adminType: z.nativeEnum(AdminType),
+          departmentId: z.string().optional(),
+        })
+      )
+      .optional(),
   })
 )
 
@@ -157,6 +216,37 @@ export const batchCreateUsersSchema = z.object({
           realName: z.string().min(1, '姓名不能为空').max(50),
           gender: z.nativeEnum(Gender).optional(),
           roleIds: z.array(z.string()).optional(),
+          student: z
+            .preprocess(
+              (input) => normalizeKeys(input, studentFieldAliases),
+              z.object({
+                studentNumber: z.string().min(1, '学号不能为空').max(20),
+                majorId: z.string().optional(),
+                grade: z.coerce.number().int().min(1900).max(2100),
+                className: z.string().max(20).optional(),
+              })
+            )
+            .optional(),
+          teacher: z
+            .preprocess(
+              (input) => normalizeKeys(input, teacherFieldAliases),
+              z.object({
+                teacherNumber: z.string().min(1, '工号不能为空').max(20),
+                departmentId: z.string().optional(),
+                title: z.string().max(50).optional(),
+                officeLocation: z.string().max(100).optional(),
+              })
+            )
+            .optional(),
+          admin: z
+            .preprocess(
+              (input) => normalizeKeys(input, adminFieldAliases),
+              z.object({
+                adminType: z.nativeEnum(AdminType),
+                departmentId: z.string().optional(),
+              })
+            )
+            .optional(),
         })
       )
     )
@@ -178,6 +268,7 @@ export const batchUpdateStatusSchema = z.preprocess(
       userIds: z.array(z.string()).min(1, '至少需要一个用户ID').max(100, '单次最多修改100个用户'),
       status: z.nativeEnum(UserStatus).optional(),
       roleIds: z.array(z.string()).optional(),
+      reason: z.string().max(200, '原因不能超过 200 个字符').optional(),
     })
     .refine(
       (data) =>
@@ -250,8 +341,8 @@ export const assignRolesSchema = z.preprocess(
  * 令牌 ID 参数 schema（用于吊销指定令牌）
  */
 export const tokenParamsSchema = z.object({
-  id: z.string().min(1, '用户ID不能为空'),
-  token_id: z.string().min(1, '令牌ID不能为空'),
+  id: z.string().uuid('用户ID格式不正确'),
+  token_id: z.string().uuid('令牌ID格式不正确'),
 })
 
 /** 批量创建用户输入类型 */

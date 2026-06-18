@@ -197,7 +197,7 @@ Authorization: Bearer <access_token>
     "phone": "13800138000",
     "real_name": "管理员",
     "avatar_url": null,
-    "gender": "male",
+    "gender": "MALE",
     "status": "ACTIVE",
     "last_login_at": "2026-04-01T10:00:00+08:00",
     "roles": [
@@ -238,12 +238,12 @@ POST /api/v1/auth/register
     "username": "newuser",
     "email": "user@example.com",
     "real_name": "张三",
-    "status": "INACTIVE"
+    "status": "ACTIVE"
   }
 }
 ```
 
-### 2.6 激活账号
+### 2.6 激活账号 （已废弃）
 
 ```plaintext
 POST /api/v1/auth/activate
@@ -456,7 +456,7 @@ Authorization: Bearer <access_token>
     "phone": "13800138000",
     "real_name": "张三",
     "avatar_url": null,
-    "gender": "male",
+    "gender": "MALE",
     "status": "ACTIVE",
     "last_login_at": "2026-04-01T10:00:00+08:00",
     "created_at": "2026-03-01T00:00:00+08:00",
@@ -1036,6 +1036,8 @@ Authorization: Bearer <access_token>
         "teacher_count": 50,
         "student_count": 500,
         "major_count": 3,
+        "admin_count": 5,
+        "course_count": 12,
         "created_at": "2026-03-01T00:00:00+08:00"
       }
     ],
@@ -1062,6 +1064,11 @@ Authorization: Bearer <access_token>
     "name": "计算机学院",
     "code": "CS",
     "description": "...",
+    "teacher_count": 50,
+    "student_count": 500,
+    "major_count": 3,
+    "admin_count": 5,
+    "course_count": 12,
     "majors": [
       {
         "id": "uuid",
@@ -1155,14 +1162,14 @@ Authorization: Bearer <access_token>
 
 **权限：** `super_admin`
 
-**前置条件：** 院系下无关联教师、专业
+**前置条件：** 院系下无关联教师、专业、管理员、课程
 
 **响应：**
 
 ```json
 {
   "code": 200,
-  "message": "院系已删除"
+  "message": "院系删除成功"
 }
 ```
 

@@ -1,7 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import {
-  normalizeCourseScoresResult,
-} from './score-management';
+import { describe, expect, it } from 'vitest'
+import { normalizeCourseScoresResult } from './score-management'
 
 describe('normalizeCourseScoresResult', () => {
   it('should normalize paginated F1-style score rows', () => {
@@ -36,14 +34,14 @@ describe('normalizeCourseScoresResult', () => {
       {
         page: 1,
         pageSize: 20,
-      },
-    );
+      }
+    )
 
     expect(result.pagination).toEqual({
       page: 2,
       pageSize: 10,
       total: 11,
-    });
+    })
 
     expect(result.rows).toEqual([
       expect.objectContaining({
@@ -56,8 +54,8 @@ describe('normalizeCourseScoresResult', () => {
         hasPendingModificationRequest: true,
         totalScore: 89.2,
       }),
-    ]);
-  });
+    ])
+  })
 
   it('should read F1 explicit EMPTY and DRAFT statuses', () => {
     const result = normalizeCourseScoresResult(
@@ -101,16 +99,16 @@ describe('normalizeCourseScoresResult', () => {
           },
         ],
       },
-      'course-offering-2',
-    );
+      'course-offering-2'
+    )
 
     expect(result.rows[0]).toEqual(
       expect.objectContaining({
         enrollmentId: 'enrollment-empty',
         status: 'EMPTY',
         scoreId: null,
-      }),
-    );
+      })
+    )
 
     expect(result.rows[1]).toEqual(
       expect.objectContaining({
@@ -118,9 +116,9 @@ describe('normalizeCourseScoresResult', () => {
         status: 'DRAFT',
         scoreId: 'score-draft',
         usualScore: 75,
-      }),
-    );
-  });
+      })
+    )
+  })
 
   it('should default status to EMPTY when backend sends unknown value', () => {
     const result = normalizeCourseScoresResult(
@@ -134,14 +132,14 @@ describe('normalizeCourseScoresResult', () => {
           },
         ],
       },
-      'course-offering-x',
-    );
+      'course-offering-x'
+    )
 
     expect(result.rows[0]).toEqual(
       expect.objectContaining({
         enrollmentId: 'enrollment-x',
         status: 'EMPTY',
-      }),
-    );
-  });
-});
+      })
+    )
+  })
+})

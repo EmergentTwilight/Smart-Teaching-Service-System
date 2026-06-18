@@ -3,7 +3,7 @@
  * 处理登录、登出、用户信息等接口
  */
 import request from '@/shared/utils/request'
-import type { LoginResponse, AuthUserDto } from '@/shared/types'
+import type { LoginResponse, RefreshTokenResponse, AuthUserDto } from '@/shared/types'
 
 /** 登录请求参数 */
 export interface LoginRequest {
@@ -17,6 +17,11 @@ type AuthRole = { id?: string; code: string; name: string }
 type AuthUserResponse = Omit<AuthUserDto, 'roles' | 'roleDetails'> & {
   roles?: string[] | AuthRole[]
   roleDetails?: AuthRole[]
+}
+
+export interface VerifyResetTokenResponse {
+  valid: true
+  email: string
 }
 
 function normalizeAuthUser(user: AuthUserResponse): AuthUserDto {
@@ -122,7 +127,7 @@ export const authApi = {
    * 验证重置密码 Token
    * @param token 重置令牌
    */
-  verifyResetToken: async (token: string): Promise<void> => {
+  verifyResetToken: async (token: string): Promise<VerifyResetTokenResponse> => {
     return request.get('/auth/password/reset/verify', { params: { token } })
   },
 
@@ -140,12 +145,12 @@ export const authApi = {
   /**
    * 刷新 Token
    * @param refreshToken 刷新令牌
-   * @returns 新的登录响应
+   * @returns 新的访问令牌和刷新令牌
    */
-  refreshToken: async (refreshToken: string): Promise<LoginResponse> => {
+  refreshToken: async (refreshToken: string): Promise<RefreshTokenResponse> => {
     // 响应拦截器已经提取了 data 并转换为 camelCase
     return request.post('/auth/refresh', {
       refresh_token: refreshToken,
-    }) as unknown as LoginResponse
+    }) as unknown as RefreshTokenResponse
   },
 }

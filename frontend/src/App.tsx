@@ -21,6 +21,9 @@ const UserList = lazy(() => import('@/modules/info-management/pages/users/UserLi
 const SystemLogs = lazy(() => import('@/modules/info-management/pages/users/SystemLogs'));
 const DepartmentList = lazy(() => import('@/modules/info-management/pages/departments/DepartmentList'));
 const MajorList = lazy(() => import('@/modules/info-management/pages/majors/MajorList'));
+const RoleList = lazy(() => import('@/modules/info-management/pages/roles/RoleList'));
+const CourseList = lazy(() => import('@/modules/info-management/pages/courses/CourseList'));
+const CurriculumList = lazy(() => import('@/modules/info-management/pages/curriculums/CurriculumList'));
 const TeacherScoreEntryPage = lazy(() => import('@/modules/score-management/pages/TeacherScoreEntryPage'));
 const AdminScoreApprovalPage = lazy(() => import('@/modules/score-management/admin/pages/AdminScoreApprovalPage'));
 const StudentScoreQueryPage = lazy(() => import('@/modules/score-management/student/pages/student-score-query-page'));
@@ -160,8 +163,16 @@ const App: React.FC = () => {
                   <Route path="profile" element={<Profile />} />
                   <Route path="info/departments" element={<DepartmentList />} />
                   <Route path="info/majors" element={<MajorList />} />
-                  <Route path="info/roles" element={<ComingSoon title="角色权限" />} />
-                  <Route path="info/courses" element={<ComingSoon title="课程信息"/>} />
+                  <Route
+                    path="info/roles"
+                    element={
+                      <ProtectedRoute requiredRoles={['admin', 'super_admin']}>
+                        <RoleList />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route path="info/courses" element={<CourseList />} />
+                  <Route path="info/curriculums" element={<CurriculumList />} />
                   <Route path="info/classrooms" element={<ClassroomList />} />
 
                   {/* 自动排课 */}

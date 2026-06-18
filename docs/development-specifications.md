@@ -1,6 +1,6 @@
 ---
 filename: development-specifications.md
-title: Smart-Teaching-Service-System 开发规范
+title: 开发规范
 status: active
 version: 2.2.0
 last_updated_at: 2026-05-22
@@ -9,7 +9,7 @@ description: 智慧教学服务系统开发规范，包含技术栈、项目结�
 link: https://tcncx9czflpz.feishu.cn/wiki/OAxZwur1VicbthkbJDgcoIaSnYb
 ---
 
-# Smart-Teaching-Service-System 开发规范
+# 开发规范
 
 > 智慧教学服务系统（Smart Teaching Service System）
 > 版本：2.2.0 | 更新时间：2026-05-22

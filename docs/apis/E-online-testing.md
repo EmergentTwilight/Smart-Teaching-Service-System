@@ -19,8 +19,6 @@ link: https://tcncx9czflpz.feishu.cn/wiki/LMBtwqPw0iyFo5kLECkcrWFNnbe
 
 > ⚠️ 本文档为占位符，待 E 组补充接口设计内容
 
-
-
 ### 功能模块（参考项目要求）
 
 1. **题库管理** - 题目增删改查

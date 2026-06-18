@@ -1,5 +1,10 @@
 import type { CourseType, GradeLetter, ScoreStatus } from '../types/common-types'
-import { COURSE_TYPE, PASSING_SCORE, SCORE_RANGES, SCORE_STATUS } from '../constants/score-constants'
+import {
+  COURSE_TYPE,
+  PASSING_SCORE,
+  SCORE_RANGES,
+  SCORE_STATUS,
+} from '../constants/score-constants'
 
 export function formatScore(score: number | null, placeholder = '--'): string {
   return score === null ? placeholder : `${score}`

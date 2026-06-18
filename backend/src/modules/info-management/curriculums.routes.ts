@@ -15,6 +15,7 @@ import {
   addCourseToCurriculumSchema,
   batchAddCoursesSchema,
   updateCurriculumCourseSchema,
+  curriculumCourseParamsSchema,
 } from './curriculums.types.js'
 
 const router: RouterType = Router()
@@ -138,6 +139,7 @@ router.post(
 router.delete(
   '/:id/courses/:course_id',
   requireRoles('admin', 'super_admin'),
+  validate(curriculumCourseParamsSchema, 'params'),
   curriculumController.removeCourse
 )
 
@@ -153,6 +155,7 @@ router.delete(
 router.put(
   '/:id/courses/:course_id',
   requireRoles('admin', 'super_admin'),
+  validate(curriculumCourseParamsSchema, 'params'),
   validate(updateCurriculumCourseSchema),
   curriculumController.updateCourse
 )

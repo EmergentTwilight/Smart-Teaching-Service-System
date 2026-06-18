@@ -6,48 +6,59 @@ async function main() {
   console.log('🌱 Seeding database...')
 
   // 创建权限
-  const permissions = await Promise.all([
-    prisma.permission.upsert({
-      where: { code: 'user:read' },
-      update: {},
-      create: {
-        name: '查看用户',
-        code: 'user:read',
-        resource: 'user',
-        action: 'read',
-      },
-    }),
-    prisma.permission.upsert({
-      where: { code: 'user:create' },
-      update: {},
-      create: {
-        name: '创建用户',
-        code: 'user:create',
-        resource: 'user',
-        action: 'create',
-      },
-    }),
-    prisma.permission.upsert({
-      where: { code: 'user:update' },
-      update: {},
-      create: {
-        name: '更新用户',
-        code: 'user:update',
-        resource: 'user',
-        action: 'update',
-      },
-    }),
-    prisma.permission.upsert({
-      where: { code: 'user:delete' },
-      update: {},
-      create: {
-        name: '删除用户',
-        code: 'user:delete',
-        resource: 'user',
-        action: 'delete',
-      },
-    }),
-  ])
+  const permissionDefinitions = [
+    ['user:read', '查看用户', 'user', 'read', '允许查看用户信息'],
+    ['user:create', '创建用户', 'user', 'create', '允许创建用户'],
+    ['user:update', '更新用户', 'user', 'update', '允许更新用户'],
+    ['user:delete', '删除用户', 'user', 'delete', '允许删除用户'],
+    ['department:read', '查看院系', 'department', 'read', '允许查看院系'],
+    ['department:create', '创建院系', 'department', 'create', '允许创建院系'],
+    ['department:update', '更新院系', 'department', 'update', '允许更新院系'],
+    ['department:delete', '删除院系', 'department', 'delete', '允许删除院系'],
+    ['major:read', '查看专业', 'major', 'read', '允许查看专业'],
+    ['major:create', '创建专业', 'major', 'create', '允许创建专业'],
+    ['major:update', '更新专业', 'major', 'update', '允许更新专业'],
+    ['major:delete', '删除专业', 'major', 'delete', '允许删除专业'],
+    ['course:read', '查看课程', 'course', 'read', '允许查看课程'],
+    ['course:create', '创建课程', 'course', 'create', '允许创建课程'],
+    ['course:update', '更新课程', 'course', 'update', '允许更新课程'],
+    ['course:delete', '删除课程', 'course', 'delete', '允许删除课程'],
+    ['curriculum:read', '查看培养方案', 'curriculum', 'read', '允许查看培养方案'],
+    ['curriculum:create', '创建培养方案', 'curriculum', 'create', '允许创建培养方案'],
+    ['curriculum:update', '更新培养方案', 'curriculum', 'update', '允许更新培养方案'],
+    ['curriculum:delete', '删除培养方案', 'curriculum', 'delete', '允许删除培养方案'],
+    ['role:read', '查看角色', 'role', 'read', '允许查看角色'],
+    ['role:create', '创建角色', 'role', 'create', '允许创建角色'],
+    ['role:update', '更新角色', 'role', 'update', '允许更新角色'],
+    ['role:delete', '删除角色', 'role', 'delete', '允许删除角色'],
+    ['permission:read', '查看权限', 'permission', 'read', '允许查看权限'],
+    ['permission:assign', '分配角色权限', 'permission', 'assign', '允许分配角色权限'],
+    ['permission:revoke', '撤销角色权限', 'permission', 'revoke', '允许撤销角色权限'],
+    ['token:read', '查看活跃令牌', 'token', 'read', '允许查看活跃令牌'],
+    ['token:revoke', '吊销令牌', 'token', 'revoke', '允许吊销令牌'],
+    ['log:read', '查看系统日志', 'log', 'read', '允许查看系统日志'],
+  ] as const
+
+  const permissions = await Promise.all(
+    permissionDefinitions.map(([code, name, resource, action, description]) =>
+      prisma.permission.upsert({
+        where: { code },
+        update: {
+          name,
+          resource,
+          action,
+          description,
+        },
+        create: {
+          name,
+          code,
+          resource,
+          action,
+          description,
+        },
+      })
+    )
+  )
 
   // 创建角色
   const studentRole = await prisma.role.upsert({

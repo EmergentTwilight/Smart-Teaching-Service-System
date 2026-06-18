@@ -4,7 +4,7 @@
  */
 import prisma from '../../shared/prisma/client.js'
 import { Request } from 'express'
-import { NotFoundError } from '@stss/shared'
+import { ConflictError, NotFoundError } from '@stss/shared'
 import type { Prisma } from '@prisma/client'
 import type {
   GetCurriculumListSchema,
@@ -49,24 +49,6 @@ export const curriculumService = {
 
       const total = await tx.curriculum.count({ where })
 
-      const curriculumIds = curriculums.map((c) => c.id)
-      const creationLogs = await tx.systemLog.findMany({
-        where: {
-          resourceType: 'curriculum',
-          resourceId: { in: curriculumIds },
-          action: 'create',
-        },
-        select: {
-          createdAt: true,
-          resourceId: true,
-        },
-      })
-
-      const logMap = new Map<string, Date>()
-      creationLogs.forEach((log) => {
-        logMap.set(log.resourceId!, log.createdAt)
-      })
-
       const items = curriculums.map((c) => ({
         id: c.id,
         name: c.name,
@@ -77,7 +59,7 @@ export const curriculumService = {
         required_credits: c.requiredCredits?.toNumber() || 0,
         elective_credits: c.electiveCredits?.toNumber() || 0,
         course_count: c.courses.length,
-        created_at: logMap.get(c.id) || new Date(0),
+        created_at: c.createdAt,
       }))
 
       return { items, total }
@@ -125,34 +107,6 @@ export const curriculumService = {
         throw new NotFoundError('培养方案')
       }
 
-      const updateLog = await tx.systemLog.findFirst({
-        where: {
-          resourceType: 'curriculum',
-          resourceId: id,
-          action: 'update',
-        },
-        orderBy: {
-          createdAt: 'desc',
-        },
-        select: {
-          createdAt: true,
-        },
-      })
-
-      const createLog = await tx.systemLog.findFirst({
-        where: {
-          resourceType: 'curriculum',
-          resourceId: id,
-          action: 'create',
-        },
-        orderBy: {
-          createdAt: 'desc',
-        },
-        select: {
-          createdAt: true,
-        },
-      })
-
       return {
         id: curriculum.id,
         name: curriculum.name,
@@ -170,14 +124,34 @@ export const curriculumService = {
           course_type: cc.course.courseType,
           semester_suggestion: cc.semesterSuggestion,
         })),
-        created_at: createLog?.createdAt || new Date(0),
-        updated_at: updateLog?.createdAt || new Date(0),
+        created_at: curriculum.createdAt,
+        updated_at: curriculum.updatedAt,
       }
     })
   },
 
   async createCurriculum(data: CreateCurriculumSchema, req: Request) {
     const curriculum = await prisma.$transaction(async (tx) => {
+      const major = await tx.major.findUnique({
+        where: { id: data.major_id },
+        select: { id: true },
+      })
+      if (!major) {
+        throw new NotFoundError('专业不存在')
+      }
+
+      const duplicate = await tx.curriculum.findFirst({
+        where: {
+          majorId: data.major_id,
+          year: data.year,
+          name: data.name,
+        },
+        select: { id: true },
+      })
+      if (duplicate) {
+        throw new ConflictError('培养方案已存在')
+      }
+
       const curriculum = await tx.curriculum.create({
         data: {
           major: {
@@ -217,6 +191,20 @@ export const curriculumService = {
       const curriculum = await tx.curriculum.findUnique({ where: { id } })
       if (!curriculum) {
         throw new NotFoundError('培养方案不存在')
+      }
+      if (data.name && data.name !== curriculum.name) {
+        const duplicate = await tx.curriculum.findFirst({
+          where: {
+            id: { not: id },
+            majorId: curriculum.majorId,
+            year: curriculum.year,
+            name: data.name,
+          },
+          select: { id: true },
+        })
+        if (duplicate) {
+          throw new ConflictError('培养方案已存在')
+        }
       }
 
       const updatedCurriculum = await tx.curriculum.update({
@@ -291,6 +279,17 @@ export const curriculumService = {
       if (!course) {
         throw new NotFoundError('课程不存在')
       }
+      const existing = await tx.curriculumCourse.findUnique({
+        where: {
+          curriculumId_courseId: {
+            curriculumId,
+            courseId: data.course_id,
+          },
+        },
+      })
+      if (existing) {
+        throw new ConflictError('课程已在培养方案中')
+      }
 
       await tx.curriculumCourse.create({
         data: {
@@ -332,15 +331,19 @@ export const curriculumService = {
           continue
         }
 
-        await tx.curriculumCourse.create({
-          data: {
-            curriculumId,
-            courseId: item.course_id,
-            courseType: item.course_type,
-            semesterSuggestion: item.semester_suggestion,
-          },
-        })
-        successCount++
+        try {
+          await tx.curriculumCourse.create({
+            data: {
+              curriculumId,
+              courseId: item.course_id,
+              courseType: item.course_type,
+              semesterSuggestion: item.semester_suggestion,
+            },
+          })
+          successCount++
+        } catch {
+          failCount++
+        }
       }
 
       await tx.systemLog.create({
@@ -372,6 +375,18 @@ export const curriculumService = {
       const course = await tx.course.findUnique({ where: { id: courseId } })
       if (!course) {
         throw new NotFoundError('课程不存在')
+      }
+
+      const relation = await tx.curriculumCourse.findUnique({
+        where: {
+          curriculumId_courseId: {
+            curriculumId,
+            courseId,
+          },
+        },
+      })
+      if (!relation) {
+        throw new NotFoundError('培养方案课程不存在')
       }
 
       await tx.curriculumCourse.delete({
@@ -412,6 +427,18 @@ export const curriculumService = {
       const course = await tx.course.findUnique({ where: { id: courseId } })
       if (!course) {
         throw new NotFoundError('课程不存在')
+      }
+
+      const relation = await tx.curriculumCourse.findUnique({
+        where: {
+          curriculumId_courseId: {
+            curriculumId,
+            courseId,
+          },
+        },
+      })
+      if (!relation) {
+        throw new NotFoundError('培养方案课程不存在')
       }
 
       await tx.curriculumCourse.update({

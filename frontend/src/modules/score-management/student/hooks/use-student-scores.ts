@@ -97,10 +97,7 @@ export function useStudentScores(
  * }
  * ```
  */
-export function refetchStudentScores(
-  queryClient: QueryClient,
-  query: ScoreListQuery
-) {
+export function refetchStudentScores(queryClient: QueryClient, query: ScoreListQuery) {
   queryClient.invalidateQueries({
     queryKey: scoreQueryKeys.list(query),
   })

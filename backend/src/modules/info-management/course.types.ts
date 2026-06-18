@@ -28,7 +28,7 @@ export const getCoursesListSchema = z.object({
  * 课程Id Schema
  */
 export const courseIdSchema = z.object({
-  course_id: z.string().uuid(),
+  course_id: z.string().uuid('课程ID格式无效'),
 })
 
 /**
@@ -56,12 +56,26 @@ export const createCourseSchema = z.object({
  * 更新课程 schema
  * 与创建课程类似，但所有字段都可选
  */
-export const updateCourseSchema = z.object({
-  name: z.string().min(1, '课程名称不能为空').max(100, '课程名称最多100字符').optional(),
-  credits: z.number().min(0, '学分不能为负').max(999, '学分不能超过999').multipleOf(0.1).optional(),
-  description: z.string().optional(),
-  prerequisite_ids: z.array(z.string().uuid()).optional(),
-})
+export const updateCourseSchema = z
+  .object({
+    name: z.string().min(1, '课程名称不能为空').max(100, '课程名称最多100字符').optional(),
+    credits: z
+      .number()
+      .min(0, '学分不能为负')
+      .max(999, '学分不能超过999')
+      .multipleOf(0.1)
+      .optional(),
+    description: z.string().optional(),
+    prerequisite_ids: z.array(z.string().uuid()).optional(),
+  })
+  .refine(
+    (data) =>
+      data.name !== undefined ||
+      data.credits !== undefined ||
+      data.description !== undefined ||
+      data.prerequisite_ids !== undefined,
+    { message: '至少需要提供一个更新字段' }
+  )
 
 /**
  * 批量创建课程 schema

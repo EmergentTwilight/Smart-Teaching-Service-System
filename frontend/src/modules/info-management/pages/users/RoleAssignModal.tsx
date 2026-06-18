@@ -22,7 +22,7 @@ const RoleAssignModal: React.FC<RoleAssignModalProps> = ({
   onCancel,
   onSuccess,
 }) => {
-  const [selectedRoles, setSelectedRoles] = useState<string[]>(currentRoles)
+  const [selectedRoles, setSelectedRoles] = useState<string[]>([])
   const queryClient = useQueryClient()
   const loggedInUser = useAuthStore((state) => state.user)
 
@@ -41,8 +41,9 @@ const RoleAssignModal: React.FC<RoleAssignModalProps> = ({
   // 如果不是超级管理员，过滤掉 super_admin 角色
   const availableRoles = useMemo(() => {
     let roles = (rolesData || []).map((role) => ({
-      key: role.code,
+      key: role.id,
       title: role.name,
+      code: role.code,
     }))
     
     // 非 super_admin 不能分配 super_admin 角色
@@ -54,21 +55,33 @@ const RoleAssignModal: React.FC<RoleAssignModalProps> = ({
   }, [rolesData, isSuperAdmin])
 
   useEffect(() => {
-    // 非 super_admin 不能看到/操作 super_admin 角色
+    const currentRoleIds = currentRoles
+      .map((roleCode) => availableRoles.find((role) => role.code === roleCode)?.key)
+      .filter((roleId): roleId is string => Boolean(roleId))
+
     if (!isSuperAdmin) {
-      setSelectedRoles(currentRoles.filter((r) => r !== 'super_admin'))
-    } else {
-      setSelectedRoles(currentRoles)
+      setSelectedRoles(
+        currentRoleIds.filter(
+          (roleId) => availableRoles.find((role) => role.key === roleId)?.code !== 'super_admin'
+        )
+      )
+      return
     }
-  }, [currentRoles, isSuperAdmin])
+
+    setSelectedRoles(currentRoleIds)
+  }, [availableRoles, currentRoles, isSuperAdmin])
 
   const { mutate, isPending } = useMutation({
     mutationFn: async (newRoles: string[]) => {
       // 计算需要添加和删除的角色
-      const toAdd = newRoles.filter((r) => !currentRoles.includes(r))
-      const toRemove = currentRoles.filter((r) => !newRoles.includes(r))
+      const currentRoleIds = currentRoles
+        .map((roleCode) => availableRoles.find((role) => role.code === roleCode)?.key)
+        .filter((roleId): roleId is string => Boolean(roleId))
 
-      console.log('Role assignment:', { userId, toAdd, toRemove, currentRoles, newRoles })
+      const toAdd = newRoles.filter((roleId) => !currentRoleIds.includes(roleId))
+      const toRemove = currentRoleIds.filter((roleId) => !newRoles.includes(roleId))
+
+      console.log('Role assignment:', { userId, toAdd, toRemove, currentRoleIds, newRoles })
 
       // 先添加新角色
       if (toAdd.length > 0) {
@@ -107,7 +120,7 @@ const RoleAssignModal: React.FC<RoleAssignModalProps> = ({
           <Space>
             {currentRoles.map((role) => (
               <Tag key={role} color="blue">
-                {availableRoles.find((r) => r.key === role)?.title || role}
+                {availableRoles.find((r) => r.code === role)?.title || role}
               </Tag>
             ))}
           </Space>

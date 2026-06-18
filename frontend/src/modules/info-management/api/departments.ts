@@ -4,10 +4,10 @@
  */
 import request from '@/shared/utils/request'
 import type {
-  Department,
   DepartmentDetail,
   DepartmentListResponse,
   DepartmentQueryParams,
+  DepartmentSummary,
   CreateDepartmentDTO,
   UpdateDepartmentDTO,
 } from '../types/departments'
@@ -44,7 +44,7 @@ export const departmentsApi = {
    * @param data 部门数据
    * @returns 新创建的部门
    */
-  create: async (data: CreateDepartmentDTO): Promise<Department> => {
+  create: async (data: CreateDepartmentDTO): Promise<DepartmentSummary> => {
     return request.post('/departments', data)
   },
 
@@ -54,7 +54,7 @@ export const departmentsApi = {
    * @param data 更新数据
    * @returns 更新后的部门
    */
-  update: async (id: string, data: UpdateDepartmentDTO): Promise<Department> => {
+  update: async (id: string, data: UpdateDepartmentDTO): Promise<DepartmentSummary> => {
     return request.put(`/departments/${id}`, data)
   },
 

@@ -10,7 +10,7 @@ import { CourseType } from '@prisma/client'
  */
 export const getCurriculumListSchema = z.object({
   page: z.coerce.number().int().positive().optional().default(1),
-  page_size: z.coerce.number().int().positive().optional().default(10),
+  page_size: z.coerce.number().int().positive().max(100).optional().default(20),
   major_id: z.string().uuid().optional(),
   year: z.coerce.number().int().positive().optional(),
 })
@@ -19,7 +19,12 @@ export const getCurriculumListSchema = z.object({
  * 培养方案 ID schema
  */
 export const curriculumIdSchema = z.object({
-  id: z.string().uuid(),
+  id: z.string().uuid('培养方案ID格式无效'),
+})
+
+export const curriculumCourseParamsSchema = z.object({
+  id: z.string().uuid('培养方案ID格式无效'),
+  course_id: z.string().uuid('课程ID格式无效'),
 })
 
 /**
@@ -37,12 +42,21 @@ export const createCurriculumSchema = z.object({
 /**
  * 更新培养方案请求验证 schema
  */
-export const updateCurriculumSchema = z.object({
-  name: z.string().min(1).max(100).optional(),
-  total_credits: z.number().multipleOf(0.1).positive().max(9999).optional(),
-  required_credits: z.number().multipleOf(0.1).positive().max(9999).optional(),
-  elective_credits: z.number().multipleOf(0.1).positive().max(9999).optional(),
-})
+export const updateCurriculumSchema = z
+  .object({
+    name: z.string().min(1).max(100).optional(),
+    total_credits: z.number().multipleOf(0.1).positive().max(9999).optional(),
+    required_credits: z.number().multipleOf(0.1).positive().max(9999).optional(),
+    elective_credits: z.number().multipleOf(0.1).positive().max(9999).optional(),
+  })
+  .refine(
+    (data) =>
+      data.name !== undefined ||
+      data.total_credits !== undefined ||
+      data.required_credits !== undefined ||
+      data.elective_credits !== undefined,
+    { message: '至少需要提供一个更新字段' }
+  )
 
 /**
  * 添加课程到培养方案请求验证 schema
@@ -77,11 +91,13 @@ export const batchAddCoursesSchema = z.object({
  */
 export const updateCurriculumCourseSchema = z
   .object({
-    course_type: z.preprocess(
-      (val) => (typeof val === 'string' ? val.toUpperCase() : val),
-      z.nativeEnum(CourseType)
-    ),
-    semester_suggestion: z.number().int().positive(),
+    course_type: z
+      .preprocess(
+        (val) => (typeof val === 'string' ? val.toUpperCase() : val),
+        z.nativeEnum(CourseType)
+      )
+      .optional(),
+    semester_suggestion: z.number().int().positive().optional(),
   })
   .refine((data) => data.course_type !== undefined || data.semester_suggestion !== undefined, {
     message: '至少需要提供 course_type 或 semester_suggestion 之一',
@@ -89,6 +105,7 @@ export const updateCurriculumCourseSchema = z
 
 export type GetCurriculumListSchema = z.infer<typeof getCurriculumListSchema>
 export type CurriculumIdSchema = z.infer<typeof curriculumIdSchema>
+export type CurriculumCourseParamsSchema = z.infer<typeof curriculumCourseParamsSchema>
 export type CreateCurriculumSchema = z.infer<typeof createCurriculumSchema>
 export type UpdateCurriculumSchema = z.infer<typeof updateCurriculumSchema>
 export type AddCourseToCurriculumSchema = z.infer<typeof addCourseToCurriculumSchema>

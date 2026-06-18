@@ -84,9 +84,7 @@ export function useStudentScoreSummary(options?: {
  * }
  * ```
  */
-export function refetchStudentScoreSummary(
-  queryClient: QueryClient
-) {
+export function refetchStudentScoreSummary(queryClient: QueryClient) {
   queryClient.invalidateQueries({
     queryKey: scoreSummaryQueryKeys.current(),
   })

@@ -20,20 +20,18 @@ const router: RouterType = Router()
 // 所有路由需要认证
 router.use(authMiddleware)
 
-type DepartmentLogTimes = {
-  created_at: Date | null
-  updated_at: Date | null
-}
-
 type DepartmentListRecord = {
   id: string
   name: string
   code: string | null
   description: string | null
+  createdAt: Date
   majors: Array<{ _count: { students: number } }>
   _count: {
     majors: number
     teachers: number
+    admins: number
+    courses: number
   }
 }
 
@@ -42,6 +40,8 @@ type DepartmentDetailRecord = {
   name: string
   code: string | null
   description: string | null
+  createdAt: Date
+  updatedAt: Date
   majors: Array<{
     id: string
     name: string
@@ -58,52 +58,12 @@ type DepartmentDetailRecord = {
   _count: {
     majors: number
     teachers: number
+    admins: number
+    courses: number
   }
 }
 
-async function getDepartmentLogTimes(
-  departmentIds: string[]
-): Promise<Map<string, DepartmentLogTimes>> {
-  const logTimes = new Map<string, DepartmentLogTimes>()
-  departmentIds.forEach((id) => logTimes.set(id, { created_at: null, updated_at: null }))
-
-  if (departmentIds.length === 0) {
-    return logTimes
-  }
-
-  const logs = await prisma.systemLog.findMany({
-    where: {
-      resourceType: 'department',
-      resourceId: { in: departmentIds },
-      action: { in: ['department:create', 'department:update', 'create', 'update'] },
-    },
-    select: {
-      action: true,
-      resourceId: true,
-      createdAt: true,
-    },
-    orderBy: { createdAt: 'asc' },
-  })
-
-  logs.forEach((log) => {
-    if (!log.resourceId) return
-    const current = logTimes.get(log.resourceId) ?? { created_at: null, updated_at: null }
-    if (log.action === 'department:create' || log.action === 'create') {
-      current.created_at = current.created_at ?? log.createdAt
-    }
-    if (log.action === 'department:update' || log.action === 'update') {
-      current.updated_at = log.createdAt
-    }
-    logTimes.set(log.resourceId, current)
-  })
-
-  return logTimes
-}
-
-function serializeDepartmentListItem(
-  department: DepartmentListRecord,
-  logTimes?: DepartmentLogTimes
-) {
+function serializeDepartmentListItem(department: DepartmentListRecord) {
   return {
     id: department.id,
     name: department.name,
@@ -112,14 +72,13 @@ function serializeDepartmentListItem(
     teacher_count: department._count.teachers,
     student_count: department.majors.reduce((sum, major) => sum + major._count.students, 0),
     major_count: department._count.majors,
-    created_at: logTimes?.created_at ?? null,
+    admin_count: department._count.admins,
+    course_count: department._count.courses,
+    created_at: department.createdAt,
   }
 }
 
-function serializeDepartmentDetail(
-  department: DepartmentDetailRecord,
-  logTimes?: DepartmentLogTimes
-) {
+function serializeDepartmentDetail(department: DepartmentDetailRecord) {
   return {
     id: department.id,
     name: department.name,
@@ -128,6 +87,8 @@ function serializeDepartmentDetail(
     teacher_count: department._count.teachers,
     student_count: department.majors.reduce((sum, major) => sum + major._count.students, 0),
     major_count: department._count.majors,
+    admin_count: department._count.admins,
+    course_count: department._count.courses,
     majors: department.majors.map((major) => ({
       id: major.id,
       name: major.name,
@@ -141,8 +102,8 @@ function serializeDepartmentDetail(
       real_name: teacher.user.realName,
       title: teacher.title,
     })),
-    created_at: logTimes?.created_at ?? null,
-    updated_at: logTimes?.updated_at ?? null,
+    created_at: department.createdAt,
+    updated_at: department.updatedAt,
   }
 }
 
@@ -225,6 +186,8 @@ router.get('/', validate(getDepartmentListSchema, 'query'), async (req, res, nex
             select: {
               majors: true,
               teachers: true,
+              admins: true,
+              courses: true,
             },
           },
         },
@@ -232,12 +195,9 @@ router.get('/', validate(getDepartmentListSchema, 'query'), async (req, res, nex
       }),
       prisma.department.count({ where }),
     ])
-    const logTimes = await getDepartmentLogTimes(departments.map((department) => department.id))
 
     success(res, {
-      items: departments.map((department) =>
-        serializeDepartmentListItem(department, logTimes.get(department.id))
-      ),
+      items: departments.map((department) => serializeDepartmentListItem(department)),
       pagination: {
         page,
         page_size: pageSize,
@@ -336,6 +296,8 @@ router.get('/:id', validate(departmentIdSchema, 'params'), async (req, res, next
           select: {
             majors: true,
             teachers: true,
+            admins: true,
+            courses: true,
           },
         },
       },
@@ -343,8 +305,7 @@ router.get('/:id', validate(departmentIdSchema, 'params'), async (req, res, next
     if (!department) {
       throw new NotFoundError('院系不存在')
     }
-    const logTimes = await getDepartmentLogTimes([id])
-    success(res, serializeDepartmentDetail(department, logTimes.get(id)))
+    success(res, serializeDepartmentDetail(department))
   } catch (err) {
     next(err)
   }
@@ -515,6 +476,20 @@ router.put(
       })
       if (!existing) {
         throw new NotFoundError('院系不存在')
+      }
+
+      if (name && name !== existing.name) {
+        const existingByName = await prisma.department.findFirst({
+          where: {
+            name,
+            id: { not: id },
+          },
+          select: { id: true },
+        })
+
+        if (existingByName) {
+          throw new ConflictError('部门名称已存在')
+        }
       }
 
       const updatedDepartment = await prisma.$transaction(async (tx) => {

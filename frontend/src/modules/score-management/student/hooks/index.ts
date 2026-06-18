@@ -4,11 +4,7 @@
  * @module score-management/student/hooks
  */
 
-export {
-  useStudentScores,
-  refetchStudentScores,
-  scoreQueryKeys,
-} from './use-student-scores'
+export { useStudentScores, refetchStudentScores, scoreQueryKeys } from './use-student-scores'
 
 export {
   useStudentScoreSummary,

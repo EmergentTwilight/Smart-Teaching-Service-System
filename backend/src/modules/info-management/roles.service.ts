@@ -20,6 +20,15 @@ import type {
  * 内置角色不可删除，其 code 不可修改
  */
 const BUILTIN_ROLE_CODES = ['super_admin', 'admin', 'teacher', 'student']
+const SUPER_ADMIN_CRITICAL_PERMISSIONS = [
+  'role:read',
+  'role:create',
+  'role:update',
+  'role:delete',
+  'permission:read',
+  'permission:assign',
+  'permission:revoke',
+]
 
 export const rolesService = {
   /**
@@ -395,6 +404,7 @@ export const rolesService = {
         name: true,
         resource: true,
         action: true,
+        description: true,
       },
       orderBy: [{ resource: 'asc' }, { action: 'asc' }],
     })
@@ -495,9 +505,7 @@ export const rolesService = {
         permissions: {
           select: {
             permissionId: true,
-            permission: {
-              select: { code: true },
-            },
+            permission: true,
           },
         },
       },
@@ -511,6 +519,13 @@ export const rolesService = {
     const rolePermission = role.permissions.find((rp) => rp.permissionId === permissionId)
     if (!rolePermission) {
       throw new NotFoundError('该角色未分配此权限')
+    }
+
+    if (
+      role.code === 'super_admin' &&
+      SUPER_ADMIN_CRITICAL_PERMISSIONS.includes(rolePermission.permission.code)
+    ) {
+      throw new ConflictError('不能撤销超级管理员关键权限')
     }
 
     await prisma.$transaction(async (tx) => {

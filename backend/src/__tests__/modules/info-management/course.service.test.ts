@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { NotFoundError } from '@stss/shared'
+import { ConflictError, NotFoundError } from '@stss/shared'
 import type { CourseStatus, CourseType } from '@prisma/client'
 
 const prismaMock = vi.hoisted(() => ({
@@ -14,6 +14,15 @@ const prismaMock = vi.hoisted(() => ({
   coursePrerequisite: {
     createMany: vi.fn(),
     deleteMany: vi.fn(),
+  },
+  department: {
+    findUnique: vi.fn(),
+  },
+  teacher: {
+    findUnique: vi.fn(),
+  },
+  curriculumCourse: {
+    count: vi.fn(),
   },
   systemLog: {
     create: vi.fn(),
@@ -77,6 +86,15 @@ beforeEach(() => {
         coursePrerequisite: {
           createMany: prismaMock.coursePrerequisite.createMany,
           deleteMany: prismaMock.coursePrerequisite.deleteMany,
+        },
+        department: {
+          findUnique: prismaMock.department.findUnique,
+        },
+        teacher: {
+          findUnique: prismaMock.teacher.findUnique,
+        },
+        curriculumCourse: {
+          count: prismaMock.curriculumCourse.count,
         },
         systemLog: {
           create: prismaMock.systemLog.create,
@@ -178,6 +196,10 @@ describe('courseService', () => {
 
   describe('createCourse', () => {
     it('应该创建课程、先修课关联和系统日志', async () => {
+      prismaMock.course.findUnique.mockResolvedValue(null)
+      prismaMock.department.findUnique.mockResolvedValue({ id: 'dept-1' })
+      prismaMock.teacher.findUnique.mockResolvedValue({ userId: 'teacher-1' })
+      prismaMock.course.count.mockResolvedValue(1)
       prismaMock.course.create.mockResolvedValue(buildCourse({ id: 'course-new', code: 'CS201' }))
       prismaMock.coursePrerequisite.createMany.mockResolvedValue({ count: 1 })
       prismaMock.systemLog.create.mockResolvedValue({ id: 'log-1' })
@@ -205,6 +227,22 @@ describe('courseService', () => {
       })
       expect(prismaMock.systemLog.create).toHaveBeenCalled()
     })
+
+    it('课程代码重复应该抛出 ConflictError', async () => {
+      prismaMock.course.findUnique.mockResolvedValue({ id: 'existing-course' })
+
+      await expect(
+        courseService.createCourse(
+          {
+            code: 'CS201',
+            name: '算法设计',
+            credits: 3.5,
+            course_type: 'REQUIRED' as CourseType,
+          },
+          mockRequest
+        )
+      ).rejects.toBeInstanceOf(ConflictError)
+    })
   })
 
   describe('updateCourse', () => {
@@ -218,6 +256,7 @@ describe('courseService', () => {
 
     it('应该更新课程并记录日志', async () => {
       prismaMock.course.findUnique.mockResolvedValue(buildCourse({ name: '旧课程名' }))
+      prismaMock.course.count.mockResolvedValue(1)
       prismaMock.coursePrerequisite.deleteMany.mockResolvedValue({ count: 1 })
       prismaMock.course.update.mockResolvedValue(buildCourse({ name: '新课程名' }))
       prismaMock.coursePrerequisite.createMany.mockResolvedValue({ count: 1 })
@@ -242,6 +281,21 @@ describe('courseService', () => {
       expect(prismaMock.systemLog.create).toHaveBeenCalled()
       expect(result.name).toBe('新课程名')
     })
+
+    it('先修课程不存在时应该抛出 NotFoundError', async () => {
+      prismaMock.course.findUnique.mockResolvedValue(buildCourse())
+      prismaMock.course.count.mockResolvedValue(0)
+
+      await expect(
+        courseService.updateCourse(
+          'course-1',
+          {
+            prerequisite_ids: ['missing-prerequisite'],
+          },
+          mockRequest
+        )
+      ).rejects.toBeInstanceOf(NotFoundError)
+    })
   })
 
   describe('deleteCourse', () => {
@@ -255,6 +309,7 @@ describe('courseService', () => {
 
     it('应该删除课程并记录日志', async () => {
       prismaMock.course.findUnique.mockResolvedValue(buildCourse({ name: '待删除课程' }))
+      prismaMock.curriculumCourse.count.mockResolvedValue(0)
       prismaMock.course.delete.mockResolvedValue(buildCourse())
       prismaMock.systemLog.create.mockResolvedValue({ id: 'log-3' })
 
@@ -262,6 +317,15 @@ describe('courseService', () => {
 
       expect(prismaMock.course.delete).toHaveBeenCalledWith({ where: { id: 'course-1' } })
       expect(prismaMock.systemLog.create).toHaveBeenCalled()
+    })
+
+    it('课程被培养方案引用时应该抛出 ConflictError', async () => {
+      prismaMock.course.findUnique.mockResolvedValue(buildCourse({ name: '待删除课程' }))
+      prismaMock.curriculumCourse.count.mockResolvedValue(1)
+
+      await expect(courseService.deleteCourse('course-1', mockRequest)).rejects.toBeInstanceOf(
+        ConflictError
+      )
     })
   })
 
@@ -284,6 +348,15 @@ describe('courseService', () => {
             coursePrerequisite: {
               createMany: prismaMock.coursePrerequisite.createMany,
               deleteMany: prismaMock.coursePrerequisite.deleteMany,
+            },
+            department: {
+              findUnique: prismaMock.department.findUnique,
+            },
+            teacher: {
+              findUnique: prismaMock.teacher.findUnique,
+            },
+            curriculumCourse: {
+              count: prismaMock.curriculumCourse.count,
             },
             systemLog: {
               create: prismaMock.systemLog.create,
@@ -314,6 +387,7 @@ describe('courseService', () => {
       prismaMock.course.create
         .mockResolvedValueOnce(buildCourse({ id: 'course-1' }))
         .mockRejectedValueOnce(new Error('Unique constraint failed on the fields: (`code`)'))
+      prismaMock.course.findUnique.mockResolvedValue(null)
       prismaMock.systemLog.create.mockResolvedValue({ id: 'log-4' })
 
       const result = await courseService.batchCreateCourses(
@@ -337,8 +411,8 @@ describe('courseService', () => {
       expect(result.total).toBe(2)
       expect(result.success_count).toBe(1)
       expect(result.fail_count).toBe(1)
-      expect(result.results[0]).toMatchObject({ status: 'created', id: 'course-1' })
-      expect(result.results[1]).toMatchObject({ status: 'failed' })
+      expect(result.results[0]).toMatchObject({ index: 0, status: 'created', id: 'course-1' })
+      expect(result.results[1]).toMatchObject({ index: 1, status: 'failed' })
     })
   })
 })

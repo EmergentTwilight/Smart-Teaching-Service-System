@@ -81,9 +81,7 @@ export function useStudentScoreAnalytics(options?: {
  * }
  * ```
  */
-export function refetchStudentScoreAnalytics(
-  queryClient: QueryClient
-) {
+export function refetchStudentScoreAnalytics(queryClient: QueryClient) {
   queryClient.invalidateQueries({
     queryKey: scoreAnalyticsQueryKeys.current(),
   })

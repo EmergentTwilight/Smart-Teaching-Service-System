@@ -108,6 +108,7 @@ export interface UserDetail {
     grade: number
     className?: string
     majorId?: string
+    majorName?: string | null
   } | null
   /** 教师信息（如果用户是教师） */
   teacher?: {
@@ -115,11 +116,13 @@ export interface UserDetail {
     title?: string
     officeLocation?: string
     departmentId?: string
+    departmentName?: string | null
   } | null
   /** 管理员信息（如果用户是管理员） */
   admin?: {
-    adminType: 'SUPER' | 'DEPARTMENT' | 'SECURITY'
+    adminType: 'ACADEMIC' | 'SUPER' | 'SECURITY'
     departmentId?: string
+    departmentName?: string | null
   } | null
   /** 最后登录时间 */
   lastLoginAt: string | null
@@ -141,10 +144,86 @@ export interface UserFormData {
   password?: string
   /** 手机号 */
   phone?: string
+  /** 头像URL */
+  avatarUrl?: string
+  /** 头像文件 */
+  avatarFile?: File
+  /** 头像预览地址 */
+  avatarPreviewUrl?: string
   /** 性别 */
   gender?: FrontendGender
   /** 状态 */
   status?: FrontendUserStatus
   /** 角色ID列表 */
   roleIds?: string[]
+  /** 学生扩展信息 */
+  student?: {
+    studentNumber: string
+    majorId?: string
+    grade: number
+    className?: string
+  }
+  /** 教师扩展信息 */
+  teacher?: {
+    teacherNumber: string
+    departmentId?: string
+    title?: string
+    officeLocation?: string
+  }
+  /** 管理员扩展信息 */
+  admin?: {
+    adminType: 'ACADEMIC' | 'SUPER' | 'SECURITY'
+    departmentId?: string
+  }
+}
+
+/** 创建用户请求数据 */
+export interface CreateUserDTO {
+  username: string
+  password: string
+  email?: string
+  realName: string
+  phone?: string
+  gender?: FrontendGender
+  roleIds?: string[]
+  student?: {
+    studentNumber: string
+    majorId?: string
+    grade: number
+    className?: string
+  }
+  teacher?: {
+    teacherNumber: string
+    departmentId?: string
+    title?: string
+    officeLocation?: string
+  }
+  admin?: {
+    adminType: 'ACADEMIC' | 'SUPER' | 'SECURITY'
+    departmentId?: string
+  }
+}
+
+/** 更新用户请求数据 */
+export interface UpdateUserDTO {
+  email?: string
+  realName?: string
+  phone?: string
+  avatarUrl?: string
+  gender?: FrontendGender
+  roleIds?: string[]
+}
+
+export interface SystemLogItem {
+  id: string
+  userId: string
+  username: string
+  realName: string
+  action: string
+  resourceType: string
+  resourceId: string
+  ipAddress: string
+  userAgent: string
+  details: Record<string, unknown> | null
+  createdAt: string
 }

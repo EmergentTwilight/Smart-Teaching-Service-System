@@ -28,6 +28,7 @@ import { CreditProgressCard } from '../components/CreditProgressCard';
 import { extractErrorMessage } from '@/shared/utils/error';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ExclamationCircleOutlined } from '@ant-design/icons';
+import type { EnrollmentStatus } from '../types/enrollment';
 
 const { Text, Title } = Typography;
 
@@ -41,6 +42,13 @@ interface PendingDrop {
   offeringId: string;
   enrollmentId: string;
   courseLabel: string;
+}
+
+interface PendingEnroll {
+  offeringId: string;
+  courseLabel: string;
+  credits: number | string;
+  teacherName: string;
 }
 
 /**
@@ -57,6 +65,8 @@ const StudentCourseSelectionPage: React.FC = () => {
   const [filterForm] = Form.useForm<StudentCourseSelectionQuery>();
   const [offeringIdInDrawer, setOfferingIdInDrawer] = useState<string | null>(null);
   const [enrollingId, setEnrollingId] = useState<string | null>(null);
+  const [pendingEnroll, setPendingEnroll] = useState<PendingEnroll | null>(null);
+  const [enrollErrorMessage, setEnrollErrorMessage] = useState('');
   const [pendingDrop, setPendingDrop] = useState<PendingDrop | null>(null);
   const [dropErrorMessage, setDropErrorMessage] = useState('');
   const [search, setSearch] = useState<StudentCourseSelectionQuery>({
@@ -88,12 +98,14 @@ const StudentCourseSelectionPage: React.FC = () => {
   const enrollments = useMemo(() => enrollmentItems ?? [], [enrollmentItems]);
   const hasActiveEnrollments = enrollments.some((item) => item.status === 'enrolled');
 
-  // Build a map from courseOfferingId -> enrollmentId for drop operations
-  const enrollmentByOfferingId = useMemo(() => {
-    const map = new Map<string, string>();
+  const enrollmentStateByOfferingId = useMemo(() => {
+    const map = new Map<string, { enrollmentId: string; status: EnrollmentStatus }>();
     for (const e of enrollments) {
-      if (e.status === 'enrolled' && e.courseOffering?.id) {
-        map.set(e.courseOffering.id, e.enrollmentId);
+      if (e.courseOffering?.id) {
+        map.set(e.courseOffering.id, {
+          enrollmentId: e.enrollmentId,
+          status: e.status,
+        });
       }
     }
     return map;
@@ -119,9 +131,12 @@ const StudentCourseSelectionPage: React.FC = () => {
         `选课成功！已选 ${data.courseOffering.courseName}（${data.courseOffering.courseCode}）。当前已选学分：${data.creditSummary?.currentSelectedCredits ?? '—'} / ${data.creditSummary?.maxCredits ?? '—'}`
       );
       invalidateSelectionData();
+      setEnrollErrorMessage('');
+      setPendingEnroll(null);
     },
     onError: (error: unknown) => {
       const errMsg = extractErrorMessage(error, '选课失败，请重试');
+      setEnrollErrorMessage(errMsg);
       message.error(errMsg);
     },
     onSettled: () => {
@@ -165,6 +180,16 @@ const StudentCourseSelectionPage: React.FC = () => {
     });
   }, [dropMutation, pendingDrop]);
 
+  const handleConfirmEnroll = useCallback(() => {
+    if (!pendingEnroll || enrollMutation.isPending) {
+      return;
+    }
+
+    setEnrollErrorMessage('');
+    setEnrollingId(pendingEnroll.offeringId);
+    enrollMutation.mutate(pendingEnroll.offeringId);
+  }, [enrollMutation, pendingEnroll]);
+
   // ---- Enroll handler with confirmation ----
   const handleEnroll = useCallback(
     (offeringId: string) => {
@@ -173,36 +198,15 @@ const StudentCourseSelectionPage: React.FC = () => {
         ? `${offering.courseName}（${offering.courseCode}）`
         : offeringId;
 
-      Modal.confirm({
-        title: '确认选课',
-        icon: <ExclamationCircleOutlined />,
-        content: (
-          <div>
-            <p>
-              确认选择课程：<Text strong>{courseLabel}</Text>
-            </p>
-            <p>
-              学分：{offering?.credits ?? '—'} | 教师：
-              {offering?.teacherName ?? '—'}
-            </p>
-            <Alert
-              type="warning"
-              message="温馨提示"
-              description="选课结果取决于当前选课阶段、课程容量、时间冲突、先修课程和学分上限等条件，提交后请留意系统反馈。"
-              showIcon
-              style={{ marginTop: 8 }}
-            />
-          </div>
-        ),
-        okText: '确认选课',
-        cancelText: '取消',
-        onOk: () => {
-          setEnrollingId(offeringId);
-          enrollMutation.mutate(offeringId);
-        },
+      setEnrollErrorMessage('');
+      setPendingEnroll({
+        offeringId,
+        courseLabel,
+        credits: offering?.credits ?? '—',
+        teacherName: offering?.teacherName ?? '—',
       });
     },
-    [offeringRows, enrollMutation]
+    [offeringRows]
   );
 
   // ---- Drop handler with confirmation ----
@@ -350,7 +354,7 @@ const StudentCourseSelectionPage: React.FC = () => {
                 onDrop={handleDrop}
                 onViewDetail={setOfferingIdInDrawer}
                 enrollLoading={enrollingId}
-                enrollmentIdByOfferingId={enrollmentByOfferingId}
+                enrollmentStateByOfferingId={enrollmentStateByOfferingId}
               />
             </div>
           </Card>
@@ -445,6 +449,45 @@ const StudentCourseSelectionPage: React.FC = () => {
         onClose={() => setOfferingIdInDrawer(null)}
         loadDetail={loadOfferingDetail}
       />
+
+      <Modal
+        open={Boolean(pendingEnroll)}
+        title="确认选课"
+        okText="确认选课"
+        cancelText="取消"
+        confirmLoading={enrollMutation.isPending}
+        onOk={handleConfirmEnroll}
+        onCancel={() => {
+          if (!enrollMutation.isPending) {
+            setEnrollErrorMessage('');
+            setPendingEnroll(null);
+          }
+        }}
+      >
+        <p>
+          <ExclamationCircleOutlined style={{ color: '#faad14', marginRight: 8 }} />
+          确认选择课程：<Text strong>{pendingEnroll?.courseLabel ?? ''}</Text>
+        </p>
+        <p>
+          学分：{pendingEnroll?.credits ?? '—'} | 教师：{pendingEnroll?.teacherName ?? '—'}
+        </p>
+        <Alert
+          type="warning"
+          message="温馨提示"
+          description="选课结果取决于当前选课阶段、课程容量、时间冲突、先修课程和学分上限等条件，提交后请留意系统反馈。"
+          showIcon
+          style={{ marginTop: 8 }}
+        />
+        {enrollErrorMessage ? (
+          <Alert
+            type="error"
+            message="选课请求未完成"
+            description={enrollErrorMessage}
+            showIcon
+            style={{ marginTop: 12 }}
+          />
+        ) : null}
+      </Modal>
 
       <Modal
         open={Boolean(pendingDrop)}

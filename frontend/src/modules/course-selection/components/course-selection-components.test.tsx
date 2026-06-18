@@ -79,7 +79,9 @@ describe('CourseOfferingTable', () => {
         offerings={[buildOffering()]}
         loading={false}
         onDrop={onDrop}
-        enrollmentIdByOfferingId={new Map([['offering-1', 'enrollment-1']])}
+        enrollmentStateByOfferingId={new Map([
+          ['offering-1', { enrollmentId: 'enrollment-1', status: 'enrolled' }],
+        ])}
       />
     );
 
@@ -97,7 +99,7 @@ describe('CourseOfferingTable', () => {
         offerings={[buildOffering()]}
         loading={false}
         onDrop={vi.fn()}
-        enrollmentIdByOfferingId={new Map()}
+        enrollmentStateByOfferingId={new Map()}
       />
     );
 
@@ -127,6 +129,58 @@ describe('CourseOfferingTable', () => {
 
     expect(screen.getAllByText('已选').length).toBeGreaterThan(0);
     expect(screen.queryByText('课程不在培养方案中')).not.toBeInTheDocument();
+  });
+
+  it('allows enrolling again when my enrollment is already dropped', () => {
+    const onEnroll = vi.fn();
+
+    render(
+      <CourseOfferingTable
+        offerings={[buildOffering()]}
+        loading={false}
+        onEnroll={onEnroll}
+        onDrop={vi.fn()}
+        enrollmentStateByOfferingId={new Map([
+          ['offering-1', { enrollmentId: 'enrollment-1', status: 'dropped' }],
+        ])}
+      />
+    );
+
+    const enrollButton = screen.getByRole('button', { name: /选\s*课/ });
+    expect(enrollButton).not.toBeDisabled();
+
+    fireEvent.click(enrollButton);
+
+    expect(onEnroll).toHaveBeenCalledWith('offering-1');
+    expect(screen.queryByText('已选')).not.toBeInTheDocument();
+  });
+
+  it('does not enable enrollment for non-open offerings', () => {
+    const onEnroll = vi.fn();
+
+    render(
+      <CourseOfferingTable
+        offerings={[
+          buildOffering({
+            status: 'planned',
+            eligibility: {
+              isAvailable: true,
+              isEnrolled: false,
+              isFull: false,
+              hasTimeConflict: false,
+              prerequisiteSatisfied: true,
+              withinCurriculum: true,
+              reasons: [],
+            },
+          }),
+        ]}
+        loading={false}
+        onEnroll={onEnroll}
+      />
+    );
+
+    expect(screen.getByRole('button', { name: /选\s*课/ })).toBeDisabled();
+    expect(screen.getByText('课程开设未开放选课')).toBeInTheDocument();
   });
 });
 

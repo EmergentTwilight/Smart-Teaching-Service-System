@@ -165,6 +165,59 @@ describe('courseSearchService eligibility', () => {
     expect(result.items[1].eligibility.reasons).not.toContain('课程已选')
   })
 
+  it('marks non-open course offerings as unavailable', async () => {
+    prismaMock.courseOffering.findMany.mockResolvedValue([
+      buildOffering({ id: 'planned-offering', status: 'PLANNED' }),
+    ])
+
+    const result = await courseSearchService.listAvailableOfferings('student-user-1', {
+      semesterId: 'semester-1',
+      includeUnavailable: true,
+      page: 1,
+      pageSize: 20,
+    })
+
+    expect(result).not.toBeTypeOf('string')
+    if (typeof result === 'string') {
+      throw new Error(result)
+    }
+
+    expect(result.items).toHaveLength(1)
+    expect(result.items[0].eligibility.isAvailable).toBe(false)
+    expect(result.items[0].eligibility.reasons).toContain('课程开设未开放选课')
+  })
+
+  it('marks archived courses as unavailable', async () => {
+    const archivedOffering = buildOffering()
+
+    prismaMock.courseOffering.findMany.mockResolvedValue([
+      {
+        ...archivedOffering,
+        id: 'archived-course-offering',
+        course: {
+          ...archivedOffering.course,
+          status: 'ARCHIVED',
+        },
+      },
+    ])
+
+    const result = await courseSearchService.listAvailableOfferings('student-user-1', {
+      semesterId: 'semester-1',
+      includeUnavailable: true,
+      page: 1,
+      pageSize: 20,
+    })
+
+    expect(result).not.toBeTypeOf('string')
+    if (typeof result === 'string') {
+      throw new Error(result)
+    }
+
+    expect(result.items).toHaveLength(1)
+    expect(result.items[0].eligibility.isAvailable).toBe(false)
+    expect(result.items[0].eligibility.reasons).toContain('课程已归档')
+  })
+
   it('returns complete eligibility flags for offering detail', async () => {
     prismaMock.user.findUnique.mockResolvedValue({
       id: 'student-user-1',
@@ -200,5 +253,35 @@ describe('courseSearchService eligibility', () => {
       withinCurriculum: true,
       reasons: ['课程已选'],
     })
+  })
+
+  it('includes course offering status in detail eligibility', async () => {
+    prismaMock.user.findUnique.mockResolvedValue({
+      id: 'student-user-1',
+      student: { userId: 'student-user-1' },
+      teacher: null,
+      admin: null,
+    })
+    prismaMock.courseOffering.findUnique.mockResolvedValue(
+      buildOffering({
+        id: 'closed-offering',
+        status: 'CLOSED',
+      })
+    )
+    prismaMock.student.findUnique.mockResolvedValue(buildStudent('selected-offering'))
+
+    const result = await courseSearchService.getOfferingDetail(
+      'closed-offering',
+      'student-user-1',
+      true
+    )
+
+    expect(result).not.toBeTypeOf('string')
+    if (typeof result === 'string') {
+      throw new Error(result)
+    }
+
+    expect(result.eligibility?.isAvailable).toBe(false)
+    expect(result.eligibility?.reasons).toContain('课程开设未开放选课')
   })
 })

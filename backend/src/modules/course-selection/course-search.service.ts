@@ -28,6 +28,22 @@ import type { Prisma, Semester } from '@prisma/client'
 
 const prisma = new PrismaClient()
 
+const getOfferingStatusUnavailableReason = (status: OfferingStatus) => {
+  if (status === OfferingStatus.OPEN) {
+    return null
+  }
+
+  return '课程开设未开放选课'
+}
+
+const getCourseStatusUnavailableReason = (status: CourseStatus) => {
+  if (status === CourseStatus.ACTIVE) {
+    return null
+  }
+
+  return '课程已归档'
+}
+
 export const courseSearchService = {
   // TODO(C2, FR-C-08, FR-C-09, FR-C-10, FR-C-12, NFR-C-13): 完整实现课程搜索查询
   // - 支持课程名/教师名/课程代码/学期/课程类型筛选
@@ -414,6 +430,8 @@ export const courseSearchService = {
     for(const courseOffering of courseOfferings) {
       let isEnrolled: boolean = false, hasTimeConflict: boolean = false, prerequisiteSatisfied: boolean = true, withinCurriculum: boolean = false
       const isFull = courseOffering.capacity <= courseOffering.enrolledCount
+      const offeringStatusReason = getOfferingStatusUnavailableReason(courseOffering.status)
+      const courseStatusReason = getCourseStatusUnavailableReason(courseOffering.course.status)
       for(const enrollment of student.enrollments) {
         if(enrollment.status != EnrollmentStatus.ENROLLED) {
           continue
@@ -466,7 +484,7 @@ export const courseSearchService = {
           break
         }
       }
-      const isAvailable = !isEnrolled && !isFull && !hasTimeConflict && prerequisiteSatisfied && withinCurriculum
+      const isAvailable = !offeringStatusReason && !courseStatusReason && !isEnrolled && !isFull && !hasTimeConflict && prerequisiteSatisfied && withinCurriculum
       if(!isAvailable && !includeUnavailable) {
         continue
       }
@@ -492,6 +510,12 @@ export const courseSearchService = {
           reasons: []
         }
       })
+      if(offeringStatusReason) {
+        courses[courses.length - 1].eligibility.reasons.push(offeringStatusReason)
+      }
+      if(courseStatusReason) {
+        courses[courses.length - 1].eligibility.reasons.push(courseStatusReason)
+      }
       if(isEnrolled) {
         courses[courses.length - 1].eligibility.reasons.push('课程已选')
       }
@@ -689,6 +713,8 @@ export const courseSearchService = {
     
     let isEnrolled: boolean = false, hasTimeConflict: boolean = false, prerequisiteSatisfied: boolean = true, withinCurriculum: boolean = false
     const isFull = offering.capacity <= offering.enrolledCount
+    const offeringStatusReason = getOfferingStatusUnavailableReason(offering.status)
+    const courseStatusReason = getCourseStatusUnavailableReason(offering.course.status)
     for(const enrollment of student.enrollments) {
       if(enrollment.status != EnrollmentStatus.ENROLLED) {
         continue
@@ -741,7 +767,7 @@ export const courseSearchService = {
         break
       }
     }
-    const isAvailable = !isEnrolled && !isFull && !hasTimeConflict && prerequisiteSatisfied && withinCurriculum
+    const isAvailable = !offeringStatusReason && !courseStatusReason && !isEnrolled && !isFull && !hasTimeConflict && prerequisiteSatisfied && withinCurriculum
     const eligibility: CourseEligibilitySnapshot = {
       isAvailable: isAvailable,
       isEnrolled: isEnrolled,
@@ -750,6 +776,12 @@ export const courseSearchService = {
       prerequisiteSatisfied: prerequisiteSatisfied,
       withinCurriculum: withinCurriculum,
       reasons: []
+    }
+    if(offeringStatusReason) {
+      eligibility.reasons.push(offeringStatusReason)
+    }
+    if(courseStatusReason) {
+      eligibility.reasons.push(courseStatusReason)
     }
     if(isEnrolled) {
       eligibility.reasons.push('课程已选')

@@ -1,7 +1,8 @@
 import { Button, Popover, Space, Table, Tag, Tooltip, Typography, type TableProps } from 'antd';
 import { type FC } from 'react';
-import type { AvailableOfferingItem } from '../types/course';
+import type { AvailableOfferingItem, CourseEligibilitySnapshot } from '../types/course';
 import type { PaginationMeta } from '../types/common';
+import type { EnrollmentStatus } from '../types/enrollment';
 import { InfoCircleOutlined, WarningOutlined } from '@ant-design/icons';
 import { getEligibilityDisplay } from '../utils/eligibilityDisplay';
 
@@ -26,6 +27,61 @@ const STATUS_CONFIG: Record<AvailableOfferingItem['status'], { label: string; co
   cancelled: { label: '已取消', color: 'red' },
 };
 
+interface OfferingEnrollmentState {
+  enrollmentId: string;
+  status: EnrollmentStatus;
+}
+
+const isEnrolledReason = (reason: string) => reason.includes('已选');
+
+const getOfferingStatusReason = (status: AvailableOfferingItem['status']) => {
+  if (status === 'open') {
+    return null;
+  }
+
+  return '课程开设未开放选课';
+};
+
+const uniqueReasons = (reasons: string[]) => Array.from(new Set(reasons));
+
+const getEffectiveEligibility = (
+  record: AvailableOfferingItem,
+  enrollmentState?: OfferingEnrollmentState
+): CourseEligibilitySnapshot => {
+  const isKnownActiveEnrollment = enrollmentState?.status === 'enrolled';
+  const hasKnownInactiveEnrollment = Boolean(enrollmentState && enrollmentState.status !== 'enrolled');
+  const isEnrolled = isKnownActiveEnrollment || (!enrollmentState && Boolean(record.eligibility.isEnrolled));
+
+  if (isEnrolled) {
+    return {
+      ...record.eligibility,
+      isAvailable: false,
+      isEnrolled: true,
+      reasons: record.eligibility.reasons,
+    };
+  }
+
+  const statusReason = getOfferingStatusReason(record.status);
+  const reasons = hasKnownInactiveEnrollment
+    ? record.eligibility.reasons.filter((reason) => !isEnrolledReason(reason))
+    : record.eligibility.reasons;
+  const hasBlockingEligibilityFlag = Boolean(
+    record.eligibility.isFull ||
+      record.eligibility.hasTimeConflict ||
+      record.eligibility.prerequisiteSatisfied === false ||
+      record.eligibility.withinCurriculum === false
+  );
+
+  return {
+    ...record.eligibility,
+    isEnrolled: false,
+    isAvailable:
+      record.status === 'open' &&
+      (record.eligibility.isAvailable || (hasKnownInactiveEnrollment && !hasBlockingEligibilityFlag)),
+    reasons: uniqueReasons(statusReason ? [...reasons, statusReason] : reasons),
+  };
+};
+
 interface CourseOfferingTableProps {
   offerings: AvailableOfferingItem[];
   loading: boolean;
@@ -35,7 +91,7 @@ interface CourseOfferingTableProps {
   onDrop?: (enrollmentInfo: { offeringId: string; enrollmentId: string }) => void;
   onViewDetail?: (offeringId: string) => void;
   enrollLoading?: string | null;
-  enrollmentIdByOfferingId?: ReadonlyMap<string, string>;
+  enrollmentStateByOfferingId?: ReadonlyMap<string, OfferingEnrollmentState>;
 }
 
 /**
@@ -56,7 +112,7 @@ export const CourseOfferingTable: FC<CourseOfferingTableProps> = ({
   onDrop,
   onViewDetail,
   enrollLoading,
-  enrollmentIdByOfferingId,
+  enrollmentStateByOfferingId,
 }) => {
   const columns: TableProps<AvailableOfferingItem>['columns'] = [
     {
@@ -125,7 +181,11 @@ export const CourseOfferingTable: FC<CourseOfferingTableProps> = ({
       key: 'eligibility',
       width: 180,
       render: (_value: unknown, record: AvailableOfferingItem) => {
-        const display = getEligibilityDisplay(record.eligibility);
+        const effectiveEligibility = getEffectiveEligibility(
+          record,
+          enrollmentStateByOfferingId?.get(record.courseOfferingId)
+        );
+        const display = getEligibilityDisplay(effectiveEligibility);
         const hasVisibleReasons = display.visibleReasons.length > 0;
 
         if (display.isEnrolled) {
@@ -198,11 +258,14 @@ export const CourseOfferingTable: FC<CourseOfferingTableProps> = ({
       width: 120,
       render: (_value: unknown, record: AvailableOfferingItem) => {
         const isBusy = enrollLoading === record.courseOfferingId;
-        const enrollmentId = enrollmentIdByOfferingId?.get(record.courseOfferingId);
+        const enrollmentState = enrollmentStateByOfferingId?.get(record.courseOfferingId);
+        const effectiveEligibility = getEffectiveEligibility(record, enrollmentState);
+        const enrollmentId = enrollmentState?.status === 'enrolled' ? enrollmentState.enrollmentId : null;
+        const canEnroll = effectiveEligibility.isAvailable && record.status === 'open';
 
         return (
           <Space direction="vertical" size={4}>
-            {record.eligibility.isEnrolled ? (
+            {effectiveEligibility.isEnrolled ? (
               onDrop && enrollmentId ? (
                 <Button
                   size="small"
@@ -211,7 +274,10 @@ export const CourseOfferingTable: FC<CourseOfferingTableProps> = ({
                   loading={isBusy}
                   onClick={(e) => {
                     e.stopPropagation();
-                    onDrop({ offeringId: record.courseOfferingId, enrollmentId });
+                    onDrop({
+                      offeringId: record.courseOfferingId,
+                      enrollmentId,
+                    });
                   }}
                 >
                   退选
@@ -223,11 +289,11 @@ export const CourseOfferingTable: FC<CourseOfferingTableProps> = ({
               <Button
                 size="small"
                 type="primary"
-                disabled={!record.eligibility.isAvailable}
+                disabled={!canEnroll}
                 loading={isBusy}
                 onClick={(e) => {
                   e.stopPropagation();
-                  if (record.eligibility.isAvailable) {
+                  if (canEnroll) {
                     onEnroll(record.courseOfferingId);
                   }
                 }}

@@ -20,7 +20,9 @@ import {
   DatabaseOutlined,
   LineChartOutlined,
   CalculatorOutlined,
+  ApiOutlined,
   BuildOutlined,
+  CheckCircleOutlined,
 } from '@ant-design/icons';
 
 export const MENU_ITEMS: MenuProps['items'] = [
@@ -77,6 +79,7 @@ export const MENU_ITEMS: MenuProps['items'] = [
     icon: <FileTextOutlined />,
     label: '在线测试',
     children: [
+      { key: '/exam/ping', icon: <ApiOutlined />, label: '联调验证' },
       { key: '/exam/questions', icon: <DatabaseOutlined />, label: '题库管理' },
       { key: '/exam/papers', icon: <FileTextOutlined />, label: '组卷考试' },
       { key: '/exam/results', icon: <BarChartOutlined />, label: '成绩查看' },
@@ -90,6 +93,7 @@ export const MENU_ITEMS: MenuProps['items'] = [
       { key: '/grade/entry', icon: <EditOutlined />, label: '成绩录入' },
       { key: '/grade/statistics', icon: <LineChartOutlined />, label: '统计分析' },
       { key: '/grade/gpa', icon: <CalculatorOutlined />, label: 'GPA 计算' },
+      { key: '/grade/approval', icon: <CheckCircleOutlined />, label: '改分审批' },
     ],
   },
   {

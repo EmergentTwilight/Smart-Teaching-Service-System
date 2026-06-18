@@ -21,10 +21,20 @@ import majorRoutes from './modules/info-management/major.routes.js'
 import courseRoutes from './modules/info-management/course.routes.js'
 import curriculumRoutes from './modules/info-management/curriculums.routes.js'
 import rolesRoutes, { permissionsRouter } from './modules/info-management/roles.routes.js'
+import scoreEntryRoutes from './modules/score-management/score-entry.routes.js'
+import scoreModificationRoutes from './modules/score-management/score-modification.routes.js'
+import scoreQueryRoutes from './modules/score-management/score-query.routes.js'
+import scoreAnalyticsRoutes from './modules/score-management/score-analytics.routes.js'
 import config from './config/index.js'
 import { swaggerSpec } from './config/swagger.js'
 import swaggerUi from 'swagger-ui-express'
 import prisma from './shared/prisma/client.js'
+// group B part
+import classroomRoutes from './modules/course-arrangement/classroom/classroom.routes.js'
+import scheduleRoutes from './modules/course-arrangement/schedule/schedule.routes.js'
+import timetableRoutes from './modules/course-arrangement/timetable/timetable.routes.js'
+import ruleRoutes from './modules/course-arrangement/rules/rule.routes.js'
+import autoScheduleRoutes from './modules/course-arrangement/auto-schedule/auto-schedule.routes.js'
 
 const app: Application = express()
 const PORT = config.port
@@ -172,11 +182,22 @@ app.get('/api/health', async (req, res) => {
 app.use('/api/v1/auth', authRoutes)
 app.use('/api/v1/users', usersRoutes)
 app.use('/api/v1/departments', departmentsRoutes)
+// score-management (F module)
 app.use('/api/v1/majors', majorRoutes)
 app.use('/api/v1/courses', courseRoutes)
 app.use('/api/v1/curriculums', curriculumRoutes)
 app.use('/api/v1/roles', rolesRoutes)
 app.use('/api/v1/permissions', permissionsRouter)
+app.use('/api/v1/course-offerings/:courseOfferingId/scores', scoreEntryRoutes)
+app.use('/api/v1/scores', scoreModificationRoutes)
+app.use('/api/v1', scoreQueryRoutes)
+app.use('/api/v1', scoreAnalyticsRoutes)
+// course-arrangement (B module)
+app.use('/api/v1/course-arrangement/classrooms', classroomRoutes)
+app.use('/api/v1/course-arrangement/schedules', scheduleRoutes)
+app.use('/api/v1/course-arrangement/timetables', timetableRoutes)
+app.use('/api/v1/course-arrangement/rules', ruleRoutes)
+app.use('/api/v1/course-arrangement/auto-schedule', autoScheduleRoutes)
 
 // 404 处理
 app.use((req, res) => {

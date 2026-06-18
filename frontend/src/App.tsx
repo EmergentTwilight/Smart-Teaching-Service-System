@@ -24,8 +24,33 @@ const MajorList = lazy(() => import('@/modules/info-management/pages/majors/Majo
 const RoleList = lazy(() => import('@/modules/info-management/pages/roles/RoleList'));
 const CourseList = lazy(() => import('@/modules/info-management/pages/courses/CourseList'));
 const CurriculumList = lazy(() => import('@/modules/info-management/pages/curriculums/CurriculumList'));
+const TeacherScoreEntryPage = lazy(() => import('@/modules/score-management/pages/TeacherScoreEntryPage'));
+const AdminScoreApprovalPage = lazy(() => import('@/modules/score-management/admin/pages/AdminScoreApprovalPage'));
+const StudentScoreQueryPage = lazy(() => import('@/modules/score-management/student/pages/student-score-query-page'));
+const StudentScoreAnalyticsPage = lazy(() => import('@/modules/score-management/student/pages/student-score-analytics-page'));
 const Profile = lazy(() => import('@/modules/info-management/pages/Profile'));
+const OnlineTestingPingPage = lazy(
+  () => import('@/modules/online-testing/pages/OnlineTestingPingPage')
+);
+const OnlineTestingQuestionsPage = lazy(
+  () => import('@/modules/online-testing/pages/OnlineTestingQuestionsPage')
+);
+const OnlineTestingPapersPage = lazy(
+  () => import('@/modules/online-testing/pages/OnlineTestingPapersPage')
+);
+const OnlineTestingExamPage = lazy(
+  () => import('@/modules/online-testing/pages/OnlineTestingExamPage')
+);
+const OnlineTestingResultsPage = lazy(
+  () => import('@/modules/online-testing/pages/OnlineTestingResultsPage')
+);
 const ComingSoon = lazy(() => import('@/shared/components/ComingSoon'));
+
+// group B: course arrangement
+const ClassroomList = lazy(() => import('@/modules/course-arrangement/pages/classroom-list'));
+const ScheduleList = lazy(() => import('@/modules/course-arrangement/pages/schedule-list'))
+const TimetableView = lazy(() => import('@/modules/course-arrangement/pages/timetable-view'))
+const AutoScheduleManagement = lazy(() => import('@/modules/course-arrangement/pages/auto-schedule-management'))
 
 // 加载中组件
 const LoadingFallback = () => (
@@ -148,11 +173,12 @@ const App: React.FC = () => {
                   />
                   <Route path="info/courses" element={<CourseList />} />
                   <Route path="info/curriculums" element={<CurriculumList />} />
+                  <Route path="info/classrooms" element={<ClassroomList />} />
 
                   {/* 自动排课 */}
-                  <Route path="schedule/tasks" element={<ComingSoon title="排课任务" />} />
-                  <Route path="schedule/view" element={<ComingSoon title="课表查看" />} />
-                  <Route path="schedule/manual" element={<ComingSoon title="手动调整" />} />
+                  <Route path="schedule/tasks" element={<AutoScheduleManagement />} />
+                  <Route path="schedule/view" element={<TimetableView />} />
+                  <Route path="schedule/manual" element={<ScheduleList />} />
 
                   {/* 智能选课 */}
                   <Route path="selection/courses" element={<ComingSoon title="课程列表" />} />
@@ -165,14 +191,24 @@ const App: React.FC = () => {
                   <Route path="forum/notifications" element={<ComingSoon title="消息通知" />} />
 
                   {/* 在线测试 */}
-                  <Route path="exam/questions" element={<ComingSoon title="题库管理" />} />
-                  <Route path="exam/papers" element={<ComingSoon title="组卷考试" />} />
-                  <Route path="exam/results" element={<ComingSoon title="成绩查看" />} />
+                  <Route path="exam/ping" element={<OnlineTestingPingPage />} />
+                  <Route path="exam/questions" element={<OnlineTestingQuestionsPage />} />
+                  <Route path="exam/papers" element={<OnlineTestingPapersPage />} />
+                  <Route path="exam/exam/:paperId" element={<OnlineTestingExamPage />} />
+                  <Route path="exam/results" element={<OnlineTestingResultsPage />} />
 
                   {/* 成绩管理 */}
-                  <Route path="grade/entry" element={<ComingSoon title="成绩录入" />} />
-                  <Route path="grade/statistics" element={<ComingSoon title="统计分析" />} />
-                  <Route path="grade/gpa" element={<ComingSoon title="GPA 计算" />} />
+                  <Route path="grade/entry" element={<TeacherScoreEntryPage />} />
+                  <Route path="grade/statistics" element={<StudentScoreAnalyticsPage />} />
+                  <Route path="grade/gpa" element={<StudentScoreQueryPage />} />
+                  <Route
+                    path="grade/approval"
+                    element={
+                      <ProtectedRoute requiredRoles={['admin', 'super_admin']}>
+                        <AdminScoreApprovalPage />
+                      </ProtectedRoute>
+                    }
+                  />
 
                   {/* 系统设置 */}
                   <Route path="settings" element={<ComingSoon title="系统设置" />} />

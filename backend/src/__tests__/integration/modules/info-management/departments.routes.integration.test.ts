@@ -167,8 +167,8 @@ describe('GET /api/v1/departments', () => {
     const token = generateTestToken(user.id, user.username)
 
     // 创建测试院系
-    await createTestDepartment({ name: 'itest_dept_计算机学院', code: 'CS' })
-    await createTestDepartment({ name: 'itest_dept_数学学院', code: 'MATH' })
+    await createTestDepartment({ name: 'itest_dept_计算机学院', code: 'ITD_LIST_CS' })
+    await createTestDepartment({ name: 'itest_dept_数学学院', code: 'ITD_LIST_MATH' })
 
     const response = await request(app)
       .get('/api/v1/departments')
@@ -198,7 +198,7 @@ describe('GET /api/v1/departments', () => {
     await prisma.major.create({
       data: {
         name: 'itest_dept_计算机科学与技术',
-        code: 'CS',
+        code: 'ITD_MAJOR_CS',
         departmentId: department.id,
       },
     })
@@ -264,7 +264,7 @@ describe('GET /api/v1/departments/:id', () => {
 
     const department = await createTestDepartment({
       name: 'itest_dept_计算机学院',
-      code: 'CS',
+      code: 'ITD_DETAIL_CS',
       description: '计算机科学与技术学院',
     })
 
@@ -275,7 +275,7 @@ describe('GET /api/v1/departments/:id', () => {
 
     expect(response.body.data.id).toBe(department.id)
     expect(response.body.data.name).toBe('itest_dept_计算机学院')
-    expect(response.body.data.code).toBe('CS')
+    expect(response.body.data.code).toBe('ITD_DETAIL_CS')
     expect(response.body.data.description).toBe('计算机科学与技术学院')
   })
 

@@ -354,7 +354,7 @@ describe('GET /api/v1/courses', () => {
     ])
 
     const response = await request(app)
-      .get('/api/v1/courses?page=1&page_size=2')
+      .get('/api/v1/courses?keyword=分页课程&page=1&page_size=2')
       .set('Authorization', `Bearer ${token}`)
       .expect(200)
 

@@ -37,6 +37,12 @@ interface StudentCourseSelectionQuery extends OfferingsAvailableQuery {
   offeringStatus?: string;
 }
 
+interface PendingDrop {
+  offeringId: string;
+  enrollmentId: string;
+  courseLabel: string;
+}
+
 /**
  * StudentCourseSelectionPage - 学生选课聚合页
  *
@@ -51,6 +57,7 @@ const StudentCourseSelectionPage: React.FC = () => {
   const [filterForm] = Form.useForm<StudentCourseSelectionQuery>();
   const [offeringIdInDrawer, setOfferingIdInDrawer] = useState<string | null>(null);
   const [enrollingId, setEnrollingId] = useState<string | null>(null);
+  const [pendingDrop, setPendingDrop] = useState<PendingDrop | null>(null);
   const [search, setSearch] = useState<StudentCourseSelectionQuery>({
     includeUnavailable: true,
     page: 1,
@@ -131,6 +138,7 @@ const StudentCourseSelectionPage: React.FC = () => {
     onSuccess: (_data, variables) => {
       message.success(`已退选 ${variables.offeringName}`);
       invalidateSelectionData();
+      setPendingDrop(null);
     },
     onError: (error: unknown) => {
       const errMsg = extractErrorMessage(error, '退选失败，请重试');
@@ -140,6 +148,18 @@ const StudentCourseSelectionPage: React.FC = () => {
       setEnrollingId(null);
     },
   });
+
+  const handleConfirmDrop = useCallback(() => {
+    if (!pendingDrop || dropMutation.isPending) {
+      return;
+    }
+
+    setEnrollingId(pendingDrop.offeringId);
+    dropMutation.mutate({
+      enrollmentId: pendingDrop.enrollmentId,
+      offeringName: pendingDrop.courseLabel,
+    });
+  }, [dropMutation, pendingDrop]);
 
   // ---- Enroll handler with confirmation ----
   const handleEnroll = useCallback(
@@ -189,33 +209,13 @@ const StudentCourseSelectionPage: React.FC = () => {
         ? `${offering.courseName}（${offering.courseCode}）`
         : offeringId;
 
-      Modal.confirm({
-        title: '确认退选',
-        icon: <ExclamationCircleOutlined />,
-        content: (
-          <div>
-            <p>
-              确认退选课程：<Text strong>{courseLabel}</Text>
-            </p>
-            <Alert
-              type="warning"
-              message="退选后将释放课程名额"
-              description="退选后如需重新选课，需再次提交选课申请并通过校验。"
-              showIcon
-              style={{ marginTop: 8 }}
-            />
-          </div>
-        ),
-        okText: '确认退选',
-        okButtonProps: { danger: true },
-        cancelText: '取消',
-        onOk: () => {
-          setEnrollingId(offeringId);
-          dropMutation.mutate({ enrollmentId, offeringName: courseLabel });
-        },
+      setPendingDrop({
+        offeringId,
+        enrollmentId,
+        courseLabel,
       });
     },
-    [offeringRows, dropMutation]
+    [offeringRows]
   );
 
   // ---- Pagination handler ----
@@ -440,6 +440,32 @@ const StudentCourseSelectionPage: React.FC = () => {
         onClose={() => setOfferingIdInDrawer(null)}
         loadDetail={loadOfferingDetail}
       />
+
+      <Modal
+        open={Boolean(pendingDrop)}
+        title="确认退选"
+        okText="确认退选"
+        cancelText="取消"
+        okButtonProps={{ danger: true }}
+        confirmLoading={dropMutation.isPending}
+        onOk={handleConfirmDrop}
+        onCancel={() => {
+          if (!dropMutation.isPending) {
+            setPendingDrop(null);
+          }
+        }}
+      >
+        <p>
+          确认退选课程：<Text strong>{pendingDrop?.courseLabel ?? ''}</Text>
+        </p>
+        <Alert
+          type="warning"
+          message="退选后将释放课程名额"
+          description="退选后如需重新选课，需再次提交选课申请并通过校验。若当前阶段不允许退选，系统会展示后端返回的失败原因。"
+          showIcon
+          style={{ marginTop: 8 }}
+        />
+      </Modal>
     </div>
   );
 };

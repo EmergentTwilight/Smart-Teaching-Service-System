@@ -1,0 +1,198 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { describe, expect, it, vi } from 'vitest';
+import { enrollmentsApi } from '../api/enrollments';
+import { curriculumApi } from '../api/curriculum';
+import { coursesApi } from '../api/courses';
+import { useAvailableOfferings } from '../hooks/useAvailableOfferings';
+import { useMyEnrollments } from '../hooks/useMyEnrollments';
+import type { AvailableOfferingItem } from '../types/course';
+import type { EnrollmentItem } from '../types/enrollment';
+import type { CurriculumProgress } from '../types/curriculum';
+import StudentCourseSelectionPage from './StudentCourseSelectionPage';
+
+vi.mock('../hooks/useAvailableOfferings', () => ({
+  useAvailableOfferings: vi.fn(),
+}));
+
+vi.mock('../hooks/useMyEnrollments', () => ({
+  useMyEnrollments: vi.fn(),
+}));
+
+vi.mock('../api/enrollments', () => ({
+  enrollmentsApi: {
+    createEnrollment: vi.fn(),
+    dropEnrollment: vi.fn(),
+    listMyEnrollments: vi.fn(),
+  },
+}));
+
+vi.mock('../api/curriculum', () => ({
+  curriculumApi: {
+    getMyCurriculumProgress: vi.fn(),
+  },
+}));
+
+vi.mock('../api/courses', () => ({
+  coursesApi: {
+    getOfferingDetail: vi.fn(),
+  },
+}));
+
+const offering: AvailableOfferingItem = {
+  courseOfferingId: 'offering-1',
+  courseCode: 'CS101',
+  courseName: '程序设计基础',
+  credits: 4,
+  courseType: 'required',
+  teacherName: '王老师',
+  capacity: 30,
+  enrolledCount: 10,
+  remainingCapacity: 20,
+  status: 'open',
+  eligibility: {
+    isAvailable: false,
+    isEnrolled: true,
+    isFull: false,
+    hasTimeConflict: false,
+    prerequisiteSatisfied: true,
+    withinCurriculum: true,
+    reasons: ['课程已选'],
+  },
+};
+
+const enrollment: EnrollmentItem = {
+  enrollmentId: 'enrollment-1',
+  status: 'enrolled',
+  enrolledAt: '2026-06-01T08:00:00.000Z',
+  droppedAt: null,
+  courseOffering: {
+    id: 'offering-1',
+    courseName: '程序设计基础',
+    courseCode: 'CS101',
+    credits: 4,
+    courseType: 'required',
+    teacherName: '王老师',
+    semesterName: '2025-2026 春季',
+  },
+};
+
+const progress: CurriculumProgress = {
+  curriculumId: 'curriculum-1',
+  requirements: {
+    totalCredits: 160,
+    requiredCredits: 100,
+    electiveCredits: 40,
+    generalCredits: 20,
+  },
+  selected: {
+    totalCredits: 4,
+    requiredCredits: 4,
+    electiveCredits: 0,
+    generalCredits: 0,
+  },
+  remaining: {
+    totalCredits: 156,
+    requiredCredits: 96,
+    electiveCredits: 40,
+    generalCredits: 20,
+  },
+  byCourseType: [],
+  warnings: [],
+};
+
+const createQueryClient = () =>
+  new QueryClient({
+    defaultOptions: {
+      queries: { retry: false },
+      mutations: { retry: false },
+    },
+  });
+
+const renderPage = () => {
+  vi.mocked(useAvailableOfferings).mockReturnValue({
+    available: {
+      data: {
+        items: [offering],
+        pagination: {
+          page: 1,
+          pageSize: 20,
+          total: 1,
+          totalPages: 1,
+        },
+      },
+      isLoading: false,
+      isFetching: false,
+      isError: false,
+      error: null,
+    },
+  } as ReturnType<typeof useAvailableOfferings>);
+
+  vi.mocked(useMyEnrollments).mockReturnValue({
+    data: {
+      items: [enrollment],
+      summary: {
+        enrolledCount: 1,
+        enrolledCredits: 4,
+      },
+      pagination: {
+        page: 1,
+        pageSize: 100,
+        total: 1,
+        totalPages: 1,
+      },
+    },
+    isLoading: false,
+    isError: false,
+    error: null,
+  } as ReturnType<typeof useMyEnrollments>);
+
+  vi.mocked(curriculumApi.getMyCurriculumProgress).mockResolvedValue(progress);
+  vi.mocked(enrollmentsApi.dropEnrollment).mockResolvedValue({
+    enrollment: {
+      id: 'enrollment-1',
+      status: 'dropped',
+      enrolledAt: '2026-06-01T08:00:00.000Z',
+      droppedAt: '2026-06-01T09:00:00.000Z',
+    },
+    courseOffering: {
+      id: 'offering-1',
+      courseCode: 'CS101',
+      courseName: '程序设计基础',
+      capacity: 30,
+      enrolledCount: 9,
+      remainingCapacity: 21,
+    },
+  });
+  vi.mocked(coursesApi.getOfferingDetail).mockRejectedValue(new Error('not used'));
+
+  return render(
+    <QueryClientProvider client={createQueryClient()}>
+      <StudentCourseSelectionPage />
+    </QueryClientProvider>
+  );
+};
+
+describe('StudentCourseSelectionPage', () => {
+  it('opens a controlled drop confirmation and submits the exact enrollment id', async () => {
+    renderPage();
+
+    fireEvent.click(screen.getByRole('button', { name: '退选' }));
+
+    expect(screen.getAllByText('确认退选').length).toBeGreaterThan(0);
+    expect(screen.getByText(/确认退选课程/)).toBeInTheDocument();
+    expect(screen.getAllByText('程序设计基础（CS101）').length).toBeGreaterThan(0);
+
+    fireEvent.click(screen.getByRole('button', { name: '确认退选' }));
+
+    await waitFor(() => {
+      expect(enrollmentsApi.dropEnrollment).toHaveBeenCalledWith(
+        'enrollment-1',
+        expect.objectContaining({
+          reason: undefined,
+          clientRequestId: expect.stringMatching(/^drop-/),
+        })
+      );
+    });
+  });
+});

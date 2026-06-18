@@ -8,11 +8,23 @@ import { useDebounceFn } from 'ahooks'; // 需要安装 ahooks: pnpm add ahooks
 import { schedulesApi } from '../api/schedules';
 import { classroomsApi } from '../api/classrooms';
 import type { } from '../types/auto-schedule';
-import type { ClassroomListResponse } from '../types/classroom';
+import type { AvaliableQueryInput, ClassroomListResponse } from '../types/classroom';
 import { CreateScheduleInput } from '../types/schedule';
 
 const { Option } = Select;
 const { TextArea } = Input;
+
+function hasCompleteTimeParams(
+  timeParams: Partial<AvaliableQueryInput>
+): timeParams is AvaliableQueryInput {
+  return (
+    typeof timeParams.dayOfWeek === 'number' &&
+    typeof timeParams.startWeek === 'number' &&
+    typeof timeParams.endWeek === 'number' &&
+    typeof timeParams.startPeriod === 'number' &&
+    typeof timeParams.endPeriod === 'number'
+  );
+}
 
 interface ScheduleEditProps {
   visible: boolean;
@@ -80,15 +92,9 @@ export const ScheduleEdit: React.FC<ScheduleEditProps> = ({
   }, form);
 
   // 获取真实空闲教室的逻辑
-  const { run: fetchAvailableRooms } = useDebounceFn(async (timeParams) => {
+  const { run: fetchAvailableRooms } = useDebounceFn(async (timeParams: Partial<AvaliableQueryInput>) => {
     // 只有时间全填满了，才去拉取可用教室
-    if (
-      timeParams?.dayOfWeek && 
-      timeParams?.startWeek && 
-      timeParams?.endWeek && 
-      timeParams?.startPeriod && 
-      timeParams?.endPeriod
-    ) {
+    if (hasCompleteTimeParams(timeParams)) {
       setLoadingRooms(true);
       try {
         const rooms = await classroomsApi.getAvailable(timeParams);

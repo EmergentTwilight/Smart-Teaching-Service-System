@@ -195,4 +195,18 @@ describe('StudentCourseSelectionPage', () => {
       );
     });
   });
+
+  it('keeps a visible backend failure reason in the drop confirmation', async () => {
+    renderPage();
+    vi.mocked(enrollmentsApi.dropEnrollment).mockRejectedValueOnce(
+      new Error('当前选课阶段不允许退选')
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: '退选' }));
+    fireEvent.click(screen.getByRole('button', { name: '确认退选' }));
+
+    expect(await screen.findByText('退选请求未完成')).toBeInTheDocument();
+    expect(screen.getByText('当前选课阶段不允许退选')).toBeInTheDocument();
+    expect(screen.getAllByText('确认退选').length).toBeGreaterThan(0);
+  });
 });

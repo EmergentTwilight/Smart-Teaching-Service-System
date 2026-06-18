@@ -58,6 +58,7 @@ const StudentCourseSelectionPage: React.FC = () => {
   const [offeringIdInDrawer, setOfferingIdInDrawer] = useState<string | null>(null);
   const [enrollingId, setEnrollingId] = useState<string | null>(null);
   const [pendingDrop, setPendingDrop] = useState<PendingDrop | null>(null);
+  const [dropErrorMessage, setDropErrorMessage] = useState('');
   const [search, setSearch] = useState<StudentCourseSelectionQuery>({
     includeUnavailable: true,
     page: 1,
@@ -138,10 +139,12 @@ const StudentCourseSelectionPage: React.FC = () => {
     onSuccess: (_data, variables) => {
       message.success(`已退选 ${variables.offeringName}`);
       invalidateSelectionData();
+      setDropErrorMessage('');
       setPendingDrop(null);
     },
     onError: (error: unknown) => {
       const errMsg = extractErrorMessage(error, '退选失败，请重试');
+      setDropErrorMessage(errMsg);
       message.error(errMsg);
     },
     onSettled: () => {
@@ -154,6 +157,7 @@ const StudentCourseSelectionPage: React.FC = () => {
       return;
     }
 
+    setDropErrorMessage('');
     setEnrollingId(pendingDrop.offeringId);
     dropMutation.mutate({
       enrollmentId: pendingDrop.enrollmentId,
@@ -209,6 +213,7 @@ const StudentCourseSelectionPage: React.FC = () => {
         ? `${offering.courseName}（${offering.courseCode}）`
         : offeringId;
 
+      setDropErrorMessage('');
       setPendingDrop({
         offeringId,
         enrollmentId,
@@ -451,6 +456,7 @@ const StudentCourseSelectionPage: React.FC = () => {
         onOk={handleConfirmDrop}
         onCancel={() => {
           if (!dropMutation.isPending) {
+            setDropErrorMessage('');
             setPendingDrop(null);
           }
         }}
@@ -465,6 +471,15 @@ const StudentCourseSelectionPage: React.FC = () => {
           showIcon
           style={{ marginTop: 8 }}
         />
+        {dropErrorMessage ? (
+          <Alert
+            type="error"
+            message="退选请求未完成"
+            description={dropErrorMessage}
+            showIcon
+            style={{ marginTop: 12 }}
+          />
+        ) : null}
       </Modal>
     </div>
   );

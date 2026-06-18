@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   createEnrollmentBodySchema,
   dropEnrollmentBodySchema,
+  dropEnrollmentParamsSchema,
 } from '../../../modules/course-selection/course-selection.schemas.js'
 
 describe('C3 enrollment schemas', () => {
@@ -78,6 +79,24 @@ describe('C3 enrollment schemas', () => {
       dropEnrollmentBodySchema.parse({
         student_id: '8bb51f34-82a7-4e30-b89a-6326909d9999',
         client_request_id: 'drop-20260519-0001',
+      })
+    ).toThrow()
+  })
+
+  it('accepts UUID drop enrollment route params', () => {
+    const result = dropEnrollmentParamsSchema.parse({
+      id: '10000000-0000-4000-8000-000000000031',
+    })
+
+    expect(result).toEqual({
+      id: '10000000-0000-4000-8000-000000000031',
+    })
+  })
+
+  it('does not accept non-UUID drop enrollment route params', () => {
+    expect(() =>
+      dropEnrollmentParamsSchema.parse({
+        id: 'enrollment1',
       })
     ).toThrow()
   })

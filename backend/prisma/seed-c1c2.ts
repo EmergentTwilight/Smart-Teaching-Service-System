@@ -30,6 +30,9 @@ const courseOffering6 = '10000000-0000-4000-8000-000000000016'
 const courseOffering7 = '10000000-0000-4000-8000-000000000017'
 const courseOffering8 = '10000000-0000-4000-8000-000000000018'
 const courseOffering9 = '10000000-0000-4000-8000-000000000019'
+const enrollment1 = '10000000-0000-4000-8000-000000000031'
+const enrollment2 = '10000000-0000-4000-8000-000000000032'
+const enrollment3 = '10000000-0000-4000-8000-000000000033'
 
 async function main() {
     const studentUser = await prisma.user.findUnique({ where: { username: 'student' } })
@@ -66,14 +69,25 @@ async function main() {
         })
     }
 
+    await prisma.scoreModificationLog.deleteMany()
+    await prisma.score.deleteMany()
+    await prisma.answer.deleteMany()
+    await prisma.testResult.deleteMany()
+    await prisma.testQuestion.deleteMany()
+    await prisma.testPaper.deleteMany()
+    await prisma.questionOption.deleteMany()
+    await prisma.question.deleteMany()
+    await prisma.questionBank.deleteMany()
+    await prisma.forumAttachment.deleteMany()
+    await prisma.forumComment.deleteMany()
+    await prisma.forumPost.deleteMany()
     await prisma.schedule.deleteMany()
-    await prisma.classroom.deleteMany()
     await prisma.coursePrerequisite.deleteMany()
     await prisma.enrollment.deleteMany()
     await prisma.selectionPeriod.deleteMany()
     await prisma.curriculumCourse.deleteMany()
-    await prisma.schedule.deleteMany()
     await prisma.courseOffering.deleteMany()
+    await prisma.classroom.deleteMany()
     await prisma.student.deleteMany()
     await prisma.teacher.deleteMany()
     await prisma.course.deleteMany()
@@ -81,7 +95,6 @@ async function main() {
     await prisma.major.deleteMany()
     await prisma.department.deleteMany()
     await prisma.semester.deleteMany()
-    await prisma.classroom.deleteMany()
 
     await prisma.department.upsert({
         where: { id: 'departmentId' },
@@ -527,12 +540,12 @@ async function main() {
 
     await prisma.enrollment.upsert({
         where: {
-            id: 'enrollment1'
+            id: enrollment1
         },
         update: {
         },
         create: {
-            id: 'enrollment1',
+            id: enrollment1,
             studentId: studentUser.id,
             courseOfferingId: courseOffering1,
             status: EnrollmentStatus.ENROLLED
@@ -541,12 +554,12 @@ async function main() {
 
     await prisma.enrollment.upsert({
         where: {
-            id: 'enrollment2'
+            id: enrollment2
         },
         update: {
         },
         create: {
-            id: 'enrollment2',
+            id: enrollment2,
             studentId: studentUser.id,
             courseOfferingId: courseOffering2,
             status: EnrollmentStatus.DROPPED
@@ -555,12 +568,12 @@ async function main() {
 
     await prisma.enrollment.upsert({
         where: {
-            id: 'enrollment3'
+            id: enrollment3
         },
         update: {
         },
         create: {
-            id: 'enrollment3',
+            id: enrollment3,
             studentId: studentUser.id,
             courseOfferingId: courseOffering8,
             status: EnrollmentStatus.ENROLLED

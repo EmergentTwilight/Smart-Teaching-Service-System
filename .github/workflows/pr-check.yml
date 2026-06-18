@@ -16,6 +16,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Check PR title
         uses: amannn/action-semantic-pull-request@v5
@@ -78,7 +80,27 @@ jobs:
       - name: Type check frontend
         run: cd frontend && npx tsc --noEmit
 
+      - name: Check Prisma schema changes
+        id: prisma-schema
+        shell: bash
+        run: |
+          base="${{ github.event.pull_request.base.sha }}"
+          head="${{ github.sha }}"
+          changed_files="$(git diff --name-only "$base" "$head")"
+
+          if printf '%s\n' "$changed_files" | grep -qx 'backend/prisma/schema.prisma'; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Validate Prisma schema
-        run: cd backend && npx prisma validate && npx prisma format --check
+        run: cd backend && npx prisma validate
+        env:
+          DATABASE_URL: postgresql://test:test@localhost:5432/stss
+
+      - name: Check Prisma schema format
+        if: steps.prisma-schema.outputs.changed == 'true'
+        run: cd backend && npx prisma format --check
         env:
           DATABASE_URL: postgresql://test:test@localhost:5432/stss

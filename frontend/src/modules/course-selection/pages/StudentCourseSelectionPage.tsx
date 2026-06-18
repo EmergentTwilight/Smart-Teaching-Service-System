@@ -317,6 +317,7 @@ const StudentCourseSelectionPage: React.FC = () => {
                   <Select.Option value="open">开放</Select.Option>
                   <Select.Option value="planned">未开课</Select.Option>
                   <Select.Option value="closed">已关闭</Select.Option>
+                  <Select.Option value="cancelled">已取消</Select.Option>
                 </Select>
               </Form.Item>
               <Form.Item name="includeUnavailable" valuePropName="checked">

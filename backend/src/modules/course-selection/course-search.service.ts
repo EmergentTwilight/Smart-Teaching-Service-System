@@ -366,6 +366,7 @@ export const courseSearchService = {
 
     let semesterId = query.semester_id ?? query.semesterId ?? undefined;
     const courseType = query.course_type ?? query.courseType ?? undefined;
+    const offeringStatus = query.offering_status ?? query.offeringStatus ?? undefined
     const keyword = query.keyword ?? undefined;
     const includeUnavailable = query.include_unavailable ?? query.includeUnavailable ?? true
     let page = query.page ?? 1
@@ -402,6 +403,18 @@ export const courseSearchService = {
     }
     if(courseType === 'general') {
       courseWhere.courseType = CourseType.GENERAL
+    }
+    if(offeringStatus == 'planned') {
+      where.status = OfferingStatus.PLANNED
+    }
+    if(offeringStatus == 'open') {
+      where.status = OfferingStatus.OPEN
+    }
+    if(offeringStatus == 'closed') {
+      where.status = OfferingStatus.CLOSED
+    }
+    if(offeringStatus == 'cancelled') {
+      where.status = OfferingStatus.CANCELLED
     }
     const courseOfferings = await prisma.courseOffering.findMany({
       orderBy: { id: 'asc' },

@@ -221,6 +221,34 @@ describe('StudentCourseSelectionPage', () => {
     vi.clearAllMocks();
   });
 
+  it('passes the selected offering status to the available offerings query', async () => {
+    renderPage({
+      offerings: [availableOffering],
+      enrollments: [],
+    });
+
+    const statusInput = document.getElementById('offeringStatus');
+    if (!statusInput) {
+      throw new Error('offering status select not found');
+    }
+
+    const selector = statusInput.closest('.ant-select-selector') ?? statusInput;
+    fireEvent.mouseDown(selector);
+    fireEvent.click(await screen.findByText('开放'));
+    fireEvent.click(screen.getByRole('button', { name: /查\s*询/ }));
+
+    await waitFor(() => {
+      expect(useAvailableOfferings).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          offeringStatus: 'open',
+          includeUnavailable: true,
+          page: 1,
+          pageSize: 20,
+        })
+      );
+    });
+  });
+
   it('opens a controlled enrollment confirmation and submits the exact offering id', async () => {
     renderPage({
       offerings: [availableOffering],

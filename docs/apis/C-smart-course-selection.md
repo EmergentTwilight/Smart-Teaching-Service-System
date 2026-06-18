@@ -487,6 +487,7 @@ Authorization: Bearer <access_token>
 | ---- | ---- | ---- | ---- | ---- |
 | query | `semester_id` | string | 否 | 学期 ID；不传默认当前学期 |
 | query | `course_type` | string | 否 | 课程类型 |
+| query | `offering_status` | string | 否 | `planned`、`open`、`closed`、`cancelled` |
 | query | `keyword` | string | 否 | 课程代码或名称 |
 | query | `include_unavailable` | boolean | 否 | 是否同时返回不可选课程及原因，默认 `true` |
 | query | `page` | number | 否 | 默认 1 |

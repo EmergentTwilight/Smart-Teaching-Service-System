@@ -165,6 +165,41 @@ describe('courseSearchService eligibility', () => {
     expect(result.items[1].eligibility.reasons).not.toContain('课程已选')
   })
 
+  it.each([
+    ['planned', 'PLANNED'],
+    ['open', 'OPEN'],
+    ['closed', 'CLOSED'],
+    ['cancelled', 'CANCELLED'],
+  ])('filters available offerings by offering status %s', async (offeringStatus, expectedStatus) => {
+    prismaMock.courseOffering.findMany.mockResolvedValue([
+      buildOffering({
+        id: `${offeringStatus}-offering`,
+        status: expectedStatus,
+      }),
+    ])
+
+    const result = await courseSearchService.listAvailableOfferings('student-user-1', {
+      semesterId: 'semester-1',
+      offeringStatus,
+      includeUnavailable: true,
+      page: 1,
+      pageSize: 20,
+    })
+
+    expect(result).not.toBeTypeOf('string')
+    if (typeof result === 'string') {
+      throw new Error(result)
+    }
+
+    expect(prismaMock.courseOffering.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          status: expectedStatus,
+        }),
+      })
+    )
+  })
+
   it('marks non-open course offerings as unavailable', async () => {
     prismaMock.courseOffering.findMany.mockResolvedValue([
       buildOffering({ id: 'planned-offering', status: 'PLANNED' }),

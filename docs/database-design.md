@@ -1,15 +1,15 @@
 ---
 filename: database-design.md
-title: Smart-Teaching-Service-System 数据库设计
+title: 数据库设计
 status: active
-version: 1.4.0
-last_updated_at: 2026-05-22
+version: 1.5.0
+last_updated_at: 2026-06-18
 last_updated_by: 程韬
 description: 智慧教学服务系统数据库设计，包含E-R图、所有数据表定义、字段类型和约束、索引设计
 link: https://tcncx9czflpz.feishu.cn/wiki/EDEKwJ9akirkkkkv52bcyUW0nmc
 ---
 
-# Smart-Teaching-Service-System 数据库设计
+# 数据库设计
 
 ---
 
@@ -105,11 +105,14 @@ erDiagram
 | phone         | VARCHAR(20)  |                  | 手机号                       |
 | real_name     | VARCHAR(50)  | NOT NULL         | 真实姓名                     |
 | avatar_url    | VARCHAR(500) |                  | 头像URL                      |
-| gender        | ENUM         |                  | 性别: male/female/other      |
-| status        | ENUM         | NOT NULL         | 状态: active/inactive/banned |
+| gender        | ENUM         |                  | 性别: MALE/FEMALE/OTHER      |
+| status        | ENUM         | NOT NULL         | 状态: ACTIVE/INACTIVE/BANNED |
 | last_login_at | TIMESTAMP    |                  | 最后登录时间                 |
+| deleted_at    | TIMESTAMP    |                  | 软删除时间                   |
 | created_at    | TIMESTAMP    | NOT NULL         | 创建时间                     |
 | updated_at    | TIMESTAMP    | NOT NULL         | 更新时间                     |
+
+**索引**：status, deleted_at, real_name, created_at
 
 #### Student - 学生表
 
@@ -138,7 +141,7 @@ erDiagram
 | 字段          | 类型 | 约束             | 说明                          |
 | ------------- | ---- | ---------------- | ----------------------------- |
 | user_id       | UUID | PK, FK -> User   | 用户ID                        |
-| admin_type    | ENUM | NOT NULL         | 类型: academic/super/security |
+| admin_type    | ENUM | NOT NULL         | 类型: ACADEMIC/SUPER/SECURITY |
 | department_id | UUID | FK -> Department | 所属部门                      |
 
 #### Department - 院系表
@@ -149,6 +152,8 @@ erDiagram
 | name        | VARCHAR(100) | NOT NULL | 院系名称 |
 | code        | VARCHAR(20)  | UNIQUE   | 院系代码 |
 | description | TEXT         |          | 描述     |
+| created_at  | TIMESTAMP    | NOT NULL | 创建时间 |
+| updated_at  | TIMESTAMP    | NOT NULL | 更新时间 |
 
 #### Major - 专业表
 
@@ -158,8 +163,11 @@ erDiagram
 | department_id | UUID         | FK -> Department | 所属院系                     |
 | name          | VARCHAR(100) | NOT NULL         | 专业名称                     |
 | code          | VARCHAR(20)  | UNIQUE           | 专业代码                     |
-| degree_type   | ENUM         |                  | 学位: bachelor/master/doctor |
+| description   | TEXT         |                  | 描述                         |
+| degree_type   | ENUM         |                  | 学位: BACHELOR/MASTER/DOCTOR |
 | total_credits | DECIMAL(5,1) |                  | 总学分要求                   |
+| created_at    | TIMESTAMP    | NOT NULL         | 创建时间                     |
+| updated_at    | TIMESTAMP    | NOT NULL         | 更新时间                     |
 
 #### Role - 角色表
 
@@ -172,13 +180,14 @@ erDiagram
 
 #### Permission - 权限表
 
-| 字段     | 类型         | 约束             | 说明                            |
-| -------- | ------------ | ---------------- | ------------------------------- |
-| id       | UUID         | PK               | 权限ID                          |
-| name     | VARCHAR(100) | NOT NULL         | 权限名称                        |
-| code     | VARCHAR(100) | UNIQUE, NOT NULL | 权限代码 (如 user:create)       |
-| resource | VARCHAR(50)  | NOT NULL         | 资源类型                        |
-| action   | VARCHAR(20)  | NOT NULL         | 操作: create/read/update/delete |
+| 字段        | 类型         | 约束             | 说明                            |
+| ----------- | ------------ | ---------------- | ------------------------------- |
+| id          | UUID         | PK               | 权限ID                          |
+| name        | VARCHAR(100) | NOT NULL         | 权限名称                        |
+| code        | VARCHAR(100) | UNIQUE, NOT NULL | 权限代码 (如 user:create)       |
+| resource    | VARCHAR(50)  | NOT NULL         | 资源类型                        |
+| action      | VARCHAR(20)  | NOT NULL         | 操作: create/read/update/delete |
+| description | TEXT         |                  | 描述                            |
 
 #### UserRole - 用户角色关联表
 
@@ -199,27 +208,31 @@ erDiagram
 
 用于实现 JWT 刷新机制，存储长期有效的刷新令牌。支持令牌吊销和审计追踪。
 
-| 字段       | 类型         | 约束          | 说明                   |
-| ---------- | ------------ | ------------- | ---------------------- |
-| id         | UUID         | PK            | 令牌唯一标识           |
-| user_id    | UUID         | FK -> User    | 用户ID                 |
-| token_hash | VARCHAR(255) | UNIQUE        | 令牌哈希（非明文存储） |
-| expires_at | TIMESTAMP    | NOT NULL      | 过期时间               |
-| is_used    | BOOLEAN      | DEFAULT FALSE | 是否已使用/已吊销      |
-| created_at | TIMESTAMP    | NOT NULL      | 创建时间               |
+| 字段         | 类型         | 约束          | 说明                   |
+| ------------ | ------------ | ------------- | ---------------------- |
+| id           | UUID         | PK            | 令牌唯一标识           |
+| user_id      | UUID         | FK -> User    | 用户ID                 |
+| token_hash   | VARCHAR(255) | UNIQUE        | 令牌哈希（非明文存储） |
+| expires_at   | TIMESTAMP    | NOT NULL      | 过期时间               |
+| is_used      | BOOLEAN      | DEFAULT FALSE | 是否已使用             |
+| last_used_at | TIMESTAMP    |               | 最后使用时间           |
+| ip_address   | VARCHAR(45)  |               | 创建时的IP地址         |
+| user_agent   | TEXT         |               | 创建时的用户代理       |
+| revoked_at   | TIMESTAMP    |               | 吊销时间               |
+| created_at   | TIMESTAMP    | NOT NULL      | 创建时间               |
 
 **索引**：user_id, expires_at
 
 > **说明**：
 >
 > - 令牌存储哈希值而非明文，提高安全性
-> - is_used 字段用于标记令牌是否已使用或已吊销
+> - is_used 字段用于标记令牌是否已使用，revoked_at 字段用于记录显式吊销时间
 > - 删除用户时级联删除相关令牌
 > - 角色变更/密码修改时会吊销所有该用户的刷新令牌
 
 #### ActivationToken - 账号激活令牌表
 
-用于新用户账号激活流程，通过邮件发送激活链接验证用户身份。
+兼容历史账号激活流程。当前注册主流程不依赖账号激活，但仍保留令牌表和接口以支持兼容场景。
 
 | 字段       | 类型         | 约束          | 说明                   |
 | ---------- | ------------ | ------------- | ---------------------- |
@@ -271,47 +284,51 @@ erDiagram
 
 ```plaintext
 model RefreshToken {
-  id        String   @id @default(uuid())
-  user_id   String
-  token_hash String  @unique @db.VarChar(255)
-  expires_at DateTime @notNull
-  is_used    Boolean  @default(false)
-  created_at DateTime @default(now())
+  id         String    @id @default(uuid())
+  userId     String    @map("user_id")
+  tokenHash  String    @unique @map("token_hash") @db.VarChar(255)
+  expiresAt  DateTime  @map("expires_at")
+  isUsed     Boolean   @default(false) @map("is_used")
+  lastUsedAt DateTime? @map("last_used_at")
+  ipAddress  String?   @map("ip_address") @db.VarChar(45)
+  userAgent  String?   @map("user_agent") @db.Text
+  revokedAt  DateTime? @map("revoked_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
 
-  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@index([user_id])
-  @@index([expires_at])
+  @@index([userId])
+  @@index([expiresAt])
   @@map("refresh_tokens")
 }
 
 model ActivationToken {
   id        String   @id @default(uuid())
-  user_id   String
-  token_hash String  @unique @db.VarChar(255)
-  expires_at DateTime @notNull
-  is_used    Boolean  @default(false)
-  created_at DateTime @default(now())
+  userId    String   @map("user_id")
+  tokenHash String   @unique @map("token_hash") @db.VarChar(255)
+  expiresAt DateTime @map("expires_at")
+  isUsed    Boolean  @default(false) @map("is_used")
+  createdAt DateTime @default(now()) @map("created_at")
 
-  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@index([user_id])
-  @@index([expires_at])
+  @@index([userId])
+  @@index([expiresAt])
   @@map("activation_tokens")
 }
 
 model PasswordResetToken {
   id        String   @id @default(uuid())
-  user_id   String
-  token_hash String  @unique @db.VarChar(255)
-  expires_at DateTime @notNull
-  is_used    Boolean  @default(false)
-  created_at DateTime @default(now())
+  userId    String   @map("user_id")
+  tokenHash String   @unique @map("token_hash") @db.VarChar(255)
+  expiresAt DateTime @map("expires_at")
+  isUsed    Boolean  @default(false) @map("is_used")
+  createdAt DateTime @default(now()) @map("created_at")
 
-  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@index([user_id])
-  @@index([expires_at])
+  @@index([userId])
+  @@index([expiresAt])
   @@map("password_reset_tokens")
 }
 ```
@@ -414,7 +431,9 @@ model PasswordResetToken {
 | teacher_id        | UUID         | FK -> Teacher    | 课程负责人                      |
 | description       | TEXT         |                  | 课程描述                        |
 | assessment_method | TEXT         |                  | 考核方式                        |
-| status            | ENUM         | NOT NULL         | 状态: active/archived           |
+| status            | ENUM         | NOT NULL         | 状态: ACTIVE/ARCHIVED           |
+| created_at        | TIMESTAMP    | NOT NULL         | 创建时间                        |
+| updated_at        | TIMESTAMP    | NOT NULL         | 更新时间                        |
 
 #### CourseOffering - 课程开设表 (学期课程)
 
@@ -439,6 +458,8 @@ model PasswordResetToken {
 | total_credits    | DECIMAL(5,1) | NOT NULL    | 总学分要求 |
 | required_credits | DECIMAL(5,1) |             | 必修学分   |
 | elective_credits | DECIMAL(5,1) |             | 选修学分   |
+| created_at       | TIMESTAMP    | NOT NULL    | 创建时间   |
+| updated_at       | TIMESTAMP    | NOT NULL    | 更新时间   |
 
 #### CurriculumCourse - 培养方案课程表
 
@@ -712,12 +733,24 @@ model PasswordResetToken {
 
 ---
 
-**文档版本: 1.4**
-**最后更新: 2026-05-22**
+**文档版本: 1.5**
+**最后更新: 2026-06-18**
 
 ---
 
 ## 变更记录
+
+### v1.5 (2026-06-18)
+
+- 更新 User 表：新增 deleted_at 软删除字段和 deleted_at 索引说明，统一 gender/status 枚举写法。
+- 更新 Department 表：新增 created_at、updated_at 字段。
+- 更新 Major 表：新增 description、created_at、updated_at 字段。
+- 更新 Permission 表：新增 description 字段。
+- 更新 RefreshToken 表：补充 last_used_at、ip_address、user_agent、revoked_at 字段。
+- 更新令牌表 Prisma 示例，改为当前实现使用的 camelCase 字段和 @map 映射写法。
+- 更新 Course 表：补充 created_at、updated_at 字段，统一 status 枚举写法。
+- 更新 Curriculum 表：新增 created_at、updated_at 字段。
+- 更新 ActivationToken 说明，标明账号激活为兼容保留流程。
 
 ### v1.4 (2026-05-22)
 

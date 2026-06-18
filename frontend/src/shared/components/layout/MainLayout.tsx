@@ -11,7 +11,7 @@ import {
   MenuUnfoldOutlined,
   LogoutOutlined,
 } from '@ant-design/icons';
-import { MENU_ITEMS } from '@/shared/config/menu';
+import { getMenuItemsForRoles } from '@/shared/config/menu';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '@/shared/stores/authStore';
 import { USER_ROLE_LABELS, type UserRoleType } from '@/shared/types';
@@ -41,6 +41,11 @@ const MainLayout: React.FC = () => {
   }, [navigate]);
 
   const selectedKeys = useMemo(() => [location.pathname], [location.pathname]);
+
+  const menuItems = useMemo(
+    () => getMenuItemsForRoles(user?.roles ?? []),
+    [user?.roles]
+  );
 
   const handleOpenChange: MenuProps['onOpenChange'] = useCallback((keys: string[]) => {
     const latestOpenKey = keys.find((key: string) => !openKeys.includes(key)) as string;
@@ -148,7 +153,7 @@ const MainLayout: React.FC = () => {
           selectedKeys={selectedKeys}
           openKeys={collapsed ? [] : openKeys}
           onOpenChange={handleOpenChange}
-          items={MENU_ITEMS}
+          items={menuItems}
           onClick={handleMenuClick}
           style={{
             background: 'transparent',

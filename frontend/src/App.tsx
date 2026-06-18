@@ -45,6 +45,13 @@ const OnlineTestingResultsPage = lazy(
   () => import('@/modules/online-testing/pages/OnlineTestingResultsPage')
 );
 const ComingSoon = lazy(() => import('@/shared/components/ComingSoon'));
+const ForumHome = lazy(() => import('@/modules/forum/pages/forum-home'));
+const PostDetail = lazy(() => import('@/modules/forum/pages/post-detail'));
+const PostEditor = lazy(() => import('@/modules/forum/pages/post-editor'));
+const ForumSearch = lazy(() => import('@/modules/forum/pages/search-result'));
+const MyPosts = lazy(() => import('@/modules/forum/pages/my-posts'));
+const AnnouncementList = lazy(() => import('@/modules/forum/pages/announcement-list'));
+const StatsPage = lazy(() => import('@/modules/forum/pages/stats-page'));
 
 // group B: course arrangement
 const ClassroomList = lazy(() => import('@/modules/course-arrangement/pages/classroom-list'));
@@ -186,9 +193,14 @@ const App: React.FC = () => {
                   <Route path="selection/ai" element={<ComingSoon title="AI 推荐" />} />
 
                   {/* 论坛交流 */}
-                  <Route path="forum/posts" element={<ComingSoon title="帖子列表" />} />
-                  <Route path="forum/my" element={<ComingSoon title="我的发布" />} />
-                  <Route path="forum/notifications" element={<ComingSoon title="消息通知" />} />
+                  <Route path="forum/posts/new" element={<PostEditor />} />
+                  <Route path="forum/posts/:postId/edit" element={<PostEditor />} />
+                  <Route path="forum/posts/:postId" element={<PostDetail />} />
+                  <Route path="forum/posts" element={<ForumHome />} />
+                  <Route path="forum/search" element={<ForumSearch />} />
+                  <Route path="forum/my" element={<MyPosts />} />
+                  <Route path="forum/announcements" element={<AnnouncementList />} />
+                  <Route path="forum/stats" element={<StatsPage />} />
 
                   {/* 在线测试 */}
                   <Route path="exam/ping" element={<OnlineTestingPingPage />} />

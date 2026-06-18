@@ -25,6 +25,7 @@ import scoreEntryRoutes from './modules/score-management/score-entry.routes.js'
 import scoreModificationRoutes from './modules/score-management/score-modification.routes.js'
 import scoreQueryRoutes from './modules/score-management/score-query.routes.js'
 import scoreAnalyticsRoutes from './modules/score-management/score-analytics.routes.js'
+import forumRoutes from './modules/forum/forum.routes.js'
 import config from './config/index.js'
 import { swaggerSpec } from './config/swagger.js'
 import swaggerUi from 'swagger-ui-express'
@@ -97,9 +98,9 @@ app.use(morgan('dev'))
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')))
 
-// JSON 解析
-app.use(express.json())
-app.use(express.urlencoded({ extended: true }))
+// JSON 解析。论坛附件以 Base64 放在 JSON body 中，10MB 文件会膨胀到约 13.4MB。
+app.use(express.json({ limit: '16mb' }))
+app.use(express.urlencoded({ extended: true, limit: '16mb' }))
 
 // ==================== API 文档 (Swagger) ====================
 app.use(
@@ -198,6 +199,7 @@ app.use('/api/v1/course-arrangement/schedules', scheduleRoutes)
 app.use('/api/v1/course-arrangement/timetables', timetableRoutes)
 app.use('/api/v1/course-arrangement/rules', ruleRoutes)
 app.use('/api/v1/course-arrangement/auto-schedule', autoScheduleRoutes)
+app.use('/api/v1/forum', forumRoutes)
 
 // 404 处理
 app.use((req, res) => {

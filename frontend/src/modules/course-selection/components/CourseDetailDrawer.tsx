@@ -17,6 +17,7 @@ import {
 import { type FC } from 'react';
 import type { CourseOfferingDetail } from '../types/course';
 import { extractErrorMessage } from '@/shared/utils/error';
+import { getEligibilityDisplay } from '../utils/eligibilityDisplay';
 import {
   CheckCircleOutlined,
   CloseCircleOutlined,
@@ -109,7 +110,8 @@ export const CourseDetailDrawer: FC<CourseDetailDrawerProps> = ({
 
   const statusCfg = detail ? STATUS_LABELS[detail.status] ?? { label: detail.status, color: 'default' } : null;
   const eligibility = detail?.eligibility ?? null;
-  const eligibilityReasons = eligibility?.isEnrolled ? [] : eligibility?.reasons ?? [];
+  const eligibilityDisplay = getEligibilityDisplay(eligibility);
+  const eligibilityReasons = eligibilityDisplay.visibleReasons;
 
   return (
     <Drawer
@@ -226,11 +228,11 @@ export const CourseDetailDrawer: FC<CourseDetailDrawerProps> = ({
               </Descriptions.Item>
               <Descriptions.Item label="是否可选">
                 {eligibility ? (
-                  eligibility.isEnrolled ? (
+                  eligibilityDisplay.isEnrolled ? (
                     <Tag color="blue" icon={<CheckCircleOutlined />}>
                       已选
                     </Tag>
-                  ) : eligibility.isAvailable ? (
+                  ) : eligibilityDisplay.isAvailable ? (
                     <Tag color="success" icon={<CheckCircleOutlined />}>
                       可选
                     </Tag>
@@ -250,8 +252,8 @@ export const CourseDetailDrawer: FC<CourseDetailDrawerProps> = ({
                     dataSource={eligibilityReasons}
                     renderItem={(reason) => (
                       <List.Item style={{ padding: '2px 0' }}>
-                        <Text type={eligibility?.isAvailable ? 'secondary' : 'danger'}>
-                          {eligibility?.isAvailable ? (
+                        <Text type={eligibilityDisplay.isAvailable ? 'secondary' : 'danger'}>
+                          {eligibilityDisplay.isAvailable ? (
                             <InfoCircleOutlined style={{ marginRight: 6 }} />
                           ) : (
                             <WarningOutlined style={{ marginRight: 6 }} />

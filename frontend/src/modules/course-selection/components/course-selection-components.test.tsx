@@ -102,7 +102,31 @@ describe('CourseOfferingTable', () => {
     );
 
     expect(screen.queryByRole('button', { name: '退选' })).not.toBeInTheDocument();
-    expect(screen.getByText('已选')).toBeInTheDocument();
+    expect(screen.getAllByText('已选').length).toBeGreaterThan(0);
+  });
+
+  it('hides unavailable reasons when the offering is already enrolled', () => {
+    render(
+      <CourseOfferingTable
+        offerings={[
+          buildOffering({
+            eligibility: {
+              isAvailable: false,
+              isEnrolled: true,
+              isFull: false,
+              hasTimeConflict: false,
+              prerequisiteSatisfied: true,
+              withinCurriculum: false,
+              reasons: ['课程已选', '课程不在培养方案中'],
+            },
+          }),
+        ]}
+        loading={false}
+      />
+    );
+
+    expect(screen.getAllByText('已选').length).toBeGreaterThan(0);
+    expect(screen.queryByText('课程不在培养方案中')).not.toBeInTheDocument();
   });
 });
 
@@ -119,6 +143,34 @@ describe('CourseDetailDrawer', () => {
 
     expect(await screen.findByText('已选')).toBeInTheDocument();
     expect(screen.queryByText('不可选')).not.toBeInTheDocument();
+    expect(screen.queryByText('课程不在培养方案中')).not.toBeInTheDocument();
+  });
+
+  it('shows only the primary unavailable reason in course details', async () => {
+    render(
+      <CourseDetailDrawer
+        open
+        offeringId="offering-1"
+        onClose={vi.fn()}
+        loadDetail={() =>
+          Promise.resolve(
+            buildDetail({
+              eligibility: {
+                isAvailable: false,
+                isEnrolled: false,
+                isFull: false,
+                hasTimeConflict: true,
+                prerequisiteSatisfied: true,
+                withinCurriculum: false,
+                reasons: ['课程有时间冲突', '课程不在培养方案中'],
+              },
+            })
+          )
+        }
+      />
+    );
+
+    expect(await screen.findByText('课程有时间冲突')).toBeInTheDocument();
     expect(screen.queryByText('课程不在培养方案中')).not.toBeInTheDocument();
   });
 });

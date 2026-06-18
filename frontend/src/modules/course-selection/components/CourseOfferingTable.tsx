@@ -3,6 +3,7 @@ import { type FC } from 'react';
 import type { AvailableOfferingItem } from '../types/course';
 import type { PaginationMeta } from '../types/common';
 import { InfoCircleOutlined, WarningOutlined } from '@ant-design/icons';
+import { getEligibilityDisplay } from '../utils/eligibilityDisplay';
 
 const { Text } = Typography;
 
@@ -124,10 +125,14 @@ export const CourseOfferingTable: FC<CourseOfferingTableProps> = ({
       key: 'eligibility',
       width: 180,
       render: (_value: unknown, record: AvailableOfferingItem) => {
-        const { eligibility } = record;
-        const isAvailable = eligibility.isAvailable;
+        const display = getEligibilityDisplay(record.eligibility);
+        const hasVisibleReasons = display.visibleReasons.length > 0;
 
-        if (isAvailable && eligibility.reasons.length === 0) {
+        if (display.isEnrolled) {
+          return <Tag color="blue">已选</Tag>;
+        }
+
+        if (display.isAvailable && !hasVisibleReasons) {
           return (
             <Tag color="success" icon={<InfoCircleOutlined />}>
               可选
@@ -135,7 +140,7 @@ export const CourseOfferingTable: FC<CourseOfferingTableProps> = ({
           );
         }
 
-        if (isAvailable && eligibility.reasons.length > 0) {
+        if (display.isAvailable && hasVisibleReasons) {
           return (
             <Space size={4}>
               <Tag color="success">可选</Tag>
@@ -143,7 +148,7 @@ export const CourseOfferingTable: FC<CourseOfferingTableProps> = ({
                 title="提示信息"
                 content={
                   <ul style={{ margin: 0, paddingLeft: 16 }}>
-                    {eligibility.reasons.map((r, i) => (
+                    {display.visibleReasons.map((r, i) => (
                       <li key={i}>{r}</li>
                     ))}
                   </ul>
@@ -161,9 +166,9 @@ export const CourseOfferingTable: FC<CourseOfferingTableProps> = ({
           <Popover
             title="不可选原因"
             content={
-              eligibility.reasons.length > 0 ? (
+              hasVisibleReasons ? (
                 <ul style={{ margin: 0, paddingLeft: 16 }}>
-                  {eligibility.reasons.map((r, i) => (
+                  {display.visibleReasons.map((r, i) => (
                     <li key={i}>{r}</li>
                   ))}
                 </ul>
@@ -177,9 +182,9 @@ export const CourseOfferingTable: FC<CourseOfferingTableProps> = ({
               <Tag color="error" icon={<WarningOutlined />}>
                 不可选
               </Tag>
-              {eligibility.reasons.length > 0 && (
+              {hasVisibleReasons && (
                 <Text type="secondary" style={{ fontSize: 12, maxWidth: 120 }} ellipsis>
-                  {eligibility.reasons[0]}
+                  {display.visibleReasons[0]}
                 </Text>
               )}
             </Space>

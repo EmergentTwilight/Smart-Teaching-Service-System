@@ -456,21 +456,29 @@ B 自动排课子系统以 A 子系统维护的课程、开课、教师等基础
 
 ### 4.5 D 论坛交流数据/类设计【D 组填写】
 
-建议类：
+D 论坛交流子系统围绕课程开设 `CourseOffering` 建立讨论空间。系统不单独维护 Forum 实体，而是以“课程开设 + 帖子集合”的方式表达课程论坛；公告、普通帖子、评论、附件和统计均围绕 `ForumPost` 展开。
 
-- Forum
-- Announcement
-- Post
-- Reply
-- Attachment
-- SearchIndex
-- ForumStatistic
+#### 4.5.1 主要设计类
 
-写作指引：
+| 类名 | 职责 | 主要属性 | 主要方法/行为 |
+| ---- | ---- | -------- | ------------- |
+| ForumPost | 表示课程论坛中的帖子或公告 | id, courseOfferingId, authorId, title, content, postType, isPinned, isAnnouncement, viewCount, status, createdAt, updatedAt | 创建帖子、编辑帖子、查询详情、软删除、置顶、浏览量递增 |
+| ForumComment | 表示帖子下的评论和楼中楼回复 | id, postId, authorId, parentId, content, depth, status, createdAt | 创建评论、构建评论树、删除本人评论、隐藏/恢复违规评论 |
+| ForumAttachment | 表示帖子附件或发帖前临时附件 | id, postId, fileName, filePath, fileSize, fileType, uploadedAt | 上传附件、批量上传、绑定帖子、删除附件、供前端下载 |
+| Announcement | 公告视图对象，复用 ForumPost | isAnnouncement=true, postType=ANNOUNCEMENT, isPinned | 发布公告、更新公告、删除公告、按课程优先展示置顶公告 |
+| SearchQuery | 帖子检索条件对象 | keyword, courseOfferingId, authorId, postType, startDate, endDate, page, pageSize, sortBy | 校验检索参数、组合查询条件、分页返回结果 |
+| ForumStatistic | 统计结果对象 | totalPosts, totalComments, totalAttachments, activeUsers, hotPosts, courseActivity | 综合统计、热帖排行、用户统计、课程活跃度统计、CSV 导出 |
+| ForumPermission | 论坛权限判断对象 | userId, roles, authorId, courseOfferingId | 判断作者本人、教师、论坛管理员、教务管理员和系统管理员的操作边界 |
 
-- 帖子、回复、附件之间的关系要清晰。
-- 如果实现全文检索，说明检索数据来源和返回结果结构。
-- 如果未实现复杂检索，可说明采用标题/正文关键词匹配。
+#### 4.5.2 关系说明
+
+`ForumPost` 与 `CourseOffering` 为多对一关系，同一课程开设下可以包含多条帖子和公告；`ForumPost.authorId` 关联 A 子系统的用户身份，用于展示作者和进行本人权限判断。公告不单独建表，而是通过 `ForumPost.isAnnouncement` 和 `PostType.ANNOUNCEMENT` 区分，避免公告与普通帖子在查询、置顶、权限和统计上产生重复模型。
+
+`ForumComment` 与 `ForumPost` 为多对一关系，评论通过 `parentId` 自关联形成树形回复结构，并用 `depth` 辅助前端缩进展示。删除帖子时评论随帖子级联删除；普通用户可删除本人评论，管理员或论坛管理员可隐藏和恢复评论。普通评论列表只返回 `NORMAL` 状态内容，隐藏或删除内容不会继续污染普通用户视图。
+
+`ForumAttachment` 与 `ForumPost` 为可选多对一关系。附件上传后可以先以 `postId = null` 保存，待用户提交帖子时再批量绑定到帖子；如果用户取消发帖，可删除未绑定附件。附件元数据保存文件名、路径、大小和 MIME 类型，实际文件存放在后端上传目录中。
+
+当前检索采用数据库标题/正文关键词匹配，并叠加课程、作者、帖子类型、时间范围和排序条件；不单独维护搜索索引表。统计类不作为独立持久化表，而是基于 `forum_posts`、`forum_comments`、`forum_attachments` 和课程/用户关联实时聚合生成。
 
 ### 4.6 E 在线测试数据/类设计
 
@@ -597,6 +605,11 @@ B 子系统在统一的 PostgreSQL 实例中维护 `classrooms`（教室资源�
 
 | 表名 | 字段 | 类型 | 约束 | 说明 |
 | ---- | ---- | ---- | ---- | ---- |
+| `forum_posts` | `id`, `course_offering_id`, `author_id`, `title`, `content`, `post_type`, `is_pinned`, `is_announcement`, `view_count`, `status`, `created_at`, `updated_at` | UUID/String, VarChar(200), Text, Enum, Boolean, Int, DateTime | `id` 主键；关联 `course_offerings` 和 `users`；`post_type` 为 QUESTION、DISCUSSION、SHARE、ANNOUNCEMENT；`status` 默认为 NORMAL | 保存课程论坛帖子和公告。公告通过 `is_announcement` 与 `post_type` 区分，删除采用状态变更方式，普通列表不展示 DELETED 内容 |
+| `forum_comments` | `id`, `post_id`, `author_id`, `parent_id`, `content`, `depth`, `status`, `created_at` | UUID/String, Text, Int, Enum, DateTime | `id` 主键；关联 `forum_posts` 和 `users`；`parent_id` 自关联；帖子删除时级联删除评论 | 保存帖子评论和楼中楼回复。`depth` 用于构建评论层级，`status` 用于隐藏、恢复和删除控制 |
+| `forum_attachments` | `id`, `post_id`, `file_name`, `file_path`, `file_size`, `file_type`, `uploaded_at` | UUID/String, VarChar, BigInt, DateTime | `id` 主键；`post_id` 可为空并关联 `forum_posts`；帖子删除时级联删除附件记录 | 保存附件元数据。上传后可先作为未绑定附件存在，发帖成功后绑定到帖子；物理文件保存在上传目录 |
+| `users` | `id`, `username`, `real_name`, `roles` | UUID/String, VarChar | A 子系统维护，论坛只引用 | 用于论坛作者展示、角色判断和本人/管理员权限校验 |
+| `course_offerings` | `id`, `course_id`, `semester_id`, `teacher_id`, `status` | UUID/String, Enum | C/B/A 子系统维护，论坛只引用 | 表示课程论坛所属开课实例，用于按课程过滤帖子、公告、统计和检索结果 |
 
 ### 5.6 E 在线测试数据表
 
@@ -696,8 +709,35 @@ B 组接口遵循项目统一规范：Base URL 为 `/api/v1`，通过 JWT Bearer
 
 ### 6.5 D 论坛交流接口【D 组填写】
 
-写作指引：
-列出公告、帖子、回复、附件、检索、统计接口。
+论坛接口统一前缀为 `/api/v1/forum`，所有接口先经过 A 子系统 JWT 认证中间件。普通帖子、评论、附件、检索和热帖查询面向登录用户；公告写操作、置顶、隐藏评论、统计和导出按角色进一步限制。
+
+| 接口名称 | 方法 | 路径 | 输入 | 输出 | 权限 |
+| -------- | ---- | ---- | ---- | ---- | ---- |
+| 创建帖子 | POST | `/posts` | courseOfferingId, title, content, postType, attachmentIds | 帖子详情 | 登录用户 |
+| 帖子列表 | GET | `/posts` | page, pageSize, courseOfferingId, keyword, postType, authorId, isAnnouncement, sortBy, sortOrder | 帖子分页列表 | 登录用户 |
+| 帖子详情 | GET | `/posts/:id` | postId | 帖子详情、作者、课程、附件、评论统计 | 登录用户 |
+| 编辑帖子 | PATCH | `/posts/:id` | title, content, postType, attachmentIds, isPinned, isAnnouncement | 更新后的帖子 | 作者本人、教师、admin、forum_admin |
+| 删除帖子 | DELETE | `/posts/:id` | postId | 删除结果 | 作者本人、教师、admin、forum_admin |
+| 置顶/取消置顶 | PATCH | `/posts/:id/pin` | pinned | 更新后的帖子 | teacher、admin、forum_admin |
+| 创建评论 | POST | `/posts/:id/comments` | content, parentId | 评论详情 | 登录用户 |
+| 评论列表 | GET | `/posts/:id/comments` | postId | 树形评论列表 | 登录用户 |
+| 删除评论 | DELETE | `/comments/:id` | commentId | 删除结果 | 评论作者、教师、admin、forum_admin |
+| 隐藏评论 | PATCH | `/comments/:id/hide` | commentId | 隐藏结果 | admin、forum_admin |
+| 恢复评论 | PATCH | `/comments/:id/restore` | commentId | 恢复结果 | admin、forum_admin |
+| 隐藏评论列表 | GET | `/comments/hidden` | courseOfferingId, page, pageSize | 隐藏评论分页列表 | admin、forum_admin、teacher |
+| 创建公告 | POST | `/announcements` | courseOfferingId, title, content, isPinned | 公告详情 | teacher、admin、forum_admin |
+| 公告列表 | GET | `/announcements` | courseOfferingId, page, pageSize | 公告分页列表 | 登录用户 |
+| 编辑公告 | PATCH | `/announcements/:id` | title, content, isPinned | 更新后的公告 | teacher、admin、forum_admin |
+| 删除公告 | DELETE | `/announcements/:id` | announcementId | 删除结果 | teacher、admin、forum_admin |
+| 帖子检索 | GET | `/search` | keyword, courseOfferingId, authorId, postType, startDate, endDate, page, pageSize, sortBy | 搜索分页结果 | 登录用户 |
+| 综合统计 | GET | `/stats` | courseOfferingId, startDate, endDate, period | 帖子数、评论数、附件数、活跃用户数和趋势 | admin、teacher、forum_admin、academic_admin |
+| 热帖排行 | GET | `/stats/hot-posts` | period, courseOfferingId, limit | 热门帖子列表 | 登录用户 |
+| 用户统计 | GET | `/stats/user`, `/stats/user/:userId` | userId | 发帖数、评论数、公告数 | 本人、teacher、admin、forum_admin、academic_admin |
+| 课程活跃度统计 | GET | `/stats/course-activity` | courseOfferingId, startDate, endDate | 课程活跃度列表 | admin、teacher、forum_admin、academic_admin |
+| 统计导出 | GET | `/stats/export` | courseOfferingId, startDate, endDate, period | CSV 文件 | admin、academic_admin |
+| 上传附件 | POST | `/attachments` | fileName, fileType, fileSize, contentBase64 | 附件 id、文件名、大小、类型、下载路径 | 登录用户 |
+| 批量上传附件 | POST | `/attachments/batch` | files[] | 附件结果列表 | 登录用户 |
+| 删除附件 | DELETE | `/attachments/:id` | attachmentId | 删除结果 | 上传者/帖子作者、admin、forum_admin |
 
 ### 6.6 E 在线测试接口
 
@@ -788,15 +828,15 @@ A 组前端使用 React、React Router、Ant Design、TanStack Query 和 Axios �
 
 ### 7.5 D 论坛交流界面【D 组填写】
 
-页面建议：
-
-- 论坛首页。
-- 公告页。
-- 帖子列表页。
-- 帖子详情页。
-- 发帖页。
-- 检索页。
-- 统计页。
+| 页面 | 路由 | 使用角色 | 用途 | 主要字段/控件 | 主要操作与异常提示 |
+| ---- | ---- | -------- | ---- | ------------- | ------------------ |
+| 课程论坛首页 | `/forum/posts` | 学生、教师、论坛管理员 | 展示课程论坛入口、公告摘要、帖子列表和热帖 | 课程选择器、关键词输入、帖子类型筛选、排序、公告横幅、帖子卡片、分页 | 切换课程、搜索、进入详情、发帖；无课程、无帖子、加载失败时显示空状态或错误提示 |
+| 帖子编辑页 | `/forum/posts/new`, `/forum/posts/:postId/edit` | 学生、教师、论坛管理员 | 发布或编辑提问、讨论、分享类帖子 | 课程论坛、帖子类型、标题、正文、附件上传列表 | 新建/保存帖子、上传/删除附件；标题为空、正文为空、附件过大或类型不支持时提示具体原因 |
+| 帖子详情页 | `/forum/posts/:postId` | 学生、教师、论坛管理员 | 查看帖子正文、附件、评论树并参与讨论 | 标题、作者、课程、正文、附件列表、评论编辑器、评论列表、置顶/编辑/删除按钮 | 评论、回复、下载附件、编辑/删除本人帖子；帖子不存在、已删除或无权访问时显示明确错误 |
+| 帖子检索页 | `/forum/search` | 学生、教师、论坛管理员 | 按关键词和条件检索帖子 | keyword、课程、作者、帖子类型、时间范围、搜索结果列表 | 执行搜索、进入详情；关键词为空或无结果时显示表单错误或无相关帖子提示 |
+| 我的发布页 | `/forum/my` | 学生、教师、论坛管理员 | 查看本人发帖统计和历史发布 | 用户统计卡片、本人帖子列表、编辑/删除入口 | 编辑、删除、查看本人帖子；无发布记录时显示空状态 |
+| 公告列表页 | `/forum/announcements` | 学生、教师、论坛管理员 | 查看课程公告，教师和管理员可维护公告 | 课程选择器、公告列表、置顶标识、公告表单 | 查询公告、发布/编辑/删除公告；普通学生隐藏写操作，越权时以后端错误提示为准 |
+| 论坛统计页 | `/forum/stats` | 教师、论坛管理员、教务管理人员、系统管理员 | 查看论坛综合统计、热帖和课程活跃度 | 时间范围、课程选择器、统计卡片、热帖排行、课程活跃度表、导出按钮 | 查询统计、导出 CSV；普通学生无入口，权限不足、时间范围非法或导出失败时显示错误提示 |
 
 ### 7.6 E 在线测试界面
 
@@ -922,14 +962,24 @@ flowchart LR
 
 ### 8.4 D 论坛交流组件设计【D 组填写】
 
-建议组件：
-
-- AnnouncementService
-- PostService
-- ReplyService
-- AttachmentService
-- SearchService
-- ForumStatisticService
+| 组件 | 职责 | 输入 | 输出 | 依赖 |
+| ---- | ---- | ---- | ---- | ---- |
+| `forum.routes` | 挂载论坛接口并组合认证、角色控制 | HTTP 请求、JWT、params/query/body | 控制器响应或权限错误 | authMiddleware、requireRoles、requireSelfOrAdmin |
+| `ForumController` | 解析请求、调用服务层、统一成功/失败响应 | Express Request、用户上下文、DTO | JSON 响应或 CSV 文件 | ForumService、response 工具 |
+| `ForumService` | 论坛核心业务逻辑 | userId、帖子/评论/公告/附件/统计参数 | 帖子、评论、公告、附件、统计结果 | Prisma、A 组用户与课程数据 |
+| `forum.schemas` | 请求参数校验 | query/body/params | 服务层 DTO 或校验错误 | zod |
+| PostService 逻辑 | 帖子创建、列表、详情、编辑、删除、置顶 | courseOfferingId、title、content、postType、attachmentIds | ForumPost、分页列表 | forum_posts、forum_attachments |
+| CommentService 逻辑 | 评论和楼中楼回复管理 | postId、content、parentId、commentId | ForumComment、评论树 | forum_comments、forum_posts |
+| AnnouncementService 逻辑 | 公告发布、查询、编辑和删除 | courseOfferingId、title、content、isPinned | 公告列表或公告详情 | forum_posts(isAnnouncement) |
+| AttachmentService 逻辑 | Base64 附件上传、批量上传、删除和绑定 | fileName、fileType、fileSize、contentBase64、attachmentIds | 附件元数据、删除结果 | 文件系统、forum_attachments |
+| SearchService 逻辑 | 标题/正文关键词检索和筛选 | keyword、课程、作者、类型、时间范围、分页排序 | 搜索分页结果 | forum_posts、users、course_offerings |
+| ForumStatisticService 逻辑 | 综合统计、热帖、用户统计、课程活跃度和导出 | 时间范围、课程、用户、period、limit | 统计卡片、排行、CSV | forum_posts、forum_comments、forum_attachments |
+| `forumApi` | 前端论坛 API 封装 | 页面参数、表单数据、附件数据 | Promise 业务结果 | request、axios、JWT token |
+| `CourseForumSelector` | 课程论坛选择控件 | selectedCourseOfferingId、onChange | courseOfferingId | 课程活跃度/课程接口数据 |
+| `AttachmentUpload` / `AttachmentList` | 附件上传、展示、删除和下载 | File、附件列表、onChange | 附件 id 列表、用户反馈 | forumApi.attachments、浏览器下载 |
+| `PostCard` / `PostFilters` / `PostTypeTag` | 帖子列表展示和筛选 | ForumPost、筛选条件 | 点击、筛选和排序事件 | Ant Design、forum constants |
+| `CommentEditor` / `CommentList` | 评论输入和树形评论展示 | content、ForumComment[]、回调 | 评论提交、回复、删除事件 | forumApi.comments |
+| `StatFilter` | 统计筛选区域 | courseOfferingId、startDate、endDate、period | 查询条件 | CourseForumSelector、日期控件 |
 
 ### 8.5 E 在线测试组件设计
 
@@ -1155,9 +1205,36 @@ function periodOverlap(a, b):
 - 输出：推荐课程、推荐理由、风险提示。
 - 限制：AI 只提供建议，最终选课必须由学生确认。
 
-### 9.5 E 自动组卷与评分流程
+### 9.5 D 论坛发布、检索与统计流程
 
-#### 9.5.1 自动组卷流程
+#### 9.5.1 发帖与附件绑定流程
+
+1. 用户进入发帖页，前端读取登录态和可选课程论坛。
+2. 用户选择课程开设、帖子类型，填写标题和正文。
+3. 如选择附件，前端将文件转为 Base64，并提交文件名、大小、MIME 类型和内容。
+4. 后端校验附件大小、扩展名和 MIME 类型，写入物理文件，并在 `forum_attachments` 中创建 `post_id = null` 的附件记录。
+5. 用户提交帖子时，后端校验标题、正文、帖子类型、课程开设和当前用户身份。
+6. 后端在事务中创建 `forum_posts` 记录，并把本次提交携带的附件 id 批量绑定到新帖子。
+7. 前端跳转到帖子详情或刷新列表；如果发帖失败，已上传但未绑定的附件仍可由用户在编辑界面删除。
+
+#### 9.5.2 评论树与内容管理流程
+
+1. 用户打开帖子详情，后端校验帖子存在且状态不是 `DELETED`。
+2. 查询该帖子下 `NORMAL` 状态评论，按照父子关系构建树形结构返回前端。
+3. 用户提交评论时，后端校验内容长度；若传入 `parentId`，还要校验父评论存在、未删除且属于同一帖子。
+4. 评论保存后，前端重新拉取评论列表和帖子评论数。
+5. 评论作者可删除本人评论；管理员或论坛管理员可隐藏、恢复违规评论。
+6. 普通评论树不展示 `HIDDEN` 和 `DELETED` 评论，隐藏评论列表仅对授权角色开放。
+
+#### 9.5.3 检索与统计流程
+
+帖子检索不单独维护搜索索引表，而是基于 `forum_posts.title` 和 `forum_posts.content` 做关键词匹配，并叠加课程、作者、帖子类型、时间范围和排序条件。检索结果只返回可见帖子，并分页返回标题、摘要、作者、课程、浏览量和评论数；无结果时前端展示空状态。
+
+统计功能基于有效帖子、有效评论和附件记录实时聚合。综合统计返回帖子数、评论数、附件数和活跃用户数；热帖排行结合浏览量、评论数和时间范围生成；课程活跃度按照帖子数、评论数和参与人数计算；导出功能将授权范围内的课程活跃度结果生成 CSV 文件。
+
+### 9.6 E 自动组卷与评分流程
+
+#### 9.6.1 自动组卷流程
 
 1. 教务管理人员或系统管理员先创建试卷，填写试卷标题、说明、总分、考试时长，以及可选的开始时间和结束时间。新建试卷默认为草稿状态，学生端暂时不可见。
 2. 进入试卷配置后，管理人员可以选择手动组卷或自动组卷。手动组卷由管理人员从指定题库中选择一道或多道题目，系统按照加入顺序形成试卷题目顺序。
@@ -1166,7 +1243,7 @@ function periodOverlap(a, b):
 5. 若管理人员设置了统一分值，系统按统一分值计算每题得分；若未设置，则沿用题目在题库中的默认分值。组卷完成后，系统展示实际加入数量、试卷当前包含的题目、顺序和分值，供管理人员继续调整。
 6. 试卷发布前，系统检查试卷中是否至少包含一道题。发布后学生才可以开始答题；关闭试卷后，学生不能再进入新的答题过程。
 
-#### 9.5.2 答题与计时流程
+#### 9.6.2 答题与计时流程
 
 1. 学生在试卷列表中选择已发布试卷，调用开始答题接口。
 2. 后端检查学生角色、试卷状态、考试时间窗口，以及该学生是否已有已评分记录。
@@ -1175,7 +1252,7 @@ function periodOverlap(a, b):
 5. 前端根据考试时长和试卷结束时间计算剩余时间，并在浏览器本地临时保存未提交答案，刷新页面后可恢复答题进度。
 6. 倒计时归零时前端自动触发交卷；学生主动点击交卷时，若存在未作答题目，先弹出确认提示。
 
-#### 9.5.3 自动评分流程
+#### 9.6.3 自动评分流程
 
 1. 学生交卷时，前端按试卷题目顺序提交每道题的作答内容。
 2. 后端读取该试卷的标准答案和每题分值，逐题进行判分。
@@ -1185,7 +1262,7 @@ function periodOverlap(a, b):
 6. 系统保存每题的学生答案、正确与否和得分，同时将本次答题状态更新为已评分，记录提交时间和总分。
 7. 评分完成后，前端立即展示总分、正确率、用时和每题判分明细；学生和教师后续也可以在成绩查看页查询同一结果。
 
-### 9.6 F 成绩分析流程【F 组重点写】
+### 9.7 F 成绩分析流程【F 组重点写】
 
 写作指引：
 说明平均分、分布、排名、绩点、学分进展如何计算。
@@ -1278,6 +1355,7 @@ classDiagram
 | A      | 用户删除、角色权限维护、令牌吊销、院系/专业/课程/培养方案写操作 | `admin`/`super_admin`，其中删除和角色权限高危操作主要限 `super_admin` | Bearer Token + `requireRoles`/`requireSelfOrAdmin` + 系统日志 |
 | B      | 发布排课结果                                | 教务管理人员                 | 权限校验                                 |
 | C      | 手动加课                                    | 教务管理人员                 | 权限校验 + 日志                          |
+| D      | 发布公告、置顶帖子、隐藏评论、导出统计、删除他人内容 | `teacher`、`forum_admin`、`academic_admin`、`admin` | JWT 认证 + 角色校验 + 作者本人/管理员关系校验 |
 | E      | 题库维护、题目维护、试卷创建/组卷/发布/关闭 | 教务管理人员/系统管理员      | Bearer Token + 角色校验 + 请求日志       |
 | E      | 查看整卷学生测试成绩                        | 教师/教务管理人员/系统管理员 | Bearer Token + 角色校验 + 请求日志       |
 | E      | 开始答题、提交试卷                          | 学生                         | Bearer Token + 学生身份校验 + 防重复提交 |
@@ -1303,6 +1381,8 @@ A 模块异常按 HTTP 状态码和业务错误信息双层表达。接口返回
 - 登录成功/失败、登出、密码修改、密码重置、Refresh Token 吊销、用户状态变更、角色分配、角色权限变更、院系/专业/课程/培养方案写操作均应记录审计日志。
 - 系统日志保留 `user_id`、`action`、`resource_type`、`resource_id`、`ip_address`、`user_agent` 和 `details`，便于问题追踪与责任界定。
 - 删除用户时历史日志不级联删除，`user_id` 置空后保留审计事实。
+
+D 论坛子系统在统一异常模型下补充以下处理规则：帖子、公告、评论和附件不存在时返回明确的资源不存在错误；普通用户访问已删除帖子、删除他人内容、发布公告、置顶帖子、隐藏评论或导出统计时返回权限不足；标题、正文、评论内容、关键词、分页、日期范围和 UUID 参数非法时返回参数错误；附件类型不支持、大小超过限制、Base64 内容无法解析或物理文件写入失败时返回可展示的附件错误；检索无结果不作为异常，而由前端展示空状态。
 
 ---
 
@@ -1354,6 +1434,17 @@ A 模块异常按 HTTP 状态码和业务错误信息双层表达。接口返回
 | FR-B-07  | 课程时间均匀分布   | AutoSchedulingService  | /api/v1/schedules/auto-generate                                                          | schedules                                        | 自动排课页            |
 | FR-B-08  | 教室状态管理       | ClassroomService       | /api/v1/classrooms/:id                                                                   | classrooms                                       | 教室资源管理页        |
 | FR-C-03  | 选课与退课         | EnrollmentService      | /api/enrollments                                                                         | enrollments                                      | 选课页                |
+| FR-D-01  | 课程公告管理       | AnnouncementService 逻辑、AnnouncementBanner | /api/v1/forum/announcements | forum_posts | 公告列表页、课程论坛首页 |
+| FR-D-02  | 帖子发布与编辑     | PostService 逻辑、PostEditor | /api/v1/forum/posts, /api/v1/forum/posts/:id | forum_posts | 帖子编辑页、帖子详情页 |
+| FR-D-03  | 附件上传、绑定与删除 | AttachmentService 逻辑、AttachmentUpload、AttachmentList | /api/v1/forum/attachments, /api/v1/forum/attachments/batch, /api/v1/forum/attachments/:id | forum_attachments | 帖子编辑页、帖子详情页 |
+| FR-D-04  | 回帖与楼中楼回复   | CommentService 逻辑、CommentEditor、CommentList | /api/v1/forum/posts/:id/comments | forum_comments | 帖子详情页 |
+| FR-D-05  | 评论管理           | CommentService 逻辑、CommentList | /api/v1/forum/comments/:id, /api/v1/forum/comments/:id/hide, /api/v1/forum/comments/:id/restore, /api/v1/forum/comments/hidden | forum_comments | 帖子详情页、隐藏评论列表 |
+| FR-D-06  | 帖子列表与详情查看 | PostService 逻辑、PostCard、PostFilters | /api/v1/forum/posts, /api/v1/forum/posts/:id | forum_posts, forum_comments, forum_attachments | 课程论坛首页、帖子详情页 |
+| FR-D-07  | 帖子置顶与软删除   | PostService 逻辑、ForumPermission | /api/v1/forum/posts/:id/pin, /api/v1/forum/posts/:id | forum_posts | 帖子详情页、课程论坛首页 |
+| FR-D-08  | 帖子全文检索       | SearchService 逻辑、SearchResult | /api/v1/forum/search | forum_posts | 帖子检索页 |
+| FR-D-09  | 综合统计与热帖排行 | ForumStatisticService 逻辑、StatsPage | /api/v1/forum/stats, /api/v1/forum/stats/hot-posts | forum_posts, forum_comments, forum_attachments | 论坛统计页、课程论坛首页 |
+| FR-D-10  | 用户与课程活跃度统计 | ForumStatisticService 逻辑、StatFilter | /api/v1/forum/stats/user, /api/v1/forum/stats/user/:userId, /api/v1/forum/stats/course-activity | forum_posts, forum_comments | 我的发布页、论坛统计页 |
+| FR-D-11  | 统计数据导出       | ForumStatisticService 逻辑、forumApi.exportStatsCsv | /api/v1/forum/stats/export | forum_posts, forum_comments, forum_attachments, course_offerings | 论坛统计页 |
 | FR-E-01  | 题库管理           | QuestionBankService    | /online-testing/question-banks                                                           | question_banks                                   | 题目管理页            |
 | FR-E-02  | 题目管理           | QuestionBankService    | /online-testing/questions                                                                | questions, question_options                      | 题目管理页            |
 | FR-E-03  | 试卷基础信息管理   | PaperGenerationService | /online-testing/test-papers, /online-testing/test-papers/:id                             | test_papers                                      | 组卷管理页            |
@@ -1382,6 +1473,9 @@ A 模块异常按 HTTP 状态码和业务错误信息双层表达。接口返回
 | R-A-05   | 登录暴力破解或弱密码导致账号被攻破       | A        | 密码强度校验；bcrypt 哈希；登录失败窗口计数与锁定；安全事件写入日志     |
 | R-02     | 自动排课算法复杂度较高                 | B        | 先实现可运行版本，再优化                                               |
 | R-03     | 选课并发可能导致容量超卖               | C        | 加事务或并发控制                                                       |
+| R-D-01   | 附件采用 Base64 上传会增加请求体体积，过大文件可能导致请求失败或内存压力 | D        | 限制单文件 10MB、批量数量受控，并在后端配置请求体大小限制；后续可改为 multipart 或对象存储 |
+| R-D-02   | 检索基于标题/正文模糊匹配，数据量增长后查询性能可能下降 | D        | 当前通过分页、课程和时间范围筛选控制规模；后续可增加全文索引或独立搜索服务 |
+| R-D-03   | 热帖和活跃度统计实时聚合，极端数据量下可能影响响应时间 | D        | 控制统计时间范围和返回数量；后续可引入缓存或定时统计快照 |
 | R-E-01   | 在线答题重复提交或刷新页面导致答案丢失 | E        | 使用 test_results 状态限制重复提交，前端 sessionStorage 暂存未提交答案 |
 | R-E-02   | 自动组卷条件过窄导致抽题数量不足       | E        | 接口返回实际加入数量，教师可调整题型、难度、关键词或改用手动加题       |
 | R-E-03   | 客观题自动评分只能处理固定答案格式     | E        | 后端统一多选答案排序比较，后续若扩展主观题需引入人工阅卷状态           |
@@ -1407,6 +1501,7 @@ A 模块异常按 HTTP 状态码和业务错误信息双层表达。接口返回
 | B 子系统类图   | 4.3      | B 组   |
 | B 自动排课流程图 | 9.2      | B 组   |
 | B 子系统组件图 | 8.2      | B 组   |
+| D 论坛交流类图/组件图 | 4.5、8.4 | D 组 |
 
 ### 14.2 设计评审记录
 

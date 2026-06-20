@@ -44,11 +44,15 @@ const CourseSelectionAiPage: React.FC = () => {
     };
 
     aiAdvisor.recommend.mutate(payload, {
-      onSuccess: () => {
+      onSuccess: (result) => {
+        const isFull = result.degradedMode === 'full';
+
         setRecommendFeedback({
-          type: 'success',
-          message: 'AI 推荐已更新',
-          description: '推荐结果仅供参考，最终是否可选仍以后端规则校验为准。',
+          type: isFull ? 'success' : 'warning',
+          message: isFull ? 'AI 推荐已更新' : 'AI 建议已降级',
+          description: isFull
+            ? '推荐结果仅供参考，最终是否可选仍以后端规则校验为准。'
+            : `当前处于降级模式（${result.degradedMode}），已返回模板或规则说明。`,
         });
       },
       onError: (_error) => {
@@ -156,8 +160,14 @@ const CourseSelectionAiPage: React.FC = () => {
               <Tag color={explainResult.hardRuleResult.isSelectableNow ? 'green' : 'red'}>
                 {explainResult.hardRuleResult.isSelectableNow ? '当前可选' : '当前不可选'}
               </Tag>
+              <Tag color={explainResult.degradedMode === 'full' ? 'blue' : 'gold'}>
+                {explainResult.degradedMode ?? 'rule_only'}
+              </Tag>
             </Space>
             <Text>{explainResult.explanation}</Text>
+            {explainResult.llmUsed === false ? null : (
+              <Text type="secondary">模型：{explainResult.model || '未返回'}</Text>
+            )}
             <Alert message={explainResult.disclaimer} type="info" showIcon />
           </Space>
         </Card>

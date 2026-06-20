@@ -1,4 +1,4 @@
-import { Alert, Button, Card, Empty, List, Space, Typography } from 'antd';
+import { Alert, Button, Card, Collapse, Empty, List, Space, Tag, Typography } from 'antd';
 import { type FC } from 'react';
 import type { AiAdvicePayload } from '../types/ai';
 
@@ -29,21 +29,84 @@ export const AiAdvisorPanel: FC<AiAdvisorPanelProps> = ({ advice, loading, onExp
     );
   }
 
+  const modeText =
+    advice.degradedMode === 'full'
+      ? 'AI 全量推理'
+      : advice.degradedMode === 'template_only'
+        ? '模板降级'
+        : '规则兜底';
+
+  const planItems =
+    advice.plans?.map((plan) => ({
+      key: plan.id,
+      label: (
+        <Space size="small" wrap>
+          <Text strong>{plan.title}</Text>
+          <Tag color={plan.riskLevel === 'high' ? 'red' : plan.riskLevel === 'medium' ? 'orange' : 'green'}>
+            {plan.riskLevel === 'low' ? '低风险' : plan.riskLevel === 'medium' ? '中风险' : '高风险'}
+          </Tag>
+          <Text type="secondary">合计学分 {plan.projectedCredits}</Text>
+          <Text type="secondary">{plan.recommendations.length} 门课程</Text>
+        </Space>
+      ),
+      children: (
+        <List
+          size="small"
+          dataSource={plan.recommendations}
+          renderItem={(item) => (
+            <List.Item
+              actions={[
+                <Button
+                  key={item.courseOfferingId}
+                  size="small"
+                  onClick={() => onExplain(item.courseOfferingId)}
+                >
+                  查看解释
+                </Button>,
+              ]}
+            >
+              <List.Item.Meta
+                title={
+                  <Space wrap>
+                    <Text>{item.courseCode} {item.courseName}</Text>
+                    <Text type="secondary">{item.teacherName}</Text>
+                  </Space>
+                }
+                description={
+                  <Space direction="vertical" size={2} style={{ width: '100%' }}>
+                    <Text type="secondary">推荐分数 {item.recommendationScore.toFixed(2)} · 学分 {item.credits}</Text>
+                    <Text>推荐理由：{item.reasons.join('；') || '暂无推荐理由'}</Text>
+                    {item.risks.length > 0 ? (
+                      <Text type="warning">风险：{item.risks.join('；')}</Text>
+                    ) : null}
+                  </Space>
+                }
+              />
+            </List.Item>
+          )}
+        />
+      ),
+    })) ?? [];
+
   return (
     <Card
       title="AI 辅助建议"
       extra={
         <Text type="secondary" style={{ fontSize: 12 }}>
-          仅供参考
+          仅供参考 · {modeText}
         </Text>
       }
     >
       <Space direction="vertical" size="middle" style={{ width: '100%' }}>
-        <Alert message={advice.disclaimer} type="info" />
+        <Alert message={advice.disclaimer} type="info" showIcon />
+        {advice.fallbackInfo ? (
+          <Alert message={`降级提示：${advice.fallbackInfo.code}`} description={advice.fallbackInfo.reason} type="warning" showIcon />
+        ) : null}
         <Text type="secondary">
           学分说明：当前 {advice.creditProgressSummary.currentSelectedCredits} / 目标{' '}
           {advice.creditProgressSummary.targetCredits} / 上限 {advice.creditProgressSummary.maxCredits}
         </Text>
+        {advice.recommendationSummary ? <Alert message={advice.recommendationSummary} type="success" showIcon /> : null}
         <div>
           <Text strong>冲突/风险提示：</Text>
           {advice.conflictNotes.length === 0 ? (
@@ -56,6 +119,14 @@ export const AiAdvisorPanel: FC<AiAdvisorPanelProps> = ({ advice, loading, onExp
             />
           )}
         </div>
+
+        {planItems.length > 0 ? (
+          <div>
+            <Text strong>三套方案</Text>
+            <Collapse size="small" style={{ marginTop: 8 }} items={planItems} />
+          </div>
+        ) : null}
+
         <Text strong>推荐课程</Text>
         {advice.recommendations.length === 0 ? (
           <Empty description="当前没有可推荐课程。" image={Empty.PRESENTED_IMAGE_SIMPLE} />

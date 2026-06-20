@@ -2,73 +2,9 @@
 
 > 本文只覆盖 C 组 Smart Course Selection / 智能选课子系统。内容依据当前仓库实现、C 组 API 文档、C 组模块设计文档和需求报告整理；不把 Redis 连接控制、培养方案确认持久化、先修课成绩通过判断和 200 在线用户压测写成已完成能力。
 
-## 1. 设计依据与当前状态
+## 4.4 C 智能选课数据/类设计
 
-| 类别 | 当前依据 |
-|---|---|
-| 后端代码 | `backend/src/modules/course-selection` |
-| 前端代码 | `frontend/src/modules/course-selection` |
-| API 前缀 | `/api/v1/course-selection` |
-| 数据模型 | `backend/prisma/schema.prisma` 中的 `Student`、`Course`、`CourseOffering`、`Schedule`、`Curriculum`、`CurriculumCourse`、`Enrollment`、`SelectionPeriod` 等 |
-| 设计约束 | 不新增 C 组业务表；学生端接口不信任前端 `student_id`；教师名单校验任课归属；AI 不写 `Enrollment` |
-
-### 1.1 当前能力状态
-
-| 能力域 | 当前状态 | 说明 |
-|---|---|---|
-| 培养方案与学分进展 | 已实现，存在限制 | 可按当前学生查询培养方案和进展；公共课最低要求未完整建模，确认状态未持久化 |
-| 课程与开课查询 | 已实现 | 支持课程目录、开课列表、可选课程和详情 |
-| 学生选退课 | 已实现，存在限制 | 使用事务、条件容量更新和重试；存在先修课时因未接入成绩通过数据会阻断 |
-| 选课结果与课表 | 已实现 | 可查询本人选课结果、汇总和课表，课表支持打印 |
-| 教师名单与导出 | 已实现 | 教师只能查询和导出本人任课开课名单 |
-| 选课阶段管理 | 已实现 | 学术教务管理员可查询、创建和更新阶段，写系统日志 |
-| 教务手动加课 | 已实现 | 要求原因，校验容量、冲突、最大学分和审计日志 |
-| AI 辅助选课 | 已接入（含降级） | 后端已接入规则过滤 + LLM 推荐；LLM 不可用时降级到规则模板，不写选课记录 |
-| 高峰连接控制 | 未实现 | Redis 连接控制、心跳和无操作释放仍为 TODO |
-
-## 2. 架构设计
-
-### 2.1 模块结构
-
-```text
-backend/src/modules/course-selection/
-├── course-selection.routes.ts
-├── course-selection.schemas.ts
-├── course-selection.types.ts
-├── curriculum.*
-├── course-search.*
-├── enrollment.*
-├── enrollment-results.*
-├── timetable.*
-├── roster.*
-├── selection-period.*
-├── ai-advisor.*
-└── course-selection.support.ts
-
-frontend/src/modules/course-selection/
-├── api/
-├── pages/
-├── components/
-├── hooks/
-├── types/
-└── utils/
-```
-
-后端按业务域划分 controller/service，统一由 `course-selection.routes.ts` 挂载。`course-selection.schemas.ts` 负责请求校验和 `snake_case` 到 camelCase 的转换，服务层只接收已规范化 DTO。前端按 API、页面、组件、hooks 和类型拆分，最终选课结果以后端事务返回为准。
-
-### 2.2 关键架构决策
-
-| 决策编号 | 决策内容 | 原因 | 当前实现 |
-|---|---|---|---|
-| AD-C-01 | C 组接口统一挂载在 `/api/v1/course-selection` | 统一鉴权、校验、错误处理和前端 API 封装 | 已实现 |
-| AD-C-02 | 学生身份以后端认证上下文为准 | 防止学生伪造 `student_id` 操作他人数据 | 已实现，选课 schema strict |
-| AD-C-03 | 选课和手动加课通过事务维护容量一致性 | 避免并发超选和记录/容量不一致 | 学生选课使用 Serializable 事务和条件更新 |
-| AD-C-04 | 教师名单按开课归属授权 | 防止教师猜测 offeringId 查看他人名单 | 已实现 `CourseOffering.teacherId` 校验 |
-| AD-C-05 | AI 与正式选课事务分离 | AI 只能推荐和解释，不能绕过硬性规则 | AI 已接入规则+LLM流程；异常时降级，不触发选课事务 |
-
-## 3. 数据与类设计
-
-### 3.1 主要设计类
+### 4.4.1 主要设计类
 
 | 类名 | 职责 | 主要属性 | 主要行为 |
 |---|---|---|---|
@@ -85,7 +21,7 @@ frontend/src/modules/course-selection/
 | SystemLog | 审计记录 | userId, action, resourceType, resourceId, details | 记录阶段管理和手动加课 |
 | AiAdvisorEndpoint | AI 接口边界 | recommend, explain | 支持 `full`、`rule_only`、`template_only` 的降级模式返回建议与风险说明 |
 
-### 3.2 关系说明
+### 4.4.2 关系说明
 
 学生通过 `Student.majorId` 和 `Student.grade` 匹配 `Curriculum`。培养方案通过 `CurriculumCourse` 关联课程并保存课程类型和建议修读学期。`CourseOffering` 关联课程、学期、教师和排课时间，`Enrollment` 关联学生与课程开设。
 
@@ -93,7 +29,7 @@ frontend/src/modules/course-selection/
 
 当前无 AI 推荐结果表、连接队列表、手动加课申请表或培养方案确认表。
 
-## 4. 数据库设计
+## 5.4 C 智能选课数据表
 
 | 表名 | 字段 | 类型 | 约束 | 说明 |
 |---|---|---|---|---|
@@ -107,9 +43,9 @@ frontend/src/modules/course-selection/
 | course_prerequisites | course_id, prerequisite_id | UUID/String | 组合主键 | 先修关系；当前未接入成绩通过判断 |
 | system_logs | user_id, action, resource_type, resource_id, details, created_at | UUID/String, Json, DateTime | 关联操作用户 | 阶段管理和手动加课审计 |
 
-## 5. 接口设计
+## 6.4 C 智能选课接口
 
-### 5.1 接口约定
+### 6.4.1 接口约定
 
 | 项 | 约定 |
 |---|---|
@@ -120,7 +56,7 @@ frontend/src/modules/course-selection/
 | 时间 | ISO 8601，阶段判断以服务器时间为准 |
 | 学生身份 | 从认证上下文解析，不接受选课请求中的 `student_id` |
 
-### 5.2 接口列表
+### 6.4.2 接口列表
 
 | 接口名称 | 方法 | 路径 | 输入 | 输出 | 权限 |
 |---|---|---|---|---|---|
@@ -143,7 +79,7 @@ frontend/src/modules/course-selection/
 | AI 推荐课程 | POST | `/ai-advisor/recommend` | limit, preferences | 推荐 payload（支持降级） | student |
 | AI 解释课程 | POST | `/ai-advisor/explain` | course_offering_id, question | 解释 payload（支持规则/LLM 降级） | student |
 
-## 6. 用户界面设计
+## 7.4 C 智能选课界面
 
 | 页面 | 路由 | 使用角色 | 用途 | 主要字段/控件 | 主要操作与异常提示 |
 |---|---|---|---|---|---|
@@ -155,7 +91,7 @@ frontend/src/modules/course-selection/
 | 手动加课页 | `/selection/admin/manual-enrollment` | admin、super_admin | 为学生手动加课 | studentId、courseOfferingId、reason、notifyStudent | 原因为必填；成功后显示记录、容量和审计结果 |
 | 教师课程名单页 | `/selection/teacher/roster` | 教师 | 查询和导出本人课程名单 | offeringId、keyword、status、名单表格、导出按钮 | 非本人开课返回 403；导出后端 Excel |
 
-## 7. 组件级设计
+## 8.3 C 智能选课组件设计
 
 | 组件 | 职责 | 输入 | 输出 | 依赖 |
 |---|---|---|---|---|
@@ -176,9 +112,9 @@ frontend/src/modules/course-selection/
 | TimetableGrid | 展示课表和打印样式 | timetable items、semesterName | 网格课表和缺失提示 | timetable API |
 | AiAdvisorPanel | 展示 AI 推荐结果或空状态 | advice、loading、onExplain | 推荐列表和解释入口 | aiAdvisor API |
 
-## 8. 关键流程设计
+## 9. 关键算法与流程设计【A-F 按实际分写】
 
-### 8.1 学生选课事务流程
+### 9.2.1 学生选课事务流程
 
 1. 校验当前用户存在学生档案。
 2. 读取目标 `CourseOffering`、`Course` 和 `Schedule`。
@@ -194,21 +130,21 @@ frontend/src/modules/course-selection/
 12. 在 Serializable 事务内创建或恢复 `Enrollment`，同步更新 `CourseOffering.enrolledCount`。
 13. 事务冲突最多重试 3 次，仍失败时返回准入限制错误。
 
-### 8.2 学生退课流程
+### 9.2.2 学生退课流程
 
 退课校验当前用户为学生、目标记录属于本人、当前阶段允许退课。成功后把 `Enrollment.status` 更新为 `DROPPED`，写入 `droppedAt`，并减少开课已选人数。当前实现只允许第二轮和调整阶段退课，初选阶段退课策略仍为 TODO。
 
-### 8.3 选课阶段与手动加课流程
+### 9.2.3 选课阶段与手动加课流程
 
 阶段创建和更新要求学术教务管理员身份，校验结束时间晚于开始时间、学期存在、同学期同阶段启用时间不重叠，并写入 `SystemLog`。手动加课要求填写原因，校验学生、课程开设、课程状态、容量、重复选课、时间冲突和最大学分，成功后创建或恢复选课记录、更新容量并写日志。
 
-### 8.4 AI 辅助流程
+### 9.3 C AI 辅助选课流程
 
 当前 AI 页面调用推荐或解释接口后，后端优先返回规则过滤后的候选 + LLM 推荐，LLM 不可用或校验失败时返回规则模板降级。该流程不写任何 AI 推荐数据，也不创建、修改或删除 `Enrollment`。输入来自学生本人可见的培养方案、已选课程、可选课程、容量和课表；输出建议仅包含推荐理由、风险提示和学分影响。正式选课仍必须走普通选课事务。
 
-## 9. 安全、权限与异常处理
+## 10. 安全、权限与异常处理设计【全组统一 + A-F 补充】
 
-### 9.1 权限设计
+### 10.1 统一权限模型
 
 | 场景 | 允许角色 | 控制方式 |
 |---|---|---|
@@ -218,7 +154,7 @@ frontend/src/modules/course-selection/
 | 选课阶段管理/手动加课 | admin、super_admin 入口，服务层要求 ACADEMIC | `Admin.adminType = ACADEMIC` + SystemLog |
 | AI 推荐/解释 | student | 当前学生身份；支持降级提示；无选课副作用 |
 
-### 9.2 异常处理
+### 10.3 异常处理设计
 
 | 异常类型 | 触发场景 | 处理方式 |
 |---|---|---|
@@ -233,7 +169,7 @@ frontend/src/modules/course-selection/
 | 并发冲突 | Serializable 事务重试后仍失败 | 返回 `CS_ADMISSION_LIMITED` |
 | AI 不可用 | 推荐或解释服务降级 | 返回规则模板/说明，不影响普通选课 |
 
-## 10. 需求到设计追踪矩阵
+## 12. 需求到设计追踪矩阵
 
 | 需求编号 | 需求名称 | 设计类/组件 | 接口 | 数据表 | 页面 |
 |---|---|---|---|---|---|
@@ -254,7 +190,7 @@ frontend/src/modules/course-selection/
 | FR-C-15 | 连接控制与空闲释放预留 | selectionPeriodService TODO | 暂无已实现接口 | 暂无新增表 | 阶段管理页 |
 | FR-C-16 | C 组统一接口契约 | routes、schemas、types | `/api/v1/course-selection/*` | C 组相关表 | C 组所有页面 |
 
-## 11. 设计风险与改进点
+## 13. 设计风险与改进点
 
 | 风险编号 | 风险描述 | 影响范围 | 应对策略 |
 |---|---|---|---|

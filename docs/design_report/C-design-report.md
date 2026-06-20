@@ -1,6 +1,6 @@
 # C 组智能选课设计报告
 
-> 本文只覆盖 C 组 Smart Course Selection / 智能选课子系统。内容依据当前仓库实现、C 组 API 文档、C 组模块设计文档和需求报告整理；不把尚未实现的 AI 推荐、Redis 连接控制、培养方案确认持久化、先修课成绩通过判断和 200 在线用户压测写成已完成能力。
+> 本文只覆盖 C 组 Smart Course Selection / 智能选课子系统。内容依据当前仓库实现、C 组 API 文档、C 组模块设计文档和需求报告整理；不把 Redis 连接控制、培养方案确认持久化、先修课成绩通过判断和 200 在线用户压测写成已完成能力。
 
 ## 1. 设计依据与当前状态
 
@@ -23,7 +23,7 @@
 | 教师名单与导出 | 已实现 | 教师只能查询和导出本人任课开课名单 |
 | 选课阶段管理 | 已实现 | 学术教务管理员可查询、创建和更新阶段，写系统日志 |
 | 教务手动加课 | 已实现 | 要求原因，校验容量、冲突、最大学分和审计日志 |
-| AI 辅助选课 | 未实现 | 只有接口和前端入口，后端返回未实现，不写选课记录 |
+| AI 辅助选课 | 已接入（含降级） | 后端已接入规则过滤 + LLM 推荐；LLM 不可用时降级到规则模板，不写选课记录 |
 | 高峰连接控制 | 未实现 | Redis 连接控制、心跳和无操作释放仍为 TODO |
 
 ## 2. 架构设计
@@ -64,7 +64,7 @@ frontend/src/modules/course-selection/
 | AD-C-02 | 学生身份以后端认证上下文为准 | 防止学生伪造 `student_id` 操作他人数据 | 已实现，选课 schema strict |
 | AD-C-03 | 选课和手动加课通过事务维护容量一致性 | 避免并发超选和记录/容量不一致 | 学生选课使用 Serializable 事务和条件更新 |
 | AD-C-04 | 教师名单按开课归属授权 | 防止教师猜测 offeringId 查看他人名单 | 已实现 `CourseOffering.teacherId` 校验 |
-| AD-C-05 | AI 与正式选课事务分离 | AI 只能推荐和解释，不能绕过硬性规则 | 当前 AI 后端未实现且无副作用 |
+| AD-C-05 | AI 与正式选课事务分离 | AI 只能推荐和解释，不能绕过硬性规则 | AI 已接入规则+LLM流程；异常时降级，不触发选课事务 |
 
 ## 3. 数据与类设计
 
@@ -83,7 +83,7 @@ frontend/src/modules/course-selection/
 | Enrollment | 选课记录 | id, studentId, courseOfferingId, status, enrolledAt, droppedAt | 选课、退课、恢复、结果查询和成绩引用 |
 | SelectionPeriod | 选课阶段 | id, semesterId, phase, startTime, endTime, maxCredits, isActive | 控制开放窗口、阶段和学分上限 |
 | SystemLog | 审计记录 | userId, action, resourceType, resourceId, details | 记录阶段管理和手动加课 |
-| AiAdvisorEndpoint | AI 接口边界 | recommend, explain | 当前返回未实现；后续只提供建议 |
+| AiAdvisorEndpoint | AI 接口边界 | recommend, explain | 支持 `full`、`rule_only`、`template_only` 的降级模式返回建议与风险说明 |
 
 ### 3.2 关系说明
 
@@ -140,8 +140,8 @@ frontend/src/modules/course-selection/
 | 创建选课阶段 | POST | `/admin/periods` | semester_id, phase, start_time, end_time, max_credits, is_active | 新建阶段 | admin/super_admin + ACADEMIC |
 | 更新选课阶段 | PATCH | `/admin/periods/:id` | 可选阶段字段 | 更新后阶段 | admin/super_admin + ACADEMIC |
 | 教务手动加课 | POST | `/admin/enrollments` | student_id, course_offering_id, reason, notify_student | 记录、容量、审计结果 | admin/super_admin + ACADEMIC |
-| AI 推荐课程 | POST | `/ai-advisor/recommend` | limit, preferences | 当前未实现响应 | student |
-| AI 解释课程 | POST | `/ai-advisor/explain` | course_offering_id, question | 当前未实现响应 | student |
+| AI 推荐课程 | POST | `/ai-advisor/recommend` | limit, preferences | 推荐 payload（支持降级） | student |
+| AI 解释课程 | POST | `/ai-advisor/explain` | course_offering_id, question | 解释 payload（支持规则/LLM 降级） | student |
 
 ## 6. 用户界面设计
 
@@ -150,7 +150,7 @@ frontend/src/modules/course-selection/
 | 课程列表与选课页 | `/selection/courses` | 学生 | 搜索可选课程、查看详情、选课或退课 | keyword、teacher、courseType、offeringStatus、includeUnavailable、课程表格、详情抽屉、确认弹窗 | 查询、详情、确认选退课；显示后端业务错误 |
 | 培养方案页 | `/selection/curriculum` | 学生 | 查看培养方案、课程分组和学分进展 | 培养方案信息、课程分组、建议学期、CreditProgressCard | 无档案/无方案时显示错误；确认状态只展示后端提示 |
 | 我的课表页 | `/selection/timetable` | 学生 | 查看和打印本人课表 | semesterId、查询/重置/刷新/打印、TimetableGrid | 查询失败、无选课、缺少排课均有提示 |
-| AI 推荐页 | `/selection/ai` | 学生 | 展示 AI 推荐入口 | 推荐数量、推荐按钮、AiAdvisorPanel、解释结果 | 当前后端未实现时显示失败/降级提示 |
+| AI 推荐页 | `/selection/ai` | 学生 | 展示 AI 推荐入口 | 推荐数量、推荐按钮、AiAdvisorPanel、解释结果 | 支持成功/降级提示，不改变选课记录 |
 | 阶段管理页 | `/selection/admin/periods` | admin、super_admin | 管理选课阶段 | 学期、阶段、开始/结束时间、最大学分、是否启用 | 创建/更新阶段；后端拒绝非法时间、重叠和非 ACADEMIC 管理员 |
 | 手动加课页 | `/selection/admin/manual-enrollment` | admin、super_admin | 为学生手动加课 | studentId、courseOfferingId、reason、notifyStudent | 原因为必填；成功后显示记录、容量和审计结果 |
 | 教师课程名单页 | `/selection/teacher/roster` | 教师 | 查询和导出本人课程名单 | offeringId、keyword、status、名单表格、导出按钮 | 非本人开课返回 403；导出后端 Excel |
@@ -169,7 +169,7 @@ frontend/src/modules/course-selection/
 | rosterService | 查询和导出教师名单 | teacher userId、offeringId、筛选条件 | 名单分页或 Excel | CourseOffering、Enrollment、Student |
 | selectionPeriodService | 阶段管理和手动加课 | admin userId、阶段配置、加课请求 | 阶段、加课结果、审计 | Admin、SelectionPeriod、SystemLog |
 | course-selection.support | 共享分页、阶段状态、权限、冲突、学分和日志逻辑 | 服务参数 | 校验结果或错误 | Prisma、SystemLog |
-| aiAdvisorService | AI 推荐/解释接口边界 | userId、推荐/解释请求 | 当前返回 null | AiAdvisor DTO |
+| aiAdvisorService | AI 推荐/解释接口边界 | userId、推荐/解释请求 | 返回推荐/解释 payload，包含 `degradedMode`（`full` / `rule_only` / `template_only`）与风险提示 | AiAdvisor DTO |
 | CourseOfferingTable | 展示可选课程和操作按钮 | offerings、已选映射、回调 | 选课/退课/详情事件 | Ant Design Table |
 | CourseDetailDrawer | 展示开课详情 | offeringId、加载函数 | 详情、可选性、刷新事件 | courses API |
 | CreditProgressCard | 展示学分进展 | progress、loading、error | 学分进度和警告 | curriculum API |
@@ -204,7 +204,7 @@ frontend/src/modules/course-selection/
 
 ### 8.4 AI 辅助流程
 
-当前 AI 页面调用推荐或解释接口后，后端返回未实现状态。该流程不写任何 AI 推荐数据，也不创建、修改或删除 `Enrollment`。后续实现 AI 时，建议输入来自学生本人可见的培养方案、已选课程、可选课程、容量和课表，输出只包含推荐理由、风险提示和学分影响；正式选课仍必须走普通选课事务。
+当前 AI 页面调用推荐或解释接口后，后端优先返回规则过滤后的候选 + LLM 推荐，LLM 不可用或校验失败时返回规则模板降级。该流程不写任何 AI 推荐数据，也不创建、修改或删除 `Enrollment`。输入来自学生本人可见的培养方案、已选课程、可选课程、容量和课表；输出建议仅包含推荐理由、风险提示和学分影响。正式选课仍必须走普通选课事务。
 
 ## 9. 安全、权限与异常处理
 
@@ -216,7 +216,7 @@ frontend/src/modules/course-selection/
 | 学生选课/退课 | student | 当前学生档案 + 本人记录归属 + 事务校验 |
 | 教师名单查询/导出 | teacher | `CourseOffering.teacherId` 必须等于当前教师 userId |
 | 选课阶段管理/手动加课 | admin、super_admin 入口，服务层要求 ACADEMIC | `Admin.adminType = ACADEMIC` + SystemLog |
-| AI 推荐/解释 | student | 当前学生身份；当前未实现且无选课副作用 |
+| AI 推荐/解释 | student | 当前学生身份；支持降级提示；无选课副作用 |
 
 ### 9.2 异常处理
 
@@ -231,7 +231,7 @@ frontend/src/modules/course-selection/
 | 超过学分 | 选后总学分超过阶段上限 | 返回 `CS_MAX_CREDITS_EXCEEDED` |
 | 先修课未满足 | 存在先修课且无法验证通过情况 | 返回 `CS_PREREQUISITE_NOT_MET` |
 | 并发冲突 | Serializable 事务重试后仍失败 | 返回 `CS_ADMISSION_LIMITED` |
-| AI 不可用 | 推荐或解释服务未实现 | 返回未实现/不可用，不影响普通选课 |
+| AI 不可用 | 推荐或解释服务降级 | 返回规则模板/说明，不影响普通选课 |
 
 ## 10. 需求到设计追踪矩阵
 
@@ -250,7 +250,7 @@ frontend/src/modules/course-selection/
 | FR-C-11 | 教师名单导出 | rosterService、roster-export.util | `/teacher/offerings/:id/roster/export` | course_offerings, enrollments, students | 课程名单页 |
 | FR-C-12 | 选课阶段管理 | selectionPeriodService、SelectionPeriodStatusTag | `/admin/periods`, `/admin/periods/:id` | selection_periods, semesters, system_logs | 阶段管理页 |
 | FR-C-13 | 教务手动加课 | selectionPeriodService | `/admin/enrollments` | enrollments, course_offerings, students, system_logs | 手动加课页 |
-| FR-C-14 | AI 辅助选课接口预留 | aiAdvisorService、AiAdvisorPanel | `/ai-advisor/recommend`, `/ai-advisor/explain` | 无新增持久化表 | AI 推荐页 |
+| FR-C-14 | AI 辅助推荐与解释 | aiAdvisorService、AiAdvisorPanel | `/ai-advisor/recommend`, `/ai-advisor/explain` | 无新增持久化表 | AI 推荐页 |
 | FR-C-15 | 连接控制与空闲释放预留 | selectionPeriodService TODO | 暂无已实现接口 | 暂无新增表 | 阶段管理页 |
 | FR-C-16 | C 组统一接口契约 | routes、schemas、types | `/api/v1/course-selection/*` | C 组相关表 | C 组所有页面 |
 
@@ -258,7 +258,7 @@ frontend/src/modules/course-selection/
 
 | 风险编号 | 风险描述 | 影响范围 | 应对策略 |
 |---|---|---|---|
-| R-C-01 | AI 推荐与解释后端尚未实现 | AI 推荐页、AI 接口 | 当前标注为未实现；后续实现时保持 AI 不直接写 `Enrollment` |
+| R-C-01 | AI 推荐与解释降级边界 | AI 推荐页、AI 接口 | 已实现规则+LLM；LLM 失败时回退规则输出；仍保持不直接写 `Enrollment` |
 | R-C-02 | Redis 连接控制、心跳和无操作释放尚未实现 | 高峰期选课准入 | 作为 C5 TODO 和风险，不作为当前验收通过项 |
 | R-C-03 | 先修课通过判断尚未接入 F 组成绩数据 | 选课事务、成绩数据 | 当前存在先修课时阻断；后续与 F 组确定通过课程数据来源 |
 | R-C-04 | 培养方案确认和公共课最低要求未完整建模 | 培养方案、学分进展 | 当前确认状态非持久化，公共课要求以提示表达；后续确认是否扩展已有模型 |

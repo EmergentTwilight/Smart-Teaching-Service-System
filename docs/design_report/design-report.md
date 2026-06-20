@@ -19,7 +19,7 @@
 |---|---|---|---|---|
 | A | 基础信息管理 | A 组 |  | 用户、权限、课程、安全 |
 | B | 自动排课 | B 组 |  | 教室资源、排课算法、调课 |
-| C | 智能选课 | C 组 |  | 培养方案与学分进展、课程与开课查询、学生选退课事务、选课结果与课表、教师名单与导出、选课阶段管理、教务手动加课、AI 辅助接口预留 |
+| C | 智能选课 | C 组 |  | 培养方案与学分进展、课程与开课查询、学生选退课事务、选课结果与课表、教师名单与导出、选课阶段管理、教务手动加课、AI 辅助推荐与解释接入 |
 | D | 论坛交流 | D 组 |  | 帖子、回复、检索、统计 |
 | E | 在线测试 | E 组 |  | 题库、组卷、答题、评分 |
 | F | 成绩管理 | F 组 |  | 成绩录入、修改、分析 |
@@ -144,7 +144,7 @@
 | AD-C-01 | C 组统一挂载在 `/api/v1/course-selection` | 保持智能选课接口路径、鉴权、字段转换和错误处理集中管理 | C |
 | AD-C-02 | 学生身份以后端认证上下文为准 | 防止学生通过前端传入 `student_id` 查询或操作他人选课数据 | C、A |
 | AD-C-03 | 选课和手动加课以数据库事务维护容量一致性 | 避免高峰期并发选课造成 `Enrollment` 与 `CourseOffering.enrolledCount` 不一致 | C |
-| AD-C-04 | AI 辅助不直接写入选课记录 | 当前 AI 后端未实现；后续即使接入推荐，也只能提供建议和解释，最终选课仍走普通选课事务 | C |
+| AD-C-04 | AI 辅助不直接写入选课记录 | AI 辅助已接入规则+LLM 并带降级；即使在推荐场景也只输出建议，不参与 `Enrollment` 写流程，最终选课仍走普通选课事务 | C |
 
 写作指引：  
 只写对系统结构有实质影响的决策，不要把所有小实现都放进来。
@@ -217,7 +217,7 @@
 
 ### 4.4 C 智能选课数据/类设计【C 组】
 
-C 组选课模块不新增独立业务表，主要复用 A/B/F 组共享的学生、教师、课程、培养方案、排课和成绩相关基础数据，并在 C 组内维护开课、选课记录和选课阶段。当前实现中 AI 辅助只有接口和前端入口，没有持久化 `AIRecommendation` 类或数据表。
+C 组选课模块不新增独立业务表，主要复用 A/B/F 组共享的学生、教师、课程、培养方案、排课和成绩相关基础数据，并在 C 组内维护开课、选课记录和选课阶段。AI 辅助当前不新增持久化实体，仅返回建议、解释与降级状态。
 
 #### 4.4.1 主要设计类
 
@@ -234,7 +234,7 @@ C 组选课模块不新增独立业务表，主要复用 A/B/F 组共享的学�
 | Enrollment | 选课记录 | id, studentId, courseOfferingId, status, enrolledAt, droppedAt | 选课、退课、重新选课、结果查询和成绩管理引用 |
 | SelectionPeriod | 选课阶段 | id, semesterId, phase, startTime, endTime, maxCredits, isActive | 控制选课开放窗口、阶段和最大学分 |
 | SystemLog | 系统日志 | userId, action, resourceType, resourceId, details | 记录阶段创建/更新和教务手动加课 |
-| AiAdvisorEndpoint | AI 推荐/解释接口边界 | recommend, explain | 当前返回未实现；后续只提供建议，不直接写 `Enrollment` |
+| AiAdvisorEndpoint | AI 推荐/解释接口边界 | recommend, explain | 返回推荐/解释；失败时返回降级状态；不直接写 `Enrollment` |
 
 #### 4.4.2 关系说明
 
@@ -242,7 +242,7 @@ C 组选课模块不新增独立业务表，主要复用 A/B/F 组共享的学�
 
 选课事务以 `Enrollment` 与 `CourseOffering.enrolledCount` 的一致性为核心：创建或恢复有效选课记录时增加已选人数，退课时将记录置为 `DROPPED` 并减少已选人数。时间冲突由目标开课和本人已选开课的 `Schedule` 比较得到，最大学分由当前开放 `SelectionPeriod.maxCredits` 控制。
 
-AI 辅助接口不拥有独立持久化实体，也不参与选课写事务。当前 `ai-advisor.service` 返回空结果，控制器返回未实现响应；后续接入时仍必须把 AI 建议与正式选课结果分离。
+AI 辅助接口不拥有独立持久化实体，也不参与选课写事务。`ai-advisor.service` 返回建议、解释和降级状态，由控制器统一返回前端可展示错误；AI 建议始终只作决策参考。
 
 ### 4.5 D 论坛交流数据/类设计【D 组填写】
 
@@ -419,13 +419,13 @@ C 组接口统一挂载在 `/api/v1/course-selection`，通过 JWT Bearer Token 
 | 创建选课阶段 | POST | `/api/v1/course-selection/admin/periods` | semester_id, phase, start_time, end_time, max_credits, is_active | 新建阶段 | admin、super_admin，服务层校验 ACADEMIC |
 | 更新选课阶段 | PATCH | `/api/v1/course-selection/admin/periods/:id` | semester_id, phase, start_time, end_time, max_credits, is_active | 更新后阶段 | admin、super_admin，服务层校验 ACADEMIC |
 | 教务手动加课 | POST | `/api/v1/course-selection/admin/enrollments` | student_id, course_offering_id, reason, notify_student | 选课记录、容量、审计结果 | admin、super_admin，服务层校验 ACADEMIC |
-| AI 推荐课程 | POST | `/api/v1/course-selection/ai-advisor/recommend` | limit, preferences 等 | 当前返回未实现 | student |
-| AI 解释课程 | POST | `/api/v1/course-selection/ai-advisor/explain` | course_offering_id, question | 当前返回未实现 | student |
+| AI 推荐课程 | POST | `/api/v1/course-selection/ai-advisor/recommend` | limit, preferences 等 | 推荐列表或降级/兜底建议（含风险与提示） | student |
+| AI 解释课程 | POST | `/api/v1/course-selection/ai-advisor/explain` | course_offering_id, question | 推荐解释与风险提示；异常时返回降级说明 | student |
 
 关键接口限制：
 - `POST /enrollments` 的请求体 schema 为 strict，只接受 `course_offering_id` 和可选 `client_request_id`。
 - `/offerings/available` 必须注册在 `/offerings/:id` 之前，避免静态路由被动态参数吞掉。
-- AI 接口当前不能作为推荐能力验收项，只能验收“未实现响应”和“无选课副作用”。
+- AI 接口在异常场景支持降级返回；验收关注建议/降级输出的可读性、风险提示和无选课副作用。
 
 ### 6.5 D 论坛交流接口【D 组填写】
 
@@ -506,7 +506,7 @@ E 组接口由 Rust 后端 `backend-e-rust` 提供，统一前缀为 `/online-te
 | 课程列表与选课页 | `/selection/courses` | 学生 | 搜索可选课程、查看详情、执行选课或退课 | keyword、teacher、courseType、offeringStatus、includeUnavailable、课程表格、详情抽屉、确认弹窗 | 查询可选课程；查看容量、时间和不可选原因；确认选课/退课；后端失败时显示业务错误 |
 | 培养方案页 | `/selection/curriculum` | 学生 | 查看本人培养方案、课程分组和学分进展 | 培养方案信息、课程类型分组、建议学期、CreditProgressCard | 学生档案、专业、年级或培养方案异常时显示明确错误；确认状态当前只展示后端返回提示 |
 | 我的课表页 | `/selection/timetable` | 学生 | 查看本人已选课程课表并打印 | semesterId 输入框、查询/重置/刷新/打印按钮、TimetableGrid、选课概况 | 课表查询失败时提示错误；缺少排课时间的课程单独提示；打印时隐藏筛选控件 |
-| AI 推荐页 | `/selection/ai` | 学生 | 展示 AI 推荐入口和解释入口 | 推荐数量、推荐按钮、AiAdvisorPanel、解释结果区域 | 当前后端未实现时展示失败或降级提示，不改变选课记录 |
+| AI 推荐页 | `/selection/ai` | 学生 | 展示 AI 推荐入口和解释入口 | 推荐数量、推荐按钮、AiAdvisorPanel、解释结果区域 | 已接入 AI 推荐与解释，异常场景返回降级提示；不改变选课记录 |
 | 阶段管理页 | `/selection/admin/periods` | admin、super_admin | 管理选课阶段 | 学期、阶段、开始/结束时间、最大学分、是否启用、阶段状态标签 | 创建/更新阶段；非法时间、重叠阶段或非学术教务身份由后端拒绝 |
 | 手动加课页 | `/selection/admin/manual-enrollment` | admin、super_admin | 教务为学生手动加课 | studentId、courseOfferingId、reason、notifyStudent | 提交手动加课；显示返回的选课记录、容量和审计结果；原因为必填 |
 | 教师课程名单页 | `/selection/teacher/roster` | 教师 | 查询和导出本人开课名单 | offeringId、keyword、status、名单表格、导出按钮 | 教师只能访问本人开课；非本人开课后端返回 403；导出 Excel 使用后端文件 |
@@ -585,7 +585,7 @@ E 组接口由 Rust 后端 `backend-e-rust` 提供，统一前缀为 `/online-te
 | rosterService | 查询和导出教师本人课程名单 | 教师 userId、offeringId、筛选条件 | 名单分页或 Excel 文件 | CourseOffering、Enrollment、Student、roster-export.util |
 | selectionPeriodService | 管理选课阶段和教务手动加课 | 管理员 userId、阶段配置、手动加课请求 | 阶段配置、手动加课结果、审计结果 | Admin、SelectionPeriod、Enrollment、SystemLog |
 | course-selection.support | 复用分页、阶段状态、权限、冲突、最大学分和日志逻辑 | 业务服务参数 | 校验结果、映射结果或错误 | Prisma、SystemLog |
-| aiAdvisorService | AI 推荐和解释接口边界 | 当前学生 userId、推荐/解释请求 | 当前返回 null，由控制器转为未实现响应 | AiAdvisor DTO |
+| aiAdvisorService | AI 推荐和解释接口边界 | 当前学生 userId、推荐/解释请求 | 推荐、解释或降级响应；包含 `degradedMode`、`warnings`、`creditsImpact` 等字段 | AiAdvisor DTO |
 | CourseOfferingTable | 展示可选课程和操作按钮 | 可选课程列表、已选映射、loading、回调 | 选课/退课/详情事件 | Ant Design Table |
 | CourseDetailDrawer | 展示课程开设详情和可选性 | offeringId、详情加载函数 | 课程、容量、先修课、排课、可选原因 | courses API |
 | CreditProgressCard | 展示学分进展 | progress、loading、error | 学分进度、警告、空状态 | curriculum API |
@@ -669,13 +669,13 @@ E 组接口由 Rust 后端 `backend-e-rust` 提供，统一前缀为 `/online-te
 
 ### 9.3 C AI 辅助选课流程【C 组重点写】
 
-当前 AI 辅助选课只完成接口和前端入口预留，后端推荐与解释逻辑未实现。
+AI 辅助选课在推荐链路和降级链路之间提供统一入口：正常场景返回推荐或解释，异常场景返回降级结果并保持可解释提示。
 
 1. 学生进入 `/selection/ai` 页面，填写推荐数量等参数。
 2. 前端调用 `/api/v1/course-selection/ai-advisor/recommend` 或 `/api/v1/course-selection/ai-advisor/explain`。
-3. 后端校验学生角色和请求体，但 `aiAdvisorService.recommend`、`aiAdvisorService.explain` 当前返回 `null`。
-4. 控制器将空结果转换为功能未实现响应，前端展示失败或降级提示。
-5. 整个流程不读取或写入 AI 推荐持久化表，也不创建、修改或删除 `Enrollment`。
+3. 后端校验学生角色和请求体后，`aiAdvisorService` 返回正常结果或降级结果，均包含可展示文案和风险说明。
+4. 前端基于返回结构展示推荐、解释和降级提示，不展示伪结果，不修改选课状态。
+5. 整个流程不读取或写入 AI 推荐持久化表，不创建、修改或删除 `Enrollment`。
 
 后续若实现 AI 推荐，输入应来自学生本人可见的培养方案、已选课程、可选课程、容量和课表信息；输出只能是推荐课程、推荐理由、风险提示和学分影响说明。学生最终选课必须继续调用普通选课接口，由 `enrollmentService` 重新执行全部硬性规则。
 
@@ -732,7 +732,7 @@ E 组接口由 Rust 后端 `backend-e-rust` 提供，统一前缀为 `/online-te
 | C | 学生选课/退课 | 学生本人 | Bearer Token + student 角色 + 当前用户学生档案 + 事务校验 |
 | C | 教师名单查询/导出 | 任课教师 | Bearer Token + teacher 角色 + `CourseOffering.teacherId` 归属校验 |
 | C | 选课阶段管理/手动加课 | 学术教务管理员 | admin/super_admin 路由入口 + `Admin.adminType = ACADEMIC` 服务层校验 + SystemLog |
-| C | AI 推荐/解释 | 学生 | Bearer Token + student 角色；当前未实现且不得写入 Enrollment |
+| C | AI 推荐/解释 | 学生 | Bearer Token + student 角色；已接入 AI 推荐与解释能力，异常返回降级提示，不得写入 Enrollment |
 | E | 题库维护、题目维护、试卷创建/组卷/发布/关闭 | 教务管理人员/系统管理员 | Bearer Token + 角色校验 + 请求日志 |
 | E | 查看整卷学生测试成绩 | 教师/教务管理人员/系统管理员 | Bearer Token + 角色校验 + 请求日志 |
 | E | 开始答题、提交试卷 | 学生 | Bearer Token + 学生身份校验 + 防重复提交 |
@@ -766,7 +766,7 @@ E 组接口由 Rust 后端 `backend-e-rust` 提供，统一前缀为 `/online-te
 | 超过学分 | 已选学分加目标课程学分超过阶段上限 | 返回 `CS_MAX_CREDITS_EXCEEDED` |
 | 先修课未满足 | 目标课程存在先修课且当前未接入成绩通过判断 | 返回 `CS_PREREQUISITE_NOT_MET`，不默认放行 |
 | 并发事务冲突 | Serializable 事务重试后仍失败 | 返回 `CS_ADMISSION_LIMITED` |
-| AI 不可用 | 推荐或解释服务当前未实现 | 返回未实现/不可用响应，不影响普通选课流程 |
+| AI 不可用 | 推荐或解释服务异常/超时 | 返回降级响应或不可用提示，不影响普通选课流程 |
 
 ---
 
@@ -814,7 +814,7 @@ E 组接口由 Rust 后端 `backend-e-rust` 提供，统一前缀为 `/online-te
 | FR-C-11 | 教师名单导出 | rosterService、roster-export.util | `/api/v1/course-selection/teacher/offerings/:id/roster/export` | course_offerings, enrollments, students | 课程名单页 |
 | FR-C-12 | 选课阶段管理 | selectionPeriodService、SelectionPeriodStatusTag | `/api/v1/course-selection/admin/periods`, `/api/v1/course-selection/admin/periods/:id` | selection_periods, semesters, system_logs | 阶段管理页 |
 | FR-C-13 | 教务手动加课 | selectionPeriodService | `/api/v1/course-selection/admin/enrollments` | enrollments, course_offerings, students, system_logs | 手动加课页 |
-| FR-C-14 | AI 辅助选课接口预留 | aiAdvisorService、AiAdvisorPanel | `/api/v1/course-selection/ai-advisor/recommend`, `/api/v1/course-selection/ai-advisor/explain` | 无新增持久化表 | AI 推荐页 |
+| FR-C-14 | AI 辅助选课接口 | aiAdvisorService、AiAdvisorPanel | `/api/v1/course-selection/ai-advisor/recommend`, `/api/v1/course-selection/ai-advisor/explain` | 无新增持久化表 | AI 推荐页 |
 | FR-C-15 | 连接控制与空闲释放预留 | selectionPeriodService TODO | 暂无已实现接口 | 暂无新增表 | 阶段管理页 |
 | FR-C-16 | C 组统一接口契约 | course-selection.routes、course-selection.schemas | `/api/v1/course-selection/*` | C 组相关表 | C 组所有页面 |
 | FR-E-01 | 题库管理 | QuestionBankService | /online-testing/question-banks | question_banks | 题目管理页 |
@@ -840,7 +840,7 @@ E 组接口由 Rust 后端 `backend-e-rust` 提供，统一前缀为 `/online-te
 | R-01 | A-F 数据模型不统一 | 全系统 | 统一核心类和字段命名 |
 | R-02 | 自动排课算法复杂度较高 | B | 先实现可运行版本，再优化 |
 | R-03 | 选课并发可能导致容量超卖 | C | 当前学生选课使用 Serializable 事务、条件更新和重试；仍需压测验证高峰表现 |
-| R-C-01 | AI 推荐与解释后端尚未实现 | C | 当前文档和页面均标注为未实现；后续实现时必须保持 AI 不直接写 `Enrollment` |
+| R-C-01 | AI 推荐与解释接口降级与异常处理 | C | AI 建议可用+降级策略已接入；应持续验证提示质量、风险信息和无副作用 |
 | R-C-02 | Redis 连接控制、心跳和无操作释放尚未实现 | C | 作为 C5 TODO 和风险记录，不作为当前验收通过项 |
 | R-C-03 | 先修课通过判断尚未接入 F 组成绩数据 | C、F | 当前存在先修课时阻断选课；后续需与 F 组确定通过课程数据来源 |
 | R-C-04 | 培养方案确认和公共课最低要求未完整建模 | C、A | 当前确认状态为非持久化返回，公共课要求以提示表达；后续需确认是否扩展已有数据模型 |

@@ -462,10 +462,23 @@ export type TimetableQuery = z.infer<typeof timetableQuerySchema>
 const aiRecommendBodyInputSchema = z.object({
   semesterId: z.string().uuid().optional(),
   semester_id: z.string().uuid().optional(),
+  studentId: z.unknown().optional(),
+  student_id: z.unknown().optional(),
+  user_id: z.unknown().optional(),
   preferences: z.record(z.unknown()).optional(),
   maxRecommendations: z.coerce.number().int().min(1).max(10).optional(),
   max_recommendations: z.coerce.number().int().min(1).max(10).optional(),
-})
+  })
+  .strict()
+  .superRefine((value, ctx) => {
+    if (value.studentId !== undefined || value.student_id !== undefined || value.user_id !== undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'recommend 请求不得携带 studentId / student_id / user_id',
+        path: ['studentId'],
+      })
+    }
+  })
 
 export const aiRecommendBodySchema = aiRecommendBodyInputSchema
   .transform((value) => ({
@@ -483,7 +496,19 @@ const aiExplainBodyInputSchema = z.object({
   offeringId: z.string().uuid('课程开设ID应为 UUID').optional(),
   course_offering_id: z.string().uuid('课程开设ID应为 UUID').optional(),
   question: z.string().max(500).optional(),
+  studentId: z.unknown().optional(),
+  user_id: z.unknown().optional(),
 })
+  .strict()
+  .superRefine((value, ctx) => {
+    if (value.studentId !== undefined || value.user_id !== undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'explain 请求不得携带 studentId / user_id',
+        path: ['studentId'],
+      })
+    }
+  })
 
 export const aiExplainBodySchema = aiExplainBodyInputSchema
   .superRefine((value, ctx) => {

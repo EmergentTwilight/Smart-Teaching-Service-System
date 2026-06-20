@@ -319,6 +319,7 @@ export interface CourseOfferingListItem {
     name: string
     credits: number
     courseType: CourseTypeValue
+    status: CourseStatusValue
   }
   semester: {
     id: string
@@ -517,6 +518,8 @@ export interface PaginatedRosterPayload extends RosterPayload {
   pagination: PaginationMeta
 }
 
+export type AiAdvisorMode = 'full' | 'rule_only' | 'template_only' | 'disabled'
+
 export interface AiRecommendationItem {
   courseOfferingId: string
   courseCode: string
@@ -531,7 +534,35 @@ export interface AiRecommendationItem {
     remainingCapacity?: number
     hasTimeConflict?: boolean
     prerequisiteSatisfied?: boolean
+    isFull?: boolean
+    isEnrolled?: boolean
+    withinCurriculum?: boolean
+    withinSelectionPeriod?: boolean
+    underMaxCredits?: boolean
   }
+}
+
+export interface AiRecommendationPlan {
+  id: 'balanced' | 'required_first' | 'low_risk'
+  title: string
+  rationale: string
+  recommendations: AiRecommendationItem[]
+  projectedCredits: number
+  totalCredits?: number
+  riskLevel: 'low' | 'medium' | 'high'
+}
+
+export interface AiScoreBreakdown {
+  totalCandidates: number
+  safeCandidates: number
+  blockedCandidates: number
+}
+
+export interface AiFallbackInfo {
+  code: string
+  reason: string
+  retriable?: boolean
+  source?: string
 }
 
 export interface AiAdvicePayload {
@@ -540,13 +571,23 @@ export interface AiAdvicePayload {
     currentSelectedCredits: number
     targetCredits: number
     maxCredits: number
+    remainingToTarget?: number
   }
   recommendations: AiRecommendationItem[]
-  conflictNotes: Array<{
+  conflictNotes: {
     courseOfferingId: string
     courseName: string
     message: string
-  }>
+  }[]
+  plans?: AiRecommendationPlan[]
+  recommendationSummary?: string
+  mode?: AiAdvisorMode
+  suggestionMode?: AiAdvisorMode
+  degradedMode: AiAdvisorMode
+  llmUsed: boolean
+  model: string | null
+  fallbackInfo?: AiFallbackInfo
+  scoreBreakdown?: AiScoreBreakdown
 }
 
 export interface AiExplainResult {
@@ -558,4 +599,9 @@ export interface AiExplainResult {
     reasons: string[]
   }
   disclaimer: string
+  explanationSummary?: string
+  degradedMode?: AiAdvisorMode
+  llmUsed?: boolean
+  model?: string | null
+  fallbackInfo?: AiFallbackInfo
 }

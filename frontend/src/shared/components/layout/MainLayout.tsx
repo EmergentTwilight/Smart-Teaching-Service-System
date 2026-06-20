@@ -41,7 +41,6 @@ const MainLayout: React.FC = () => {
   }, [navigate]);
 
   const selectedKeys = useMemo(() => [location.pathname], [location.pathname]);
-
   const menuItems = useMemo(
     () => getMenuItemsForRoles(user?.roles ?? []),
     [user?.roles]

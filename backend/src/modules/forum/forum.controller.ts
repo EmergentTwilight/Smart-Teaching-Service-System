@@ -580,7 +580,7 @@ export class ForumController {
       const filePath = path.join(uploadDir, safeFileName);
       
       // 保存文件
-      fs.writeFileSync(filePath, buffer);
+      fs.writeFileSync(filePath, buffer as unknown as Uint8Array);
       
       const attachment = await ForumService.uploadAttachment(
         req.user!.userId,
@@ -641,7 +641,7 @@ export class ForumController {
         const safeFileName = `${uniqueSuffix}${ext}`;
         const filePath = path.join(uploadDir, safeFileName);
         
-        fs.writeFileSync(filePath, buffer);
+        fs.writeFileSync(filePath, buffer as unknown as Uint8Array);
         
         const attachment = await ForumService.uploadAttachment(
           req.user!.userId,

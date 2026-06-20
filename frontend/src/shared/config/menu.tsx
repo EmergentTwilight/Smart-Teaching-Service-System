@@ -35,8 +35,22 @@ type MenuItem = Exclude<NonNullable<MenuProps['items']>[number], null>;
 
 const FORUM_ANNOUNCE_ROLES = FORUM_TEACHER_ROLES;
 
+const C_SELECTION_MENU_ROLE_RULES: Record<string, readonly string[]> = {
+  '/selection/courses': ['student'],
+  '/selection/curriculum': ['student'],
+  '/selection/timetable': ['student'],
+  '/selection/ai': ['student'],
+  '/selection/admin/periods': ['admin', 'super_admin'],
+  '/selection/admin/manual-enrollment': ['admin', 'super_admin'],
+  '/selection/teacher/roster': ['teacher'],
+};
+
 function hasAnyRole(roles: string[], allowed: readonly string[]) {
   return allowed.some((r) => roles.includes(r));
+}
+
+function hasMenuRole(roles: string[], allowedRoles?: readonly string[]) {
+  return !allowedRoles || hasAnyRole(roles, allowedRoles);
 }
 
 /** 论坛子菜单（按角色过滤） */
@@ -61,6 +75,38 @@ function getForumChildren(roles: string[]): MenuItem[] {
     });
   }
   return items;
+}
+
+function filterMenuItemsByRole(
+  items: MenuProps['items'],
+  roles: string[]
+): MenuItem[] {
+  if (!items) {
+    return [];
+  }
+
+  return items.reduce<MenuItem[]>((filtered, item) => {
+    if (!item) {
+      return filtered;
+    }
+
+    const key = 'key' in item && item.key !== undefined ? String(item.key) : undefined;
+    if (!hasMenuRole(roles, key ? C_SELECTION_MENU_ROLE_RULES[key] : undefined)) {
+      return filtered;
+    }
+
+    if ('children' in item && item.children) {
+      const children = filterMenuItemsByRole(item.children as MenuProps['items'], roles);
+      if (key === 'selection' && children.length === 0) {
+        return filtered;
+      }
+      filtered.push({ ...item, children } as MenuItem);
+      return filtered;
+    }
+
+    filtered.push(item);
+    return filtered;
+  }, []);
 }
 
 export const MENU_ITEMS: MenuItem[] = [
@@ -98,8 +144,12 @@ export const MENU_ITEMS: MenuItem[] = [
     label: '智能选课',
     children: [
       { key: '/selection/courses', icon: <BookOutlined />, label: '课程列表' },
-      { key: '/selection/my', icon: <UserOutlined />, label: '我的选课' },
+      { key: '/selection/curriculum', icon: <BookOutlined />, label: '培养方案' },
+      { key: '/selection/timetable', icon: <CalendarOutlined />, label: '我的课表' },
       { key: '/selection/ai', icon: <RobotOutlined />, label: 'AI 推荐' },
+      { key: '/selection/admin/periods', icon: <SettingOutlined />, label: '阶段管理' },
+      { key: '/selection/admin/manual-enrollment', icon: <UserOutlined />, label: '手动加课' },
+      { key: '/selection/teacher/roster', icon: <TeamOutlined />, label: '课程名单' },
     ],
   },
   {
@@ -139,12 +189,14 @@ export const MENU_ITEMS: MenuItem[] = [
 
 /** 根据用户角色生成菜单（论坛子项按权限过滤） */
 export function getMenuItemsForRoles(roles: string[]): MenuProps['items'] {
-  return MENU_ITEMS.map((item): MenuItem => {
+  const menuItems = MENU_ITEMS.map((item): MenuItem => {
     if (item.key === 'forum' && 'children' in item) {
       return { ...item, children: getForumChildren(roles) };
     }
     return item;
   });
+
+  return filterMenuItemsByRole(menuItems, roles);
 }
 
 /** 是否可导出论坛统计（供页面内按钮使用） */

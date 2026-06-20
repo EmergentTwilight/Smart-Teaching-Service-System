@@ -18,7 +18,7 @@
 | 子系统编号 | 子系统名称   | 负责小组 | 设计负责人 | 主要设计内容             |
 | ---------- | ------------ | -------- | ---------- | ------------------------ |
 | A          | 基础信息管理 | A 组     |            | 用户、权限、课程、安全   |
-| B          | 自动排课     | B 组     |            | 教室资源、排课算法、调课 |
+| B          | 自动排课     | B 组     |            | 教室资源管理、自动排课算法与冲突检测、手动调课、课表查询与打印 |
 | C          | 智能选课     | C 组     |            | 培养方案、选课、AI 辅助  |
 | D          | 论坛交流     | D 组     |            | 帖子、回复、检索、统计   |
 | E          | 在线测试     | E 组     |            | 题库、组卷、答题、评分   |
@@ -406,22 +406,36 @@ classDiagram
 | `curriculums` | 培养方案表 | `id`, `major_id`, `name`, `year`, `total_credits` | `majors`, `curriculum_courses` |
 | `system_logs` | 系统日志表 | `id`, `user_id`, `action`, `resource_type`, `resource_id`, `details` | `users` |
 
-### 4.3 B 自动排课数据/类设计【B 组填写】
+### 4.3 B 自动排课数据/类设计
 
-建议类：
+B 自动排课子系统以 A 子系统维护的课程、开课、教师等基础数据为输入，围绕“教室资源 - 排课记录 - 冲突检测 - 课表视图”组织领域对象。持久化实体复用项目统一的 Prisma + PostgreSQL 数据模型（`Classroom`、`Schedule`），并依赖 `CourseOffering`、`Course`、`Teacher`、`Semester` 等 A/C 共用实体。
 
-- Classroom
-- CourseOffering
-- TeacherAvailability
-- Schedule
-- ScheduleConflict
-- AdjustmentRequest
+#### 4.3.1 主要设计类
 
-写作指引：
+| 类名 | 职责 | 主要属性 | 主要方法/行为 |
+|---|---|---|---|
+| Classroom | 表示一间可排课的教室资源 | id, building, roomNumber, campus, capacity, roomType, equipment, status | 创建/编辑/删除教室、按条件查询、切换可用状态、提供可用资源池 |
+| Schedule | 表示一条课程时间地点安排 | id, courseOfferingId, classroomId, dayOfWeek, startWeek, endWeek, startPeriod, endPeriod, notes | 写入排课结果、调整时间或教室、按教师/教室聚合查询 |
+| CourseOffering | 待排开课（A/C 共用实体） | id, courseId, semesterId, teacherId, capacity, status | 提供待排课程的容量、授课教师和所属学期 |
+| SchedulingTask | 自动排课控制类，组织一次排课求解 | semesterId, pendingOfferings, successCount, unscheduledList | 加载待排开课与可用教室、按约束求解、生成排课结果、汇总未排出清单 |
+| ConflictChecker | 冲突检测服务类 | — | 判定教师时间冲突、教室时间冲突、同开课时间矛盾，校验教室容量与可用状态 |
+| Timetable | 课表视图边界类 | dimension(teacher/classroom), grid | 按教师或教室维度汇总排课记录，生成周课表网格与打印视图 |
 
-- 明确 Schedule 如何关联 Course、Teacher、Classroom、TimeSlot。
-- 冲突检测是核心，要写清冲突类型。
-- 自动排课算法可写流程，不必写完整代码。
+#### 4.3.2 关系说明
+
+`Classroom` 与 `Schedule` 是一对多关系：一间教室可承载多条排课记录，每条排课记录占用唯一教室。`CourseOffering` 与 `Schedule` 也是一对多关系：一个开课可能拆分为多条时间段安排（例如不同周次或不同节次），删除开课时其排课记录级联删除。`Schedule` 通过 `courseOfferingId` 间接关联 `Course`（课程名称、类型）、`Teacher`（授课教师）和 `Semester`（学期范围），这些信息由 A/C 子系统维护，B 子系统只读引用。
+
+`SchedulingTask`、`ConflictChecker`、`Timetable` 是分析层控制/边界类，不一定独立落库：`SchedulingTask` 在排课时调用 `ConflictChecker` 校验候选方案，再把通过校验的安排写入 `Schedule`；`Timetable` 在查询时只读聚合 `Schedule` 生成课表。
+
+冲突检测是排课核心，覆盖以下冲突类型：
+
+- **教师时间冲突**：同一教师在相同周次区间、相同星期、相同节次区间存在两条排课。
+- **教室时间冲突**：同一教室在相同周次区间、相同星期、相同节次区间被两条排课占用。
+- **同开课时间矛盾**：同一开课的多条排课记录之间时间段自相重叠或越界。
+- **容量不匹配**：分配教室容量小于开课选课容量。
+- **教室状态不可用**：分配教室处于维护或停用状态。
+
+时间冲突的判定基于周次区间 `[startWeek, endWeek]` 与节次区间 `[startPeriod, endPeriod]` 的双重重叠，且星期相同；任一区间不重叠即视为不冲突。数据模型在 `Schedule` 上建立 `(classroomId, dayOfWeek, startWeek, endWeek, startPeriod, endPeriod)` 复合索引以加速冲突检测查询。
 
 ### 4.4 C 智能选课数据/类设计【C 组填写】
 
@@ -563,10 +577,16 @@ erDiagram
 | `curriculums` | `id`, `major_id`, `name`, `year`, `total_credits`, `required_credits`, `elective_credits`, `created_at`, `updated_at` | UUID, VARCHAR, INT, DECIMAL, TIMESTAMP | `id` PK；`major_id` FK -> `majors.id` | 培养方案主表，按专业和年份组织毕业要求 |
 | `curriculum_courses` | `curriculum_id`, `course_id`, `course_type`, `semester_suggestion` | UUID, ENUM, INT | 复合 PK (`curriculum_id`, `course_id`)；FK 均 ON DELETE CASCADE | 培养方案课程清单，保存课程类别和建议修读学期 |
 
-### 5.3 B 自动排课数据表【B 组填写】
+### 5.3 B 自动排课数据表
+
+B 子系统在统一的 PostgreSQL 实例中维护 `classrooms`（教室资源）和 `schedules`（排课记录）两张核心表，并只读引用 A/C 子系统的 `course_offerings`、`courses`、`teachers`、`semesters`。主键统一采用 UUID，外键删除策略与跨子系统一致性说明保持一致。
 
 | 表名 | 字段 | 类型 | 约束 | 说明 |
 | ---- | ---- | ---- | ---- | ---- |
+| `classrooms` | `id`, `building`, `room_number`, `campus`, `capacity`, `room_type`, `equipment`, `status` | UUID, VARCHAR, INT, ENUM, JSONB | `id` PK；(`building`, `room_number`) UNIQUE；`room_type` 取 LECTURE/LAB/COMPUTER/MULTIMEDIA；`status` 取 AVAILABLE/MAINTENANCE/UNAVAILABLE，默认 AVAILABLE | 教室基础信息（教学楼、房间号、校区、容量、类型、设备清单、可用状态），是自动排课的资源池 |
+| `schedules` | `id`, `course_offering_id`, `classroom_id`, `day_of_week`, `start_week`, `end_week`, `start_period`, `end_period`, `notes` | UUID, INT, TEXT | `id` PK；`course_offering_id` FK -> `course_offerings.id` ON DELETE CASCADE；`classroom_id` FK -> `classrooms.id`；`day_of_week` 取 1-7；索引：(`classroom_id`, `day_of_week`, `start_week`, `end_week`, `start_period`, `end_period`) | 一条课程的时间地点安排（星期、周次区间、节次区间），是冲突检测和课表查询的基础数据 |
+
+> 说明：`equipment` 以 JSONB 保存教室设备清单（如投影、电脑、实验设备），便于按用途匹配排课；`schedules` 上的复合索引用于加速“同教室、同星期、相同周次与节次区间”的冲突检测查询。
 
 ### 5.4 C 智能选课数据表【C 组填写】
 
@@ -652,10 +672,22 @@ A 组接口统一挂载在 `/api/v1` 下，认证方式为 `Authorization: Beare
 | 权限管理 | GET/POST/DELETE | `/api/v1/permissions`, `/api/v1/roles/:id/permissions`, `/api/v1/roles/:id/permissions/:permission_id` | 资源、操作、关键词、权限 id | 权限列表、分配/撤销结果 | 查询：`admin`/`super_admin`；分配/撤销：`super_admin` |
 | 活跃令牌管理 | GET/DELETE/POST | `/api/v1/users/:id/tokens`, `/api/v1/users/:id/tokens/:token_id`, `/api/v1/users/:id/tokens/revoke-all` | 用户 id、令牌 id | 活跃令牌列表、吊销结果 | 本人或 `admin`/`super_admin` |
 
-### 6.3 B 自动排课接口【B 组填写】
+### 6.3 B 自动排课接口
 
-写作指引：
-列出教室资源、自动排课、手动调课、课表查询接口。
+B 组接口遵循项目统一规范：Base URL 为 `/api/v1`，通过 JWT Bearer Token 解析用户身份，响应字段统一 snake_case，列表接口支持 `page`/`page_size` 分页。按需求报告的角色边界控制能力：教室资源维护、自动排课、手动调课面向教务管理人员；课表查询对登录用户开放，教师查询本人课表、教务管理人员可查询任意教室课表。
+
+| 接口组 | 方法 | 路径 | 输入 | 输出 | 权限 |
+| ------ | ---- | ---- | ---- | ---- | ---- |
+| 教室列表查询 | GET | `/api/v1/classrooms` | 校区、教学楼、教室类型、最小容量、状态、分页参数 | 教室分页列表（含容量、类型、设备、状态） | 登录用户 |
+| 教室详情 | GET | `/api/v1/classrooms/:id` | 教室 id | 单个教室详情 | 登录用户 |
+| 教室资源维护 | POST/PUT/DELETE | `/api/v1/classrooms`, `/api/v1/classrooms/:id` | 教学楼、房间号、校区、容量、教室类型、设备清单、状态 | 创建/更新/删除结果 | 教务管理人员 |
+| 自动排课 | POST | `/api/v1/schedules/auto-generate` | 学期 id、待排开课范围、约束选项（容量匹配、用途匹配、分布偏好等） | 排课结果摘要：成功条数、生成的排课记录、未排出开课清单及原因 | 教务管理人员 |
+| 排课记录查询 | GET | `/api/v1/schedules` | 学期、教师、教室、开课、星期等过滤条件，分页参数 | 排课记录分页列表 | 登录用户 |
+| 冲突预检 | POST | `/api/v1/schedules/check-conflict` | 候选排课（开课、教室、星期、周次区间、节次区间） | 冲突标志及冲突类型明细（教师/教室/同开课/容量/状态） | 教务管理人员 |
+| 手动调课 | POST/PUT/DELETE | `/api/v1/schedules`, `/api/v1/schedules/:id` | 开课 id、教室 id、星期、周次区间、节次区间、备注 | 调整结果；若存在冲突返回冲突明细并阻断写入 | 教务管理人员 |
+| 教师课表查询 | GET | `/api/v1/schedules/teacher/:teacherId` | 教师 id、学期 id | 该教师周课表网格数据 | 教师本人/教务管理人员 |
+| 教室课表查询 | GET | `/api/v1/schedules/classroom/:classroomId` | 教室 id、学期 id | 该教室周课表网格数据 | 教务管理人员 |
+| 课表打印/导出 | GET | `/api/v1/schedules/export` | 维度（teacher/classroom）、对象 id、学期 id、导出格式 | 可打印的课表视图或导出文件 | 教师本人/教务管理人员 |
 
 ### 6.4 C 智能选课接口【C 组填写】
 
@@ -733,15 +765,15 @@ A 组前端使用 React、React Router、Ant Design、TanStack Query 和 Axios �
 | 课程信息页 | `/info/courses` | 登录用户；写操作按角色控制 | 维护课程基础信息及先修课程 | 院系筛选、课程类型/状态筛选、课程表格、课程详情、批量导入弹窗、先修课程选择 | 创建/更新/批量导入为 `admin`/`super_admin`；删除仅 `super_admin`；被培养方案引用时提示不可删除 |
 | 培养方案页 | `/info/curriculums` | 登录用户；写操作按角色控制 | 维护专业培养方案和课程清单 | 专业筛选、年份筛选、方案表格、方案详情、课程添加/批量添加弹窗 | 创建/更新/课程维护为 `admin`/`super_admin`；删除方案为 `super_admin`；课程重复加入或课程不存在时显示具体失败原因 |
 
-### 7.3 B 自动排课界面【B 组填写】
+### 7.3 B 自动排课界面
 
-页面建议：
-
-- 教室资源管理页。
-- 自动排课页。
-- 排课结果页。
-- 手动调课页。
-- 课表打印页。
+| 页面 | 路由 | 使用角色 | 用途 | 主要字段/控件 | 主要操作与异常提示 |
+| ---- | ---- | -------- | ---- | ------------- | ------------------ |
+| 教室资源管理页 | `/scheduling/classrooms` | 教务管理人员 | 维护教室资源 | 校区/教学楼/类型/状态筛选、教室表格、容量、设备清单、状态标签、新增/编辑表单 | 新增、编辑、删除教室；删除存在排课的教室时提示先调课；(教学楼,房间号) 重复时提示已存在 |
+| 自动排课页 | `/scheduling/auto` | 教务管理人员 | 发起自动排课 | 学期下拉、待排开课列表、约束选项（容量匹配、用途匹配、分布偏好）、开始排课按钮、进度提示 | 选择学期与约束后一键排课；完成后展示成功条数与未排出清单；无可用教室或开课为空时提示 |
+| 排课结果页 | `/scheduling/result` | 教务管理人员/教师 | 查看排课总体结果 | 学期/教师/教室筛选、排课记录表格、冲突标记、未排出开课清单 | 按条件筛选查看排课；点击记录进入调课；存在冲突的记录高亮提示 |
+| 手动调课页 | `/scheduling/adjust` | 教务管理人员 | 手动调整单条排课 | 开课、教室下拉、星期、周次区间、节次区间、备注、冲突预检按钮 | 修改时间或教室后先做冲突预检；存在冲突时展示冲突类型并阻断保存；保存成功提示 |
+| 课表查询打印页 | `/scheduling/timetable` | 教师/教务管理人员 | 查询并打印课表 | 维度切换（教师/教室）、对象选择、学期选择、周课表网格、打印/导出按钮 | 教师查看本人课表，管理人员查看任意教室课表；点击打印生成可打印视图；无排课时提示暂无课表 |
 
 ### 7.4 C 智能选课界面【C 组填写】
 
@@ -860,18 +892,19 @@ flowchart LR
 - E 在线测试依赖 A 的教师、学生、课程和 Bearer Token，题库与试卷归属由 A 的课程与教师主数据约束。
 - F 成绩管理依赖 A 的学生、教师、课程和权限模型，成绩录入、修改、查询均需要通过 A 的身份与角色边界控制。
 
-### 8.2 B 自动排课组件设计【B 组填写】
+### 8.2 B 自动排课组件设计
 
-建议组件：
+| 组件 | 职责 | 输入 | 输出 | 依赖 |
+| ---- | ---- | ---- | ---- | ---- |
+| ClassroomService | 教室资源增删改查、按条件筛选可用教室池 | 教室表单（教学楼、房间号、校区、容量、类型、设备、状态）、筛选条件 | 教室列表、教室详情、创建/更新/删除结果 | Prisma `classrooms` |
+| ScheduleService | 写入与维护排课记录，按教师/教室/学期聚合查询 | 排课信息（开课、教室、星期、周次区间、节次区间、备注） | 排课记录、排课列表 | Prisma `schedules`、`course_offerings` |
+| ConflictDetectionService | 校验教师/教室时间冲突、同开课时间矛盾、容量匹配与教室可用状态 | 候选排课、已有排课集合、开课容量、教室容量与状态 | 冲突标志及冲突类型明细 | ScheduleService、ClassroomService |
+| AutoSchedulingService | 组织一次自动排课求解：加载待排开课与可用教室，按约束分配时间地点 | 学期 id、待排开课、约束选项 | 排课结果（成功条数、生成记录、未排出清单及原因） | ScheduleService、ConflictDetectionService、ClassroomService |
+| ManualAdjustmentService | 手动调课，在写入前调用冲突检测并阻断冲突写入 | 待调整排课、目标教室/时间 | 调整结果或冲突明细 | ScheduleService、ConflictDetectionService |
+| TimetableService | 按教师或教室维度聚合排课，生成周课表网格与打印/导出视图 | 维度、对象 id、学期 id | 课表网格数据、可打印视图/导出文件 | ScheduleService |
+| AuthAndErrorMiddleware | 统一鉴权、角色校验、请求日志与统一错误返回 | JWT Bearer Token、请求信息 | 用户身份、统一错误响应 | A 组 JWT、Express 中间件 |
 
-- ClassroomService
-- ScheduleService
-- ConflictDetectionService
-- ManualAdjustmentService
-- TimetableExportService
-
-写作指引：
-重点说明自动排课流程和冲突检测流程。
+前端组件与后端服务按页面职责对应：教室资源管理页调用 ClassroomService，自动排课页调用 AutoSchedulingService，手动调课页调用 ManualAdjustmentService 与 ConflictDetectionService，课表查询打印页调用 TimetableService。自动排课与手动调课的核心是冲突检测：`ConflictDetectionService` 对每个候选排课依次校验教师时间冲突、教室时间冲突、同开课时间矛盾、容量匹配和教室可用状态，全部通过后才允许写入 `schedules`。
 
 ### 8.3 C 智能选课组件设计【C 组填写】
 
@@ -1022,18 +1055,82 @@ flowchart TD
 4. 创建成功后返回用户基础结果，失败时按冲突类型返回：用户名/邮箱/学号/工号重复、角色不存在、专业或院系不存在。
 5. 用户创建、角色分配和状态变更均写入 `system_logs`，便于后续审计。
 
-### 9.2 B 自动排课算法流程【B 组重点写】
+### 9.2 B 自动排课算法流程
 
-写作指引：
-可以用流程图或伪代码说明：
+自动排课采用“约束满足 + 启发式贪心”的求解思路：以待排开课为单位，逐个为其分配满足全部硬约束的时间段与教室，并在候选方案中按软约束择优。冲突检测贯穿整个流程，是保证排课结果可行的核心。
 
-1. 读取课程、教师、教室、时间段。
-2. 过滤不满足容量或用途的教室。
-3. 检查教师时间冲突。
-4. 检查教室时间冲突。
-5. 尽量均匀分布课程。
-6. 生成排课结果。
-7. 输出冲突或待人工调整项。
+#### 9.2.1 约束定义
+
+- **硬约束（必须满足，违反即不可排）**
+  1. 同一教师在相同周次区间、相同星期、相同节次区间不能有两条排课（教师时间冲突）。
+  2. 同一教室在相同周次区间、相同星期、相同节次区间不能被两条排课占用（教室时间冲突）。
+  3. 同一开课的多条排课记录之间时间段不得自相重叠或越界。
+  4. 分配教室容量不得小于开课选课容量（容量匹配）。
+  5. 分配教室状态必须为 AVAILABLE（教室可用）。
+- **软约束（尽量满足，用于候选方案择优）**
+  1. 课程分布均匀，避免集中在少数时段或单日过载。
+  2. 教室用途与课程类型匹配（如实验课优先 LAB、机房课优先 COMPUTER）。
+  3. 尽量满足教师偏好时段。
+  4. 提高教室资源利用率，减少大教室排小课。
+
+#### 9.2.2 自动排课流程
+
+```mermaid
+flowchart TD
+    A[读取学期待排开课、教师、可用教室、候选时间段] --> B[按优先级排序待排开课<br/>容量大/约束多者优先]
+    B --> C{还有未排开课?}
+    C -->|否| H[汇总排课结果与未排出清单]
+    C -->|是| D[取下一个开课, 过滤容量不足/状态不可用/用途不匹配的教室]
+    D --> E[遍历候选时间段与候选教室, 生成候选方案]
+    E --> F{冲突检测: 教师/教室/同开课时间冲突?}
+    F -->|全部冲突| G[标记该开课为未排出, 记录原因]
+    F -->|存在可行方案| I[按软约束打分, 选最优方案]
+    I --> J[写入 schedules 排课记录]
+    G --> C
+    J --> C
+    H --> K[返回成功条数、排课记录、待人工调整清单]
+```
+
+#### 9.2.3 求解步骤说明
+
+1. **加载数据**：按学期读取全部待排开课（含课程类型、容量、授课教师），以及状态为 AVAILABLE 的教室池和可排的星期/节次候选集合。
+2. **开课排序**：按启发式优先级排序待排开课，容量大、可用教室少、约束多的开课优先安排，降低后续无解概率。
+3. **过滤教室**：对当前开课过滤掉容量不足、状态不可用、用途不匹配的教室，得到候选教室集合。
+4. **生成候选方案**：在候选时间段与候选教室的组合上生成候选排课方案（星期、周次区间、节次区间、教室）。
+5. **冲突检测**：对每个候选方案调用冲突检测，依次校验教师时间冲突、教室时间冲突、同开课时间矛盾；时间冲突基于周次区间 `[start_week, end_week]` 与节次区间 `[start_period, end_period]` 的双重重叠且星期相同来判定，任一区间不重叠即不冲突。
+6. **软约束择优**：在通过硬约束的可行方案中，按分布均匀度、用途匹配度、教师偏好、资源利用率综合打分，选取最优方案。
+7. **写入结果**：将最优方案写入 `schedules`；若当前开课无任何可行方案，则标记为未排出并记录原因（如无可用教室、时段全冲突）。
+8. **输出**：全部开课处理完毕后，返回成功排课条数、生成的排课记录，以及未排出开课清单供教务人员手动调课。
+
+#### 9.2.4 冲突检测伪代码
+
+```text
+function hasConflict(candidate, existingSchedules):
+    for s in existingSchedules:
+        if s.dayOfWeek != candidate.dayOfWeek:
+            continue
+        if not weekOverlap(s, candidate):        # 周次区间不重叠
+            continue
+        if not periodOverlap(s, candidate):      # 节次区间不重叠
+            continue
+        if s.teacherId == candidate.teacherId:   # 教师时间冲突
+            return TEACHER_CONFLICT
+        if s.classroomId == candidate.classroomId:  # 教室时间冲突
+            return CLASSROOM_CONFLICT
+    if candidate.classroom.capacity < candidate.offering.capacity:
+        return CAPACITY_NOT_MATCH
+    if candidate.classroom.status != AVAILABLE:
+        return ROOM_UNAVAILABLE
+    return NO_CONFLICT
+
+function weekOverlap(a, b):
+    return a.startWeek <= b.endWeek and b.startWeek <= a.endWeek
+
+function periodOverlap(a, b):
+    return a.startPeriod <= b.endPeriod and b.startPeriod <= a.endPeriod
+```
+
+手动调课复用同一套冲突检测逻辑：教务人员调整某条排课的教室或时间后，系统先以新方案做冲突预检，若返回冲突则展示冲突类型并阻断保存，确保人工调整后的课表仍然可行。
 
 ### 9.3 C 选课约束检查流程【C 组重点写】
 
@@ -1248,7 +1345,14 @@ A 模块异常按 HTTP 状态码和业务错误信息双层表达。接口返回
 | FR-A-08  | 课程基础信息管理   | CourseService          | /api/v1/courses, /api/v1/courses/:id, /api/v1/courses/batch                              | courses, course_prerequisites, departments, teachers | 课程信息页            |
 | FR-A-09  | 培养方案管理       | CurriculumService      | /api/v1/curriculums, /api/v1/curriculums/:id, /api/v1/curriculums/:id/courses            | curriculums, curriculum_courses, majors, courses | 培养方案页            |
 | FR-A-10  | 系统日志审计       | RequestLogger, UsersService | /api/v1/users/logs                                                                       | system_logs, users                              | 系统日志页            |
-| FR-B-02  | 自动排课           | ScheduleService        | /api/schedules/generate                                                                  | schedules                                        | 自动排课页            |
+| FR-B-01  | 教学资源管理       | ClassroomService       | /api/v1/classrooms, /api/v1/classrooms/:id                                               | classrooms                                       | 教室资源管理页        |
+| FR-B-02  | 自动排课           | AutoSchedulingService  | /api/v1/schedules/auto-generate                                                          | schedules, classrooms, course_offerings          | 自动排课页            |
+| FR-B-03  | 冲突检测           | ConflictDetectionService | /api/v1/schedules/check-conflict                                                       | schedules                                        | 自动排课页/手动调课页 |
+| FR-B-04  | 手动调课           | ManualAdjustmentService | /api/v1/schedules/:id                                                                    | schedules                                        | 手动调课页            |
+| FR-B-05  | 课表查询与打印     | TimetableService       | /api/v1/schedules/teacher/:teacherId, /api/v1/schedules/classroom/:classroomId, /api/v1/schedules/export | schedules                        | 课表查询打印页        |
+| FR-B-06  | 容量与用途匹配     | ConflictDetectionService | /api/v1/schedules/check-conflict                                                       | schedules, classrooms, course_offerings          | 自动排课页/手动调课页 |
+| FR-B-07  | 课程时间均匀分布   | AutoSchedulingService  | /api/v1/schedules/auto-generate                                                          | schedules                                        | 自动排课页            |
+| FR-B-08  | 教室状态管理       | ClassroomService       | /api/v1/classrooms/:id                                                                   | classrooms                                       | 教室资源管理页        |
 | FR-C-03  | 选课与退课         | EnrollmentService      | /api/enrollments                                                                         | enrollments                                      | 选课页                |
 | FR-E-01  | 题库管理           | QuestionBankService    | /online-testing/question-banks                                                           | question_banks                                   | 题目管理页            |
 | FR-E-02  | 题目管理           | QuestionBankService    | /online-testing/questions                                                                | questions, question_options                      | 题目管理页            |
@@ -1300,6 +1404,8 @@ A 模块异常按 HTTP 状态码和业务错误信息双层表达。接口返回
 | A Refresh Token 轮换流程图 | 9.1      | A 组   |
 | A 受保护接口授权流程图 | 9.1      | A 组   |
 | 统一 RBAC 类图 | 10.1     | A 组   |
+| B 子系统类图   | 4.3      | B 组   |
+| B 自动排课流程图 | 9.2      | B 组   |
 | B 子系统组件图 | 8.2      | B 组   |
 
 ### 14.2 设计评审记录

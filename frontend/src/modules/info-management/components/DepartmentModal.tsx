@@ -22,19 +22,23 @@ const DepartmentModal: React.FC<DepartmentModalProps> = ({
 }) => {
   const [form] = Form.useForm();
 
+  const normalizedInitialValues = initialData
+    ? {
+        name: initialData.name,
+        code: initialData.code,
+        description: initialData.description ?? undefined,
+      }
+    : undefined;
+
   useEffect(() => {
     if (visible) {
       if (initialData) {
-        form.setFieldsValue({
-          name: initialData.name,
-          code: initialData.code,
-          description: initialData.description,
-        });
+        form.setFieldsValue(normalizedInitialValues);
       } else {
         form.resetFields();
       }
     }
-  }, [visible, initialData, form]);
+  }, [visible, initialData, form, normalizedInitialValues]);
 
   const handleSubmit = async () => {
     try {
@@ -66,11 +70,7 @@ const DepartmentModal: React.FC<DepartmentModalProps> = ({
       <Form
         form={form}
         layout="vertical"
-        initialValues={initialData ? {
-          name: initialData.name,
-          code: initialData.code,
-          description: initialData.description,
-        } : undefined}
+        initialValues={normalizedInitialValues}
       >
         <Form.Item
           name="name"

@@ -74,6 +74,7 @@ const toCourseTypeValue = (value: CourseType): AdvisorCourseType => {
 const toNum = decimalToNumber
 
 const clampScore = (value: number): number => Math.max(0, Math.min(1, Number(value.toFixed(4))))
+const resolveLlmTimeoutMs = () => Math.max(Number(process.env.LLM_TIMEOUT_MS ?? 20000), 20000)
 
 const parseText = (value: unknown): string => {
   if (typeof value !== 'string') {
@@ -989,7 +990,7 @@ const withLlmPreference = async (
     },
     {
       maxTokens: 900,
-      timeoutMs: Number(process.env.LLM_TIMEOUT_MS ?? 8000),
+      timeoutMs: resolveLlmTimeoutMs(),
       temperature: 0.1,
     }
   )
@@ -1406,7 +1407,7 @@ const withLlmPlans = async (
     },
     {
       maxTokens: Number(process.env.LLM_MAX_TOKENS ?? 1500),
-      timeoutMs: Number(process.env.LLM_TIMEOUT_MS ?? 8000),
+      timeoutMs: resolveLlmTimeoutMs(),
       temperature: 0.25,
     }
   )
@@ -1650,7 +1651,7 @@ const withLlmExplain = async (
     {
       maxTokens: 800,
       temperature: 0.2,
-      timeoutMs: Number(process.env.LLM_TIMEOUT_MS ?? 8000),
+      timeoutMs: resolveLlmTimeoutMs(),
     }
   )
 

@@ -20,7 +20,7 @@ export interface LlmCompletionResult {
 }
 
 const defaultModel = () =>
-  process.env.OPENROUTER_MODEL ?? process.env.AI_MODEL ?? 'google/gemini-2.0-flash-exp:free'
+  process.env.OPENROUTER_MODEL ?? process.env.AI_MODEL ?? 'openrouter/free'
 
 const apiEndpoint = () =>
   process.env.OPENROUTER_API_URL ?? 'https://openrouter.ai/api/v1/chat/completions'
@@ -36,6 +36,8 @@ const isProviderEnabled = () => {
 
   return enabled !== '0' && enabled.toLowerCase() !== 'false'
 }
+
+const resolveTimeoutMs = () => Math.max(Number(process.env.LLM_TIMEOUT_MS ?? 20000), 20000)
 
 const normalizeMessages = (messages: string | LlmMessage | LlmMessage[]): LlmMessage[] => {
   if (Array.isArray(messages)) {
@@ -62,17 +64,44 @@ const extractTextContent = async (response: Response): Promise<unknown> => {
   }
 }
 
+const pickTextContent = (content: unknown): string | null => {
+  if (typeof content === 'string') {
+    return content
+  }
+
+  if (!Array.isArray(content)) {
+    return null
+  }
+
+  const text = content
+    .map((part) => {
+      if (typeof part === 'string') {
+        return part
+      }
+
+      if (!part || typeof part !== 'object') {
+        return ''
+      }
+
+      const value = (part as { text?: unknown; content?: unknown }).text ?? (part as { content?: unknown }).content
+      return typeof value === 'string' ? value : ''
+    })
+    .join('')
+
+  return text.length > 0 ? text : null
+}
+
 const pickContent = (choice: unknown): string | null => {
   if (!choice || typeof choice !== 'object') {
     return null
   }
 
-  const message = (choice as { message?: { content?: string } }).message
-  if (!message || typeof message.content !== 'string') {
+  const message = (choice as { message?: { content?: unknown } }).message
+  if (!message) {
     return null
   }
 
-  return message.content
+  return pickTextContent(message.content)
 }
 
 export const llmClient = {
@@ -95,7 +124,7 @@ export const llmClient = {
       }
     }
 
-    const timeoutMs = options.timeoutMs ?? Number(process.env.LLM_TIMEOUT_MS ?? 9000)
+    const timeoutMs = options.timeoutMs ?? resolveTimeoutMs()
     const maxTokens = options.maxTokens ?? 800
     const temperature = options.temperature ?? 0.2
     const model = defaultModel()
@@ -114,7 +143,7 @@ export const llmClient = {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${key}`,
           'HTTP-Referer': process.env.APP_PUBLIC_URL ?? 'http://localhost',
-          'X-Title': process.env.APP_NAME ?? 'STSS',
+          'X-OpenRouter-Title': process.env.APP_NAME ?? 'STSS',
         },
         body: JSON.stringify({
           model,

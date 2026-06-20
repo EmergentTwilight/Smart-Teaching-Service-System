@@ -894,17 +894,6 @@ const evaluateCandidates = (context: AdvisorContext): CandidatePools => {
   return { all: candidates, safe, risky, blocked }
 }
 
-const buildPreferenceDefaults = (): PreferenceProfileInput => ({
-  targetCredits: undefined,
-  preferredCourseTypes: ['required', 'elective', 'general'],
-  avoidEarlyMorning: false,
-  preferLowLoad: false,
-  preferRequiredCourses: true,
-  preferGraduationProgress: true,
-  riskTolerance: 'low',
-  naturalLanguagePreference: undefined,
-})
-
 const parsePreferenceFromRequest = (preferences?: Record<string, unknown>): PreferenceProfileInput => {
   const raw = preferences ?? {}
 

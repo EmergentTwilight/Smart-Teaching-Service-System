@@ -1,5 +1,14 @@
 export type AiRecommendationCourseType = 'required' | 'elective' | 'general'
 
+export interface AiCourseScoreBreakdown {
+  curriculumMatch: number
+  creditGapFit: number
+  scheduleFit: number
+  preferenceFit: number
+  capacityFit: number
+  riskInverse: number
+}
+
 export interface AiRecommendationEligibilitySnapshot {
   isAvailable: boolean
   remainingCapacity?: number
@@ -10,6 +19,7 @@ export interface AiRecommendationEligibilitySnapshot {
   withinCurriculum?: boolean
   withinSelectionPeriod?: boolean
   underMaxCredits?: boolean
+  reasons?: string[]
 }
 
 export interface AiRecommendation {
@@ -22,6 +32,7 @@ export interface AiRecommendation {
   reasons: string[]
   risks: string[]
   eligibilitySnapshot: AiRecommendationEligibilitySnapshot
+  scoreBreakdown?: AiCourseScoreBreakdown
 }
 
 export interface AiRecommendationPlan {
@@ -32,6 +43,8 @@ export interface AiRecommendationPlan {
   projectedCredits: number
   totalCredits?: number
   riskLevel: 'low' | 'medium' | 'high'
+  planScore?: number
+  keyTradeoffs?: string[]
 }
 
 export interface AiConflictNote {
@@ -55,11 +68,47 @@ export interface AiScoreBreakdown {
   blockedCandidates: number
 }
 
+export interface AiProgressAudit {
+  currentSelectedCredits: number
+  targetCredits: number
+  maxCredits: number | null
+  requiredGap: number
+  electiveGap: number
+  generalGap: number
+  priorityGaps: Array<{
+    courseType: AiRecommendationCourseType
+    gapCredits: number
+    urgency: 'low' | 'medium' | 'high'
+    reason: string
+  }>
+}
+
+export interface AiScheduleLoad {
+  earlyMorningCount: number
+  denseDays: string[]
+  loadScore: number
+  loadLevel: 'low' | 'medium' | 'high'
+  notes: string[]
+}
+
+export interface AiCapacityRisk {
+  courseOfferingId: string
+  courseName: string
+  remainingCapacity: number
+  fillRate: number
+  riskLevel: 'low' | 'medium' | 'high'
+  riskReason: string
+}
+
 export interface AiFallbackInfo {
   code: string
   reason: string
   retriable?: boolean
   source?: 'rule' | 'llm' | 'template' | 'service'
+  mode?: AiAdvisorMode
+  missingComponents?: string[]
+  llmUsed?: boolean
+  model?: string | null
 }
 
 export interface AiAdvicePayload {
@@ -76,6 +125,10 @@ export interface AiAdvicePayload {
   model: string | null
   fallbackInfo?: AiFallbackInfo
   scoreBreakdown?: AiScoreBreakdown
+  progressAudit?: AiProgressAudit
+  scheduleLoad?: AiScheduleLoad
+  capacityRisks?: AiCapacityRisk[]
+  requestId?: string
 }
 
 export interface AiRecommendPreferenceInput {

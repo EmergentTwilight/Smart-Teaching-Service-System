@@ -17,9 +17,13 @@ vi.stubGlobal(
     matches: false,
     media: query,
     onchange: null,
-    addListener: vi.fn(),
+    addListener: vi.fn((listener: (event: MediaQueryListEvent) => void) => {
+      listener({ matches: false, media: query } as MediaQueryListEvent)
+    }),
     removeListener: vi.fn(),
-    addEventListener: vi.fn(),
+    addEventListener: vi.fn((_event: string, listener: (event: MediaQueryListEvent) => void) => {
+      listener({ matches: false, media: query } as MediaQueryListEvent)
+    }),
     removeEventListener: vi.fn(),
     dispatchEvent: vi.fn(),
   }))
@@ -27,8 +31,9 @@ vi.stubGlobal(
 vi.stubGlobal(
   'getComputedStyle',
   vi.fn().mockImplementation(() => ({
+    content: '',
     getPropertyValue: () => '',
-  }))
+  }) as CSSStyleDeclaration)
 )
 
 afterEach(() => {

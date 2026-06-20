@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { Alert, Button, Card, Form, InputNumber, Space, Tag, Typography } from 'antd';
+import { Alert, Button, Card, Checkbox, Form, Input, InputNumber, Select, Space, Tag, Typography } from 'antd';
+import { useNavigate } from 'react-router-dom';
 import { useAiAdvisor } from '../hooks/useAiAdvisor';
 import { AiAdvisorPanel } from '../components/AiAdvisorPanel';
-import type { AiRecommendPayload } from '../types/ai';
+import type { AiRecommendPayload, AiRecommendationCourseType } from '../types/ai';
 
 const { Text } = Typography;
 
@@ -16,6 +17,14 @@ type SubmitFeedback =
 
 interface RecommendFormValues {
   maxRecommendations: number;
+  targetCredits?: number;
+  preferredCourseTypes?: AiRecommendationCourseType[];
+  avoidEarlyMorning?: boolean;
+  preferLowLoad?: boolean;
+  preferRequiredCourses?: boolean;
+  preferGraduationProgress?: boolean;
+  riskTolerance?: 'low' | 'medium' | 'high';
+  naturalLanguagePreference?: string;
 }
 
 /**
@@ -28,6 +37,7 @@ const CourseSelectionAiPage: React.FC = () => {
   const [recommendForm] = Form.useForm<RecommendFormValues>();
   const [recommendFeedback, setRecommendFeedback] = useState<SubmitFeedback>(null);
   const [explainFeedback, setExplainFeedback] = useState<SubmitFeedback>(null);
+  const navigate = useNavigate();
 
   const aiAdvisor = useAiAdvisor();
 
@@ -41,6 +51,16 @@ const CourseSelectionAiPage: React.FC = () => {
 
     const payload: AiRecommendPayload = {
       maxRecommendations: values.maxRecommendations || 5,
+      preferences: {
+        targetCredits: values.targetCredits,
+        preferredCourseTypes: values.preferredCourseTypes,
+        avoidEarlyMorning: Boolean(values.avoidEarlyMorning),
+        preferLowLoad: Boolean(values.preferLowLoad),
+        preferRequiredCourses: values.preferRequiredCourses !== false,
+        preferGraduationProgress: values.preferGraduationProgress !== false,
+        riskTolerance: values.riskTolerance ?? 'low',
+        naturalLanguagePreference: values.naturalLanguagePreference?.trim() || undefined,
+      },
     };
 
     aiAdvisor.recommend.mutate(payload, {
@@ -117,14 +137,62 @@ const CourseSelectionAiPage: React.FC = () => {
           form={recommendForm}
           layout="vertical"
           onFinish={handleRecommend}
-          initialValues={{ maxRecommendations: 5 }}
+          initialValues={{
+            maxRecommendations: 5,
+            preferredCourseTypes: ['required', 'elective', 'general'],
+            preferRequiredCourses: true,
+            preferGraduationProgress: true,
+            riskTolerance: 'low',
+          }}
         >
-          <Form.Item
-            name="maxRecommendations"
-            label="返回数量"
-            rules={[{ required: true, message: '请输入返回数量' }]}
-          >
-            <InputNumber min={1} max={10} />
+          <Space wrap align="start" size="large">
+            <Form.Item
+              name="maxRecommendations"
+              label="返回数量"
+              rules={[{ required: true, message: '请输入返回数量' }]}
+            >
+              <InputNumber min={1} max={10} />
+            </Form.Item>
+            <Form.Item name="targetCredits" label="目标学分">
+              <InputNumber min={1} max={40} />
+            </Form.Item>
+            <Form.Item name="riskTolerance" label="风险偏好">
+              <Select
+                style={{ width: 140 }}
+                options={[
+                  { value: 'low', label: '低风险' },
+                  { value: 'medium', label: '适中' },
+                  { value: 'high', label: '可接受较高风险' },
+                ]}
+              />
+            </Form.Item>
+          </Space>
+          <Form.Item name="preferredCourseTypes" label="课程类型偏好">
+            <Select
+              mode="multiple"
+              options={[
+                { value: 'required', label: '必修' },
+                { value: 'elective', label: '选修' },
+                { value: 'general', label: '通识' },
+              ]}
+            />
+          </Form.Item>
+          <Space wrap>
+            <Form.Item name="avoidEarlyMorning" valuePropName="checked">
+              <Checkbox>避免早课</Checkbox>
+            </Form.Item>
+            <Form.Item name="preferLowLoad" valuePropName="checked">
+              <Checkbox>偏好轻负担</Checkbox>
+            </Form.Item>
+            <Form.Item name="preferRequiredCourses" valuePropName="checked">
+              <Checkbox>优先必修</Checkbox>
+            </Form.Item>
+            <Form.Item name="preferGraduationProgress" valuePropName="checked">
+              <Checkbox>优先毕业进度</Checkbox>
+            </Form.Item>
+          </Space>
+          <Form.Item name="naturalLanguagePreference" label="偏好说明">
+            <Input.TextArea rows={3} maxLength={300} placeholder="例如：这学期想稳妥一点，不要课太满，也尽量别影响毕业进度。" />
           </Form.Item>
           <Form.Item style={{ marginBottom: 0 }}>
             <Button type="primary" htmlType="submit" loading={aiAdvisor.recommend.isPending}>
@@ -140,6 +208,7 @@ const CourseSelectionAiPage: React.FC = () => {
         onExplain={(offeringId) => {
           handleExplain(offeringId);
         }}
+        onGoToSelection={() => navigate('/selection/courses')}
       />
 
       {explainFeedback ? (

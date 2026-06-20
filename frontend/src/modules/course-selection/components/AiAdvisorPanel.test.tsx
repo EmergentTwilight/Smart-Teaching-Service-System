@@ -1,0 +1,125 @@
+import { fireEvent, render, screen } from '@testing-library/react';
+import { describe, expect, it, vi } from 'vitest';
+import { AiAdvisorPanel } from './AiAdvisorPanel';
+import type { AiAdvicePayload } from '../types/ai';
+
+const advice: AiAdvicePayload = {
+  disclaimer: 'AI 建议仅供参考，最终是否选课以提交选课时的服务端校验结果为准。',
+  creditProgressSummary: {
+    currentSelectedCredits: 6,
+    targetCredits: 160,
+    maxCredits: 28,
+    remainingToTarget: 154,
+  },
+  recommendations: [
+    {
+      courseOfferingId: 'offering-1',
+      courseCode: 'CS101',
+      courseName: '程序设计基础',
+      credits: 4,
+      teacherName: '王老师',
+      recommendationScore: 0.9,
+      reasons: ['属于当前培养方案范围', '与已选课程无时间冲突'],
+      risks: ['课程剩余名额较少'],
+      eligibilitySnapshot: {
+        isAvailable: true,
+        remainingCapacity: 2,
+        hasTimeConflict: false,
+        prerequisiteSatisfied: true,
+      },
+      scoreBreakdown: {
+        curriculumMatch: 0.3,
+        creditGapFit: 0.2,
+        scheduleFit: 0.15,
+        preferenceFit: 0.15,
+        capacityFit: 0.05,
+        riskInverse: 0.07,
+      },
+    },
+  ],
+  conflictNotes: [],
+  plans: [
+    {
+      id: 'balanced',
+      title: '稳妥稳选',
+      rationale: '优先满足培养方案。',
+      recommendations: [],
+      projectedCredits: 0,
+      riskLevel: 'low',
+    },
+  ],
+  recommendationSummary: '根据你的培养方案生成建议。',
+  mode: 'rule_only',
+  suggestionMode: 'rule_only',
+  degradedMode: 'rule_only',
+  llmUsed: false,
+  model: null,
+  fallbackInfo: {
+    code: 'policy_validation_failed',
+    reason: 'LLM 生成失败，返回模板方案',
+    source: 'llm',
+  },
+  progressAudit: {
+    currentSelectedCredits: 6,
+    targetCredits: 160,
+    maxCredits: 28,
+    requiredGap: 94,
+    electiveGap: 40,
+    generalGap: 0,
+    priorityGaps: [
+      {
+        courseType: 'required',
+        gapCredits: 94,
+        urgency: 'high',
+        reason: '必修课缺口会直接影响培养方案进度。',
+      },
+    ],
+  },
+  scheduleLoad: {
+    earlyMorningCount: 1,
+    denseDays: ['周一'],
+    loadScore: 0.4,
+    loadLevel: 'medium',
+    notes: ['当前已选课程中有 1 个早课时段。'],
+  },
+};
+
+describe('AiAdvisorPanel', () => {
+  it('renders disclaimer, degraded state, scores, reasons and risks', () => {
+    render(<AiAdvisorPanel advice={advice} onExplain={vi.fn()} />);
+
+    expect(screen.getByText(advice.disclaimer)).toBeInTheDocument();
+    expect(screen.getByText('降级提示：policy_validation_failed')).toBeInTheDocument();
+    expect(screen.getAllByText(/推荐分数 0.90/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/评分构成：培养方案 0.30/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/属于当前培养方案范围/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/课程剩余名额较少/).length).toBeGreaterThan(0);
+    expect(screen.getByText(/必修缺口 94/)).toBeInTheDocument();
+  });
+
+  it('calls explain and go-to-selection handlers without enrollment actions', () => {
+    const onExplain = vi.fn();
+    const onGoToSelection = vi.fn();
+
+    render(
+      <AiAdvisorPanel
+        advice={advice}
+        onExplain={onExplain}
+        onGoToSelection={onGoToSelection}
+      />
+    );
+
+    fireEvent.click(screen.getAllByRole('button', { name: '查看解释' })[0]);
+    fireEvent.click(screen.getAllByRole('button', { name: '前往选课' })[0]);
+
+    expect(onExplain).toHaveBeenCalledWith('offering-1');
+    expect(onGoToSelection).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole('button', { name: /一键选课|AI 自动选课/ })).not.toBeInTheDocument();
+  });
+
+  it('renders an empty state without advice', () => {
+    render(<AiAdvisorPanel advice={null} onExplain={vi.fn()} />);
+
+    expect(screen.getByText('暂无建议，可继续使用基础课程搜索与选课流程。')).toBeInTheDocument();
+  });
+});

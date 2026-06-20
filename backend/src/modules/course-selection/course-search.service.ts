@@ -265,6 +265,7 @@ export const courseSearchService = {
           name: courseOffering.course.name,
           credits: Number(courseOffering.course.credits),
           courseType: toCourseTypeValue(courseOffering.course.courseType),
+          status: toCourseStatusValue(courseOffering.course.status),
         },
         semester: {
           id: courseOffering.semesterId,

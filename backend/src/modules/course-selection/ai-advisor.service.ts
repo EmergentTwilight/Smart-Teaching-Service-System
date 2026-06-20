@@ -1,16 +1,22 @@
+import { randomUUID } from 'node:crypto'
 import { AppError } from '@stss/shared'
 import {
   COURSE_SELECTION_ERROR_CODES,
   type AiAdvisorMode,
   type AiAdvicePayload,
+  type AiCapacityRisk,
+  type AiCourseScoreBreakdown,
   type AiExplainResult,
   type AiFallbackInfo,
+  type AiProgressAudit,
   type AiRecommendationItem,
   type AiRecommendationPlan,
+  type AiScheduleLoad,
 } from './course-selection.types.js'
 import { CourseStatus, CourseType, EnrollmentStatus, OfferingStatus } from '@prisma/client'
 import prisma from '../../shared/prisma/client.js'
 import {
+  decimalToNumber,
   resolveMaxCreditsForSemester,
   resolveSemesterId,
   schedulesConflict,
@@ -40,8 +46,20 @@ const BASE_EXPLAIN_DISCLAIMER =
 
 const MAX_RECOMMENDATION_LIMIT = 10
 const FALLBACK_PLAN_LIMIT = 5
+const WEEKDAY_NAMES: Record<number, string> = {
+  1: '周一',
+  2: '周二',
+  3: '周三',
+  4: '周四',
+  5: '周五',
+  6: '周六',
+  7: '周日',
+}
 
-const toCourseTypeValue = (value: CourseType): 'required' | 'elective' | 'general' => {
+type AdvisorCourseType = 'required' | 'elective' | 'general'
+type CapacityRiskLevel = 'low' | 'medium' | 'high'
+
+const toCourseTypeValue = (value: CourseType): AdvisorCourseType => {
   if (value === CourseType.REQUIRED) {
     return 'required'
   }
@@ -53,13 +71,9 @@ const toCourseTypeValue = (value: CourseType): 'required' | 'elective' | 'genera
   return 'general'
 }
 
-const toNum = (value: number | null | undefined): number => {
-  if (value === null || value === undefined) {
-    return 0
-  }
+const toNum = decimalToNumber
 
-  return Number(value)
-}
+const clampScore = (value: number): number => Math.max(0, Math.min(1, Number(value.toFixed(4))))
 
 const parseText = (value: unknown): string => {
   if (typeof value !== 'string') {
@@ -161,6 +175,7 @@ interface CurriculumCtx {
   totalCredits: number
   requiredCredits: number | null
   electiveCredits: number | null
+  generalCredits: number | null
   mandatoryCourses: Set<string>
 }
 
@@ -168,7 +183,7 @@ interface EnrolledCourse {
   courseId: string
   offeringId: string
   credits: number
-  courseType: 'required' | 'elective' | 'general'
+  courseType: AdvisorCourseType
   schedules: {
     dayOfWeek: number
     startWeek: number
@@ -184,7 +199,7 @@ interface OfferingSnapshot {
   code: string
   name: string
   credits: number
-  courseType: 'required' | 'elective' | 'general'
+  courseType: AdvisorCourseType
   teacherName: string
   capacity: number
   enrolledCount: number
@@ -234,7 +249,7 @@ interface CandidateSnapshot {
   courseName: string
   credits: number
   teacherName: string
-  courseType: 'required' | 'elective' | 'general'
+  courseType: AdvisorCourseType
 
   isEnrolled: boolean
   isFull: boolean
@@ -246,12 +261,53 @@ interface CandidateSnapshot {
 
   risks: string[]
   reasons: string[]
+  recommendationReasons: string[]
   recommendationScore: number
+  scoreBreakdown: AiCourseScoreBreakdown
   remainingCapacity: number
 }
 
 interface CandidateContext {
   candidate: CandidateSnapshot
+}
+
+interface CandidatePools {
+  all: CandidateContext[]
+  safe: CandidateContext[]
+  risky: CandidateContext[]
+  blocked: CandidateContext[]
+}
+
+interface PreferenceProfile extends PreferenceProfileInput {
+  source: 'request_fields' | 'llm_interpreted' | 'default'
+}
+
+interface ValidationReport {
+  valid: boolean
+  invalidCourseOfferingIds: string[]
+  warnings: string[]
+  action: 'accept' | 'fallback_template'
+}
+
+interface C6Blackboard {
+  requestMeta: {
+    requestId: string
+    semesterId?: string
+    maxRecommendations: number
+    startedAt: string
+  }
+  authContext: {
+    userId: string
+    role: 'student'
+  }
+  context: AdvisorContext
+  candidatePools: CandidatePools
+  progressAudit: AiProgressAudit
+  scheduleLoad: AiScheduleLoad
+  capacityRisks: AiCapacityRisk[]
+  preferenceProfile: PreferenceProfile
+  validationReport?: ValidationReport
+  fallbackInfo?: AiFallbackInfo
 }
 
 const resolveStudent = async (studentId: string): Promise<StudentCtx> => {
@@ -346,6 +402,7 @@ const resolveCurriculum = async (student: StudentCtx): Promise<CurriculumCtx> =>
     totalCredits: toNum(curriculum.totalCredits),
     requiredCredits: curriculum.requiredCredits === null ? null : toNum(curriculum.requiredCredits),
     electiveCredits: curriculum.electiveCredits === null ? null : toNum(curriculum.electiveCredits),
+    generalCredits: null,
     mandatoryCourses,
   }
 }
@@ -530,7 +587,166 @@ const buildContext = async (studentId: string, semesterId?: string): Promise<Adv
   }
 }
 
-const evaluateCandidates = (context: AdvisorContext) => {
+const buildProgressAudit = (context: AdvisorContext): AiProgressAudit => {
+  const requiredGap = context.curriculum.requiredCredits === null
+    ? 0
+    : Math.max(0, context.curriculum.requiredCredits - context.enrolled.byCourseType.required)
+  const electiveGap = context.curriculum.electiveCredits === null
+    ? 0
+    : Math.max(0, context.curriculum.electiveCredits - context.enrolled.byCourseType.elective)
+  const generalGap = context.curriculum.generalCredits === null
+    ? 0
+    : Math.max(0, context.curriculum.generalCredits - context.enrolled.byCourseType.general)
+
+  const priorityGaps = [
+    {
+      courseType: 'required' as const,
+      gapCredits: requiredGap,
+      reason: '必修课缺口会直接影响培养方案进度。',
+    },
+    {
+      courseType: 'elective' as const,
+      gapCredits: electiveGap,
+      reason: '选修课缺口可通过本学期可选课程逐步补足。',
+    },
+    {
+      courseType: 'general' as const,
+      gapCredits: generalGap,
+      reason: '通识类缺口可作为低负担备选方向。',
+    },
+  ]
+    .filter((item) => item.gapCredits > 0)
+    .map((item) => ({
+      ...item,
+      urgency: item.gapCredits >= 8 ? 'high' as const : item.gapCredits >= 4 ? 'medium' as const : 'low' as const,
+    }))
+    .sort((left, right) => right.gapCredits - left.gapCredits)
+
+  return {
+    currentSelectedCredits: context.enrolled.totalCredits,
+    targetCredits: context.curriculum.totalCredits,
+    maxCredits: context.period.maxCredits,
+    requiredGap,
+    electiveGap,
+    generalGap,
+    priorityGaps,
+  }
+}
+
+const analyzeScheduleLoad = (context: AdvisorContext): AiScheduleLoad => {
+  const schedules = context.enrolled.items.flatMap((item) => item.schedules)
+  const earlyMorningCount = schedules.filter((item) => item.startPeriod <= 2).length
+  const byDay = new Map<number, number>()
+
+  for (const schedule of schedules) {
+    const span = Math.max(1, schedule.endPeriod - schedule.startPeriod + 1)
+    byDay.set(schedule.dayOfWeek, (byDay.get(schedule.dayOfWeek) ?? 0) + span)
+  }
+
+  const denseDays = Array.from(byDay.entries())
+    .filter(([, periods]) => periods >= 6)
+    .map(([day]) => WEEKDAY_NAMES[day] ?? `周${day}`)
+
+  const loadScore = clampScore((schedules.length * 0.08) + (earlyMorningCount * 0.08) + (denseDays.length * 0.12))
+  const loadLevel = loadScore >= 0.65 ? 'high' : loadScore >= 0.35 ? 'medium' : 'low'
+  const notes: string[] = []
+
+  if (earlyMorningCount > 0) {
+    notes.push(`当前已选课程中有 ${earlyMorningCount} 个早课时段。`)
+  }
+  if (denseDays.length > 0) {
+    notes.push(`${denseDays.join('、')} 课程相对密集。`)
+  }
+  if (notes.length === 0) {
+    notes.push('当前已选课表负担较平稳。')
+  }
+
+  return {
+    earlyMorningCount,
+    denseDays,
+    loadScore,
+    loadLevel,
+    notes,
+  }
+}
+
+const getCapacityRisk = (offering: OfferingSnapshot): AiCapacityRisk => {
+  const fillRate = offering.capacity <= 0
+    ? 1
+    : clampScore(offering.enrolledCount / offering.capacity)
+
+  let riskLevel: CapacityRiskLevel = 'low'
+  let riskReason = '剩余容量相对充足。'
+
+  if (offering.remainingCapacity <= 0 || fillRate >= 0.95) {
+    riskLevel = 'high'
+    riskReason = '课程容量已满或接近满员。'
+  } else if (offering.remainingCapacity <= 3 || fillRate >= 0.8) {
+    riskLevel = 'medium'
+    riskReason = '课程剩余名额较少，建议准备备选。'
+  }
+
+  return {
+    courseOfferingId: offering.offeringId,
+    courseName: offering.name,
+    remainingCapacity: offering.remainingCapacity,
+    fillRate,
+    riskLevel,
+    riskReason,
+  }
+}
+
+const analyzeCapacityRisks = (context: AdvisorContext): AiCapacityRisk[] =>
+  context.offerings.map((offering) => getCapacityRisk(offering))
+
+const scoreCandidate = (
+  context: AdvisorContext,
+  offering: OfferingSnapshot,
+  flags: {
+    withinCurriculum: boolean
+    hasTimeConflict: boolean
+  },
+  risks: string[]
+): AiCourseScoreBreakdown => {
+  const requiredGap = context.curriculum.requiredCredits === null
+    ? 0
+    : Math.max(0, context.curriculum.requiredCredits - context.enrolled.byCourseType.required)
+  const electiveGap = context.curriculum.electiveCredits === null
+    ? 0
+    : Math.max(0, context.curriculum.electiveCredits - context.enrolled.byCourseType.elective)
+  const generalGap = context.curriculum.generalCredits === null
+    ? 0
+    : Math.max(0, context.curriculum.generalCredits - context.enrolled.byCourseType.general)
+  const gapFitMap: Record<AdvisorCourseType, number> = {
+    required: requiredGap > 0 ? 0.2 : 0.08,
+    elective: electiveGap > 0 ? 0.18 : 0.08,
+    general: generalGap > 0 ? 0.16 : 0.08,
+  }
+  const capacityRisk = getCapacityRisk(offering).riskLevel
+
+  return {
+    curriculumMatch: flags.withinCurriculum ? 0.3 : 0,
+    creditGapFit: gapFitMap[offering.courseType],
+    scheduleFit: flags.hasTimeConflict
+      ? 0
+      : offering.schedules.some((item) => item.startPeriod <= 2) ? 0.08 : 0.15,
+    preferenceFit: offering.courseType === 'required' ? 0.15 : 0.1,
+    capacityFit: capacityRisk === 'low' ? 0.1 : capacityRisk === 'medium' ? 0.05 : 0,
+    riskInverse: risks.length === 0 ? 0.1 : Math.max(0, 0.1 - risks.length * 0.03),
+  }
+}
+
+const sumScoreBreakdown = (breakdown: AiCourseScoreBreakdown): number =>
+  clampScore(
+    breakdown.curriculumMatch +
+      breakdown.creditGapFit +
+      breakdown.scheduleFit +
+      breakdown.preferenceFit +
+      breakdown.capacityFit +
+      breakdown.riskInverse
+  )
+
+const evaluateCandidates = (context: AdvisorContext): CandidatePools => {
   const enrolledSchedules = context.enrolled.items.flatMap((item) => item.schedules)
 
   const candidates = context.offerings.map<CandidateContext>((offering) => {
@@ -602,6 +818,17 @@ const evaluateCandidates = (context: AdvisorContext) => {
       risks.push('该课程可能存在早课')
     }
 
+    const recommendationReasons: string[] = []
+    if (withinCurriculum) {
+      recommendationReasons.push('属于当前培养方案范围')
+    }
+    if (offering.remainingCapacity > 3) {
+      recommendationReasons.push('当前仍有相对充足名额')
+    }
+    if (!hasTimeConflict) {
+      recommendationReasons.push('与已选课程无时间冲突')
+    }
+
     const requiredGap =
       context.curriculum.requiredCredits === null
         ? 0
@@ -612,36 +839,25 @@ const evaluateCandidates = (context: AdvisorContext) => {
         ? 0
         : Math.max(0, context.curriculum.electiveCredits - context.enrolled.byCourseType.elective)
 
+    const generalGap =
+      context.curriculum.generalCredits === null
+        ? 0
+        : Math.max(0, context.curriculum.generalCredits - context.enrolled.byCourseType.general)
+
     if (withinCurriculum && offering.courseType === 'required' && requiredGap > 0) {
-      risks.push('可帮助补齐必修课程缺口')
+      recommendationReasons.push('可帮助补齐必修课程缺口')
     }
 
     if (withinCurriculum && offering.courseType === 'elective' && electiveGap > 0) {
-      risks.push('可帮助补齐选修课程缺口')
+      recommendationReasons.push('可帮助补齐选修课程缺口')
     }
 
-    let score = 0.3
-    if (withinCurriculum) {
-      score += 0.24
+    if (withinCurriculum && offering.courseType === 'general' && generalGap > 0) {
+      recommendationReasons.push('可帮助补齐通识课程缺口')
     }
-    if (offering.courseType === 'required') {
-      score += 0.08
-    }
-    if (offering.remainingCapacity > 3) {
-      score += 0.04
-    }
-    if (risks.length === 0) {
-      score += 0.08
-    }
-    if (offering.courseType === 'elective' && context.curriculum.electiveCredits !== null) {
-      score += 0.05
-    }
-    if (!underMaxCredits) {
-      score -= 0.4
-    }
-
+    const scoreBreakdown = scoreCandidate(context, offering, { withinCurriculum, hasTimeConflict }, risks)
     const safe = reasons.length === 0
-    const recommendationScore = Math.max(0, Math.min(1, Number(score.toFixed(4))))
+    const recommendationScore = safe ? sumScoreBreakdown(scoreBreakdown) : 0
 
     return {
       candidate: {
@@ -660,7 +876,11 @@ const evaluateCandidates = (context: AdvisorContext) => {
         underMaxCredits,
         risks,
         reasons,
+        recommendationReasons: safe
+          ? Array.from(new Set(['该课程通过硬性规则校验', ...recommendationReasons]))
+          : [],
         recommendationScore: safe ? recommendationScore : 0,
+        scoreBreakdown,
         remainingCapacity: offering.remainingCapacity,
       },
     }
@@ -777,6 +997,9 @@ const withLlmPreference = async (
   if (!llmResult.ok) {
     return preference
   }
+  if (!llmResult.content) {
+    return preference
+  }
 
   const parsed = parseLlmPreference(llmResult.content)
   if (!parsed) {
@@ -808,7 +1031,9 @@ const withLlmPreference = async (
 const buildRecommendationItem = (candidate: CandidateSnapshot): AiRecommendationItem => {
   const reasons = candidate.reasons.length > 0
     ? [...candidate.reasons]
-    : ['该课程通过硬性规则校验']
+    : candidate.recommendationReasons.length > 0
+      ? [...candidate.recommendationReasons]
+      : ['该课程通过硬性规则校验']
 
   return {
     courseOfferingId: candidate.courseOfferingId,
@@ -829,7 +1054,9 @@ const buildRecommendationItem = (candidate: CandidateSnapshot): AiRecommendation
       withinCurriculum: candidate.withinCurriculum,
       withinSelectionPeriod: candidate.withinSelectionPeriod,
       underMaxCredits: candidate.underMaxCredits,
+      reasons: candidate.reasons,
     },
+    scoreBreakdown: candidate.scoreBreakdown,
   }
 }
 
@@ -855,6 +1082,14 @@ const buildPlan = (
   const riskCount = uniqueRecs.reduce((sum, item) => sum + Math.max(0, item.risks.length), 0)
 
   const riskLevel = riskCount >= 3 ? 'high' : riskCount >= 1 ? 'medium' : 'low'
+  const planScore = Number(
+    (
+      uniqueRecs.reduce((sum, item) => sum + item.recommendationScore, 0) / uniqueRecs.length
+    ).toFixed(4)
+  )
+  const keyTradeoffs = riskCount > 0
+    ? ['包含部分风险提示，建议结合课程详情确认。']
+    : ['全部推荐课程均通过硬性规则校验。']
 
   return {
     id: planId,
@@ -864,8 +1099,12 @@ const buildPlan = (
     projectedCredits,
     totalCredits: projectedCredits,
     riskLevel,
+    planScore,
+    keyTradeoffs,
   }
 }
+
+const isPlan = (plan: AiRecommendationPlan | null): plan is AiRecommendationPlan => plan !== null
 
 const buildFallbackPlans = (
   candidates: CandidateSnapshot[],
@@ -923,7 +1162,7 @@ const buildFallbackPlans = (
     recommendationLimit
   )
 
-  return [balanced, requiredFirst, lowRisk].filter(Boolean) as AiRecommendationPlan[]
+  return [balanced, requiredFirst, lowRisk].filter(isPlan)
 }
 
 const sortByPreference = (
@@ -981,6 +1220,56 @@ const sortByPreference = (
     return rightScore - leftScore
   })
 }
+
+const resolvePreferenceSource = (
+  rawPreferences: Record<string, unknown> | undefined,
+  rawPreference: PreferenceProfileInput,
+  resolvedPreference: PreferenceProfileInput
+): PreferenceProfile['source'] => {
+  if (rawPreference.naturalLanguagePreference && JSON.stringify(rawPreference) !== JSON.stringify(resolvedPreference)) {
+    return 'llm_interpreted'
+  }
+
+  return rawPreferences && Object.keys(rawPreferences).length > 0 ? 'request_fields' : 'default'
+}
+
+const buildBlackboard = ({
+  studentId,
+  body,
+  recommendationLimit,
+  context,
+  candidatePools,
+  rawPreference,
+  preference,
+}: {
+  studentId: string
+  body: AiRecommendBody
+  recommendationLimit: number
+  context: AdvisorContext
+  candidatePools: CandidatePools
+  rawPreference: PreferenceProfileInput
+  preference: PreferenceProfileInput
+}): C6Blackboard => ({
+  requestMeta: {
+    requestId: randomUUID(),
+    semesterId: body.semesterId,
+    maxRecommendations: recommendationLimit,
+    startedAt: new Date().toISOString(),
+  },
+  authContext: {
+    userId: studentId,
+    role: 'student',
+  },
+  context,
+  candidatePools,
+  progressAudit: buildProgressAudit(context),
+  scheduleLoad: analyzeScheduleLoad(context),
+  capacityRisks: analyzeCapacityRisks(context),
+  preferenceProfile: {
+    ...preference,
+    source: resolvePreferenceSource(body.preferences, rawPreference, preference),
+  },
+})
 
 interface ParsedLlmPlanIdsResult {
   balanced: string[]
@@ -1049,8 +1338,7 @@ const parseLlmPlanIds = (
       plan.riskLevel &&
       plan.riskLevel !== 'low' &&
       plan.riskLevel !== 'medium' &&
-      plan.riskLevel !== 'high' &&
-      plan.riskLevel !== 'unknown'
+      plan.riskLevel !== 'high'
     ) {
       fallback.valid = false
     }
@@ -1072,7 +1360,7 @@ const withLlmPlans = async (
   preference: PreferenceProfileInput,
   candidates: CandidateContext[],
   recommendationLimit: number
-): { plans: AiRecommendationPlan[]; recommendationSummary?: string; model: string | null; fallbackReason?: string } => {
+): Promise<{ plans: AiRecommendationPlan[]; recommendationSummary?: string; model: string | null; fallbackReason?: string }> => {
   if (candidates.length === 0) {
     return {
       plans: [],
@@ -1185,7 +1473,7 @@ const withLlmPlans = async (
         itemMap,
         recommendationLimit
       ),
-  ].filter((plan) => plan)
+  ].filter(isPlan)
 
   if (plans.length === 0) {
     return {
@@ -1222,7 +1510,7 @@ const withLlmPlans = async (
 }
 
 const buildAdvicePayload = (
-  context: AdvisorContext,
+  blackboard: C6Blackboard,
   recommendations: CandidateContext[],
   blocked: CandidateContext[],
   mode: AiAdvisorMode,
@@ -1233,6 +1521,7 @@ const buildAdvicePayload = (
   model: string | null,
   fallbackInfo?: AiFallbackInfo
 ): AiAdvicePayload => {
+  const context = blackboard.context
   const sorted = recommendations.slice(0, recommendationLimit)
   const ranked = sorted.map(({ candidate }) => candidate)
 
@@ -1284,6 +1573,10 @@ const buildAdvicePayload = (
       safeCandidates: recommendations.length,
       blockedCandidates: blocked.length,
     },
+    progressAudit: blackboard.progressAudit,
+    scheduleLoad: blackboard.scheduleLoad,
+    capacityRisks: blackboard.capacityRisks,
+    requestId: blackboard.requestMeta.requestId,
   }
 }
 
@@ -1406,13 +1699,33 @@ export const aiAdvisorService = {
     const parsedPreference = parsePreferenceFromRequest(body.preferences)
     const preference = await withLlmPreference(parsedPreference)
 
-    const { safe, blocked } = evaluateCandidates(context)
+    const candidatePools = evaluateCandidates(context)
+    const { safe, blocked } = candidatePools
+    const blackboard = buildBlackboard({
+      studentId,
+      body,
+      recommendationLimit,
+      context,
+      candidatePools,
+      rawPreference: parsedPreference,
+      preference,
+    })
 
     const safeSorted = sortByPreference(safe, preference)
 
     if (safeSorted.length === 0) {
+      blackboard.fallbackInfo = {
+        code: 'policy_validation_failed',
+        reason: '当前无满足硬性规则课程',
+        source: 'rule',
+        retriable: false,
+        mode: 'template_only',
+        missingComponents: [],
+        llmUsed: false,
+        model: null,
+      }
       return buildAdvicePayload(
-        context,
+        blackboard,
         [],
         blocked,
         'template_only',
@@ -1421,12 +1734,7 @@ export const aiAdvisorService = {
         '当前无满足硬性规则的候选课程，返回规则说明。',
         false,
         null,
-        {
-          code: 'policy_validation_failed',
-          reason: '当前无满足硬性规则课程',
-          source: 'rule',
-          retriable: false,
-        }
+        blackboard.fallbackInfo
       )
     }
 
@@ -1453,6 +1761,10 @@ export const aiAdvisorService = {
           reason: llmResult.fallbackReason,
           source: 'llm',
           retriable: true,
+          mode: 'rule_only',
+          missingComponents: ['llm_strategy'],
+          llmUsed: false,
+          model: llmResult.model,
         }
         : undefined
       : {
@@ -1460,12 +1772,23 @@ export const aiAdvisorService = {
           reason: 'LLM 生成失败，返回模板方案',
           source: 'llm',
           retriable: true,
+          mode: 'rule_only',
+          missingComponents: ['llm_strategy'],
+          llmUsed: false,
+          model: llmResult.model,
         }
 
     const mode: AiAdvisorMode = useLlm ? 'full' : 'rule_only'
+    blackboard.validationReport = {
+      valid: useLlm || !llmResult.fallbackReason,
+      invalidCourseOfferingIds: [],
+      warnings: llmResult.fallbackReason ? [llmResult.fallbackReason] : [],
+      action: llmResult.fallbackReason ? 'fallback_template' : 'accept',
+    }
+    blackboard.fallbackInfo = fallbackInfo
 
     return buildAdvicePayload(
-      context,
+      blackboard,
       safeSorted,
       blocked,
       mode,

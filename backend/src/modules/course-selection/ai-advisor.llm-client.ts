@@ -37,7 +37,7 @@ const isProviderEnabled = () => {
   return enabled !== '0' && enabled.toLowerCase() !== 'false'
 }
 
-const normalizeMessages = (messages: LlmMessage | LlmMessage[]): LlmMessage[] => {
+const normalizeMessages = (messages: string | LlmMessage | LlmMessage[]): LlmMessage[] => {
   if (Array.isArray(messages)) {
     return messages
   }

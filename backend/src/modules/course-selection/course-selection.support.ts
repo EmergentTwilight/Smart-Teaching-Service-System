@@ -43,6 +43,11 @@ export const buildPaginationMeta = (page: number, pageSize: number, total: numbe
   totalPages: total === 0 ? 0 : Math.ceil(total / pageSize),
 })
 
+export type ScheduleConflictSlot = Pick<
+  Schedule,
+  'dayOfWeek' | 'startWeek' | 'endWeek' | 'startPeriod' | 'endPeriod'
+>
+
 export const toPaginationResponseMeta = (pagination: PaginationMeta) => ({
   page: pagination.page,
   page_size: pagination.pageSize,
@@ -197,7 +202,7 @@ export async function resolveSemesterId(semesterId?: string): Promise<{ id: stri
   return latest
 }
 
-export function schedulesConflict(a: Schedule, b: Schedule): boolean {
+export function schedulesConflict(a: ScheduleConflictSlot, b: ScheduleConflictSlot): boolean {
   if (a.dayOfWeek !== b.dayOfWeek) {
     return false
   }

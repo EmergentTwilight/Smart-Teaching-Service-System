@@ -2,13 +2,14 @@
  * 应用根组件
  * 配置路由、主题和全局状态
  */
-import React, { lazy, Suspense } from 'react';
+import React, { lazy, Suspense, useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { ConfigProvider } from 'antd';
 import zhCN from 'antd/locale/zh_CN';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useAuthStore } from '@/shared/stores/authStore';
 import ErrorBoundary from '@/shared/components/ErrorBoundary';
+import { authApi } from '@/modules/info-management/api/auth';
 
 // 懒加载页面组件
 const MainLayout = lazy(() => import('@/shared/components/layout/MainLayout'));
@@ -97,9 +98,14 @@ interface ProtectedRouteProps {
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requiredRoles }) => {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const user = useAuthStore((state) => state.user);
+  const authHydrated = useAuthStore((state) => state.authHydrated);
 
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
+  }
+
+  if (!authHydrated) {
+    return <LoadingFallback />;
   }
 
   if (requiredRoles && user) {
@@ -114,13 +120,60 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requiredRoles
   return <>{children}</>;
 };
 
+const AuthBootstrap: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const token = useAuthStore((state) => state.token);
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const updateUser = useAuthStore((state) => state.updateUser);
+  const logout = useAuthStore((state) => state.logout);
+  const setAuthHydrated = useAuthStore((state) => state.setAuthHydrated);
+  const [lastToken, setLastToken] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (!isAuthenticated || !token) {
+      setLastToken(null);
+      setAuthHydrated(true);
+      return;
+    }
+
+    if (lastToken === token) {
+      setAuthHydrated(true);
+      return;
+    }
+
+    setAuthHydrated(false);
+    authApi
+      .me()
+      .then((freshUser) => {
+        if (cancelled) return;
+        updateUser(freshUser);
+        setLastToken(token);
+        setAuthHydrated(true);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        logout();
+        setLastToken(null);
+        setAuthHydrated(true);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isAuthenticated, token, lastToken, logout, setAuthHydrated, updateUser]);
+
+  return <>{children}</>;
+};
+
 const App: React.FC = () => {
   return (
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
-        <ConfigProvider
-          locale={zhCN}
-          theme={{
+        <AuthBootstrap>
+          <ConfigProvider
+            locale={zhCN}
+            theme={{
             token: {
               // 现代化配色
               colorPrimary: '#6366f1',
@@ -150,9 +203,9 @@ const App: React.FC = () => {
                 headerBg: '#fafafa',
               },
             },
-          }}
-        >
-          <BrowserRouter>
+            }}
+          >
+            <BrowserRouter>
             <Suspense fallback={<LoadingFallback />}>
               <Routes>
                 <Route path="/login" element={<Login />} />
@@ -302,8 +355,9 @@ const App: React.FC = () => {
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>
             </Suspense>
-          </BrowserRouter>
-        </ConfigProvider>
+            </BrowserRouter>
+          </ConfigProvider>
+        </AuthBootstrap>
       </QueryClientProvider>
     </ErrorBoundary>
   );

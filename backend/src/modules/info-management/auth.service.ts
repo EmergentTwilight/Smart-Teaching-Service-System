@@ -698,7 +698,7 @@ export const authService = {
       where: { id: userId },
     })
 
-    if (!user) {
+    if (!user || user.deletedAt) {
       throw new NotFoundError('用户不存在')
     }
 

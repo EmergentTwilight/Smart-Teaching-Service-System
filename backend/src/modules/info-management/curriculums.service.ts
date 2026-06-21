@@ -418,6 +418,11 @@ export const curriculumService = {
     data: UpdateCurriculumCourseSchema,
     req: Request
   ) {
+    console.log('[curriculumService.updateCurriculumCourse] input', {
+      curriculumId,
+      courseId,
+      data,
+    })
     await prisma.$transaction(async (tx) => {
       const curriculum = await tx.curriculum.findUnique({ where: { id: curriculumId } })
       if (!curriculum) {
@@ -441,7 +446,7 @@ export const curriculumService = {
         throw new NotFoundError('培养方案课程不存在')
       }
 
-      await tx.curriculumCourse.update({
+      const updatedRelation = await tx.curriculumCourse.update({
         where: {
           curriculumId_courseId: {
             curriculumId,
@@ -453,6 +458,7 @@ export const curriculumService = {
           semesterSuggestion: data.semester_suggestion,
         },
       })
+      console.log('[curriculumService.updateCurriculumCourse] updated relation', updatedRelation)
 
       await tx.systemLog.create({
         data: {

@@ -18,6 +18,21 @@ const CurriculumModal: React.FC<CurriculumModalProps> = ({ visible, onClose, onS
   const [form] = Form.useForm<CreateCurriculumDTO>();
   const isEdit = !!initialData;
 
+  const validateCreditSum = () => {
+    const totalCredits = form.getFieldValue('totalCredits');
+    const requiredCredits = form.getFieldValue('requiredCredits');
+    const electiveCredits = form.getFieldValue('electiveCredits');
+    if (totalCredits == null || requiredCredits == null || electiveCredits == null) {
+      return Promise.resolve();
+    }
+
+    const sum = Number((requiredCredits + electiveCredits).toFixed(1));
+    if (Math.abs(totalCredits - sum) > 0.000001) {
+      return Promise.reject(new Error('总学分必须等于必修学分与选修学分之和'));
+    }
+    return Promise.resolve();
+  };
+
   useEffect(() => {
     if (visible && initialData) {
       form.setFieldsValue({
@@ -58,13 +73,28 @@ const CurriculumModal: React.FC<CurriculumModalProps> = ({ visible, onClose, onS
             </Form.Item>
           </>
         )}
-        <Form.Item name="totalCredits" label="总学分" rules={[{ required: true, message: '请输入总学分' }]}>
+        <Form.Item
+          name="totalCredits"
+          label="总学分"
+          dependencies={['requiredCredits', 'electiveCredits']}
+          rules={[{ required: true, message: '请输入总学分' }, { validator: validateCreditSum }]}
+        >
           <InputNumber min={0.1} max={9999} step={0.5} precision={1} style={{ width: '100%' }} />
         </Form.Item>
-        <Form.Item name="requiredCredits" label="必修学分">
+        <Form.Item
+          name="requiredCredits"
+          label="必修学分"
+          dependencies={['totalCredits', 'electiveCredits']}
+          rules={[{ required: true, message: '请输入必修学分' }, { validator: validateCreditSum }]}
+        >
           <InputNumber min={0.1} max={9999} step={0.5} precision={1} style={{ width: '100%' }} />
         </Form.Item>
-        <Form.Item name="electiveCredits" label="选修学分">
+        <Form.Item
+          name="electiveCredits"
+          label="选修学分"
+          dependencies={['totalCredits', 'requiredCredits']}
+          rules={[{ required: true, message: '请输入选修学分' }, { validator: validateCreditSum }]}
+        >
           <InputNumber min={0.1} max={9999} step={0.5} precision={1} style={{ width: '100%' }} />
         </Form.Item>
       </Form>

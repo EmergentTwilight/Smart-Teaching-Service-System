@@ -58,10 +58,12 @@ function toCoursePayload(data: AddCurriculumCourseDTO): CurriculumCoursePayload 
 }
 
 function toUpdateCoursePayload(data: UpdateCurriculumCourseDTO): CurriculumCoursePayload {
-  return {
+  const payload = {
     course_type: data.courseType,
     semester_suggestion: data.semesterSuggestion,
   }
+  console.log('[curriculumsApi] update curriculum course payload', payload)
+  return payload
 }
 
 export const curriculumsApi = {
@@ -114,6 +116,7 @@ export const curriculumsApi = {
     courseId: string,
     data: UpdateCurriculumCourseDTO
   ): Promise<void> => {
+    console.log('[curriculumsApi] update curriculum course request', { id, courseId, data })
     await request.put(`/curriculums/${id}/courses/${courseId}`, toUpdateCoursePayload(data))
   },
 }

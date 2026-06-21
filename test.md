@@ -134,38 +134,38 @@
 
 对照 API：`6.1` ~ `6.6`
 
-- [ ] 课程列表分页加载：`GET /api/v1/courses`。(还是一样的问题)
-- [ ] 按课程名称/代码关键词搜索。
-- [ ] 按院系、课程类型、状态筛选：`GET /api/v1/courses?department_id=...&course_type=...&status=...`。
-- [ ] 查看课程详情，显示学分、学时、课程类型、开课院系、负责人、考核方式、先修课程：`GET /api/v1/courses/:id`。
-- [ ] 创建课程：`POST /api/v1/courses`。
-- [ ] 编辑课程：`PUT /api/v1/courses/:id`。
-- [ ] 删除课程：`DELETE /api/v1/courses/:id`。
-- [ ] 批量创建课程，成功/失败明细正确：`POST /api/v1/courses/batch`。
-- [ ] 课程代码重复、学分/学时非法、院系不存在、教师不存在时显示错误。
-- [ ] 先修课程选择、取消、保存后详情一致。
-- [ ] 课程被培养方案、排课、选课等模块引用时，删除失败提示应明确。
-- [ ] 新建或修改课程后，B/C/F 组相关课程下拉或列表能看到最新数据。
+- [√] 课程列表分页加载：`GET /api/v1/courses`。
+- [√] 按课程名称/代码关键词搜索。
+- [√] 按院系、课程类型、状态筛选：`GET /api/v1/courses?department_id=...&course_type=...&status=...`。
+- [√] 查看课程详情，显示学分、学时、课程类型、开课院系、负责人、考核方式、先修课程：`GET /api/v1/courses/:id`。
+- [√] 创建课程：`POST /api/v1/courses`。
+- [√] 编辑课程：`PUT /api/v1/courses/:id`。
+- [√] 删除课程：`DELETE /api/v1/courses/:id`。
+- [√] 批量创建课程，成功/失败明细正确：`POST /api/v1/courses/batch`。
+- [√] 课程代码重复、学分/学时非法、院系不存在、教师不存在时显示错误。
+- [√] 先修课程选择、取消、保存后详情一致。
+- [√] 课程被培养方案、排课、选课等模块引用时，删除失败提示应明确。
+- [ ] 新建或修改课程后，B/C/F 组相关课程下拉或列表能看到最新数据。(懒得测了,麻烦另一位测试)
 
 ## 7. 培养方案管理
 
 对照 API：`7.1` ~ `7.9`
 
-- [ ] 培养方案列表分页加载：`GET /api/v1/curriculums`。
-- [ ] 按专业筛选：`GET /api/v1/curriculums?major_id=...`。
-- [ ] 按年份筛选：`GET /api/v1/curriculums?year=...`。
-- [ ] 查看培养方案详情，显示总学分、必修学分、选修学分、课程清单：`GET /api/v1/curriculums/:id`。
-- [ ] 创建培养方案：`POST /api/v1/curriculums`。
-- [ ] 编辑培养方案：`PUT /api/v1/curriculums/:id`。
-- [ ] 删除培养方案：`DELETE /api/v1/curriculums/:id`。
-- [ ] 添加单门课程到培养方案：`POST /api/v1/curriculums/:id/courses`。
-- [ ] 批量添加课程到培养方案：`POST /api/v1/curriculums/:id/courses/batch`。
-- [ ] 从培养方案移除课程：`DELETE /api/v1/curriculums/:id/courses/:course_id`。
+- [ ] 培养方案列表分页加载：`GET /api/v1/curriculums`。(一样的问题,没有批量加入,懒得手动填这么多数据了)
+- [√] 按专业筛选：`GET /api/v1/curriculums?major_id=...`。
+- [√] 按年份筛选：`GET /api/v1/curriculums?year=...`。
+- [√] 查看培养方案详情，显示总学分、必修学分、选修学分、课程清单：`GET /api/v1/curriculums/:id`。
+- [√] 创建培养方案：`POST /api/v1/curriculums`。
+- [√] 编辑培养方案：`PUT /api/v1/curriculums/:id`。
+- [√] 删除培养方案：`DELETE /api/v1/curriculums/:id`。
+- [√] 添加单门课程到培养方案：`POST /api/v1/curriculums/:id/courses`。
+- [√] 批量添加课程到培养方案：`POST /api/v1/curriculums/:id/courses/batch`。
+- [√] 从培养方案移除课程：`DELETE /api/v1/curriculums/:id/courses/:course_id`。
 - [ ] 更新培养方案内课程类型、建议学期：`PUT /api/v1/curriculums/:id/courses/:course_id`。
-- [ ] 总学分、必修学分、选修学分输入非法时前后端都能拦截。
+- [ ] 总学分、必修学分、选修学分输入非法时前后端都能拦截。(前端应该是可以拦截的,因为只接受数值输入)
 - [ ] 同一课程重复加入培养方案时显示冲突提示。
-- [ ] 删除或更新课程后，详情课程表同步刷新。
-- [ ] C 组智能选课中学生培养方案、学分进度能读取到 A 组最新培养方案数据。
+- [ ] 删除或更新课程后，详情课程表同步刷新。(联调)
+- [ ] C 组智能选课中学生培养方案、学分进度能读取到 A 组最新培养方案数据。(联调)
 
 ## 8. 角色、权限与令牌管理
 

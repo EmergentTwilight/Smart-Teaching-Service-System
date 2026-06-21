@@ -21,6 +21,7 @@ const CurriculumCourseModal: React.FC<CurriculumCourseModalProps> = ({ visible, 
 
   useEffect(() => {
     if (visible && initialData) {
+      console.log('[CurriculumCourseModal] open edit modal', initialData);
       form.setFieldsValue({
         courseId: initialData.courseId,
         courseType: initialData.courseType,
@@ -29,23 +30,41 @@ const CurriculumCourseModal: React.FC<CurriculumCourseModalProps> = ({ visible, 
       return;
     }
     if (visible) {
+      console.log('[CurriculumCourseModal] open add modal');
       form.resetFields();
       form.setFieldsValue({ courseType: 'REQUIRED' });
     }
   }, [form, initialData, visible]);
 
   const handleSubmit = async () => {
-    const values = await form.validateFields();
-    await onSubmit(values);
-    form.resetFields();
-    onClose();
+    try {
+      const values = await form.validateFields();
+      console.log('[CurriculumCourseModal] submit values', values, 'initialData', initialData);
+      await onSubmit(values);
+      form.resetFields();
+      onClose();
+    } catch (error) {
+      if (error && typeof error === 'object' && 'errorFields' in error) {
+        return;
+      }
+      window.alert(error instanceof Error ? error.message : '培养方案课程信息更新失败');
+    }
   };
 
   const courseOptions = courses.map((course) => ({ label: `${course.code} ${course.name}`, value: course.id }));
   const typeOptions = Object.entries(COURSE_TYPE_LABELS).map(([value, label]) => ({ label, value }));
 
   return (
-    <Modal title={isEdit ? '更新课程信息' : '添加课程'} open={visible} onCancel={onClose} onOk={handleSubmit} okText="保存" cancelText="取消" width={520} destroyOnHidden>
+    <Modal
+      title={isEdit ? `更新课程信息：${initialData.courseCode} ${initialData.courseName}` : '添加课程'}
+      open={visible}
+      onCancel={onClose}
+      onOk={handleSubmit}
+      okText="保存"
+      cancelText="取消"
+      width={520}
+      destroyOnHidden
+    >
       <Form form={form} layout="vertical">
         <Form.Item name="courseId" label="课程" rules={[{ required: true, message: '请选择课程' }]}>
           <Select disabled={isEdit} showSearch optionFilterProp="label" placeholder="请选择课程" options={courseOptions} />

@@ -201,6 +201,8 @@ const UserList: React.FC = () => {
         admin,
         ...userData
       } = values
+      void _avatarUrl
+      void _avatarPreviewUrl
       if (avatarFile) {
         await usersApi.uploadAvatar(currentUser.id, avatarFile)
       }

@@ -4,7 +4,7 @@
  */
 import React, { lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { ConfigProvider } from 'antd';
+import { App as AntApp, ConfigProvider } from 'antd';
 import zhCN from 'antd/locale/zh_CN';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useAuthStore } from '@/shared/stores/authStore';
@@ -115,6 +115,7 @@ const App: React.FC = () => {
             },
           }}
         >
+          <AntApp>
           <BrowserRouter>
             <Suspense fallback={<LoadingFallback />}>
               <Routes>
@@ -234,6 +235,7 @@ const App: React.FC = () => {
               </Routes>
             </Suspense>
           </BrowserRouter>
+          </AntApp>
         </ConfigProvider>
       </QueryClientProvider>
     </ErrorBoundary>

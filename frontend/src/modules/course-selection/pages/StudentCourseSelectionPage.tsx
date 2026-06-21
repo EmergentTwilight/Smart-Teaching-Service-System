@@ -1,6 +1,7 @@
 import { useState, useCallback, useMemo } from 'react';
 import {
   Alert,
+  App,
   Button,
   Card,
   Col,
@@ -8,8 +9,6 @@ import {
   Checkbox,
   Form,
   Input,
-  message,
-  Modal,
   Row,
   Select,
   Space,
@@ -48,6 +47,7 @@ interface StudentCourseSelectionQuery extends OfferingsAvailableQuery {
  * - 不发送 student_id，不伪造成功状态
  */
 const StudentCourseSelectionPage: React.FC = () => {
+  const { message, modal } = App.useApp();
   const [filterForm] = Form.useForm<StudentCourseSelectionQuery>();
   const [offeringIdInDrawer, setOfferingIdInDrawer] = useState<string | null>(null);
   const [enrollingId, setEnrollingId] = useState<string | null>(null);
@@ -149,7 +149,7 @@ const StudentCourseSelectionPage: React.FC = () => {
         ? `${offering.courseName}（${offering.courseCode}）`
         : offeringId;
 
-      Modal.confirm({
+      modal.confirm({
         title: '确认选课',
         icon: <ExclamationCircleOutlined />,
         content: (
@@ -195,7 +195,7 @@ const StudentCourseSelectionPage: React.FC = () => {
         ? `${offering.courseName}（${offering.courseCode}）`
         : offeringId;
 
-      Modal.confirm({
+      modal.confirm({
         title: '确认退选',
         icon: <ExclamationCircleOutlined />,
         content: (

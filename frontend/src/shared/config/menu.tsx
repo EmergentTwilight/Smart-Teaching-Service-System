@@ -45,6 +45,12 @@ const C_SELECTION_MENU_ROLE_RULES: Record<string, readonly string[]> = {
   '/selection/teacher/roster': ['teacher'],
 };
 
+const A_INFO_MENU_ROLE_RULES: Record<string, readonly string[]> = {
+  '/users': ['admin', 'super_admin'],
+  '/users/logs': ['admin', 'super_admin'],
+  '/info/roles': ['admin', 'super_admin'],
+};
+
 function hasAnyRole(roles: string[], allowed: readonly string[]) {
   return allowed.some((r) => roles.includes(r));
 }
@@ -91,7 +97,10 @@ function filterMenuItemsByRole(
     }
 
     const key = 'key' in item && item.key !== undefined ? String(item.key) : undefined;
-    if (!hasMenuRole(roles, key ? C_SELECTION_MENU_ROLE_RULES[key] : undefined)) {
+    const allowedRoles = key
+      ? (C_SELECTION_MENU_ROLE_RULES[key] ?? A_INFO_MENU_ROLE_RULES[key])
+      : undefined;
+    if (!hasMenuRole(roles, allowedRoles)) {
       return filtered;
     }
 

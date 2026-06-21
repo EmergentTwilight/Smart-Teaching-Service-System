@@ -171,7 +171,14 @@ const App: React.FC = () => {
                   <Route path="dashboard" element={<Dashboard />} />
 
                   {/* 基础信息管理 */}
-                  <Route path="users" element={<UserList />} />
+                  <Route
+                    path="users"
+                    element={
+                      <ProtectedRoute requiredRoles={['admin', 'super_admin']}>
+                        <UserList />
+                      </ProtectedRoute>
+                    }
+                  />
                   <Route
                     path="users/logs"
                     element={

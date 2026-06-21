@@ -194,20 +194,15 @@ const UserList: React.FC = () => {
       const {
         status,
         avatarFile,
+        avatarUrl: _avatarUrl,
+        avatarPreviewUrl: _avatarPreviewUrl,
         student,
         teacher,
         admin,
         ...userData
       } = values
-      console.debug('[UserList] submit user update', {
-        userId: currentUser.id,
-        currentStatus: currentUser.status,
-        requestedStatus: status,
-        userData,
-      })
       if (avatarFile) {
-        const avatarResult = await usersApi.uploadAvatar(currentUser.id, avatarFile)
-        userData.avatarUrl = avatarResult.avatarUrl
+        await usersApi.uploadAvatar(currentUser.id, avatarFile)
       }
 
       await usersApi.update(currentUser.id, userData)
@@ -225,17 +220,12 @@ const UserList: React.FC = () => {
       }
 
       if (status && status !== currentUser.status) {
-        console.debug('[UserList] submit user status update', {
-          userId: currentUser.id,
-          status,
-        })
         await usersApi.updateStatus(currentUser.id, status)
       }
     } else {
       if (!values.password) {
         throw new Error('创建用户时密码不能为空')
       }
-      console.debug('[UserList] submit user create', values)
       await usersApi.create({
         ...values,
         password: values.password,

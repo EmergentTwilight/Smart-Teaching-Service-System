@@ -10,6 +10,7 @@ import type { UserDetail, UserFormData } from '@/shared/types';
 import toast from '@/shared/components/Toast/Toast';
 import { departmentsApi } from '../../api/departments';
 import { majorsApi } from '../../api/majors';
+import { resolveAssetUrl } from '@/shared/utils/url';
 
 /**
  * UserForm 组件 Props
@@ -101,7 +102,7 @@ const UserForm: React.FC<UserFormProps> = ({ open, loading = false, user, roles,
                   uid: '-1',
                   name: 'avatar',
                   status: 'done',
-                  url: user.avatarUrl,
+                  url: resolveAssetUrl(user.avatarUrl),
                 },
               ]
             : []
@@ -296,7 +297,10 @@ const UserForm: React.FC<UserFormProps> = ({ open, loading = false, user, roles,
             <Space align="start" size="large" style={{ marginBottom: 16 }}>
               <Avatar
                 size={72}
-                src={form.getFieldValue('avatarPreviewUrl') || form.getFieldValue('avatarUrl')}
+                src={
+                  form.getFieldValue('avatarPreviewUrl') ||
+                  resolveAssetUrl(form.getFieldValue('avatarUrl'))
+                }
                 icon={<UserOutlined />}
               />
               <Form.Item name="avatarFile" hidden>

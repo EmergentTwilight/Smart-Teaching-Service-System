@@ -47,11 +47,11 @@
 | Token 刷新      | 等待 access token 过期或模拟 401 刷新 | `POST /api/v1/auth/refresh`                | 能自动刷新并重试原请求；失败时跳转登录               | 暂时无法确认token是否刷新,但是就登陆失败跳转重定向而言是完全正确的 |
 | 登出            | 点击退出登录                          | `POST /api/v1/auth/logout`                 | 清除本地登录态，跳转登录页，返回后不能访问受保护页面 | ✔                                                                  |
 | 注册成功        | 打开注册页填写合法信息                | `POST /api/v1/auth/register`               | 注册成功并给出明确反馈                               | 缺少合格性提示.已修复并且提交分支                                  |
-| 注册重复        | 使用已有用户名或邮箱注册              | `POST /api/v1/auth/register`               | 显示冲突提示                                         |
-| 忘记密码        | 输入有效邮箱发送重置邮件              | `POST /api/v1/auth/password/forgot`        | 显示发送成功或明确失败原因                           |
-| 重置 Token 校验 | 打开重置链接                          | `GET /api/v1/auth/password/reset/verify`   | 有效 token 显示重置表单，无效 token 显示失效提示     |
-| 重置密码        | 输入新密码并确认                      | `POST /api/v1/auth/password/reset/confirm` | 成功后可用新密码登录                                 |
-| 修改密码        | 个人中心修改密码                      | `POST /api/v1/auth/change-password`        | 旧密码错误会提示；成功后旧密码不能登录               |
+| 注册重复        | 使用已有用户名或邮箱注册              | `POST /api/v1/auth/register`               | 显示冲突提示                                         | √                                                                  |
+| 忘记密码        | 输入有效邮箱发送重置邮件              | `POST /api/v1/auth/password/forgot`        | 显示发送成功或明确失败原因                           | 测试通过√                                                          |
+| 重置 Token 校验 | 打开重置链接                          | `GET /api/v1/auth/password/reset/verify`   | 有效 token 显示重置表单，无效 token 显示失效提示     | 这个不确定暂时还没找到触发方法                                     |
+| 重置密码        | 输入新密码并确认                      | `POST /api/v1/auth/password/reset/confirm` | 成功后可用新密码登录                                 | admin手动重置密码√                                                 |
+| 修改密码        | 个人中心修改密码                      | `POST /api/v1/auth/change-password`        | 旧密码错误会提示；成功后旧密码不能登录               | √                                                                  |
 
 ## 3. 用户管理
 
@@ -59,9 +59,9 @@
 
 ### 3.1 列表、统计、详情
 
-- [ ] 进入“基础信息管理 / 用户管理”，能加载用户列表：`GET /api/v1/users`。
-- [ ] 用户统计卡片或统计区域正确展示总数、学生、教师、管理员、启用/禁用数量：`GET /api/v1/users/stats`。
-- [ ] 按关键词搜索用户名、真实姓名、邮箱、手机号，结果正确：`GET /api/v1/users?keyword=...`。
+- [ √] 进入“基础信息管理 / 用户管理”，能加载用户列表：`GET /api/v1/users`。
+- [ √] 用户统计卡片或统计区域正确展示总数、学生、教师、管理员、启用/禁用数量：`GET /api/v1/users/stats`。
+- [ √] 按关键词搜索用户名、真实姓名、邮箱、手机号，结果正确：`GET /api/v1/users?keyword=...`。
 - [ ] 按角色筛选学生、教师、管理员，结果正确：`GET /api/v1/users?role=...`。
 - [ ] 按状态筛选 ACTIVE/INACTIVE/BANNED，结果正确：`GET /api/v1/users?status=...`。
 - [ ] 打开用户详情，基础信息、角色、学生/教师/管理员扩展信息展示正确：`GET /api/v1/users/:id`。

@@ -111,8 +111,10 @@ app.use(
   })
 )
 
-// 安全头部
-app.use(helmet() as unknown as RequestHandler)
+// 安全头部。上传头像等静态资源会被 Vite 前端跨 origin 加载，需要允许 cross-origin resource。
+app.use(
+  helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }) as unknown as RequestHandler
+)
 
 // 响应压缩
 app.use(compression())

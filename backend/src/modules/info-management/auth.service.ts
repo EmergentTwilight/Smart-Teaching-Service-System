@@ -38,6 +38,11 @@ type LoginInput = AuditMeta & {
   password: string
 }
 
+type ForgotPasswordInput = {
+  email: string
+  frontendUrl?: string
+}
+
 const userAuthInclude = {
   userRoles: {
     include: {
@@ -549,7 +554,10 @@ export const authService = {
    * 发起忘记密码流程
    * @param email 邮箱
    */
-  async forgotPassword(email: string) {
+  async forgotPassword(input: string | ForgotPasswordInput) {
+    const email = typeof input === 'string' ? input : input.email
+    const frontendUrl = typeof input === 'string' ? undefined : input.frontendUrl
+
     const user = await prisma.user.findUnique({
       where: { email },
     })
@@ -580,6 +588,7 @@ export const authService = {
         username: user.username,
         token,
         expires_at: expiresAt.toISOString(),
+        frontend_url: frontendUrl,
       })
     } catch (error) {
       console.error('Failed to send password reset email:', error)

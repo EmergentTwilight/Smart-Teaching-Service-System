@@ -205,6 +205,15 @@ const UserForm: React.FC<UserFormProps> = ({ open, loading = false, user, roles,
         };
       }
 
+      if (isEdit && user?.student && values.student) {
+        submitData.student = {
+          studentNumber: user.student.studentNumber,
+          majorId: values.student.majorId || undefined,
+          grade: user.student.grade,
+          className: user.student.className,
+        };
+      }
+
       if (!isEdit && hasTeacherRole && values.teacher) {
         submitData.teacher = {
           teacherNumber: values.teacher.teacherNumber,
@@ -214,9 +223,25 @@ const UserForm: React.FC<UserFormProps> = ({ open, loading = false, user, roles,
         };
       }
 
+      if (isEdit && user?.teacher && values.teacher) {
+        submitData.teacher = {
+          teacherNumber: user.teacher.teacherNumber,
+          departmentId: values.teacher.departmentId || undefined,
+          title: user.teacher.title,
+          officeLocation: user.teacher.officeLocation,
+        };
+      }
+
       if (!isEdit && hasAdminRole && values.admin) {
         submitData.admin = {
           adminType: values.admin.adminType,
+          departmentId: values.admin.departmentId || undefined,
+        };
+      }
+
+      if (isEdit && user?.admin && values.admin) {
+        submitData.admin = {
+          adminType: user.admin.adminType,
           departmentId: values.admin.departmentId || undefined,
         };
       }

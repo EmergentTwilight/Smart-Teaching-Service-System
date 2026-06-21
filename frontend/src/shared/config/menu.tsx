@@ -130,6 +130,7 @@ export const MENU_ITEMS: MenuItem[] = [
     label: '基础信息管理',
     children: [
       { key: '/users', icon: <TeamOutlined />, label: '用户管理' },
+      { key: '/users/logs', icon: <FileTextOutlined />, label: '系统日志' },
       { key: '/info/departments', icon: <BuildOutlined />, label: '部门管理' },
       { key: '/info/majors', icon: <BookOutlined />, label: '专业管理' },
       { key: '/info/roles', icon: <SafetyOutlined />, label: '角色权限' },

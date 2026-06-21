@@ -88,15 +88,15 @@
 - [ √] 分配用户角色：`POST /api/v1/users/:id/roles`。
 - [√ ] 撤销用户角色：`DELETE /api/v1/users/:id/roles/:role_id`。
 - [ √] 获取用户权限抽屉展示正确：`GET /api/v1/users/:id/permissions`。
-- [ ] 当前登录用户被禁用或角色被撤销后，刷新页面权限表现正确。
+- [ √] 当前登录用户被禁用或角色被撤销后，刷新页面权限表现正确。
 
 ### 3.4 批量、日志、头像、组织关系
 
-- [ ] 批量创建用户成功和部分失败都能展示明细：`POST /api/v1/users/batch`。
-- [ ] 批量导入时，重复用户、非法邮箱、缺少必填项会逐条标记失败。
-- [ ] 系统日志页可分页、按用户/动作/时间筛选：`GET /api/v1/users/logs`。
-- [ ] 上传合法头像后能立即预览并持久化：`POST /api/v1/users/:id/avatar`。
-- [ ] 上传过大文件、非图片文件时有明确提示。
+- [√ ] 批量创建用户成功和部分失败都能展示明细：`POST /api/v1/users/batch`。
+- [ √] 批量导入时，重复用户、非法邮箱、缺少必填项会逐条标记失败。
+- [ √] 系统日志页可分页、按用户/动作/时间筛选：`GET /api/v1/users/logs`。
+- [√ ] 上传合法头像后能立即预览并持久化：`POST /api/v1/users/:id/avatar`。
+- [ ] 上传过大文件、非图片文件时有明确提示。(前端交互上应该是不可能出现这个问题的)
 - [ ] 修改学生专业：`PATCH /api/v1/users/:id/student/major`。
 - [ ] 修改教师院系：`PATCH /api/v1/users/:id/teacher/department`。
 - [ ] 修改管理员院系：`PATCH /api/v1/users/:id/admin/department`。

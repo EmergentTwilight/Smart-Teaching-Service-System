@@ -53,12 +53,14 @@ git branch -r | grep 'origin/dev/C'
 
 | 子模块 | 名称 | 核心交付 |
 |---|---|---|
-| C1 | 培养方案与学分进展 | 当前学生培养方案、课程类别、建议学期、分类学分进度。 |
+| C1 | 培养方案与学分进展 | 当前学生培养方案、课程类别、建议学期、分类学分进度、培养方案确认入口和确认状态展示。 |
 | C2 | 课程搜索与课程详情 | 课程搜索、课程开设列表、课程详情、可选/不可选原因。 |
-| C3 | 选课/退选核心流程 | 选课事务、退选事务、容量控制、重复选课、时间冲突、最大学分、先修课检查。 |
+| C3 | 选课/退选核心流程 | 选课事务、退选事务、培养方案确认校验、容量控制、重复选课、时间冲突、最大学分、先修课检查、选课准入控制和空闲释放接入。 |
 | C4 | 结果、课表与名单导出 | 学生选课结果、个人课表、教师学生名单和 Excel 导出。 |
-| C5 | 选课管理与并发控制 | 初选/补退选/调整阶段管理、手动加课、连接数控制、长时间无操作强制退出预留。 |
+| C5 | 选课管理与并发控制 | 初选/补退选/调整阶段管理、手动加课，协作选课准入控制和长时间无操作释放的阶段/配置口径。 |
 | C6 | AI 辅助选课 | 推荐课程、推荐理由、冲突解释、学分影响说明。 |
+
+`d7de14ce` 对应 v2.0 总报告中的 `FR-C-15 选课连接控制与空闲释放` 最优归属为 **C3 主责、C5 协作**：C3 负责学生选课核心流程的准入、心跳和空闲释放接入；C5 负责阶段管理、配置口径和教务侧协作，不单独拥有学生选课准入链路。
 
 ## 4. 建议人员分工
 
@@ -66,8 +68,8 @@ git branch -r | grep 'origin/dev/C'
 |---|---|---|
 | C 组负责人 | 需求、文档、API 口径、事务规则、PR Review、最终联调。 | `docs/srs/`、`docs/modules/`、`docs/tasks/`、`docs/agent-guides/`、C 组 README。 |
 | 成员 1 | C1 + C2 后端：培养方案、学分进展、课程搜索、课程详情、可选课程列表。 | `curriculum.*`、`course-search.*`、`course-selection.types.ts`、`course-selection.schemas.ts`。 |
-| 成员 2 | C3 后端：选课/退选核心事务。 | `enrollment.controller.ts`、`enrollment.service.ts`、相关 schema/types。 |
-| 成员 3 | C4 + C5 后端：选课结果、课表、选课阶段、手动加课、教师名单导出。 | `enrollment-results.*`、`selection-period.*`、`roster.*`、`timetable.*`。 |
+| 成员 2 | C3 后端：选课/退选核心事务、培养方案确认校验、先修课通过状态校验、FR-C-15 选课准入与空闲释放主责。 | `enrollment.controller.ts`、`enrollment.service.ts`、相关 schema/types。 |
+| 成员 3 | C4 + C5 后端：选课结果、课表、选课阶段、手动加课、教师名单导出；协作 FR-C-15 的阶段和配置口径。 | `enrollment-results.*`、`selection-period.*`、`roster.*`、`timetable.*`。 |
 | 成员 4 | 学生端前端：培养方案、课程搜索、选课、结果、课表页面。 | `StudentCourseSelectionPage.tsx`、`StudentCurriculumPage.tsx`、`StudentTimetablePage.tsx`、学生端 components/hooks/api。 |
 | 成员 5 | 教师/教务端前端 + AI 面板；C6 后端接口契约和兜底模板由成员 5 在单独 AI 后端任务中承接，完整模型算法或外部 AI 服务接入需负责人另行确认。 | `TeacherRosterPage.tsx`、`AdminSelectionPeriodPage.tsx`、`AdminManualEnrollmentPage.tsx`、`CourseSelectionAiPage.tsx`、`AiAdvisorPanel.tsx`、`ai-advisor.*`。 |
 
@@ -162,8 +164,8 @@ docs/tasks/C-integration-and-acceptance-guide.md
 ```text
 1. AI 推荐课程。
 2. AI 解释冲突和学分影响。
-3. 连接数控制预留或实现。
-4. 长时间无操作强制退出预留或实现。
+3. C3 主责实现或预留选课准入控制。
+4. C3 主责实现或预留长时间无操作释放，C5 协作阶段和配置口径。
 5. 200 在线用户场景的测试说明。
 ```
 
@@ -220,9 +222,10 @@ docs/tasks/C-integration-and-acceptance-guide.md
 
 ```text
 1. 实现 POST 选课和 PATCH 退选对应业务。
-2. 检查 SelectionPeriod、CourseOffering 状态、容量、重复选课、时间冲突、最大学分和先修课。
+2. 检查培养方案确认状态、SelectionPeriod、CourseOffering 状态、容量、重复选课、时间冲突、最大学分和先修课通过状态。
 3. 保证 Enrollment 与 CourseOffering.enrolled_count 事务一致。
 4. 给前端返回明确错误码和错误原因。
+5. 作为 v2.0 `FR-C-15` 主责，接入或预留选课核心流程准入控制、心跳和空闲释放。
 ```
 
 这是 C 组最关键模块。任何“前端已经校验，所以后端省略校验”的实现都不得合并。
@@ -261,7 +264,7 @@ docs/tasks/C-integration-and-acceptance-guide.md
 1. 管理初选、补退选、调整阶段。
 2. 设置开始时间、结束时间、启用状态和最大学分。
 3. 支持教务手动加课。
-4. 预留或实现连接数控制和长时间无操作强制退出。
+4. 协作 v2.0 `FR-C-15` 的阶段、配置和教务侧管理口径；学生选课核心流程准入链路由 C3 主责。
 ```
 
 注意：
@@ -269,6 +272,8 @@ docs/tasks/C-integration-and-acceptance-guide.md
 ```text
 SelectionPeriod 判断必须以服务端时间为准，不能依赖客户端时间。
 ```
+
+培养方案确认持久化属于数据库设计待办。任何成员不得为了满足 v2.0 验收基线擅自新增业务表或修改 Prisma schema；确认记录设计完成前，C1/C3 只能在文档、接口契约和 TODO 中保留目标口径。
 
 ### C6 AI 辅助选课
 

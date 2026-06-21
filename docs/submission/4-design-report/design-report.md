@@ -155,19 +155,24 @@
 
 ### 4.1 核心领域对象总览【全组统一整合】
 
-| 类名       | 所属子系统  | 说明         |
-| ---------- | ----------- | ------------ |
-| User       | A           | 系统用户基类 |
-| Student    | A/C/F       | 学生用户     |
-| Teacher    | A/B/D/E/F   | 教师用户     |
-| Course     | A/B/C/D/E/F | 课程基础信息 |
-| Classroom  | B           | 教室资源     |
-| Schedule   | B/C         | 排课结果     |
-| Enrollment | C/F         | 学生选课记录 |
-| Post       | D           | 论坛帖子     |
-| Question   | E           | 题目         |
-| Paper      | E           | 试卷         |
-| Score      | F           | 成绩记录     |
+| 类名              | 所属子系统  | 说明                                                                 |
+| ----------------- | ----------- | -------------------------------------------------------------------- |
+| User              | A           | 系统用户基类                                                         |
+| Student           | A/C/F       | 学生用户                                                             |
+| Teacher           | A/B/D/E/F   | 教师用户                                                             |
+| Course            | A/B/C/D/E/F | 课程基础信息                                                         |
+| Classroom         | B           | 教室资源                                                             |
+| CourseOffering    | B/C/D/E/F   | 指定学期的课程开设教学班，关联教师、容量、排课、论坛、测试和选课记录 |
+| Schedule          | B/C         | 排课结果                                                             |
+| Curriculum        | A/C/F       | 按专业和年份定义学分要求与课程清单的培养方案                         |
+| CurriculumCourse  | A/C/F       | 培养方案与课程的关联，保存课程类别和建议修读学期                     |
+| Enrollment        | C/F         | 学生选课记录                                                         |
+| SelectionPeriod   | C           | 选课阶段时间窗口、学分上限和启用状态                                 |
+| AiAdvisorEndpoint | C           | 提供推荐和解释的无副作用 AI 接口边界                                 |
+| Post              | D           | 论坛帖子                                                             |
+| Question          | E           | 题目                                                                 |
+| Paper             | E           | 试卷                                                                 |
+| Score             | F           | 成绩记录                                                             |
 
 写作指引：  
 这里是统一命名表。各组后续设计必须使用统一类名或说明别名。
@@ -437,22 +442,32 @@ B 自动排课子系统以 A 子系统维护的课程、开课、教师等基础
 
 时间冲突的判定基于周次区间 `[startWeek, endWeek]` 与节次区间 `[startPeriod, endPeriod]` 的双重重叠，且星期相同；任一区间不重叠即视为不冲突。数据模型在 `Schedule` 上建立 `(classroomId, dayOfWeek, startWeek, endWeek, startPeriod, endPeriod)` 复合索引以加速冲突检测查询。
 
-### 4.4 C 智能选课数据/类设计【C 组填写】
+### 4.4 C 智能选课数据/类设计【C 组】
 
-建议类：
+#### 4.4.1 主要设计类
 
-- TrainingProgram
-- Enrollment
-- SelectionPhase
-- CourseCapacity
-- CourseConflict
-- AIRecommendation
+| 类名              | 职责                 | 主要属性                                                                             | 主要行为                                                               |
+| ----------------- | -------------------- | ------------------------------------------------------------------------------------ | ---------------------------------------------------------------------- |
+| Student           | 表示当前登录学生身份 | userId, studentNumber, majorId, grade, className                                     | 匹配培养方案、限定本人选课数据                                         |
+| Teacher           | 表示教师身份         | userId, teacherNumber, departmentId, title                                           | 校验名单查询和导出归属                                                 |
+| AcademicAdmin     | 表示学术教务管理员   | userId, adminType                                                                    | 阶段管理和手动加课权限校验                                             |
+| Course            | 课程基础信息         | id, code, name, credits, courseType, status                                          | 搜索、详情、学分计算、状态和先修关系校验                               |
+| Curriculum        | 培养方案             | id, majorId, name, year, totalCredits, requiredCredits, electiveCredits              | 根据学生专业和年级匹配培养方案                                         |
+| CurriculumCourse  | 培养方案课程关系     | curriculumId, courseId, courseType, semesterSuggestion                               | 分组展示、判断课程是否在培养方案内                                     |
+| CourseOffering    | 课程开设             | id, courseId, semesterId, teacherId, capacity, enrolledCount, status                 | 展示容量和状态；选课事务更新已选人数                                   |
+| Schedule          | 排课时间             | courseOfferingId, classroomId, dayOfWeek, startWeek, endWeek, startPeriod, endPeriod | 详情展示、课表生成、时间冲突检测                                       |
+| Enrollment        | 选课记录             | id, studentId, courseOfferingId, status, enrolledAt, droppedAt                       | 选课、退课、恢复、结果查询和成绩引用                                   |
+| SelectionPeriod   | 选课阶段             | id, semesterId, phase, startTime, endTime, maxCredits, isActive                      | 控制开放窗口、阶段和学分上限                                           |
+| SystemLog         | 审计记录             | userId, action, resourceType, resourceId, details                                    | 记录阶段管理和手动加课                                                 |
+| AiAdvisorEndpoint | AI 接口边界          | recommend, explain                                                                   | 支持 `full`、`rule_only`、`template_only` 的降级模式返回建议与风险说明 |
 
-写作指引：
+#### 4.4.2 关系说明
 
-- 说明培养方案与学生、课程类别、学分要求之间的关系。
-- 说明选课记录与排课结果、课程容量之间的关系。
-- AIRecommendation 要说明输入、输出和最终确认机制。
+学生通过 `Student.majorId` 和 `Student.grade` 匹配 `Curriculum`。培养方案通过 `CurriculumCourse` 关联课程并保存课程类型和建议修读学期。`CourseOffering` 关联课程、学期、教师和排课时间，`Enrollment` 关联学生与课程开设。
+
+选课事务以 `Enrollment` 与 `CourseOffering.enrolledCount` 一致为核心。创建或恢复有效选课记录时增加已选人数，退课时把记录置为 `DROPPED` 并减少已选人数。时间冲突来自目标开课和本人已选开课的 `Schedule` 重叠判断，最大学分由当前开放阶段的 `SelectionPeriod.maxCredits` 控制。
+
+当前无 AI 推荐结果表、连接队列表、手动加课申请表或培养方案确认表。
 
 ### 4.5 D 论坛交流数据/类设计【D 组填写】
 
@@ -596,10 +611,19 @@ B 子系统在统一的 PostgreSQL 实例中维护 `classrooms`（教室资源�
 
 > 说明：`equipment` 以 JSONB 保存教室设备清单（如投影、电脑、实验设备），便于按用途匹配排课；`schedules` 上的复合索引用于加速“同教室、同星期、相同周次与节次区间”的冲突检测查询。
 
-### 5.4 C 智能选课数据表【C 组填写】
+### 5.4 C 智能选课数据表【C 组】
 
-| 表名 | 字段 | 类型 | 约束 | 说明 |
-| ---- | ---- | ---- | ---- | ---- |
+| 表名                 | 字段                                                                                                     | 类型                                          | 约束                                           | 说明                               |
+| -------------------- | -------------------------------------------------------------------------------------------------------- | --------------------------------------------- | ---------------------------------------------- | ---------------------------------- |
+| semesters            | id, name, start_date, end_date, status                                                                   | UUID/String, VarChar, Date, Enum              | id 主键；状态为 `UPCOMING`、`CURRENT`、`ENDED` | 学期基础数据                       |
+| course_offerings     | id, course_id, semester_id, teacher_id, capacity, enrolled_count, status                                 | UUID/String, Int, Enum                        | 关联课程、学期、教师                           | 课程开设教学班，保存容量和已选人数 |
+| enrollments          | id, student_id, course_offering_id, status, enrolled_at, dropped_at                                      | UUID/String, Enum, DateTime                   | `student_id + course_offering_id` 唯一         | 学生选课记录，退课更新状态而非删除 |
+| selection_periods    | id, semester_id, phase, start_time, end_time, max_credits, is_active                                     | UUID/String, Enum, DateTime, Decimal, Boolean | 关联学期                                       | 选课阶段配置，按服务器时间判断开放 |
+| schedules            | id, course_offering_id, classroom_id, day_of_week, start_week, end_week, start_period, end_period, notes | UUID/String, Int, Text                        | 关联课程开设和教室                             | C 组读取用于冲突检测和课表         |
+| curriculums          | id, major_id, name, year, total_credits, required_credits, elective_credits                              | UUID/String, Int, Decimal                     | 关联专业                                       | 学生培养方案                       |
+| curriculum_courses   | curriculum_id, course_id, course_type, semester_suggestion                                               | UUID/String, Enum, Int                        | 组合主键                                       | 培养方案课程关系                   |
+| course_prerequisites | course_id, prerequisite_id                                                                               | UUID/String                                   | 组合主键                                       | 先修关系；当前未接入成绩通过判断   |
+| system_logs          | user_id, action, resource_type, resource_id, details, created_at                                         | UUID/String, Json, DateTime                   | 关联操作用户                                   | 阶段管理和手动加课审计             |
 
 ### 5.5 D 论坛交流数据表【D 组填写】
 
@@ -702,7 +726,41 @@ B 组接口遵循项目统一规范：Base URL 为 `/api/v1`，通过 JWT Bearer
 | 教室课表查询  | GET             | `/api/v1/schedules/classroom/:classroomId`     | 教室 id、学期 id                                                  | 该教室周课表网格数据                                         | 教务管理人员          |
 | 课表打印/导出 | GET             | `/api/v1/schedules/export`                     | 维度（teacher/classroom）、对象 id、学期 id、导出格式             | 可打印的课表视图或导出文件                                   | 教师本人/教务管理人员 |
 
-### 6.4 C 智能选课接口【C 组填写】
+### 6.4 C 智能选课接口【C 组】
+
+#### 6.4.1 接口约定
+
+| 项       | 约定                                                         |
+| -------- | ------------------------------------------------------------ |
+| Base URL | `/api/v1/course-selection`                                   |
+| 认证     | JWT Bearer Token                                             |
+| 字段命名 | 外部请求和响应使用 `snake_case`；服务层使用 camelCase        |
+| 分页     | `page` 从 1 开始，`page_size` 默认 20，最大 100；名单默认 50 |
+| 时间     | ISO 8601，阶段判断以服务器时间为准                           |
+| 学生身份 | 从认证上下文解析，不接受选课请求中的 `student_id`            |
+
+#### 6.4.2 接口列表
+
+| 接口名称         | 方法  | 路径                                   | 输入                                                                                         | 输出                                 | 权限                                 |
+| ---------------- | ----- | -------------------------------------- | -------------------------------------------------------------------------------------------- | ------------------------------------ | ------------------------------------ |
+| 查看本人培养方案 | GET   | `/curriculum/me`                       | include_courses, course_type                                                                 | 培养方案、课程分组、确认提示         | student                              |
+| 查看本人学分进展 | GET   | `/curriculum/me/progress`              | semester_id, include_dropped                                                                 | 学分要求、已选学分、类型进展、警告   | student                              |
+| 搜索课程目录     | GET   | `/courses`                             | keyword, teacher, teacher_id, course_type, status, page, page_size                           | 课程分页列表和开课摘要               | student、teacher、admin、super_admin |
+| 查询开课列表     | GET   | `/offerings`                           | semester_id, keyword, teacher, course_type, offering_status, available_only, page, page_size | 开课分页列表                         | student、teacher、admin、super_admin |
+| 查询本人可选课程 | GET   | `/offerings/available`                 | semester_id, keyword, teacher, course_type, offering_status, include_unavailable             | 可选课程、可选性和原因               | student                              |
+| 查询开课详情     | GET   | `/offerings/:id`                       | include_eligibility                                                                          | 课程、教师、容量、先修、排课和可选性 | student、teacher、admin、super_admin |
+| 查看本人选课记录 | GET   | `/enrollments/me`                      | semester_id, status, keyword, page, page_size                                                | 本人选课记录和汇总                   | student                              |
+| 提交选课         | POST  | `/enrollments`                         | course_offering_id, client_request_id                                                        | 选课记录、容量、学分摘要             | student                              |
+| 退选课程         | PATCH | `/enrollments/:id/drop`                | reason, client_request_id                                                                    | 退课后的记录和容量                   | student                              |
+| 查看本人课表     | GET   | `/timetable/me`                        | semester_id, format                                                                          | 课表、缺失排课提示、可打印标记       | student                              |
+| 查看课程名单     | GET   | `/teacher/offerings/:id/roster`        | status, keyword, page, page_size                                                             | 本人开课名单分页                     | teacher                              |
+| 导出课程名单     | GET   | `/teacher/offerings/:id/roster/export` | status, format=xlsx                                                                          | Excel 文件                           | teacher                              |
+| 查询选课阶段     | GET   | `/admin/periods`                       | semester_id, phase, is_active, page, page_size                                               | 阶段分页列表                         | admin/super_admin + ACADEMIC         |
+| 创建选课阶段     | POST  | `/admin/periods`                       | semester_id, phase, start_time, end_time, max_credits, is_active                             | 新建阶段                             | admin/super_admin + ACADEMIC         |
+| 更新选课阶段     | PATCH | `/admin/periods/:id`                   | 可选阶段字段                                                                                 | 更新后阶段                           | admin/super_admin + ACADEMIC         |
+| 教务手动加课     | POST  | `/admin/enrollments`                   | student_id, course_offering_id, reason, notify_student                                       | 记录、容量、审计结果                 | admin/super_admin + ACADEMIC         |
+| AI 推荐课程      | POST  | `/ai-advisor/recommend`                | limit, preferences                                                                           | 推荐 payload（支持降级）             | student                              |
+| AI 解释课程      | POST  | `/ai-advisor/explain`                  | course_offering_id, question                                                                 | 解释 payload（支持规则/LLM 降级）    | student                              |
 
 写作指引：
 列出培养方案、课程搜索、选课、退课、选课结果、AI 推荐接口。
@@ -815,16 +873,17 @@ A 组前端使用 React、React Router、Ant Design、TanStack Query 和 Axios �
 | 手动调课页     | `/scheduling/adjust`     | 教务管理人员      | 手动调整单条排课 | 开课、教室下拉、星期、周次区间、节次区间、备注、冲突预检按钮                             | 修改时间或教室后先做冲突预检；存在冲突时展示冲突类型并阻断保存；保存成功提示             |
 | 课表查询打印页 | `/scheduling/timetable`  | 教师/教务管理人员 | 查询并打印课表   | 维度切换（教师/教室）、对象选择、学期选择、周课表网格、打印/导出按钮                     | 教师查看本人课表，管理人员查看任意教室课表；点击打印生成可打印视图；无排课时提示暂无课表 |
 
-### 7.4 C 智能选课界面【C 组填写】
+### 7.4 C 智能选课界面【C 组】
 
-页面建议：
-
-- 培养方案页。
-- 课程搜索页。
-- 选课页。
-- 选课结果页。
-- AI 辅助选课页。
-- 选课管理页。
+| 页面             | 路由                                 | 使用角色           | 用途                               | 主要字段/控件                                                                                  | 主要操作与异常提示                                        |
+| ---------------- | ------------------------------------ | ------------------ | ---------------------------------- | ---------------------------------------------------------------------------------------------- | --------------------------------------------------------- |
+| 课程列表与选课页 | `/selection/courses`                 | 学生               | 搜索可选课程、查看详情、选课或退课 | keyword、teacher、courseType、offeringStatus、includeUnavailable、课程表格、详情抽屉、确认弹窗 | 查询、详情、确认选退课；显示后端业务错误                  |
+| 培养方案页       | `/selection/curriculum`              | 学生               | 查看培养方案、课程分组和学分进展   | 培养方案信息、课程分组、建议学期、CreditProgressCard                                           | 无档案/无方案时显示错误；确认状态只展示后端提示           |
+| 我的课表页       | `/selection/timetable`               | 学生               | 查看和打印本人课表                 | semesterId、查询/重置/刷新/打印、TimetableGrid                                                 | 查询失败、无选课、缺少排课均有提示                        |
+| AI 推荐页        | `/selection/ai`                      | 学生               | 展示 AI 推荐入口                   | 推荐数量、推荐按钮、AiAdvisorPanel、解释结果                                                   | 支持成功/降级提示，不改变选课记录                         |
+| 阶段管理页       | `/selection/admin/periods`           | admin、super_admin | 管理选课阶段                       | 学期、阶段、开始/结束时间、最大学分、是否启用                                                  | 创建/更新阶段；后端拒绝非法时间、重叠和非 ACADEMIC 管理员 |
+| 手动加课页       | `/selection/admin/manual-enrollment` | admin、super_admin | 为学生手动加课                     | studentId、courseOfferingId、reason、notifyStudent                                             | 原因为必填；成功后显示记录、容量和审计结果                |
+| 教师课程名单页   | `/selection/teacher/roster`          | 教师               | 查询和导出本人课程名单             | offeringId、keyword、status、名单表格、导出按钮                                                | 非本人开课返回 403；导出后端 Excel                        |
 
 ### 7.5 D 论坛交流界面【D 组填写】
 
@@ -946,19 +1005,26 @@ flowchart LR
 
 前端组件与后端服务按页面职责对应：教室资源管理页调用 ClassroomService，自动排课页调用 AutoSchedulingService，手动调课页调用 ManualAdjustmentService 与 ConflictDetectionService，课表查询打印页调用 TimetableService。自动排课与手动调课的核心是冲突检测：`ConflictDetectionService` 对每个候选排课依次校验教师时间冲突、教室时间冲突、同开课时间矛盾、容量匹配和教室可用状态，全部通过后才允许写入 `schedules`。
 
-### 8.3 C 智能选课组件设计【C 组填写】
+### 8.3 C 智能选课组件设计【C 组】
 
-建议组件：
-
-- TrainingProgramService
-- CourseSearchService
-- EnrollmentService
-- CapacityControlService
-- AIRecommendationService
-- SelectionPhaseService
-
-写作指引：
-重点说明选课约束检查顺序：是否在选课阶段、是否符合培养方案、是否容量足够、是否时间冲突、是否重复选课。
+| 组件                     | 职责                                           | 输入                                                    | 输出                                                                                           | 依赖                                        |
+| ------------------------ | ---------------------------------------------- | ------------------------------------------------------- | ---------------------------------------------------------------------------------------------- | ------------------------------------------- |
+| course-selection.routes  | 挂载接口并组合鉴权、角色控制和校验             | HTTP 请求、JWT、query/body/params                       | 控制器结果或错误                                                                               | auth middleware、schemas                    |
+| course-selection.schemas | 请求校验和字段转换                             | query/body/params                                       | 服务层 DTO                                                                                     | zod                                         |
+| curriculumService        | 查询培养方案和学分进展                         | 当前学生 userId、筛选参数                               | 方案、课程分组、进展和警告                                                                     | Student、Curriculum、Enrollment             |
+| courseSearchService      | 搜索课程、开课、可选课程和详情                 | 筛选条件、当前学生身份                                  | 列表、详情、可选性原因                                                                         | Course、CourseOffering、Schedule            |
+| enrollmentService        | 学生选课和退课事务                             | userId、courseOfferingId、enrollmentId、clientRequestId | 选退课结果、容量、学分摘要                                                                     | SelectionPeriod、Enrollment、CourseOffering |
+| enrollmentResultsService | 查询本人选课结果                               | userId、筛选条件                                        | 选课记录和汇总                                                                                 | Enrollment、CourseOffering                  |
+| timetableService         | 生成本人课表                                   | userId、semesterId、format                              | 课表项、缺失排课提示                                                                           | Enrollment、Schedule                        |
+| rosterService            | 查询和导出教师名单                             | teacher userId、offeringId、筛选条件                    | 名单分页或 Excel                                                                               | CourseOffering、Enrollment、Student         |
+| selectionPeriodService   | 阶段管理和手动加课                             | admin userId、阶段配置、加课请求                        | 阶段、加课结果、审计                                                                           | Admin、SelectionPeriod、SystemLog           |
+| course-selection.support | 共享分页、阶段状态、权限、冲突、学分和日志逻辑 | 服务参数                                                | 校验结果或错误                                                                                 | Prisma、SystemLog                           |
+| aiAdvisorService         | AI 推荐/解释接口边界                           | userId、推荐/解释请求                                   | 返回推荐/解释 payload，包含 `degradedMode`（`full` / `rule_only` / `template_only`）与风险提示 | AiAdvisor DTO                               |
+| CourseOfferingTable      | 展示可选课程和操作按钮                         | offerings、已选映射、回调                               | 选课/退课/详情事件                                                                             | Ant Design Table                            |
+| CourseDetailDrawer       | 展示开课详情                                   | offeringId、加载函数                                    | 详情、可选性、刷新事件                                                                         | courses API                                 |
+| CreditProgressCard       | 展示学分进展                                   | progress、loading、error                                | 学分进度和警告                                                                                 | curriculum API                              |
+| TimetableGrid            | 展示课表和打印样式                             | timetable items、semesterName                           | 网格课表和缺失提示                                                                             | timetable API                               |
+| AiAdvisorPanel           | 展示 AI 推荐结果或空状态                       | advice、loading、onExplain                              | 推荐列表和解释入口                                                                             | aiAdvisor API                               |
 
 ### 8.4 D 论坛交流组件设计【D 组填写】
 
@@ -1182,28 +1248,35 @@ function periodOverlap(a, b):
 
 手动调课复用同一套冲突检测逻辑：教务人员调整某条排课的教室或时间后，系统先以新方案做冲突预检，若返回冲突则展示冲突类型并阻断保存，确保人工调整后的课表仍然可行。
 
-### 9.3 C 选课约束检查流程【C 组重点写】
+### 9.3 C 选课约束检查流程【C 组】
 
-写作指引：
-建议按以下顺序写：
+#### 9.3.1 学生选课事务流程
 
-1. 判断选课阶段是否开放。
-2. 判断学生是否已制定培养方案。
-3. 判断课程是否在可选范围。
-4. 判断课程容量是否已满。
-5. 判断是否时间冲突。
-6. 判断是否重复选课。
-7. 写入选课结果。
-8. 返回成功或失败原因。
+1. 校验当前用户存在学生档案。
+2. 读取目标 `CourseOffering`、`Course` 和 `Schedule`。
+3. 按服务器时间读取目标学期内启用且开放的 `SelectionPeriod`。
+4. 校验阶段已配置 `maxCredits`。
+5. 校验开课状态为 `OPEN`，课程状态为 `ACTIVE`。
+6. 查询 `studentId + courseOfferingId` 唯一选课记录，处理幂等或重复选课。
+7. 校验容量，写入时使用条件更新防止并发超选。
+8. 查询本人当前学期已选课程，用 `Schedule` 判断时间冲突。
+9. 汇总当前已选学分和目标课程学分，校验不超过阶段上限。
+10. 校验课程在当前学生匹配的培养方案内。
+11. 校验先修课；当前未接入 F 组成绩通过数据，存在先修课时阻断。
+12. 在 Serializable 事务内创建或恢复 `Enrollment`，同步更新 `CourseOffering.enrolledCount`。
+13. 事务冲突最多重试 3 次，仍失败时返回准入限制错误。
 
-### 9.4 C AI 辅助选课流程【C 组重点写】
+#### 9.3.2 学生退课流程
 
-写作指引：
-说明 AI 输入、处理、输出：
+退课校验当前用户为学生、目标记录属于本人、当前阶段允许退课。成功后把 `Enrollment.status` 更新为 `DROPPED`，写入 `droppedAt`，并减少开课已选人数。当前实现只允许第二轮和调整阶段退课，初选阶段退课策略仍为 TODO。
 
-- 输入：学生培养方案、已修课程、兴趣偏好、课程列表。
-- 输出：推荐课程、推荐理由、风险提示。
-- 限制：AI 只提供建议，最终选课必须由学生确认。
+#### 9.3.3 选课阶段与手动加课流程
+
+阶段创建和更新要求学术教务管理员身份，校验结束时间晚于开始时间、学期存在、同学期同阶段启用时间不重叠，并写入 `SystemLog`。手动加课要求填写原因，校验学生、课程开设、课程状态、容量、重复选课、时间冲突和最大学分，成功后创建或恢复选课记录、更新容量并写日志。
+
+### 9.4 C AI 辅助选课流程【C 组】
+
+当前 AI 页面调用推荐或解释接口后，后端优先返回规则过滤后的候选 + LLM 推荐，LLM 不可用或校验失败时返回规则模板降级。该流程不写任何 AI 推荐数据，也不创建、修改或删除 `Enrollment`。输入来自学生本人可见的培养方案、已选课程、可选课程、容量和课表；输出建议仅包含推荐理由、风险提示和学分影响。正式选课仍必须走普通选课事务。
 
 ### 9.5 D 论坛发布、检索与统计流程
 
@@ -1413,48 +1486,63 @@ D 论坛子系统在统一异常模型下补充以下处理规则：帖子、公
 
 ## 12. 需求到设计追踪矩阵【A-F 分组填写，统一整合】
 
-| 需求编号 | 需求名称                 | 设计类/组件                                              | 接口                                                                                                                           | 数据表                                                           | 页面                     |
-| -------- | ------------------------ | -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------- | ------------------------ |
-| FR-A-01  | 认证与会话管理           | AuthService                                              | /api/v1/auth/login, /api/v1/auth/refresh, /api/v1/auth/logout, /api/v1/auth/me                                                 | users, refresh_tokens, system_logs                               | 登录页、个人信息页       |
-| FR-A-02  | 用户基本信息管理         | UsersService                                             | /api/v1/users, /api/v1/users/:id, /api/v1/users/batch                                                                          | users, students, teachers, admins, user_roles                    | 用户管理页、个人信息页   |
-| FR-A-03  | 用户状态、密码与头像管理 | UsersService, AuthService                                | /api/v1/users/:id/status, /api/v1/users/:id/password, /api/v1/users/:id/password/reset, /api/v1/users/:id/avatar               | users, refresh_tokens, password_reset_tokens, system_logs        | 用户管理页、个人信息页   |
-| FR-A-04  | 用户角色与权限管理       | RolesService, UsersService                               | /api/v1/roles, /api/v1/permissions, /api/v1/users/:id/roles, /api/v1/users/:id/permissions                                     | roles, permissions, user_roles, role_permissions                 | 角色权限页、用户管理页   |
-| FR-A-05  | 令牌安全管理             | AuthService, UsersService                                | /api/v1/users/:id/tokens, /api/v1/users/:id/tokens/:token_id, /api/v1/users/:id/tokens/revoke-all                              | refresh_tokens, system_logs                                      | 用户管理页、个人信息页   |
-| FR-A-06  | 院系信息管理             | DepartmentRoutes                                         | /api/v1/departments, /api/v1/departments/:id                                                                                   | departments, majors, teachers, admins, courses                   | 院系管理页               |
-| FR-A-07  | 专业信息管理             | MajorService                                             | /api/v1/majors, /api/v1/majors/:id                                                                                             | majors, departments, students                                    | 专业管理页               |
-| FR-A-08  | 课程基础信息管理         | CourseService                                            | /api/v1/courses, /api/v1/courses/:id, /api/v1/courses/batch                                                                    | courses, course_prerequisites, departments, teachers             | 课程信息页               |
-| FR-A-09  | 培养方案管理             | CurriculumService                                        | /api/v1/curriculums, /api/v1/curriculums/:id, /api/v1/curriculums/:id/courses                                                  | curriculums, curriculum_courses, majors, courses                 | 培养方案页               |
-| FR-A-10  | 系统日志审计             | RequestLogger, UsersService                              | /api/v1/users/logs                                                                                                             | system_logs, users                                               | 系统日志页               |
-| FR-B-01  | 教学资源管理             | ClassroomService                                         | /api/v1/classrooms, /api/v1/classrooms/:id                                                                                     | classrooms                                                       | 教室资源管理页           |
-| FR-B-02  | 自动排课                 | AutoSchedulingService                                    | /api/v1/schedules/auto-generate                                                                                                | schedules, classrooms, course_offerings                          | 自动排课页               |
-| FR-B-03  | 冲突检测                 | ConflictDetectionService                                 | /api/v1/schedules/check-conflict                                                                                               | schedules                                                        | 自动排课页/手动调课页    |
-| FR-B-04  | 手动调课                 | ManualAdjustmentService                                  | /api/v1/schedules/:id                                                                                                          | schedules                                                        | 手动调课页               |
-| FR-B-05  | 课表查询与打印           | TimetableService                                         | /api/v1/schedules/teacher/:teacherId, /api/v1/schedules/classroom/:classroomId, /api/v1/schedules/export                       | schedules                                                        | 课表查询打印页           |
-| FR-B-06  | 容量与用途匹配           | ConflictDetectionService                                 | /api/v1/schedules/check-conflict                                                                                               | schedules, classrooms, course_offerings                          | 自动排课页/手动调课页    |
-| FR-B-07  | 课程时间均匀分布         | AutoSchedulingService                                    | /api/v1/schedules/auto-generate                                                                                                | schedules                                                        | 自动排课页               |
-| FR-B-08  | 教室状态管理             | ClassroomService                                         | /api/v1/classrooms/:id                                                                                                         | classrooms                                                       | 教室资源管理页           |
-| FR-C-03  | 选课与退课               | EnrollmentService                                        | /api/enrollments                                                                                                               | enrollments                                                      | 选课页                   |
-| FR-D-01  | 课程公告管理             | AnnouncementService 逻辑、AnnouncementBanner             | /api/v1/forum/announcements                                                                                                    | forum_posts                                                      | 公告列表页、课程论坛首页 |
-| FR-D-02  | 帖子发布与编辑           | PostService 逻辑、PostEditor                             | /api/v1/forum/posts, /api/v1/forum/posts/:id                                                                                   | forum_posts                                                      | 帖子编辑页、帖子详情页   |
-| FR-D-03  | 附件上传、绑定与删除     | AttachmentService 逻辑、AttachmentUpload、AttachmentList | /api/v1/forum/attachments, /api/v1/forum/attachments/batch, /api/v1/forum/attachments/:id                                      | forum_attachments                                                | 帖子编辑页、帖子详情页   |
-| FR-D-04  | 回帖与楼中楼回复         | CommentService 逻辑、CommentEditor、CommentList          | /api/v1/forum/posts/:id/comments                                                                                               | forum_comments                                                   | 帖子详情页               |
-| FR-D-05  | 评论管理                 | CommentService 逻辑、CommentList                         | /api/v1/forum/comments/:id, /api/v1/forum/comments/:id/hide, /api/v1/forum/comments/:id/restore, /api/v1/forum/comments/hidden | forum_comments                                                   | 帖子详情页、隐藏评论列表 |
-| FR-D-06  | 帖子列表与详情查看       | PostService 逻辑、PostCard、PostFilters                  | /api/v1/forum/posts, /api/v1/forum/posts/:id                                                                                   | forum_posts, forum_comments, forum_attachments                   | 课程论坛首页、帖子详情页 |
-| FR-D-07  | 帖子置顶与软删除         | PostService 逻辑、ForumPermission                        | /api/v1/forum/posts/:id/pin, /api/v1/forum/posts/:id                                                                           | forum_posts                                                      | 帖子详情页、课程论坛首页 |
-| FR-D-08  | 帖子全文检索             | SearchService 逻辑、SearchResult                         | /api/v1/forum/search                                                                                                           | forum_posts                                                      | 帖子检索页               |
-| FR-D-09  | 综合统计与热帖排行       | ForumStatisticService 逻辑、StatsPage                    | /api/v1/forum/stats, /api/v1/forum/stats/hot-posts                                                                             | forum_posts, forum_comments, forum_attachments                   | 论坛统计页、课程论坛首页 |
-| FR-D-10  | 用户与课程活跃度统计     | ForumStatisticService 逻辑、StatFilter                   | /api/v1/forum/stats/user, /api/v1/forum/stats/user/:userId, /api/v1/forum/stats/course-activity                                | forum_posts, forum_comments                                      | 我的发布页、论坛统计页   |
-| FR-D-11  | 统计数据导出             | ForumStatisticService 逻辑、forumApi.exportStatsCsv      | /api/v1/forum/stats/export                                                                                                     | forum_posts, forum_comments, forum_attachments, course_offerings | 论坛统计页               |
-| FR-E-01  | 题库管理                 | QuestionBankService                                      | /online-testing/question-banks                                                                                                 | question_banks                                                   | 题目管理页               |
-| FR-E-02  | 题目管理                 | QuestionBankService                                      | /online-testing/questions                                                                                                      | questions, question_options                                      | 题目管理页               |
-| FR-E-03  | 试卷基础信息管理         | PaperGenerationService                                   | /online-testing/test-papers, /online-testing/test-papers/:id                                                                   | test_papers                                                      | 组卷管理页               |
-| FR-E-04  | 试卷组卷                 | PaperGenerationService                                   | /online-testing/test-papers/:id/questions, /online-testing/test-papers/:id/auto-generate                                       | test_papers, test_questions, questions                           | 组卷管理页               |
-| FR-E-05  | 试卷发布与关闭           | PaperLifecycleService                                    | /online-testing/test-papers/:id/publish, /online-testing/test-papers/:id/close                                                 | test_papers                                                      | 组卷管理页/试卷列表页    |
-| FR-E-06  | 学生在线答题             | TestSessionService                                       | /online-testing/test-papers/:id/start                                                                                          | test_papers, test_questions, test_results                        | 在线答题页               |
-| FR-E-07  | 考试计时与作答约束       | TestSessionService                                       | /online-testing/test-papers/:id/start                                                                                          | test_papers, test_results                                        | 在线答题页               |
-| FR-E-08  | 自动评分                 | AutoGradingService                                       | /online-testing/test-results/:id/submit                                                                                        | answers, test_results, test_questions, questions                 | 在线答题页/答题结果页    |
-| FR-E-09  | 个人测试成绩查询         | TestStatisticService                                     | /online-testing/test-results/my, /online-testing/test-results/:id                                                              | test_results, answers                                            | 成绩查看页               |
-| FR-E-10  | 试卷测试成绩查看         | TestStatisticService                                     | /online-testing/test-papers/:id/results, /online-testing/test-results/:id                                                      | test_results, answers, users                                     | 试卷成绩页/成绩查看页    |
+| 需求编号 | 需求名称                 | 设计类/组件                                              | 接口                                                                                                                           | 数据表                                                           | 页面                         |
+| -------- | ------------------------ | -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------- | ---------------------------- |
+| FR-A-01  | 认证与会话管理           | AuthService                                              | /api/v1/auth/login, /api/v1/auth/refresh, /api/v1/auth/logout, /api/v1/auth/me                                                 | users, refresh_tokens, system_logs                               | 登录页、个人信息页           |
+| FR-A-02  | 用户基本信息管理         | UsersService                                             | /api/v1/users, /api/v1/users/:id, /api/v1/users/batch                                                                          | users, students, teachers, admins, user_roles                    | 用户管理页、个人信息页       |
+| FR-A-03  | 用户状态、密码与头像管理 | UsersService, AuthService                                | /api/v1/users/:id/status, /api/v1/users/:id/password, /api/v1/users/:id/password/reset, /api/v1/users/:id/avatar               | users, refresh_tokens, password_reset_tokens, system_logs        | 用户管理页、个人信息页       |
+| FR-A-04  | 用户角色与权限管理       | RolesService, UsersService                               | /api/v1/roles, /api/v1/permissions, /api/v1/users/:id/roles, /api/v1/users/:id/permissions                                     | roles, permissions, user_roles, role_permissions                 | 角色权限页、用户管理页       |
+| FR-A-05  | 令牌安全管理             | AuthService, UsersService                                | /api/v1/users/:id/tokens, /api/v1/users/:id/tokens/:token_id, /api/v1/users/:id/tokens/revoke-all                              | refresh_tokens, system_logs                                      | 用户管理页、个人信息页       |
+| FR-A-06  | 院系信息管理             | DepartmentRoutes                                         | /api/v1/departments, /api/v1/departments/:id                                                                                   | departments, majors, teachers, admins, courses                   | 院系管理页                   |
+| FR-A-07  | 专业信息管理             | MajorService                                             | /api/v1/majors, /api/v1/majors/:id                                                                                             | majors, departments, students                                    | 专业管理页                   |
+| FR-A-08  | 课程基础信息管理         | CourseService                                            | /api/v1/courses, /api/v1/courses/:id, /api/v1/courses/batch                                                                    | courses, course_prerequisites, departments, teachers             | 课程信息页                   |
+| FR-A-09  | 培养方案管理             | CurriculumService                                        | /api/v1/curriculums, /api/v1/curriculums/:id, /api/v1/curriculums/:id/courses                                                  | curriculums, curriculum_courses, majors, courses                 | 培养方案页                   |
+| FR-A-10  | 系统日志审计             | RequestLogger, UsersService                              | /api/v1/users/logs                                                                                                             | system_logs, users                                               | 系统日志页                   |
+| FR-B-01  | 教学资源管理             | ClassroomService                                         | /api/v1/classrooms, /api/v1/classrooms/:id                                                                                     | classrooms                                                       | 教室资源管理页               |
+| FR-B-02  | 自动排课                 | AutoSchedulingService                                    | /api/v1/schedules/auto-generate                                                                                                | schedules, classrooms, course_offerings                          | 自动排课页                   |
+| FR-B-03  | 冲突检测                 | ConflictDetectionService                                 | /api/v1/schedules/check-conflict                                                                                               | schedules                                                        | 自动排课页/手动调课页        |
+| FR-B-04  | 手动调课                 | ManualAdjustmentService                                  | /api/v1/schedules/:id                                                                                                          | schedules                                                        | 手动调课页                   |
+| FR-B-05  | 课表查询与打印           | TimetableService                                         | /api/v1/schedules/teacher/:teacherId, /api/v1/schedules/classroom/:classroomId, /api/v1/schedules/export                       | schedules                                                        | 课表查询打印页               |
+| FR-B-06  | 容量与用途匹配           | ConflictDetectionService                                 | /api/v1/schedules/check-conflict                                                                                               | schedules, classrooms, course_offerings                          | 自动排课页/手动调课页        |
+| FR-B-07  | 课程时间均匀分布         | AutoSchedulingService                                    | /api/v1/schedules/auto-generate                                                                                                | schedules                                                        | 自动排课页                   |
+| FR-B-08  | 教室状态管理             | ClassroomService                                         | /api/v1/classrooms/:id                                                                                                         | classrooms                                                       | 教室资源管理页               |
+| FR-C-01  | 本人培养方案查询         | curriculumService、CreditProgressCard                    | `/curriculum/me`                                                                                                               | students, curriculums, curriculum_courses, courses               | 培养方案页                   |
+| FR-C-02  | 学分进展查询             | curriculumService、CreditProgressCard                    | `/curriculum/me/progress`                                                                                                      | enrollments, course_offerings, courses, curriculums              | 培养方案页                   |
+| FR-C-03  | 课程目录搜索             | courseSearchService                                      | `/courses`                                                                                                                     | courses, teachers, course_offerings                              | 课程列表与选课页             |
+| FR-C-04  | 开课列表与详情           | courseSearchService、CourseDetailDrawer                  | `/offerings`, `/offerings/:id`                                                                                                 | course_offerings, courses, schedules, teachers, semesters        | 课程列表与选课页             |
+| FR-C-05  | 可选课程判断             | courseSearchService、CourseOfferingTable                 | `/offerings/available`                                                                                                         | course_offerings, enrollments, schedules, curriculum_courses     | 课程列表与选课页             |
+| FR-C-06  | 学生选课事务             | enrollmentService                                        | `/enrollments`                                                                                                                 | enrollments, course_offerings, selection_periods, schedules      | 课程列表与选课页             |
+| FR-C-07  | 学生退课事务             | enrollmentService                                        | `/enrollments/:id/drop`                                                                                                        | enrollments, course_offerings, selection_periods                 | 课程列表与选课页             |
+| FR-C-08  | 本人选课结果查询         | enrollmentResultsService                                 | `/enrollments/me`                                                                                                              | enrollments, course_offerings, courses, semesters                | 课程列表与选课页、我的课表页 |
+| FR-C-09  | 本人课表查询与打印       | timetableService、TimetableGrid                          | `/timetable/me`                                                                                                                | enrollments, course_offerings, schedules                         | 我的课表页                   |
+| FR-C-10  | 教师课程名单查询         | rosterService                                            | `/teacher/offerings/:id/roster`                                                                                                | course_offerings, enrollments, students                          | 课程名单页                   |
+| FR-C-11  | 教师名单导出             | rosterService、roster-export.util                        | `/teacher/offerings/:id/roster/export`                                                                                         | course_offerings, enrollments, students                          | 课程名单页                   |
+| FR-C-12  | 选课阶段管理             | selectionPeriodService、SelectionPeriodStatusTag         | `/admin/periods`, `/admin/periods/:id`                                                                                         | selection_periods, semesters, system_logs                        | 阶段管理页                   |
+| FR-C-13  | 教务手动加课             | selectionPeriodService                                   | `/admin/enrollments`                                                                                                           | enrollments, course_offerings, students, system_logs             | 手动加课页                   |
+| FR-C-14  | AI 辅助推荐与解释        | aiAdvisorService、AiAdvisorPanel                         | `/ai-advisor/recommend`, `/ai-advisor/explain`                                                                                 | 无新增持久化表                                                   | AI 推荐页                    |
+| FR-C-15  | 连接控制与空闲释放预留   | selectionPeriodService TODO                              | 暂无已实现接口                                                                                                                 | 暂无新增表                                                       | 阶段管理页                   |
+| FR-C-16  | C 组统一接口契约         | routes、schemas、types                                   | `/api/v1/course-selection/*`                                                                                                   | C 组相关表                                                       | C 组所有页面                 |
+| FR-D-01  | 课程公告管理             | AnnouncementService 逻辑、AnnouncementBanner             | /api/v1/forum/announcements                                                                                                    | forum_posts                                                      | 公告列表页、课程论坛首页     |
+| FR-D-02  | 帖子发布与编辑           | PostService 逻辑、PostEditor                             | /api/v1/forum/posts, /api/v1/forum/posts/:id                                                                                   | forum_posts                                                      | 帖子编辑页、帖子详情页       |
+| FR-D-03  | 附件上传、绑定与删除     | AttachmentService 逻辑、AttachmentUpload、AttachmentList | /api/v1/forum/attachments, /api/v1/forum/attachments/batch, /api/v1/forum/attachments/:id                                      | forum_attachments                                                | 帖子编辑页、帖子详情页       |
+| FR-D-04  | 回帖与楼中楼回复         | CommentService 逻辑、CommentEditor、CommentList          | /api/v1/forum/posts/:id/comments                                                                                               | forum_comments                                                   | 帖子详情页                   |
+| FR-D-05  | 评论管理                 | CommentService 逻辑、CommentList                         | /api/v1/forum/comments/:id, /api/v1/forum/comments/:id/hide, /api/v1/forum/comments/:id/restore, /api/v1/forum/comments/hidden | forum_comments                                                   | 帖子详情页、隐藏评论列表     |
+| FR-D-06  | 帖子列表与详情查看       | PostService 逻辑、PostCard、PostFilters                  | /api/v1/forum/posts, /api/v1/forum/posts/:id                                                                                   | forum_posts, forum_comments, forum_attachments                   | 课程论坛首页、帖子详情页     |
+| FR-D-07  | 帖子置顶与软删除         | PostService 逻辑、ForumPermission                        | /api/v1/forum/posts/:id/pin, /api/v1/forum/posts/:id                                                                           | forum_posts                                                      | 帖子详情页、课程论坛首页     |
+| FR-D-08  | 帖子全文检索             | SearchService 逻辑、SearchResult                         | /api/v1/forum/search                                                                                                           | forum_posts                                                      | 帖子检索页                   |
+| FR-D-09  | 综合统计与热帖排行       | ForumStatisticService 逻辑、StatsPage                    | /api/v1/forum/stats, /api/v1/forum/stats/hot-posts                                                                             | forum_posts, forum_comments, forum_attachments                   | 论坛统计页、课程论坛首页     |
+| FR-D-10  | 用户与课程活跃度统计     | ForumStatisticService 逻辑、StatFilter                   | /api/v1/forum/stats/user, /api/v1/forum/stats/user/:userId, /api/v1/forum/stats/course-activity                                | forum_posts, forum_comments                                      | 我的发布页、论坛统计页       |
+| FR-D-11  | 统计数据导出             | ForumStatisticService 逻辑、forumApi.exportStatsCsv      | /api/v1/forum/stats/export                                                                                                     | forum_posts, forum_comments, forum_attachments, course_offerings | 论坛统计页                   |
+| FR-E-01  | 题库管理                 | QuestionBankService                                      | /online-testing/question-banks                                                                                                 | question_banks                                                   | 题目管理页                   |
+| FR-E-02  | 题目管理                 | QuestionBankService                                      | /online-testing/questions                                                                                                      | questions, question_options                                      | 题目管理页                   |
+| FR-E-03  | 试卷基础信息管理         | PaperGenerationService                                   | /online-testing/test-papers, /online-testing/test-papers/:id                                                                   | test_papers                                                      | 组卷管理页                   |
+| FR-E-04  | 试卷组卷                 | PaperGenerationService                                   | /online-testing/test-papers/:id/questions, /online-testing/test-papers/:id/auto-generate                                       | test_papers, test_questions, questions                           | 组卷管理页                   |
+| FR-E-05  | 试卷发布与关闭           | PaperLifecycleService                                    | /online-testing/test-papers/:id/publish, /online-testing/test-papers/:id/close                                                 | test_papers                                                      | 组卷管理页/试卷列表页        |
+| FR-E-06  | 学生在线答题             | TestSessionService                                       | /online-testing/test-papers/:id/start                                                                                          | test_papers, test_questions, test_results                        | 在线答题页                   |
+| FR-E-07  | 考试计时与作答约束       | TestSessionService                                       | /online-testing/test-papers/:id/start                                                                                          | test_papers, test_results                                        | 在线答题页                   |
+| FR-E-08  | 自动评分                 | AutoGradingService                                       | /online-testing/test-results/:id/submit                                                                                        | answers, test_results, test_questions, questions                 | 在线答题页/答题结果页        |
+| FR-E-09  | 个人测试成绩查询         | TestStatisticService                                     | /online-testing/test-results/my, /online-testing/test-results/:id                                                              | test_results, answers                                            | 成绩查看页                   |
+| FR-E-10  | 试卷测试成绩查看         | TestStatisticService                                     | /online-testing/test-papers/:id/results, /online-testing/test-results/:id                                                      | test_results, answers, users                                     | 试卷成绩页/成绩查看页        |
 
 写作指引：  
 这是检查设计完整性的表。每条核心需求应至少能追踪到组件、接口、数据和页面。

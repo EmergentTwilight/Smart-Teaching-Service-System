@@ -1,87 +1,48 @@
 # pre-push hook
 # 在推送前运行快速本地检查，确保代码质量
 # 依赖数据库的集成测试由 GitHub Actions CI 负责
+set -e
 
 echo "🔍 Running pre-push checks..."
 echo ""
 
+run_docker_check() {
+  local service="$1"
+  local command="$2"
+  CODEX_DOCKER_SERVICE="$service" CODEX_DOCKER_WORKDIR=/app ./scripts/codex-docker-run.sh "$command"
+}
+
 # 1. 生成 Prisma Client（TypeScript 类型检查需要）
 echo "📦 Generating Prisma Client..."
-cd backend
-DATABASE_URL="postgresql://test:test@localhost:5432/stss" npx prisma generate
-if [ $? -ne 0 ]; then
-  echo "❌ Prisma generate failed!"
-  cd ..
-  exit 1
-fi
-cd ..
+run_docker_check server 'pnpm --filter @stss/server db:generate'
 
 # 2. 构建 shared 包
 echo "📦 Building shared package..."
-cd shared && pnpm build
-if [ $? -ne 0 ]; then
-  echo "❌ Shared build failed!"
-  cd ..
-  exit 1
-fi
-cd ..
+run_docker_check server 'pnpm --filter @stss/shared build'
 
 # 3. Lint 检查
 echo "🔍 Running lint..."
-pnpm lint
-if [ $? -ne 0 ]; then
-  echo "❌ Lint failed! Please fix the errors before pushing."
-  exit 1
-fi
+run_docker_check server 'pnpm lint'
 
 # 4. TypeScript 类型检查
 echo "🔍 Running type check..."
-pnpm typecheck
-if [ $? -ne 0 ]; then
-  echo "❌ Type check failed! Please fix the errors before pushing."
-  exit 1
-fi
+run_docker_check server 'pnpm --filter @stss/shared build && pnpm --filter @stss/server typecheck'
+run_docker_check web 'pnpm --filter @stss/web typecheck'
 
 # 5. 前端 Vitest 测试
 echo "🧪 Running frontend tests..."
-cd frontend
-pnpm test:run
-if [ $? -ne 0 ]; then
-  echo "❌ Frontend tests failed! Please fix the errors before pushing."
-  cd ..
-  exit 1
-fi
-cd ..
+run_docker_check web 'pnpm --filter @stss/web test:run'
 
 # 6. 后端单元测试（集成测试需要数据库，交给 CI）
 echo "🧪 Running backend unit tests..."
-cd backend
-pnpm test:unit
-if [ $? -ne 0 ]; then
-  echo "❌ Backend unit tests failed! Please fix the errors before pushing."
-  cd ..
-  exit 1
-fi
-cd ..
+run_docker_check server 'pnpm --filter @stss/server test:unit'
 
 # 7. Prisma 验证和格式检查
 echo "🔍 Validating Prisma schema..."
-cd backend
-DATABASE_URL="postgresql://test:test@localhost:5432/stss" npx prisma validate
-if [ $? -ne 0 ]; then
-  echo "❌ Prisma schema validation failed!"
-  cd ..
-  exit 1
-fi
+run_docker_check server 'pnpm --filter @stss/server exec prisma validate'
 
 echo "🔍 Checking Prisma schema format..."
-DATABASE_URL="postgresql://test:test@localhost:5432/stss" npx prisma format --check
-if [ $? -ne 0 ]; then
-  echo "❌ Prisma schema format check failed! Run 'cd backend && npx prisma format' to fix."
-  cd ..
-  exit 1
-fi
-cd ..
+run_docker_check server 'pnpm --filter @stss/server exec prisma format --check'
 
 echo ""
 echo "✅ All checks passed! Pushing..."

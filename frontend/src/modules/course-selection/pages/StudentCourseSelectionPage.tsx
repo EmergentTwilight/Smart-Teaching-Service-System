@@ -1,7 +1,6 @@
 import { useState, useCallback, useMemo } from 'react';
 import {
   Alert,
-  App,
   Button,
   Card,
   Col,
@@ -9,6 +8,8 @@ import {
   Checkbox,
   Form,
   Input,
+  message,
+  Modal,
   Row,
   Select,
   Space,
@@ -26,7 +27,6 @@ import { CourseOfferingTable } from '../components/CourseOfferingTable';
 import { CreditProgressCard } from '../components/CreditProgressCard';
 import { extractErrorMessage } from '@/shared/utils/error';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ExclamationCircleOutlined } from '@ant-design/icons';
 
 const { Text, Title } = Typography;
 
@@ -47,7 +47,7 @@ interface StudentCourseSelectionQuery extends OfferingsAvailableQuery {
  * - 不发送 student_id，不伪造成功状态
  */
 const StudentCourseSelectionPage: React.FC = () => {
-  const { message, modal } = App.useApp();
+  const [messageApi, contextHolder] = message.useMessage();
   const [filterForm] = Form.useForm<StudentCourseSelectionQuery>();
   const [offeringIdInDrawer, setOfferingIdInDrawer] = useState<string | null>(null);
   const [enrollingId, setEnrollingId] = useState<string | null>(null);
@@ -56,6 +56,17 @@ const StudentCourseSelectionPage: React.FC = () => {
     page: 1,
     pageSize: 20,
   });
+
+  // Controlled modal state for enroll/drop confirmation
+  const [confirmModal, setConfirmModal] = useState<{
+    open: boolean;
+    type: 'enroll' | 'drop';
+    offeringId: string;
+    courseLabel: string;
+    credits: number;
+    teacherName: string;
+    enrollmentId?: string;
+  }>({ open: false, type: 'enroll', offeringId: '', courseLabel: '', credits: 0, teacherName: '' });
 
   const queryClient = useQueryClient();
 
@@ -107,14 +118,14 @@ const StudentCourseSelectionPage: React.FC = () => {
         clientRequestId: `enroll-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       }),
     onSuccess: (data) => {
-      message.success(
+      messageApi.success(
         `选课成功！已选 ${data.courseOffering.courseName}（${data.courseOffering.courseCode}）。当前已选学分：${data.creditSummary?.currentSelectedCredits ?? '—'} / ${data.creditSummary?.maxCredits ?? '—'}`
       );
       invalidateSelectionData();
     },
     onError: (error: unknown) => {
       const errMsg = extractErrorMessage(error, '选课失败，请重试');
-      message.error(errMsg);
+      messageApi.error(errMsg);
     },
     onSettled: () => {
       setEnrollingId(null);
@@ -129,100 +140,75 @@ const StudentCourseSelectionPage: React.FC = () => {
         clientRequestId: `drop-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       }),
     onSuccess: (_data, variables) => {
-      message.success(`已退选 ${variables.offeringName}`);
+      messageApi.success(`已退选 ${variables.offeringName}`);
       invalidateSelectionData();
     },
     onError: (error: unknown) => {
       const errMsg = extractErrorMessage(error, '退选失败，请重试');
-      message.error(errMsg);
+      messageApi.error(errMsg);
     },
     onSettled: () => {
       setEnrollingId(null);
     },
   });
 
-  // ---- Enroll handler with confirmation ----
+  // ---- Enroll handler - opens confirm modal via state ----
   const handleEnroll = useCallback(
     (offeringId: string) => {
       const offering = offeringRows.find((r) => r.courseOfferingId === offeringId);
-      const courseLabel = offering
-        ? `${offering.courseName}（${offering.courseCode}）`
-        : offeringId;
-
-      modal.confirm({
-        title: '确认选课',
-        icon: <ExclamationCircleOutlined />,
-        content: (
-          <div>
-            <p>
-              确认选择课程：<Text strong>{courseLabel}</Text>
-            </p>
-            <p>
-              学分：{offering?.credits ?? '—'} | 教师：
-              {offering?.teacherName ?? '—'}
-            </p>
-            <Alert
-              type="warning"
-              message="温馨提示"
-              description="选课结果取决于当前选课阶段、课程容量、时间冲突、先修课程和学分上限等条件，提交后请留意系统反馈。"
-              showIcon
-              style={{ marginTop: 8 }}
-            />
-          </div>
-        ),
-        okText: '确认选课',
-        cancelText: '取消',
-        onOk: () => {
-          setEnrollingId(offeringId);
-          enrollMutation.mutate(offeringId);
-        },
+      setConfirmModal({
+        open: true,
+        type: 'enroll',
+        offeringId,
+        courseLabel: offering
+          ? `${offering.courseName}（${offering.courseCode}）`
+          : offeringId,
+        credits: offering?.credits ?? 0,
+        teacherName: offering?.teacherName ?? '—',
       });
     },
-    [offeringRows, enrollMutation]
+    [offeringRows]
   );
 
-  // ---- Drop handler with confirmation ----
+  // ---- Drop handler - opens confirm modal via state ----
   const handleDrop = useCallback(
     ({ offeringId }: { offeringId: string }) => {
       const enrollmentId = enrollmentByOfferingId.get(offeringId);
       if (!enrollmentId) {
-        message.error('未找到对应的选课记录，无法退选');
+        messageApi.error('未找到对应的选课记录，无法退选');
         return;
       }
 
       const offering = offeringRows.find((r) => r.courseOfferingId === offeringId);
-      const courseLabel = offering
-        ? `${offering.courseName}（${offering.courseCode}）`
-        : offeringId;
-
-      modal.confirm({
-        title: '确认退选',
-        icon: <ExclamationCircleOutlined />,
-        content: (
-          <div>
-            <p>
-              确认退选课程：<Text strong>{courseLabel}</Text>
-            </p>
-            <Alert
-              type="warning"
-              message="退选后将释放课程名额"
-              description="退选后如需重新选课，需再次提交选课申请并通过校验。"
-              showIcon
-              style={{ marginTop: 8 }}
-            />
-          </div>
-        ),
-        okText: '确认退选',
-        okButtonProps: { danger: true },
-        cancelText: '取消',
-        onOk: () => {
-          setEnrollingId(offeringId);
-          dropMutation.mutate({ enrollmentId, offeringName: courseLabel });
-        },
+      setConfirmModal({
+        open: true,
+        type: 'drop',
+        offeringId,
+        enrollmentId,
+        courseLabel: offering
+          ? `${offering.courseName}（${offering.courseCode}）`
+          : offeringId,
+        credits: offering?.credits ?? 0,
+        teacherName: offering?.teacherName ?? '—',
       });
     },
-    [offeringRows, enrollmentByOfferingId, dropMutation]
+    [offeringRows, enrollmentByOfferingId]
   );
+
+  // ---- Confirm modal action ----
+  const handleConfirmOk = useCallback(() => {
+    if (confirmModal.type === 'enroll') {
+      setEnrollingId(confirmModal.offeringId);
+      enrollMutation.mutate(confirmModal.offeringId);
+    } else if (confirmModal.type === 'drop' && confirmModal.enrollmentId) {
+      setEnrollingId(confirmModal.offeringId);
+      dropMutation.mutate({
+        enrollmentId: confirmModal.enrollmentId,
+        offeringName: confirmModal.courseLabel,
+      });
+    }
+    setConfirmModal((prev) => ({ ...prev, open: false }));
+  }, [confirmModal, enrollMutation, dropMutation]);
 
   // ---- Pagination handler ----
   const handlePageChange = useCallback(
@@ -262,6 +248,7 @@ const StudentCourseSelectionPage: React.FC = () => {
 
   return (
     <div className="fade-in">
+      {contextHolder}
       <div className="page-header" style={{ marginBottom: 16 }}>
         <Title level={2} style={{ margin: 0 }}>
           学生选课
@@ -445,6 +432,29 @@ const StudentCourseSelectionPage: React.FC = () => {
         onClose={() => setOfferingIdInDrawer(null)}
         loadDetail={loadOfferingDetail}
       />
+
+      <Modal
+        open={confirmModal.open}
+        title={confirmModal.type === 'enroll' ? '确认选课' : '确认退选'}
+        okText={confirmModal.type === 'enroll' ? '确认选课' : '确认退选'}
+        okButtonProps={{ danger: confirmModal.type === 'drop' }}
+        cancelText="取消"
+        onOk={handleConfirmOk}
+        onCancel={() => setConfirmModal((prev) => ({ ...prev, open: false }))}
+      >
+        {confirmModal.type === 'enroll' ? (
+          <div>
+            <p>确认选择课程：<Text strong>{confirmModal.courseLabel}</Text></p>
+            <p>学分：{confirmModal.credits || '—'} | 教师：{confirmModal.teacherName}</p>
+            <Alert type="warning" message="温馨提示" description="选课结果取决于当前选课阶段、课程容量、时间冲突、先修课程和学分上限等条件，提交后请留意系统反馈。" showIcon style={{ marginTop: 8 }} />
+          </div>
+        ) : (
+          <div>
+            <p>确认退选课程：<Text strong>{confirmModal.courseLabel}</Text></p>
+            <Alert type="warning" message="退选后将释放课程名额" description="退选后如需重新选课，需再次提交选课申请并通过校验。" showIcon style={{ marginTop: 8 }} />
+          </div>
+        )}
+      </Modal>
     </div>
   );
 };

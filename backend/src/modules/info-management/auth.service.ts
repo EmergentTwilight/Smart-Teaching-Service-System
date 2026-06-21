@@ -276,7 +276,7 @@ export const authService = {
       include: userAuthInclude,
     })
 
-    if (!user) {
+    if (!user || user.deletedAt) {
       await recordLoginFailure(input.username, ipAddress)
       throw new UnauthorizedError('用户名或密码错误')
     }
@@ -377,6 +377,10 @@ export const authService = {
 
     if (storedToken.expiresAt < new Date()) {
       throw new UnauthorizedError('刷新令牌已过期，请重新登录')
+    }
+
+    if (storedToken.user.deletedAt) {
+      throw new ForbiddenError('账户已被删除')
     }
 
     if (storedToken.user.status !== 'ACTIVE') {

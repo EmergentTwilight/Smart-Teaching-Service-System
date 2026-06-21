@@ -3,7 +3,7 @@
  * 用户注册表单
  */
 import React, { useState } from 'react';
-import { Form, Input, Button, Card, message, Progress } from 'antd';
+import { Form, Input, Button, Card, message, Progress, type FormProps } from 'antd';
 import { UserOutlined, LockOutlined, MailOutlined, TrophyOutlined, CheckCircleOutlined } from '@ant-design/icons';
 import { useNavigate, Link } from 'react-router-dom';
 import { authApi } from '@/modules/info-management/api/auth';
@@ -41,10 +41,15 @@ const Register: React.FC = () => {
       message.success('注册成功，请登录');
       navigate('/login');
     } catch (error: unknown) {
-      message.error(extractErrorMessage(error, '注册失败，请重试'));
+      window.alert(error instanceof Error ? String(error) : extractErrorMessage(error, '注册失败，请重试'));
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleSubmitFailed: FormProps<RegisterForm>['onFinishFailed'] = (info) => {
+    const firstError = info.errorFields[0]?.errors[0];
+    window.alert(firstError || '注册信息校验失败，请检查后重试');
   };
 
   return (
@@ -59,6 +64,7 @@ const Register: React.FC = () => {
         <Form
           form={form}
           onFinish={handleSubmit}
+          onFinishFailed={handleSubmitFailed}
           layout="vertical"
           size="large"
         >

@@ -146,13 +146,17 @@ const MajorList: React.FC = () => {
   }, [canDelete]);
 
   const handleSubmit = async (values: CreateMajorDTO) => {
+    console.log('[MajorList] handleSubmit values', values, 'currentMajor', currentMajor);
     if (currentMajor) {
+      const updateValues: UpdateMajorDTO = {
+        name: values.name,
+        degreeType: values.degreeType,
+        totalCredits: values.totalCredits,
+      };
+      console.log('[MajorList] update major payload', updateValues);
       await updateMutation.mutateAsync({
         id: currentMajor.id,
-        values: {
-          name: values.name,
-          totalCredits: values.totalCredits,
-        },
+        values: updateValues,
       });
       return;
     }

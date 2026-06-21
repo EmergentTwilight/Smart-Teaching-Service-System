@@ -22,6 +22,7 @@ interface MajorCreatePayload {
 
 interface MajorUpdatePayload {
   name?: string
+  degree_type?: string
   total_credits?: number
 }
 
@@ -36,10 +37,13 @@ function toCreatePayload(data: CreateMajorDTO): MajorCreatePayload {
 }
 
 function toUpdatePayload(data: UpdateMajorDTO): MajorUpdatePayload {
-  return {
+  const payload = {
     name: data.name,
+    degree_type: data.degreeType,
     total_credits: data.totalCredits,
   }
+  console.log('[majorsApi] update payload', payload)
+  return payload
 }
 
 /** 专业管理 API 模块 */

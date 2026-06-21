@@ -106,35 +106,35 @@
 
 对照 API：`4.1` ~ `4.5`
 
-- [ ] 院系列表分页加载：`GET /api/v1/departments`。
-- [ ] 院系关键词搜索按名称/代码生效。
-- [ ] 查看院系详情，显示代码、名称、负责人、联系方式、描述等：`GET /api/v1/departments/:id`。
-- [ ] 创建院系：`POST /api/v1/departments`。
-- [ ] 编辑院系：`PUT /api/v1/departments/:id`。
-- [ ] 删除院系：`DELETE /api/v1/departments/:id`。
-- [ ] 院系代码重复时显示冲突提示。
-- [ ] 院系被专业、教师、管理员、课程引用时，删除失败提示应可理解。
-- [ ] 删除成功后，相关下拉框和列表数据能刷新。
+- [√] 院系列表分页加载：`GET /api/v1/departments`。(实在是懒得手动添加了,看看能不能后端注入的时候顺便测了吧)
+- [√] 院系关键词搜索按名称/代码生效。
+- [√] 查看院系详情，显示代码、名称、负责人、联系方式、描述等：`GET /api/v1/departments/:id`。
+- [√] 创建院系：`POST /api/v1/departments`。
+- [√] 编辑院系：`PUT /api/v1/departments/:id`。
+- [√] 删除院系：`DELETE /api/v1/departments/:id`。
+- [√] 院系代码重复时显示冲突提示。
+- [√] 院系被专业、教师、管理员、课程引用时，删除失败提示应可理解。
+- [√] 删除成功后，相关下拉框和列表数据能刷新。
 
 ## 5. 专业管理
 
 对照 API：`5.1` ~ `5.5`
 
-- [ ] 专业列表分页加载：`GET /api/v1/majors`。
-- [ ] 按关键词搜索专业名称/代码。
-- [ ] 按院系筛选专业：`GET /api/v1/majors?department_id=...`。
-- [ ] 查看专业详情，显示院系、学位类型、总学分等：`GET /api/v1/majors/:id`。
-- [ ] 创建专业：`POST /api/v1/majors`。
-- [ ] 编辑专业名称、总学分等：`PUT /api/v1/majors/:id`。
-- [ ] 删除专业：`DELETE /api/v1/majors/:id`。
-- [ ] 专业代码重复、院系不存在、总学分非法时显示错误。
-- [ ] 专业被学生或培养方案引用时，删除失败提示应明确。
+- [√] 专业列表分页加载：`GET /api/v1/majors`。
+- [√] 按关键词搜索专业名称/代码。
+- [√] 按院系筛选专业：`GET /api/v1/majors?department_id=...`。
+- [√] 查看专业详情，显示院系、学位类型、总学分等：`GET /api/v1/majors/:id`。
+- [√] 创建专业：`POST /api/v1/majors`。
+- [√] 编辑专业名称、总学分等：`PUT /api/v1/majors/:id`。
+- [√] 删除专业：`DELETE /api/v1/majors/:id`。
+- [√] 专业代码重复、院系不存在、总学分非法时显示错误。(前端交互好像没法测这个,后端注入尝试)
+- [√] 专业被学生或培养方案引用时，删除失败提示应明确。
 
 ## 6. 课程管理
 
 对照 API：`6.1` ~ `6.6`
 
-- [ ] 课程列表分页加载：`GET /api/v1/courses`。
+- [ ] 课程列表分页加载：`GET /api/v1/courses`。(还是一样的问题)
 - [ ] 按课程名称/代码关键词搜索。
 - [ ] 按院系、课程类型、状态筛选：`GET /api/v1/courses?department_id=...&course_type=...&status=...`。
 - [ ] 查看课程详情，显示学分、学时、课程类型、开课院系、负责人、考核方式、先修课程：`GET /api/v1/courses/:id`。

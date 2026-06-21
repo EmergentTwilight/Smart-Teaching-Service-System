@@ -69,6 +69,7 @@ export interface CreateMajorDTO {
 /** 更新专业请求数据 */
 export interface UpdateMajorDTO {
   name?: string
+  degreeType?: DegreeType
   totalCredits?: number
 }
 

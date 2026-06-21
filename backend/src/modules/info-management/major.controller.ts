@@ -33,7 +33,9 @@ export const majorController = {
 
   async update(req: Request, res: Response) {
     const id = getMajorIdSchema.parse(req.params).id
+    console.log('[majorController.update] raw body', req.body)
     const data = updateMajorSchema.parse(req.body)
+    console.log('[majorController.update] parsed data', data)
     const major = await majorService.updateMajor(id, data, req)
     success(res, major, '专业更新成功')
   },

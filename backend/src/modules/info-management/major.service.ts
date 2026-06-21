@@ -197,6 +197,7 @@ export const majorService = {
   },
 
   async updateMajor(id: string, data: UpdateMajorSchema, req: Request) {
+    console.log('[majorService.updateMajor] input', { id, data })
     const updated = await prisma.$transaction(async (tx) => {
       const major = await tx.major.findUnique({ where: { id } })
       if (!major) {
@@ -218,8 +219,15 @@ export const majorService = {
         where: { id },
         data: {
           name: data.name,
+          degreeType: data.degree_type,
           totalCredits: data.total_credits,
         },
+      })
+      console.log('[majorService.updateMajor] updated', {
+        id: updatedMajor.id,
+        name: updatedMajor.name,
+        degreeType: updatedMajor.degreeType,
+        totalCredits: updatedMajor.totalCredits?.toString(),
       })
       await tx.systemLog.create({
         data: {
@@ -229,7 +237,7 @@ export const majorService = {
           resourceId: id,
           ipAddress: req.ip,
           userAgent: req.get('User-Agent'),
-          details: `修改了专业 \n专业ID:${id} \n修改前： name:${major.name} totalCredits:${major.totalCredits}\n 修改后： name:${data.name} totalCredits:${data.total_credits}`,
+          details: `修改了专业 \n专业ID:${id} \n修改前： name:${major.name} degreeType:${major.degreeType} totalCredits:${major.totalCredits}\n 修改后： name:${data.name} degreeType:${data.degree_type} totalCredits:${data.total_credits}`,
         },
       })
 

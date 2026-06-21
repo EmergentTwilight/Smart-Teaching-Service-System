@@ -210,15 +210,15 @@ A 模块的测试文件位于 `backend/src/__tests__/modules/info-management/`�
 
 > 供大组长验收使用
 
-| 检查项        | 要求                                          | 状态             |
-| ------------- | --------------------------------------------- | ---------------- |
-| 鉴权          | 所有接口已接入 authMiddleware，自动化测试覆盖 | ✅ 14 条测试通过 |
-| 类型一致性    | 前后端类型内容一致                            | ✅ 已验证        |
-| 非 B 模块文件 | 未动其他模块业务代码                          | ✅ 已验证        |
-| 公共组件修改  | 非侵入式，已有功能不受影响                    | ✅ 已梳理        |
-| 编译          | `tsc --noEmit` 通过                           | ✅ 已验证        |
-| lint          | `pnpm lint` 通过                              | ✅ 已验证        |
-| 文档          | 更新记录、测试用例、用户手册已更新            | ✅ 已更新        |
+| 检查项        | 要求                                             | 状态             |
+| ------------- | ------------------------------------------------ | ---------------- |
+| 鉴权          | 所有接口已接入 authMiddleware，自动化测试覆盖    | ✅ 14 条测试通过 |
+| 类型一致性    | 前后端类型内容一致                               | ✅ 已验证        |
+| 非 B 模块文件 | 未动其他模块业务代码                             | ✅ 已验证        |
+| 公共组件修改  | 非侵入式，已有功能不受影响                       | ✅ 已梳理        |
+| 编译          | `tsc --noEmit` 通过                              | ✅ 已验证        |
+| lint          | `pnpm lint` 通过                                 | ✅ 已验证        |
+| 文档          | 更新记录、测试用例、用户手册已更新               | ✅ 已更新        |
 
 ---
 
@@ -230,12 +230,12 @@ A 模块的测试文件位于 `backend/src/__tests__/modules/info-management/`�
 
 #### 后端模块主体（course-arrangement 核心 CRUD + 路由 + 类型）
 
-| 子模块        | 文件清单                                                                                                       |
-| ------------- | -------------------------------------------------------------------------------------------------------------- |
-| classroom     | `classroom.controller.ts`、`classroom.routes.ts`、`classroom.service.ts`、`classroom.types.ts`                 |
-| schedule      | `schedule.controller.ts`、`schedule.routes.ts`、`schedule.service.ts`、`schedule.types.ts`                     |
-| timetable     | `timetable.controller.ts`、`timetable.routes.ts`、`timetable.service.ts`、`timetable.types.ts`                 |
-| rules         | `rule.controller.ts`、`rule.routes.ts`、`rule.service.ts`、`rule.types.ts`                                     |
+| 子模块        | 文件清单                                                                                          |
+| ------------- | ------------------------------------------------------------------------------------------------- |
+| classroom     | `classroom.controller.ts`、`classroom.routes.ts`、`classroom.service.ts`、`classroom.types.ts`    |
+| schedule      | `schedule.controller.ts`、`schedule.routes.ts`、`schedule.service.ts`、`schedule.types.ts`         |
+| timetable     | `timetable.controller.ts`、`timetable.routes.ts`、`timetable.service.ts`、`timetable.types.ts`      |
+| rules         | `rule.controller.ts`、`rule.routes.ts`、`rule.service.ts`、`rule.types.ts`                          |
 | auto-schedule | `auto-schedule.controller.ts`、`auto-schedule.routes.ts`、`auto-schedule.service.ts`、`auto-schedule.types.ts` |
 
 共 **20 个文件**，位于 `backend/src/modules/course-arrangement/{classroom,schedule,timetable,rules,auto-schedule}/`。
@@ -246,38 +246,38 @@ A 模块的测试文件位于 `backend/src/__tests__/modules/info-management/`�
 
 #### 后端测试文件（6 个）
 
-| 文件                                                                             | 说明                                 |
-| -------------------------------------------------------------------------------- | ------------------------------------ |
-| `backend/src/__tests__/modules/course-arrangement/auth.middleware.test.ts`       | 鉴权中间件 Schemas 单元测试          |
-| `backend/src/__tests__/modules/course-arrangement/classroom.schemas.test.ts`     | 教室 Schema 单元测试（59 tests）     |
-| `backend/src/__tests__/modules/course-arrangement/schedule.schemas.test.ts`      | 排课 Schema 单元测试（38 tests）     |
-| `backend/src/__tests__/modules/course-arrangement/rules.schemas.test.ts`         | 规则 Schema 单元测试（40 tests）     |
-| `backend/src/__tests__/modules/course-arrangement/timetable.schemas.test.ts`     | 课表 Schema 单元测试（40 tests）     |
+| 文件                                                          | 说明                             |
+| ------------------------------------------------------------- | -------------------------------- |
+| `backend/src/__tests__/modules/course-arrangement/auth.middleware.test.ts` | 鉴权中间件 Schemas 单元测试      |
+| `backend/src/__tests__/modules/course-arrangement/classroom.schemas.test.ts` | 教室 Schema 单元测试（59 tests） |
+| `backend/src/__tests__/modules/course-arrangement/schedule.schemas.test.ts`  | 排课 Schema 单元测试（38 tests） |
+| `backend/src/__tests__/modules/course-arrangement/rules.schemas.test.ts`     | 规则 Schema 单元测试（40 tests） |
+| `backend/src/__tests__/modules/course-arrangement/timetable.schemas.test.ts` | 课表 Schema 单元测试（40 tests） |
 | `backend/src/__tests__/modules/course-arrangement/auto-schedule.schemas.test.ts` | 自动排课 Schema 单元测试（32 tests） |
 
 共计 **209 条 Schema 单元测试 + 14 条鉴权集成测试 = 223 条自动化测试**。
 
 #### 前端模块主体（course-arrangement 页面 + API + 类型）
 
-| 分类   | 文件清单                                                                                                                                                                                                   |
-| ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 页面   | `classroom-list.tsx`、`classroom-edit.tsx`、`schedule-list.tsx`、`schedule-edit.tsx`、`timetable-view.tsx`、`constraint-rule-table.tsx`、`constraint-rule-edit-drawer.tsx`、`auto-schedule-management.tsx` |
-| API    | `client.ts`、`classrooms.ts`、`schedules.ts`、`timetables.ts`、`rule.ts`、`auto-schedule.ts`                                                                                                               |
-| 类型   | `classroom.ts`、`schedule.ts`、`timetable.ts`、`rule.ts`、`auto-schedule.ts`                                                                                                                               |
-| README | `Readme.md`                                                                                                                                                                                                |
+| 分类    | 文件清单                                                                                                                                                                                                            |
+| ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 页面    | `classroom-list.tsx`、`classroom-edit.tsx`、`schedule-list.tsx`、`schedule-edit.tsx`、`timetable-view.tsx`、`constraint-rule-table.tsx`、`constraint-rule-edit-drawer.tsx`、`auto-schedule-management.tsx` |
+| API     | `client.ts`、`classrooms.ts`、`schedules.ts`、`timetables.ts`、`rule.ts`、`auto-schedule.ts`                                                                                                             |
+| 类型    | `classroom.ts`、`schedule.ts`、`timetable.ts`、`rule.ts`、`auto-schedule.ts`                                                                                                                              |
+| README  | `Readme.md`                                                                                                                                                                                                         |
 
 共 **20 个文件**，位于 `frontend/src/modules/course-arrangement/{pages,api,types}/`。
 
 ### 6.2 修改文件一览（共 6 个）
 
-| 文件                           | 变更概要                                                                     |
-| ------------------------------ | ---------------------------------------------------------------------------- |
-| `frontend/package.json`        | 新增前端依赖                                                                 |
-| `pnpm-lock.yaml`               | 新增依赖锁定文件                                                             |
+| 文件                      | 变更概要                                            |
+| ------------------------- | --------------------------------------------------- |
+| `frontend/package.json`   | 新增前端依赖                                        |
+| `pnpm-lock.yaml`          | 新增依赖锁定文件                                    |
 | `backend/prisma/schema.prisma` | 新增 B 模块模型（Classroom、Schedule、Timetable、Rule、AutoScheduleTask 等） |
-| `backend/prisma/seed.ts`       | 新增种子数据脚本（约 194 行）                                                |
-| `backend/src/app.ts`           | 挂载 B 模块路由                                                              |
-| `frontend/src/App.tsx`         | 注册 B 模块页面路由                                                          |
+| `backend/prisma/seed.ts`  | 新增种子数据脚本（约 194 行）                       |
+| `backend/src/app.ts`      | 挂载 B 模块路由                                     |
+| `frontend/src/App.tsx`    | 注册 B 模块页面路由                                 |
 
 ### 6.3 删除文件
 

@@ -620,6 +620,192 @@ async function main() {
     },
   })
 
+  // ==================== B 自动排课模块基础数据 ====================
+
+  const bSemester = await prisma.semester.upsert({
+    where: { id: '2024-spring' },
+    update: {
+      name: '2024年春季学期',
+      startDate: new Date('2024-02-26'),
+      endDate: new Date('2024-07-05'),
+      status: 'CURRENT',
+    },
+    create: {
+      id: '2024-spring',
+      name: '2024年春季学期',
+      startDate: new Date('2024-02-26'),
+      endDate: new Date('2024-07-05'),
+      status: 'CURRENT',
+    },
+  })
+
+  const bCourseData = [
+    {
+      code: 'CS201',
+      name: '数据结构与算法',
+      credits: '4.0',
+      courseType: 'REQUIRED',
+      hours: 64,
+      category: '专业核心',
+    },
+    {
+      code: 'CS202',
+      name: '操作系统原理',
+      credits: '3.0',
+      courseType: 'REQUIRED',
+      hours: 48,
+      category: '专业核心',
+    },
+    {
+      code: 'CS203',
+      name: '计算机网络',
+      credits: '3.0',
+      courseType: 'REQUIRED',
+      hours: 48,
+      category: '专业核心',
+    },
+    {
+      code: 'CS204',
+      name: '数据库系统概论',
+      credits: '3.0',
+      courseType: 'REQUIRED',
+      hours: 48,
+      category: '专业核心',
+    },
+    {
+      code: 'CS301',
+      name: '人工智能导论',
+      credits: '2.0',
+      courseType: 'ELECTIVE',
+      hours: 32,
+      category: '专业选修',
+    },
+  ] as const
+
+  const bCourses = await Promise.all(
+    bCourseData.map((bCourse) =>
+      prisma.course.upsert({
+        where: { code: bCourse.code },
+        update: {
+          name: bCourse.name,
+          credits: new Prisma.Decimal(bCourse.credits),
+          courseType: bCourse.courseType,
+          hours: bCourse.hours,
+          category: bCourse.category,
+          departmentId: department.id,
+          teacherId: teacher.id,
+          status: 'ACTIVE',
+        },
+        create: {
+          code: bCourse.code,
+          name: bCourse.name,
+          credits: new Prisma.Decimal(bCourse.credits),
+          courseType: bCourse.courseType,
+          hours: bCourse.hours,
+          category: bCourse.category,
+          departmentId: department.id,
+          teacherId: teacher.id,
+          status: 'ACTIVE',
+        },
+      })
+    )
+  )
+
+  const bClassroomData = [
+    {
+      building: '教学楼A',
+      roomNumber: '101',
+      campus: '主校区',
+      capacity: 60,
+      roomType: 'LECTURE',
+      equipment: { projector: true, airConditioner: true, microphone: true, computerCount: 0 },
+    },
+    {
+      building: '教学楼A',
+      roomNumber: '102',
+      campus: '主校区',
+      capacity: 80,
+      roomType: 'LECTURE',
+      equipment: { projector: true, airConditioner: true, microphone: true, computerCount: 0 },
+    },
+    {
+      building: '实验楼B',
+      roomNumber: '201',
+      campus: '主校区',
+      capacity: 30,
+      roomType: 'COMPUTER',
+      equipment: { projector: true, airConditioner: true, microphone: false, computerCount: 30 },
+    },
+    {
+      building: '实验楼B',
+      roomNumber: '202',
+      campus: '主校区',
+      capacity: 30,
+      roomType: 'LAB',
+      equipment: { projector: true, airConditioner: true, microphone: false, computerCount: 0 },
+    },
+    {
+      building: '教学楼C',
+      roomNumber: '301',
+      campus: '主校区',
+      capacity: 100,
+      roomType: 'MULTIMEDIA',
+      equipment: { projector: true, airConditioner: true, microphone: true, computerCount: 1 },
+    },
+  ] as const
+
+  await Promise.all(
+    bClassroomData.map((room) =>
+      prisma.classroom.upsert({
+        where: {
+          building_roomNumber: {
+            building: room.building,
+            roomNumber: room.roomNumber,
+          },
+        },
+        update: {
+          campus: room.campus,
+          capacity: room.capacity,
+          roomType: room.roomType,
+          equipment: room.equipment,
+          status: 'AVAILABLE',
+        },
+        create: {
+          building: room.building,
+          roomNumber: room.roomNumber,
+          campus: room.campus,
+          capacity: room.capacity,
+          roomType: room.roomType,
+          equipment: room.equipment,
+          status: 'AVAILABLE',
+        },
+      })
+    )
+  )
+
+  const bOfferings = await Promise.all(
+    bCourses.map((bCourse) =>
+      prisma.courseOffering.upsert({
+        where: { id: 'b-offering-' + bCourse.code + '-2024-spring' },
+        update: {
+          courseId: bCourse.id,
+          semesterId: bSemester.id,
+          teacherId: teacher.id,
+          capacity: 50,
+          status: 'OPEN',
+        },
+        create: {
+          id: 'b-offering-' + bCourse.code + '-2024-spring',
+          courseId: bCourse.id,
+          semesterId: bSemester.id,
+          teacherId: teacher.id,
+          capacity: 50,
+          status: 'OPEN',
+        },
+      })
+    )
+  )
+
   console.log('✅ Database seeded successfully!')
   console.log('📝 Test accounts:')
   console.log('   - admin / Admin123 (超级管理员)')
@@ -627,6 +813,8 @@ async function main() {
   console.log('   - student / student123 (学生)')
   console.log(`📚 Question bank ready: ${sampleBank.name} (${sampleBank.id})`)
   console.log(`   - F demo courseOfferingId: ${courseOffering.id}`)
+  console.log(`   - B demo semesterId: ${bSemester.id}`)
+  console.log(`   - B demo courseOfferingIds: ${bOfferings.map((offering) => offering.id).join(', ')}`)
 }
 
 main()

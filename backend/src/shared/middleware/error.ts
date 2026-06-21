@@ -8,12 +8,13 @@ import { AppError } from '@stss/shared'
  * 捕获所有错误并返回统一格式的响应
  */
 export const errorHandler = (err: Error, req: Request, res: Response, _next: NextFunction) => {
-  console.error('Error:', err)
-
   // 处理 Zod 验证错误
   if (err instanceof ZodError) {
-    return error(res, '验证失败', 400, err.errors, req.requestId)
+    console.error('Validation error:', err.issues)
+    return error(res, '验证失败', 400, err.issues, req.requestId)
   }
+
+  console.error('Error:', err)
 
   // 处理自定义 AppError
   if (err instanceof AppError) {

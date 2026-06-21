@@ -1,0 +1,170 @@
+export type AiRecommendationCourseType = 'required' | 'elective' | 'general'
+
+export interface AiCourseScoreBreakdown {
+  curriculumMatch: number
+  creditGapFit: number
+  scheduleFit: number
+  preferenceFit: number
+  capacityFit: number
+  riskInverse: number
+}
+
+export interface AiRecommendationEligibilitySnapshot {
+  isAvailable: boolean
+  remainingCapacity?: number
+  hasTimeConflict?: boolean
+  prerequisiteSatisfied?: boolean
+  isFull?: boolean
+  isEnrolled?: boolean
+  withinCurriculum?: boolean
+  withinSelectionPeriod?: boolean
+  underMaxCredits?: boolean
+  reasons?: string[]
+}
+
+export interface AiRecommendation {
+  courseOfferingId: string
+  courseCode: string
+  courseName: string
+  credits: number
+  teacherName: string
+  recommendationScore: number
+  reasons: string[]
+  risks: string[]
+  eligibilitySnapshot: AiRecommendationEligibilitySnapshot
+  scoreBreakdown?: AiCourseScoreBreakdown
+}
+
+export interface AiRecommendationPlan {
+  id: 'balanced' | 'required_first' | 'low_risk'
+  title: string
+  rationale: string
+  recommendations: AiRecommendation[]
+  projectedCredits: number
+  totalCredits?: number
+  riskLevel: 'low' | 'medium' | 'high'
+  planScore?: number
+  keyTradeoffs?: string[]
+}
+
+export interface AiConflictNote {
+  courseOfferingId: string
+  courseName: string
+  message: string
+}
+
+export interface AiCreditProgressSummary {
+  currentSelectedCredits: number
+  targetCredits: number
+  maxCredits: number
+  remainingToTarget?: number
+}
+
+export type AiAdvisorMode = 'full' | 'rule_only' | 'template_only' | 'disabled'
+
+export interface AiScoreBreakdown {
+  totalCandidates: number
+  safeCandidates: number
+  blockedCandidates: number
+}
+
+export interface AiProgressAudit {
+  currentSelectedCredits: number
+  targetCredits: number
+  maxCredits: number | null
+  requiredGap: number
+  electiveGap: number
+  generalGap: number
+  priorityGaps: Array<{
+    courseType: AiRecommendationCourseType
+    gapCredits: number
+    urgency: 'low' | 'medium' | 'high'
+    reason: string
+  }>
+}
+
+export interface AiScheduleLoad {
+  earlyMorningCount: number
+  denseDays: string[]
+  loadScore: number
+  loadLevel: 'low' | 'medium' | 'high'
+  notes: string[]
+}
+
+export interface AiCapacityRisk {
+  courseOfferingId: string
+  courseName: string
+  remainingCapacity: number
+  fillRate: number
+  riskLevel: 'low' | 'medium' | 'high'
+  riskReason: string
+}
+
+export interface AiFallbackInfo {
+  code: string
+  reason: string
+  retriable?: boolean
+  source?: 'rule' | 'llm' | 'template' | 'service'
+  mode?: AiAdvisorMode
+  missingComponents?: string[]
+  llmUsed?: boolean
+  model?: string | null
+}
+
+export interface AiAdvicePayload {
+  disclaimer: string
+  creditProgressSummary: AiCreditProgressSummary
+  recommendations: AiRecommendation[]
+  conflictNotes: AiConflictNote[]
+  plans?: AiRecommendationPlan[]
+  recommendationSummary?: string
+  mode?: AiAdvisorMode
+  suggestionMode?: AiAdvisorMode
+  degradedMode: AiAdvisorMode
+  llmUsed: boolean
+  model: string | null
+  fallbackInfo?: AiFallbackInfo
+  scoreBreakdown?: AiScoreBreakdown
+  progressAudit?: AiProgressAudit
+  scheduleLoad?: AiScheduleLoad
+  capacityRisks?: AiCapacityRisk[]
+  requestId?: string
+}
+
+export interface AiRecommendPreferenceInput {
+  targetCredits?: number
+  preferredCourseTypes?: AiRecommendationCourseType[]
+  avoidEarlyMorning?: boolean
+  preferLowLoad?: boolean
+  preferRequiredCourses?: boolean
+  preferGraduationProgress?: boolean
+  riskTolerance?: 'low' | 'medium' | 'high'
+  naturalLanguagePreference?: string
+}
+
+export interface AiRecommendPayload {
+  semesterId?: string
+  preferences?: AiRecommendPreferenceInput
+  maxRecommendations?: number
+}
+
+export interface AiExplainPayload {
+  offeringId: string
+  question?: string
+}
+
+export interface AiExplainPayloadResult {
+  courseOfferingId: string
+  courseName: string
+  explanation: string
+  hardRuleResult: {
+    isSelectableNow: boolean
+    reasons: string[]
+  }
+  disclaimer: string
+  explanationSummary?: string
+  degradedMode?: AiAdvisorMode
+  llmUsed?: boolean
+  model?: string | null
+  fallbackInfo?: AiFallbackInfo
+}

@@ -4,7 +4,7 @@
  */
 import 'dotenv/config'
 // Express 5 已内置 async 错误处理支持，无需 express-async-errors
-import express, { type Application } from 'express'
+import express, { type Application, type RequestHandler } from 'express'
 import path from 'path'
 import { fileURLToPath } from 'url'
 import cors from 'cors'
@@ -36,6 +36,7 @@ import scheduleRoutes from './modules/course-arrangement/schedule/schedule.route
 import timetableRoutes from './modules/course-arrangement/timetable/timetable.routes.js'
 import ruleRoutes from './modules/course-arrangement/rules/rule.routes.js'
 import autoScheduleRoutes from './modules/course-arrangement/auto-schedule/auto-schedule.routes.js'
+import courseSelectionRoutes from './modules/course-selection/course-selection.routes.js'
 
 const app: Application = express()
 const PORT = config.port
@@ -83,7 +84,7 @@ app.use(
 )
 
 // 安全头部
-app.use(helmet())
+app.use(helmet() as unknown as RequestHandler)
 
 // 响应压缩
 app.use(compression())
@@ -200,6 +201,7 @@ app.use('/api/v1/course-arrangement/timetables', timetableRoutes)
 app.use('/api/v1/course-arrangement/rules', ruleRoutes)
 app.use('/api/v1/course-arrangement/auto-schedule', autoScheduleRoutes)
 app.use('/api/v1/forum', forumRoutes)
+app.use('/api/v1/course-selection', courseSelectionRoutes)
 
 // 404 处理
 app.use((req, res) => {

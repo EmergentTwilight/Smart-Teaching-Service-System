@@ -19,6 +19,17 @@ function shouldUseEApi(url?: string): boolean {
   return eApiPrefixes.some((prefix: string) => path === prefix || path.startsWith(`${prefix}/`))
 }
 
+function isLoginRequest(url?: string): boolean {
+  if (!url) return false
+  const path = url.split('?')[0]
+  return path === '/auth/login' || path.endsWith('/auth/login')
+}
+
+function waitForLoginErrorConfirm(content: string): Promise<void> {
+  window.alert(content)
+  return Promise.resolve()
+}
+
 /** 创建 axios 实例 */
 const request = axios.create({
   baseURL: defaultApiBase,
@@ -166,7 +177,25 @@ request.interceptors.response.use(
     return convertKeysToCamelCase(result)
   },
   async (error: AxiosError<{ message?: string; error?: string }>) => {
-    const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean }
+    const originalRequest = error.config as InternalAxiosRequestConfig & {
+      _retry?: boolean
+      _loginErrorNotified?: boolean
+    }
+
+    // 登录接口的 401 先给出可见提示，再继续走既有 token 刷新/重定向流程。
+    if (
+      error.response?.status === 401 &&
+      isLoginRequest(originalRequest.url) &&
+      !originalRequest._loginErrorNotified
+    ) {
+      const body = error.response?.data
+      const errorMessage =
+        body && typeof body === 'object'
+          ? body.message || body.error || '登录失败，请检查用户名和密码'
+          : '登录失败，请检查用户名和密码'
+      originalRequest._loginErrorNotified = true
+      await waitForLoginErrorConfirm(errorMessage)
+    }
 
     // 401 错误且未尝试过刷新
     if (error.response?.status === 401 && !originalRequest._retry) {

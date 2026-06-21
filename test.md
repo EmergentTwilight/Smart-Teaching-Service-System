@@ -97,10 +97,10 @@
 - [ √] 系统日志页可分页、按用户/动作/时间筛选：`GET /api/v1/users/logs`。
 - [√ ] 上传合法头像后能立即预览并持久化：`POST /api/v1/users/:id/avatar`。
 - [ ] 上传过大文件、非图片文件时有明确提示。(前端交互上应该是不可能出现这个问题的)
-- [ ] 修改学生专业：`PATCH /api/v1/users/:id/student/major`。
-- [ ] 修改教师院系：`PATCH /api/v1/users/:id/teacher/department`。
-- [ ] 修改管理员院系：`PATCH /api/v1/users/:id/admin/department`。
-- [ ] 对非对应身份用户执行学生/教师/管理员组织修改时，页面正确展示后端错误。
+- [ √] 修改学生专业：`PATCH /api/v1/users/:id/student/major`。
+- [√ ] 修改教师院系：`PATCH /api/v1/users/:id/teacher/department`。
+- [√ ] 修改管理员院系：`PATCH /api/v1/users/:id/admin/department`。
+- [ ] 对非对应身份用户执行学生/教师/管理员组织修改时，页面正确展示后端错误。(在前端应该是做不到的)
 
 ## 4. 院系管理
 

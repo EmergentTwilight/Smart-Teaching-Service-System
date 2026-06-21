@@ -104,6 +104,11 @@ export const majorService = {
               totalCredits: true,
             },
           },
+          _count: {
+            select: {
+              students: true,
+            },
+          },
         },
       })
       if (!major) throw new NotFoundError('专业')
@@ -115,6 +120,7 @@ export const majorService = {
         department_name: major.department.name,
         degree_type: major.degreeType,
         total_credits: major.totalCredits?.toNumber() || 0,
+        student_count: major._count.students,
         description: major.description,
         curriculums: major.curriculums.map((c) => ({
           id: c.id,

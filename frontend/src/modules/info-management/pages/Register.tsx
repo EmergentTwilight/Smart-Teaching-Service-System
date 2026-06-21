@@ -111,9 +111,13 @@ const Register: React.FC = () => {
 
           <Form.Item
             name="password"
+            extra="密码至少8位，需包含大写字母、小写字母和数字"
             rules={[
               { required: true, message: '请输入密码' },
               { min: 8, message: '密码至少8个字符' },
+              { pattern: /[A-Z]/, message: '密码必须包含大写字母' },
+              { pattern: /[a-z]/, message: '密码必须包含小写字母' },
+              { pattern: /[0-9]/, message: '密码必须包含数字' },
             ]}
           >
             <Input.Password

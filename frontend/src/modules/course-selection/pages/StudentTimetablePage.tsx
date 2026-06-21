@@ -6,7 +6,7 @@ import {
   Descriptions,
   Empty,
   Form,
-  Input,
+  Select,
   Space,
   Spin,
   Tag,
@@ -81,15 +81,20 @@ const StudentTimetablePage: React.FC = () => {
       {/* ---- Filter bar ---- */}
       <Card style={{ marginBottom: 16 }}>
         <Form layout="inline">
-          <Form.Item label="学期 ID">
-            <Input
-              placeholder="输入学期 ID 过滤（可选）"
-              value={semesterId}
-              onChange={(event) => setSemesterId(event.target.value)}
-              style={{ width: 280 }}
+          <Form.Item label="学期筛选">
+            <Select
+              placeholder="全部学期（默认当前）"
+              value={semesterId || undefined}
+              onChange={(value) => setSemesterId(value ?? '')}
               allowClear
-              onPressEnter={handleSearch}
-            />
+              style={{ width: 280 }}
+            >
+              {timetable?.semester ? (
+                <Select.Option value={timetable.semester.id}>
+                  {timetable.semester.name}（当前）
+                </Select.Option>
+              ) : null}
+            </Select>
           </Form.Item>
           <Form.Item>
             <Space>

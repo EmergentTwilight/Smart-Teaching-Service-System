@@ -43,7 +43,7 @@ describe('CourseSelectionAiPage', () => {
     fireEvent.change(screen.getByLabelText('偏好说明'), {
       target: { value: '想稳妥一点，不要课太满。' },
     });
-    fireEvent.click(screen.getByRole('button', { name: '生成建议' }));
+    fireEvent.click(screen.getByRole('button', { name: '发送提问' }));
 
     await waitFor(() => {
       expect(recommendMutate).toHaveBeenCalledTimes(1);

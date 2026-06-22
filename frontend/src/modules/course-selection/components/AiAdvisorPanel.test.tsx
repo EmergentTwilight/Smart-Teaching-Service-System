@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import { AiAdvisorPanel } from './AiAdvisorPanel';
+import { AiAdvisorPanel, type AiAdvisorTurn } from './AiAdvisorPanel';
 import type { AiAdvicePayload } from '../types/ai';
 
 const advice: AiAdvicePayload = {
@@ -86,7 +86,9 @@ const advice: AiAdvicePayload = {
 
 describe('AiAdvisorPanel', () => {
   it('renders disclaimer, degraded state, scores, reasons and risks', () => {
-    render(<AiAdvisorPanel advice={advice} onExplain={vi.fn()} />);
+    const turns: AiAdvisorTurn[] = [{ id: 'turn-1', type: 'recommend', advice }];
+
+    render(<AiAdvisorPanel turns={turns} onExplain={vi.fn()} />);
 
     expect(screen.getByText(advice.disclaimer)).toBeInTheDocument();
     expect(screen.getByText('降级提示：policy_validation_failed')).toBeInTheDocument();
@@ -101,9 +103,11 @@ describe('AiAdvisorPanel', () => {
     const onExplain = vi.fn();
     const onGoToSelection = vi.fn();
 
+    const turns: AiAdvisorTurn[] = [{ id: 'turn-2', type: 'recommend', advice }];
+
     render(
       <AiAdvisorPanel
-        advice={advice}
+        turns={turns}
         onExplain={onExplain}
         onGoToSelection={onGoToSelection}
       />
@@ -112,14 +116,15 @@ describe('AiAdvisorPanel', () => {
     fireEvent.click(screen.getAllByRole('button', { name: '查看解释' })[0]);
     fireEvent.click(screen.getAllByRole('button', { name: '前往选课' })[0]);
 
-    expect(onExplain).toHaveBeenCalledWith('offering-1');
+    expect(onExplain).toHaveBeenCalledWith('offering-1', '程序设计基础');
     expect(onGoToSelection).toHaveBeenCalledTimes(1);
     expect(screen.queryByRole('button', { name: /一键选课|AI 自动选课/ })).not.toBeInTheDocument();
   });
 
-  it('renders an empty state without advice', () => {
-    render(<AiAdvisorPanel advice={null} onExplain={vi.fn()} />);
+  it('renders empty state without advice', () => {
+    render(<AiAdvisorPanel turns={[]} onExplain={vi.fn()} />);
 
     expect(screen.getByText('暂无建议，可继续使用基础课程搜索与选课流程。')).toBeInTheDocument();
   });
 });
+

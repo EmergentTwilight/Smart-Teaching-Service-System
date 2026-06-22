@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { enrollmentsApi } from '../api/enrollments';
+import { admissionApi } from '../api/admission';
 import { curriculumApi } from '../api/curriculum';
 import { coursesApi } from '../api/courses';
 import { useAvailableOfferings } from '../hooks/useAvailableOfferings';
@@ -24,6 +25,14 @@ vi.mock('../api/enrollments', () => ({
     createEnrollment: vi.fn(),
     dropEnrollment: vi.fn(),
     listMyEnrollments: vi.fn(),
+  },
+}));
+
+vi.mock('../api/admission', () => ({
+  admissionApi: {
+    enter: vi.fn(),
+    heartbeat: vi.fn(),
+    leave: vi.fn(),
   },
 }));
 
@@ -219,6 +228,30 @@ const renderPage = ({
 describe('StudentCourseSelectionPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(admissionApi.enter).mockResolvedValue({
+      admitted: true,
+      semesterId: 'semester-1',
+      leaseId: '10000000-0000-4000-8000-000000000001',
+      activeSessions: 1,
+      maxActiveSessions: 200,
+      idleTimeoutSeconds: 300,
+      heartbeatIntervalSeconds: 30,
+      expiresAt: '2026-06-01T08:05:00.000Z',
+    });
+    vi.mocked(admissionApi.heartbeat).mockResolvedValue({
+      admitted: true,
+      semesterId: 'semester-1',
+      leaseId: '10000000-0000-4000-8000-000000000001',
+      activeSessions: 1,
+      maxActiveSessions: 200,
+      idleTimeoutSeconds: 300,
+      heartbeatIntervalSeconds: 30,
+      expiresAt: '2026-06-01T08:05:00.000Z',
+    });
+    vi.mocked(admissionApi.leave).mockResolvedValue({
+      released: true,
+      semesterId: 'semester-1',
+    });
   });
 
   it('passes the selected offering status to the available offerings query', async () => {
@@ -255,6 +288,8 @@ describe('StudentCourseSelectionPage', () => {
       enrollments: [],
     });
 
+    await screen.findByText('选课准入已生效');
+
     fireEvent.click(screen.getByRole('button', { name: /选\s*课/ }));
 
     expect(screen.getAllByText('确认选课').length).toBeGreaterThan(0);
@@ -283,6 +318,8 @@ describe('StudentCourseSelectionPage', () => {
       offerings: [offering],
       enrollments: [droppedEnrollment],
     });
+
+    await screen.findByText('选课准入已生效');
 
     expect(screen.queryByRole('button', { name: '退选' })).not.toBeInTheDocument();
 
@@ -335,5 +372,20 @@ describe('StudentCourseSelectionPage', () => {
     expect(await screen.findByText('退选请求未完成')).toBeInTheDocument();
     expect(screen.getByText('当前选课阶段不允许退选')).toBeInTheDocument();
     expect(screen.getAllByText('确认退选').length).toBeGreaterThan(0);
+  });
+
+  it('shows an admission failure and disables enrollment actions', async () => {
+    vi.mocked(admissionApi.enter).mockRejectedValueOnce(
+      new Error('选课核心流程达到准入上限，请稍后重试')
+    );
+
+    renderPage({
+      offerings: [availableOffering],
+      enrollments: [],
+    });
+
+    expect(await screen.findByText('暂时无法选课')).toBeInTheDocument();
+    expect(screen.getByText('选课核心流程达到准入上限，请稍后重试')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /选\s*课/ })).toBeDisabled();
   });
 });

@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import {
   Alert,
   Button,
@@ -19,6 +19,7 @@ import {
 import type { OfferingsAvailableQuery } from '../types/course';
 import { coursesApi } from '../api/courses';
 import { enrollmentsApi } from '../api/enrollments';
+import { admissionApi } from '../api/admission';
 import { useAvailableOfferings } from '../hooks/useAvailableOfferings';
 import { useMyEnrollments } from '../hooks/useMyEnrollments';
 import { curriculumApi } from '../api/curriculum';
@@ -29,6 +30,7 @@ import { extractErrorMessage } from '@/shared/utils/error';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ExclamationCircleOutlined } from '@ant-design/icons';
 import type { EnrollmentStatus } from '../types/enrollment';
+import type { AdmissionLeasePayload } from '../types/admission';
 
 const { Text, Title } = Typography;
 
@@ -74,6 +76,12 @@ const StudentCourseSelectionPage: React.FC = () => {
     page: 1,
     pageSize: 20,
   });
+  const [admissionLease, setAdmissionLease] = useState<AdmissionLeasePayload | null>(null);
+  const [admissionStatus, setAdmissionStatus] = useState<
+    'loading' | 'admitted' | 'rejected' | 'idle_expired'
+  >('loading');
+  const [admissionMessage, setAdmissionMessage] = useState('正在进入选课系统...');
+  const admissionLeaseRef = useRef<AdmissionLeasePayload | null>(null);
 
   const queryClient = useQueryClient();
 
@@ -97,6 +105,128 @@ const StudentCourseSelectionPage: React.FC = () => {
   const enrollmentItems = myEnrollmentsQuery.data?.items;
   const enrollments = useMemo(() => enrollmentItems ?? [], [enrollmentItems]);
   const hasActiveEnrollments = enrollments.some((item) => item.status === 'enrolled');
+  const admissionReady = admissionStatus === 'admitted' && Boolean(admissionLease);
+
+  const releaseAdmissionLease = useCallback((lease: AdmissionLeasePayload | null) => {
+    if (!lease) {
+      return;
+    }
+
+    void admissionApi.leave({
+      semesterId: lease.semesterId,
+      leaseId: lease.leaseId,
+    });
+  }, []);
+
+  const requestAdmission = useCallback(async () => {
+    const previousLease = admissionLeaseRef.current;
+    admissionLeaseRef.current = null;
+    releaseAdmissionLease(previousLease);
+    setAdmissionLease(null);
+    setAdmissionStatus('loading');
+    setAdmissionMessage('正在进入选课系统...');
+
+    try {
+      const lease = await admissionApi.enter({});
+      admissionLeaseRef.current = lease;
+      setAdmissionLease(lease);
+      setAdmissionStatus('admitted');
+      setAdmissionMessage(
+        `已进入选课系统：当前 ${lease.activeSessions}/${lease.maxActiveSessions} 人在线`
+      );
+    } catch (error) {
+      const errMsg = extractErrorMessage(error, '选课系统当前人数较多，请稍后再试');
+      setAdmissionStatus('rejected');
+      setAdmissionMessage(errMsg);
+      setAdmissionLease(null);
+      admissionLeaseRef.current = null;
+    }
+  }, [releaseAdmissionLease]);
+
+  useEffect(() => {
+    void requestAdmission();
+
+    return () => {
+      const lease = admissionLeaseRef.current;
+      admissionLeaseRef.current = null;
+      releaseAdmissionLease(lease);
+    };
+  }, [requestAdmission, releaseAdmissionLease]);
+
+  useEffect(() => {
+    if (!admissionLease) {
+      return undefined;
+    }
+
+    const intervalMs = Math.max(admissionLease.heartbeatIntervalSeconds, 5) * 1000;
+    const timer = window.setInterval(() => {
+      const lease = admissionLeaseRef.current;
+      if (!lease) {
+        return;
+      }
+
+      void admissionApi
+        .heartbeat({
+          semesterId: lease.semesterId,
+          leaseId: lease.leaseId,
+        })
+        .then((nextLease) => {
+          admissionLeaseRef.current = nextLease;
+          setAdmissionLease(nextLease);
+          setAdmissionStatus('admitted');
+          setAdmissionMessage(
+            `已进入选课系统：当前 ${nextLease.activeSessions}/${nextLease.maxActiveSessions} 人在线`
+          );
+        })
+        .catch((error) => {
+          const errMsg = extractErrorMessage(error, '选课准入已过期，请重新进入选课页');
+          admissionLeaseRef.current = null;
+          setAdmissionLease(null);
+          setAdmissionStatus('rejected');
+          setAdmissionMessage(errMsg);
+          message.warning(errMsg);
+        });
+    }, intervalMs);
+
+    return () => window.clearInterval(timer);
+  }, [admissionLease?.heartbeatIntervalSeconds, admissionLease?.leaseId]);
+
+  useEffect(() => {
+    if (!admissionLease) {
+      return undefined;
+    }
+
+    const idleTimeoutSeconds = admissionLease.idleTimeoutSeconds;
+    let idleTimer: number | undefined;
+    const expireByIdle = () => {
+      const lease = admissionLeaseRef.current;
+      admissionLeaseRef.current = null;
+      setAdmissionLease(null);
+      setAdmissionStatus('idle_expired');
+      setAdmissionMessage('长时间无操作，已释放选课席位。请重新进入后再选课。');
+      releaseAdmissionLease(lease);
+    };
+    const resetIdleTimer = () => {
+      if (idleTimer !== undefined) {
+        window.clearTimeout(idleTimer);
+      }
+      idleTimer = window.setTimeout(
+        expireByIdle,
+        idleTimeoutSeconds * 1000
+      );
+    };
+    const events = ['mousemove', 'keydown', 'click', 'scroll', 'touchstart'];
+
+    events.forEach((event) => window.addEventListener(event, resetIdleTimer, { passive: true }));
+    resetIdleTimer();
+
+    return () => {
+      if (idleTimer !== undefined) {
+        window.clearTimeout(idleTimer);
+      }
+      events.forEach((event) => window.removeEventListener(event, resetIdleTimer));
+    };
+  }, [admissionLease?.idleTimeoutSeconds, admissionLease?.leaseId, releaseAdmissionLease]);
 
   const enrollmentStateByOfferingId = useMemo(() => {
     const map = new Map<string, { enrollmentId: string; status: EnrollmentStatus }>();
@@ -193,6 +323,13 @@ const StudentCourseSelectionPage: React.FC = () => {
   // ---- Enroll handler with confirmation ----
   const handleEnroll = useCallback(
     (offeringId: string) => {
+      if (!admissionReady) {
+        const msg = admissionMessage || '当前未进入选课系统，请稍后重试';
+        setEnrollErrorMessage(msg);
+        message.warning(msg);
+        return;
+      }
+
       const offering = offeringRows.find((r) => r.courseOfferingId === offeringId);
       const courseLabel = offering
         ? `${offering.courseName}（${offering.courseCode}）`
@@ -206,7 +343,7 @@ const StudentCourseSelectionPage: React.FC = () => {
         teacherName: offering?.teacherName ?? '—',
       });
     },
-    [offeringRows]
+    [admissionMessage, admissionReady, offeringRows]
   );
 
   // ---- Drop handler with confirmation ----
@@ -285,6 +422,32 @@ const StudentCourseSelectionPage: React.FC = () => {
             }
             styles={{ body: { padding: 24 } }}
           >
+            <Alert
+              message={
+                admissionStatus === 'admitted'
+                  ? '选课准入已生效'
+                  : admissionStatus === 'loading'
+                    ? '正在进入选课系统'
+                    : '暂时无法选课'
+              }
+              description={admissionMessage}
+              type={
+                admissionStatus === 'admitted'
+                  ? 'success'
+                  : admissionStatus === 'loading'
+                    ? 'info'
+                    : 'warning'
+              }
+              showIcon
+              action={
+                admissionStatus === 'rejected' || admissionStatus === 'idle_expired' ? (
+                  <Button size="small" onClick={requestAdmission}>
+                    重新进入
+                  </Button>
+                ) : undefined
+              }
+              style={{ marginBottom: 16 }}
+            />
             <Form
               form={filterForm}
               layout="inline"
@@ -355,6 +518,7 @@ const StudentCourseSelectionPage: React.FC = () => {
                 onDrop={handleDrop}
                 onViewDetail={setOfferingIdInDrawer}
                 enrollLoading={enrollingId}
+                selectionDisabled={!admissionReady}
                 enrollmentStateByOfferingId={enrollmentStateByOfferingId}
               />
             </div>

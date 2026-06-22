@@ -224,7 +224,53 @@ export const dropEnrollmentBodySchema = z
 export type DropEnrollmentParams = z.infer<typeof dropEnrollmentParamsSchema>
 export type DropEnrollmentBody = z.infer<typeof dropEnrollmentBodySchema>
 
-// TODO(C5, FR-C-30, FR-C-35, NFR-C-14): 选课阶段接口需校验时间范围与阶段互斥规则
+export const admissionEnterBodySchema = z
+  .object({
+    semesterId: z.string().uuid().optional(),
+    semester_id: z.string().uuid().optional(),
+  })
+  .strict()
+  .transform(({ semesterId, semester_id }) => ({
+    semesterId: semesterId ?? semester_id,
+  }))
+
+export const admissionLeaseBodySchema = z
+  .object({
+    semesterId: z.string().uuid().optional(),
+    semester_id: z.string().uuid().optional(),
+    leaseId: z.string().uuid().optional(),
+    lease_id: z.string().uuid().optional(),
+  })
+  .strict()
+  .superRefine((value, ctx) => {
+    if (!value.semesterId && !value.semester_id) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'semesterId / semester_id 不能为空',
+        path: ['semester_id'],
+      })
+    }
+    if (!value.leaseId && !value.lease_id) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'leaseId / lease_id 不能为空',
+        path: ['lease_id'],
+      })
+    }
+  })
+  .transform((value) => ({
+    semesterId: value.semesterId ?? value.semester_id ?? '',
+    leaseId: value.leaseId ?? value.lease_id ?? '',
+  }))
+  .pipe(z.object({
+    semesterId: z.string().uuid(),
+    leaseId: z.string().uuid(),
+  }))
+
+export type AdmissionEnterBody = z.infer<typeof admissionEnterBodySchema>
+export type AdmissionLeaseBody = z.infer<typeof admissionLeaseBodySchema>
+
+// TODO(C5, FR-C-30, NFR-C-14): 选课阶段接口需校验时间范围与阶段互斥规则
 // TODO(C5, FR-C-30, FR-C-31, FR-C-32, NFR-C-14): 列表查询支持按学期/阶段/状态过滤
 export const selectionPeriodQuerySchema = paginationSchema
   .extend({

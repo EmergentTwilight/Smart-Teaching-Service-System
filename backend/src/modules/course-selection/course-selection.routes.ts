@@ -9,6 +9,7 @@ import { timetableController } from './timetable.controller.js'
 import { rosterController } from './roster.controller.js'
 import { selectionPeriodController } from './selection-period.controller.js'
 import { aiAdvisorController } from './ai-advisor.controller.js'
+import { admissionController } from './admission.controller.js'
 import {
   curriculumQuerySchema,
   curriculumProgressQuerySchema,
@@ -20,6 +21,8 @@ import {
   createEnrollmentBodySchema,
   dropEnrollmentParamsSchema,
   dropEnrollmentBodySchema,
+  admissionEnterBodySchema,
+  admissionLeaseBodySchema,
   selectionPeriodQuerySchema,
   createSelectionPeriodBodySchema,
   updateSelectionPeriodBodySchema,
@@ -39,6 +42,24 @@ const router: RouterType = Router()
 router.use(authMiddleware)
 
 // ===== 学生端：课程与培养方案 =====
+router.post(
+  '/admission/enter',
+  requireRoles('student'),
+  validate(admissionEnterBodySchema, 'body'),
+  admissionController.enter
+)
+router.post(
+  '/admission/heartbeat',
+  requireRoles('student'),
+  validate(admissionLeaseBodySchema, 'body'),
+  admissionController.heartbeat
+)
+router.post(
+  '/admission/leave',
+  requireRoles('student'),
+  validate(admissionLeaseBodySchema, 'body'),
+  admissionController.leave
+)
 router.get('/curriculum/me', requireRoles('student'), validate(curriculumQuerySchema, 'query'), curriculumController.getMyCurriculum)
 router.get(
   '/curriculum/me/progress',

@@ -123,6 +123,9 @@ link: https://tcncx9czflpz.feishu.cn/wiki/BgpmwKkYqifNkjk1Psdc0gitn2b
 
 | 接口 | 方法 | 路由 | 对应需求 |
 | ---- | ---- | ---- | -------- |
+| 进入选课核心流程 | POST | `/admission/enter` | `FR-C-35`、`FR-C-36` |
+| 刷新选课准入心跳 | POST | `/admission/heartbeat` | `FR-C-35`、`FR-C-36` |
+| 离开选课核心流程 | POST | `/admission/leave` | `FR-C-35`、`FR-C-36` |
 | 查看本人培养方案 | GET | `/curriculum/me` | `FR-C-01` 至 `FR-C-07` |
 | 确认本人培养方案 | POST | `/curriculum/me/confirmation` | `FR-C-04` |
 | 查看本人培养方案进度 | GET | `/curriculum/me/progress` | `FR-C-05` |
@@ -158,6 +161,54 @@ link: https://tcncx9czflpz.feishu.cn/wiki/BgpmwKkYqifNkjk1Psdc0gitn2b
 ---
 
 ## 三、学生端接口
+
+### 3.0 选课准入控制
+
+```plaintext
+POST /api/v1/course-selection/admission/enter
+POST /api/v1/course-selection/admission/heartbeat
+POST /api/v1/course-selection/admission/leave
+Authorization: Bearer <access_token>
+Content-Type: application/json
+```
+
+**权限说明**
+
+仅 `student` 可访问。学生身份必须来自登录态，不接收 `student_id`。
+
+**请求 Body**
+
+| 接口 | 参数 | 类型 | 必填 | 说明 |
+| ---- | ---- | ---- | ---- | ---- |
+| `enter` | `semester_id` | string | 否 | 指定学期；不传时服务端选择当前有效选课阶段对应学期 |
+| `heartbeat` / `leave` | `semester_id` | string | 是 | `enter` 返回的学期 ID |
+| `heartbeat` / `leave` | `lease_id` | string | 是 | `enter` 返回的租约 ID |
+
+**响应示例**
+
+```json
+{
+  "code": 200,
+  "message": "选课准入成功",
+  "data": {
+    "admitted": true,
+    "semester_id": "2b5741c4-40c4-4c7f-990e-cc880a9f0001",
+    "lease_id": "10000000-0000-4000-8000-000000000001",
+    "active_sessions": 120,
+    "max_active_sessions": 200,
+    "idle_timeout_seconds": 300,
+    "heartbeat_interval_seconds": 30,
+    "expires_at": "2026-05-13T08:05:00+08:00"
+  }
+}
+```
+
+**校验与说明**
+
+- `enter` 达到最大活跃人数时返回 `CS_ADMISSION_LIMITED`。
+- `heartbeat` 用于刷新租约；租约缺失、过期或不匹配时返回 `CS_ADMISSION_LIMITED`。
+- `leave` 幂等释放租约；长时间无操作由租约过期释放席位。
+- `POST /enrollments` 必须校验当前学生在目标课程学期内有有效准入租约。
 
 ### 3.1 查看本人培养方案
 
@@ -620,7 +671,7 @@ curl -X GET "https://stss.example.com/api/v1/course-selection/offerings/availabl
 - 无匹配培养方案或未确认培养方案时返回 `422`，不生成可选课程列表；未确认时错误码使用 `CS_CURRICULUM_NOT_CONFIRMED`。
 - 可选性解释必须覆盖未确认培养方案、容量、已选、冲突、先修、培养方案适配、当前阶段等原因。
 - TODO-C-05（`FR-C-19`）：先修课程是否满足需要依赖 F 子系统有效成绩或等价课程完成记录；缺少可判定数据时正式策略应阻止选课并返回明确提示。
-- TODO-C-06（`FR-C-35`、`FR-C-36`，对应 v2.0 总报告 `FR-C-15`）：该接口属于选课核心流程，C3 主责接入 Redis 准入控制、心跳或无操作释放机制；C5 协作提供阶段/配置口径；不得新增数据库业务表。
+- `FR-C-15` 准入控制已由 `/admission/enter`、`/admission/heartbeat`、`/admission/leave` 和选课提交前租约校验承接；不得新增数据库业务表。
 
 ### 3.6 查看课程开设详情
 
@@ -886,7 +937,7 @@ curl -X POST "https://stss.example.com/api/v1/course-selection/enrollments" \
 - TODO-C-09（`FR-C-16`、`FR-C-18`、`FR-C-22`、`NFR-C-05`）：后续实现需明确 PostgreSQL 行锁或条件更新方案，并补充并发测试。
 - TODO-C-01（`FR-C-04`）：选课确认阻断依赖培养方案确认记录的数据库设计，不得用前端本地状态替代后端持久化事实。
 - TODO-C-10（`FR-C-19`）：先修课校验需与 F 子系统确定“有效成绩/等价课程完成记录”的读取方式。
-- TODO-C-11（`FR-C-35`、`FR-C-36`，对应 v2.0 总报告 `FR-C-15`）：选课提交必须纳入选课准入控制和无操作释放机制；C3 主责，C5 协作配置口径。
+- 选课提交必须存在当前学生、当前学期的有效 Redis 准入租约；缺失或过期时返回 `CS_ADMISSION_LIMITED`。
 
 ### 3.9 退选课程
 
@@ -1649,12 +1700,12 @@ C 模块错误响应的顶层 `code` 使用 HTTP 状态码；业务错误码放�
 | TODO-C-03 | `FR-C-08` 至 `FR-C-12` | 设计课程名称、课程代码、教师姓名检索索引和分页策略。 |
 | TODO-C-04 | `FR-C-12`、`NFR-C-13` | 统一课程搜索、开设列表和可选课程列表筛选字段。 |
 | TODO-C-05 | `FR-C-19` | 与 F 子系统确认先修课程通过情况的数据读取接口；通过状态应来自有效成绩或等价课程完成记录，未通过或缺少可判定数据时阻止选课。 |
-| TODO-C-06 | `FR-C-35`、`FR-C-36` | 对齐 v2.0 总报告 `FR-C-15`：C3 主责为选课核心流程接入 Redis 准入控制、心跳和无操作释放机制，C5 协作阶段和配置口径。 |
+| TODO-C-06 | `FR-C-35`、`FR-C-36` | 已接入 Redis 准入租约、心跳和离开释放；后续仅需按部署环境调整最大活跃人数和空闲超时配置。 |
 | TODO-C-07 | `FR-C-11` | 与 B 子系统确认 `Schedule` 缺失或调整中状态的返回约定。 |
 | TODO-C-08 | `FR-C-29` | 对齐前端选课结果筛选项。 |
 | TODO-C-09 | `FR-C-16`、`FR-C-18`、`FR-C-22`、`NFR-C-05` | 明确并发选课行锁、条件更新或唯一约束策略，并补充并发测试。 |
 | TODO-C-10 | `FR-C-19` | 完成先修课硬性校验实现，依据有效成绩或等价课程完成记录判断通过状态。 |
-| TODO-C-11 | `FR-C-35`、`FR-C-36` | 选课提交接入准入控制和长时间无操作释放机制；该项由 C3 主责，C5 仅协作管理配置和阶段口径。 |
+| TODO-C-11 | `FR-C-35`、`FR-C-36` | 已在选课提交前校验 Redis 准入租约；后续仅需按部署容量调优默认阈值。 |
 | TODO-C-12 | `FR-C-14`、`FR-C-32` | 已改为 `SelectionPeriod.allow_drop` 配置驱动；后续仅需补充不同学院默认模板。 |
 | TODO-C-13 | `FR-C-25` | 前端实现课表打印，后端保持稳定数据结构。 |
 | TODO-C-14 | `FR-C-38` 至 `FR-C-43` | 确认 AI 服务提供方、超时、脱敏、提示词版本和降级策略。 |

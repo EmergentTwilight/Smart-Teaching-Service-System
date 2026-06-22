@@ -91,6 +91,7 @@ interface CourseOfferingTableProps {
   onDrop?: (enrollmentInfo: { offeringId: string; enrollmentId: string }) => void;
   onViewDetail?: (offeringId: string) => void;
   enrollLoading?: string | null;
+  selectionDisabled?: boolean;
   enrollmentStateByOfferingId?: ReadonlyMap<string, OfferingEnrollmentState>;
 }
 
@@ -112,6 +113,7 @@ export const CourseOfferingTable: FC<CourseOfferingTableProps> = ({
   onDrop,
   onViewDetail,
   enrollLoading,
+  selectionDisabled = false,
   enrollmentStateByOfferingId,
 }) => {
   const columns: TableProps<AvailableOfferingItem>['columns'] = [
@@ -289,7 +291,7 @@ export const CourseOfferingTable: FC<CourseOfferingTableProps> = ({
               <Button
                 size="small"
                 type="primary"
-                disabled={!canEnroll}
+                disabled={!canEnroll || selectionDisabled}
                 loading={isBusy}
                 onClick={(e) => {
                   e.stopPropagation();

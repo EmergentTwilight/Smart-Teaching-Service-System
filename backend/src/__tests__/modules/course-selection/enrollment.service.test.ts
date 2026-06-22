@@ -40,8 +40,16 @@ const prismaMock = vi.hoisted(() => ({
   $transaction: vi.fn(),
 }))
 
+const admissionMock = vi.hoisted(() => ({
+  assertActiveLease: vi.fn(),
+}))
+
 vi.mock('../../../shared/prisma/client.js', () => ({
   default: prismaMock,
+}))
+
+vi.mock('../../../modules/course-selection/admission.service.js', () => ({
+  admissionService: admissionMock,
 }))
 
 import { enrollmentService } from '../../../modules/course-selection/enrollment.service.js'
@@ -169,6 +177,7 @@ beforeEach(() => {
   prismaMock.score.findMany.mockResolvedValue([])
   prismaMock.courseOffering.updateMany.mockResolvedValue({ count: 1 })
   prismaMock.enrollment.updateMany.mockResolvedValue({ count: 1 })
+  admissionMock.assertActiveLease.mockResolvedValue(undefined)
 })
 
 afterEach(() => {
@@ -350,6 +359,23 @@ describe('enrollmentService.createEnrollment', () => {
       COURSE_SELECTION_ERROR_CODES.PERIOD_CLOSED,
       422
     )
+    expect(prismaMock.enrollment.create).not.toHaveBeenCalled()
+    expect(prismaMock.courseOffering.updateMany).not.toHaveBeenCalled()
+  })
+
+  it('rejects selection without an active admission lease', async () => {
+    prismaMock.courseOffering.findUnique.mockResolvedValueOnce(buildOffering())
+    admissionMock.assertActiveLease.mockRejectedValueOnce({
+      code: COURSE_SELECTION_ERROR_CODES.ADMISSION_LIMITED,
+      statusCode: 429,
+    })
+
+    await expectCourseSelectionError(
+      enrollmentService.createEnrollment('student-1', { courseOfferingId: 'offering-1' }),
+      COURSE_SELECTION_ERROR_CODES.ADMISSION_LIMITED,
+      429
+    )
+    expect(admissionMock.assertActiveLease).toHaveBeenCalledWith('student-1', 'semester-1')
     expect(prismaMock.enrollment.create).not.toHaveBeenCalled()
     expect(prismaMock.courseOffering.updateMany).not.toHaveBeenCalled()
   })

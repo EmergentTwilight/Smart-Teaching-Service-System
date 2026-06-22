@@ -108,6 +108,31 @@ export interface DropEnrollmentBody {
   clientRequestId?: string
 }
 
+export interface AdmissionEnterBody {
+  semesterId?: string
+}
+
+export interface AdmissionLeaseBody {
+  semesterId: string
+  leaseId: string
+}
+
+export interface AdmissionLeasePayload {
+  admitted: boolean
+  semesterId: string
+  leaseId: string
+  activeSessions: number
+  maxActiveSessions: number
+  idleTimeoutSeconds: number
+  heartbeatIntervalSeconds: number
+  expiresAt: string
+}
+
+export interface AdmissionLeavePayload {
+  released: boolean
+  semesterId: string
+}
+
 export interface SelectionPeriodQuery extends BaseQuery {
   semesterId?: string
   phase?: string

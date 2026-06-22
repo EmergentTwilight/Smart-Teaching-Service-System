@@ -12,6 +12,7 @@ import {
   SUBMITTED_SCORE_STATUSES,
   pickEffectiveScoresByCourse,
 } from '../score-management/score-statistics.js'
+import { admissionService } from './admission.service.js'
 import type {
   CreateEnrollmentBody,
   DropEnrollmentBody,
@@ -573,6 +574,7 @@ export const enrollmentService = {
         assertCourseSelectionExists(offering, 'OFFERING_NOT_FOUND', 404, '课程开设不存在')
 
         const period = await getActiveSelectionPeriod(tx, offering.semesterId, now)
+        await admissionService.assertActiveLease(studentId, offering.semesterId)
         const maxCredits = ensurePeriodHasMaxCredits(period)
 
         if (offering.status !== OfferingStatus.OPEN) {

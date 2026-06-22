@@ -217,7 +217,6 @@ export const selectionPeriodService = {
     return mapSelectionPeriodItem(period)
   },
 
-  // TODO(C5, FR-C-35, FR-C-36, NFR-C-01~NFR-C-03): 接入 Redis 连接数控制、心跳与无操作强制退出
   async manualEnroll(
     operatorUserId: string,
     body: ManualEnrollmentBody

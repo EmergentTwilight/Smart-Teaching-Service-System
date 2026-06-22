@@ -10,6 +10,7 @@ const prismaMock = vi.hoisted(() => ({
     findFirst: vi.fn(),
   },
   selectionPeriod: {
+    findFirst: vi.fn(),
     findMany: vi.fn(),
   },
   curriculum: {
@@ -117,6 +118,7 @@ const resetBaseMocks = () => {
     }
     return { id: 'semester-1', name: '2025-2026 春季' }
   })
+  prismaMock.selectionPeriod.findFirst.mockResolvedValue(null)
   prismaMock.selectionPeriod.findMany.mockResolvedValue([
     {
       id: 'period-1',

@@ -18,19 +18,17 @@ import {
 import {
   CURRICULUM_CONFIRMATION_REQUIRED_MESSAGE,
   isCurriculumConfirmationCurrent,
+  resolveSemesterId,
 } from './course-selection.support.js'
 
-import { 
-  PrismaClient,
+import {
   CourseType,
   CourseStatus,
   OfferingStatus,
   EnrollmentStatus,
-  SemesterStatus
 } from '@prisma/client'
 import type { Prisma, Semester } from '@prisma/client'
-
-const prisma = new PrismaClient()
+import prisma from '../../shared/prisma/client.js'
 
 const getOfferingStatusUnavailableReason = (status: OfferingStatus) => {
   if (status === OfferingStatus.OPEN) {
@@ -384,7 +382,7 @@ export const courseSearchService = {
       curriculum
     )
 
-    let semesterId = query.semester_id ?? query.semesterId ?? undefined;
+    const requestedSemesterId = query.semester_id ?? query.semesterId ?? undefined
     const courseType = query.course_type ?? query.courseType ?? undefined;
     const offeringStatus = query.offering_status ?? query.offeringStatus ?? undefined
     const keyword = query.keyword ?? undefined;
@@ -396,18 +394,8 @@ export const courseSearchService = {
 
     const where: Prisma.CourseOfferingWhereInput = {}
     const courseWhere: Prisma.CourseWhereInput = {}
-    if(!semesterId) {
-      const currentSemester = await prisma.semester.findFirst({
-        where: { status: SemesterStatus.CURRENT },
-        orderBy: { startDate: 'desc' },
-        select: { id: true }
-      })
-      if(!currentSemester) {
-        return '无法找到当前学期'
-      }
-      semesterId = currentSemester.id
-    }
-    where.semesterId = semesterId
+    const semester = await resolveSemesterId(requestedSemesterId)
+    where.semesterId = semester.id
     if(keyword) {
       courseWhere.OR = [
         { code: { contains: keyword, mode: 'insensitive' } },

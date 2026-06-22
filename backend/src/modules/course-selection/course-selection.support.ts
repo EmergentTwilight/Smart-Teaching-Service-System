@@ -219,7 +219,7 @@ export async function writeCourseSelectionSystemLog(params: {
   })
 }
 
-/** 未传 semesterId 时优先 CURRENT 学期，否则取最近学期。 */
+/** 未传 semesterId 时优先当前开放选课阶段对应学期，否则取 CURRENT / 最近学期。 */
 export async function resolveSemesterId(semesterId?: string): Promise<{ id: string; name: string }> {
   if (semesterId) {
     const semester = await prisma.semester.findUnique({
@@ -230,6 +230,27 @@ export async function resolveSemesterId(semesterId?: string): Promise<{ id: stri
       throw new NotFoundError('学期', semesterId)
     }
     return semester
+  }
+
+  const now = new Date()
+  const openSelectionPeriod = await prisma.selectionPeriod.findFirst({
+    where: {
+      isActive: true,
+      startTime: { lte: now },
+      endTime: { gte: now },
+    },
+    orderBy: [
+      { endTime: 'asc' },
+      { startTime: 'desc' },
+    ],
+    select: {
+      semester: {
+        select: { id: true, name: true },
+      },
+    },
+  })
+  if (openSelectionPeriod) {
+    return openSelectionPeriod.semester
   }
 
   const current = await prisma.semester.findFirst({

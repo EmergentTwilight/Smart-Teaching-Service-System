@@ -13,7 +13,11 @@ const prismaMock = vi.hoisted(() => ({
   studentCurriculumConfirmation: {
     findUnique: vi.fn(),
   },
+  selectionPeriod: {
+    findFirst: vi.fn(),
+  },
   semester: {
+    findUnique: vi.fn(),
     findFirst: vi.fn(),
   },
   courseOffering: {
@@ -28,6 +32,9 @@ const prismaMock = vi.hoisted(() => ({
 
 vi.mock('@prisma/client', () => ({
   PrismaClient: vi.fn(() => prismaMock),
+  AdminType: {
+    ACADEMIC: 'ACADEMIC',
+  },
   CourseType: {
     REQUIRED: 'REQUIRED',
     ELECTIVE: 'ELECTIVE',
@@ -52,6 +59,15 @@ vi.mock('@prisma/client', () => ({
     CURRENT: 'CURRENT',
     ARCHIVED: 'ARCHIVED',
   },
+  SelectionPhase: {
+    FIRST_ROUND: 'FIRST_ROUND',
+    SECOND_ROUND: 'SECOND_ROUND',
+    ADJUSTMENT: 'ADJUSTMENT',
+  },
+}))
+
+vi.mock('../../../shared/prisma/client.js', () => ({
+  default: prismaMock,
 }))
 
 import { courseSearchService } from '../../../modules/course-selection/course-search.service.js'
@@ -143,10 +159,53 @@ beforeEach(() => {
   prismaMock.studentCurriculumConfirmation.findUnique.mockResolvedValue({
     confirmedAt: new Date('2026-02-01T00:00:00.000Z'),
   })
-  prismaMock.semester.findFirst.mockResolvedValue({ id: 'semester-1' })
+  prismaMock.selectionPeriod.findFirst.mockResolvedValue(null)
+  prismaMock.semester.findUnique.mockResolvedValue({
+    id: 'semester-1',
+    name: '2025-2026 春季',
+  })
+  prismaMock.semester.findFirst.mockResolvedValue({
+    id: 'semester-1',
+    name: '2025-2026 春季',
+  })
 })
 
 describe('courseSearchService eligibility', () => {
+  it('uses the currently open selection period semester when no semester filter is provided', async () => {
+    prismaMock.selectionPeriod.findFirst.mockResolvedValueOnce({
+      semester: {
+        id: 'active-period-semester',
+        name: '当前开放选课阶段学期',
+      },
+    })
+    prismaMock.courseOffering.findMany.mockResolvedValue([
+      buildOffering({
+        id: 'active-period-offering',
+        semesterId: 'active-period-semester',
+      }),
+    ])
+
+    const result = await courseSearchService.listAvailableOfferings('student-user-1', {
+      includeUnavailable: true,
+      page: 1,
+      pageSize: 20,
+    })
+
+    expect(result).not.toBeTypeOf('string')
+    if (typeof result === 'string') {
+      throw new Error(result)
+    }
+
+    expect(prismaMock.courseOffering.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          semesterId: 'active-period-semester',
+        }),
+      })
+    )
+    expect(prismaMock.semester.findFirst).not.toHaveBeenCalled()
+  })
+
   it('marks only the exact selected course offering as enrolled', async () => {
     prismaMock.courseOffering.findMany.mockResolvedValue([
       buildOffering({ id: 'selected-offering' }),

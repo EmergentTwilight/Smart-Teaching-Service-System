@@ -7,6 +7,11 @@ import {
 } from '@prisma/client'
 import { AppError } from '@stss/shared'
 import prisma from '../../shared/prisma/client.js'
+import {
+  PASS_LINE,
+  SUBMITTED_SCORE_STATUSES,
+  pickEffectiveScoresByCourse,
+} from '../score-management/score-statistics.js'
 import type {
   CreateEnrollmentBody,
   DropEnrollmentBody,
@@ -194,6 +199,7 @@ const ensureWithinCurriculum = async (
 
 const ensurePrerequisitesMet = async (
   tx: CourseSelectionTx,
+  studentId: string,
   courseId: string
 ) => {
   const prerequisites = await tx.coursePrerequisite.findMany({
@@ -211,15 +217,53 @@ const ensurePrerequisitesMet = async (
 
   if (prerequisites.length === 0) return
 
-  // TODO-C-10: 先修课程通过情况的数据源需由负责人和 F 子系统确认。
-  // 在通过情况不可验证前，写事务选择阻止选课，避免绕过 FR-C-19。
-  throwCourseSelectionError(
-    'PREREQUISITE_NOT_MET',
-    422,
-    `目标课程存在先修要求，当前无法验证通过情况：${prerequisites
-      .map((item) => `${item.prerequisite.code} ${item.prerequisite.name}`)
-      .join('、')}`
+  const prerequisiteCourseIds = prerequisites.map((item) => item.prerequisiteId)
+  const scores = await tx.score.findMany({
+    where: {
+      studentId,
+      status: {
+        in: [...SUBMITTED_SCORE_STATUSES],
+      },
+      courseOffering: {
+        courseId: {
+          in: prerequisiteCourseIds,
+        },
+      },
+    },
+    include: {
+      courseOffering: {
+        select: {
+          courseId: true,
+          course: {
+            select: {
+              id: true,
+            },
+          },
+        },
+      },
+    },
+  })
+
+  // TODO(C3, FR-C-19): 等价课程通过规则需等数据库设计补充等价课程模型后接入。
+  const passedCourseIds = new Set(
+    pickEffectiveScoresByCourse(scores)
+      .filter((score) => toRequiredNumber(score.totalScore) >= PASS_LINE)
+      .map((score) => score.courseOffering.courseId ?? score.courseOffering.course.id)
   )
+
+  const unmetPrerequisites = prerequisites.filter(
+    (item) => !passedCourseIds.has(item.prerequisiteId)
+  )
+
+  if (unmetPrerequisites.length > 0) {
+    throwCourseSelectionError(
+      'PREREQUISITE_NOT_MET',
+      422,
+      `未满足先修课程：${unmetPrerequisites
+        .map((item) => `${item.prerequisite.code} ${item.prerequisite.name}`)
+        .join('、')}`
+    )
+  }
 }
 
 const getCurrentEnrollments = async (
@@ -588,7 +632,7 @@ export const enrollmentService = {
         )
         ensureMaxCreditsNotExceeded(currentSelectedCredits, targetCredits, maxCredits)
         await ensureWithinCurriculum(tx, student, offering.courseId)
-        await ensurePrerequisitesMet(tx, offering.courseId)
+        await ensurePrerequisitesMet(tx, studentId, offering.courseId)
 
         let enrollment: EnrollmentRecord | null
 

@@ -34,6 +34,9 @@ const prismaMock = vi.hoisted(() => ({
   coursePrerequisite: {
     findMany: vi.fn(),
   },
+  score: {
+    findMany: vi.fn(),
+  },
   $transaction: vi.fn(),
 }))
 
@@ -121,6 +124,20 @@ const buildCurrentEnrollment = (overrides: Record<string, unknown> = {}) => ({
   ...overrides,
 })
 
+const buildScore = (overrides: Record<string, unknown> = {}) => ({
+  id: 'score-1',
+  totalScore: 85,
+  enteredAt: new Date('2026-01-01T00:00:00.000Z'),
+  modifiedAt: null,
+  courseOffering: {
+    courseId: 'pre-course-1',
+    course: {
+      id: 'pre-course-1',
+    },
+  },
+  ...overrides,
+})
+
 const expectCourseSelectionError = async (
   promise: Promise<unknown>,
   code: string,
@@ -148,6 +165,7 @@ beforeEach(() => {
   prismaMock.curriculum.findFirst.mockResolvedValue({ id: 'curriculum-1' })
   prismaMock.curriculumCourse.findUnique.mockResolvedValue({ courseId: 'course-1' })
   prismaMock.coursePrerequisite.findMany.mockResolvedValue([])
+  prismaMock.score.findMany.mockResolvedValue([])
   prismaMock.courseOffering.updateMany.mockResolvedValue({ count: 1 })
   prismaMock.enrollment.updateMany.mockResolvedValue({ count: 1 })
 })
@@ -592,6 +610,80 @@ describe('enrollmentService.createEnrollment', () => {
     )
   })
 
+  it('allows enrollment when prerequisite has a passing submitted score', async () => {
+    prismaMock.courseOffering.findUnique.mockResolvedValueOnce(buildOffering({ schedules: [] }))
+    prismaMock.coursePrerequisite.findMany.mockResolvedValueOnce([
+      {
+        courseId: 'course-1',
+        prerequisiteId: 'pre-course-1',
+        prerequisite: {
+          id: 'pre-course-1',
+          code: 'CS100',
+          name: '计算机导论',
+        },
+      },
+    ])
+    prismaMock.score.findMany.mockResolvedValueOnce([buildScore()])
+    prismaMock.courseOffering.findUnique.mockResolvedValueOnce(
+      buildOffering({ enrolledCount: 11, schedules: undefined })
+    )
+    prismaMock.enrollment.create.mockResolvedValue(buildEnrollment())
+
+    const result = await enrollmentService.createEnrollment('student-1', {
+      courseOfferingId: 'offering-1',
+    })
+
+    expect(prismaMock.score.findMany).toHaveBeenCalledWith({
+      where: {
+        studentId: 'student-1',
+        status: {
+          in: ['SUBMITTED', 'CONFIRMED'],
+        },
+        courseOffering: {
+          courseId: {
+            in: ['pre-course-1'],
+          },
+        },
+      },
+      include: {
+        courseOffering: {
+          select: {
+            courseId: true,
+            course: {
+              select: {
+                id: true,
+              },
+            },
+          },
+        },
+      },
+    })
+    expect(result.enrollment.status).toBe('enrolled')
+  })
+
+  it('rejects prerequisites without a passing effective score', async () => {
+    prismaMock.courseOffering.findUnique.mockResolvedValueOnce(buildOffering({ schedules: [] }))
+    prismaMock.coursePrerequisite.findMany.mockResolvedValueOnce([
+      {
+        courseId: 'course-1',
+        prerequisiteId: 'pre-course-1',
+        prerequisite: {
+          id: 'pre-course-1',
+          code: 'CS100',
+          name: '计算机导论',
+        },
+      },
+    ])
+    prismaMock.score.findMany.mockResolvedValueOnce([buildScore({ totalScore: 59 })])
+
+    await expectCourseSelectionError(
+      enrollmentService.createEnrollment('student-1', { courseOfferingId: 'offering-1' }),
+      COURSE_SELECTION_ERROR_CODES.PREREQUISITE_NOT_MET,
+      422
+    )
+    expect(prismaMock.enrollment.create).not.toHaveBeenCalled()
+  })
+
   it('rejects missing prerequisites', async () => {
     prismaMock.courseOffering.findUnique.mockResolvedValueOnce(buildOffering({ schedules: [] }))
     prismaMock.coursePrerequisite.findMany.mockResolvedValueOnce([
@@ -611,6 +703,7 @@ describe('enrollmentService.createEnrollment', () => {
       COURSE_SELECTION_ERROR_CODES.PREREQUISITE_NOT_MET,
       422
     )
+    expect(prismaMock.enrollment.create).not.toHaveBeenCalled()
   })
 })
 

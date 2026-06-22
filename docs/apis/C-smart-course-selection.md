@@ -28,7 +28,7 @@ link: https://tcncx9czflpz.feishu.cn/wiki/BgpmwKkYqifNkjk1Psdc0gitn2b
 | 认证方式 | JWT Bearer Token |
 | 字段命名 | 请求与响应统一使用 `snake_case` |
 | 时间格式 | ISO 8601（带时区），选课阶段判断以服务端时间为准 |
-| UUID | string |
+| ID | string；按不透明数据库标识处理，入口层不强制 UUID 格式，生产默认 UUID 与手测 seed 前缀 ID 均可透传，存在性由服务层查询校验 |
 | 分页参数 | `page` 从 1 开始，`page_size` 默认 20，最大 100 |
 | 数据来源 | 仅引用现有 `Student`、`Course`、`CourseOffering`、`Schedule`、`Curriculum`、`CurriculumCourse`、`CoursePrerequisite`、`Enrollment`、`SelectionPeriod`、`Semester`、`Teacher`、`SystemLog` 等表，不新增数据库业务表 |
 

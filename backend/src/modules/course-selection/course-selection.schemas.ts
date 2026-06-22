@@ -9,6 +9,11 @@ const booleanSchema = z.preprocess((v) => {
   if (v === 'false' || v === '0') return false
   return v
 }, z.boolean().optional())
+const databaseIdSchema = z
+  .string()
+  .trim()
+  .min(1, 'ID 不能为空')
+  .max(128, 'ID 长度不能超过 128 个字符')
 
 type PaginationInput = {
   page?: number
@@ -36,7 +41,7 @@ const normalizePaginationFields = <T extends PaginationInput>(
 }
 
 const idSchema = z.object({
-  id: z.string().uuid('参数应为 UUID'),
+  id: databaseIdSchema,
 })
 
 const paginationSchema = z.object({
@@ -64,8 +69,8 @@ export type CurriculumQuery = z.infer<typeof curriculumQuerySchema>
 // TODO(C1, FR-C-05, NFR-C-13): 统一培养方案进度查询参数并支持按学期过滤
 export const curriculumProgressQuerySchema = z
   .object({
-    semesterId: z.string().uuid().optional(),
-    semester_id: z.string().uuid().optional(),
+    semesterId: databaseIdSchema.optional(),
+    semester_id: databaseIdSchema.optional(),
     includeDropped: booleanSchema,
     include_dropped: booleanSchema,
   })
@@ -80,7 +85,7 @@ export type CurriculumProgressQuery = z.infer<typeof curriculumProgressQuerySche
 
 export const curriculumConfirmationBodySchema = z
   .object({
-    curriculum_id: z.string().uuid('培养方案ID应为 UUID'),
+    curriculum_id: databaseIdSchema,
   })
   .strict()
   .transform((value) => ({
@@ -95,8 +100,8 @@ export const courseSearchQuerySchema = z
     keyword: z.string().optional(),
     teacher: z.string().optional(),
     teacher_id: z.string().optional(),
-    semesterId: z.string().optional(),
-    semester_id: z.string().optional(),
+    semesterId: databaseIdSchema.optional(),
+    semester_id: databaseIdSchema.optional(),
     courseType: z.string().optional(),
     course_type: z.string().optional(),
     status: z.string().optional(),
@@ -139,8 +144,8 @@ export const availableOfferingsQuerySchema = z
     keyword: z.string().optional(),
     teacher: z.string().optional(),
     teacher_id: z.string().optional(),
-    semesterId: z.string().optional(),
-    semester_id: z.string().optional(),
+    semesterId: databaseIdSchema.optional(),
+    semester_id: databaseIdSchema.optional(),
     courseType: z.string().optional(),
     course_type: z.string().optional(),
     offeringStatus: z.string().optional(),
@@ -188,8 +193,8 @@ export type CourseOfferingDetailQuery = z.infer<typeof courseOfferingDetailQuery
 // C4 本人选课记录查询参数；C3 写事务不从查询参数读取学生身份。
 export const enrollmentQuerySchema = paginationSchema
   .extend({
-    semesterId: z.string().uuid('semester_id 格式不正确').optional(),
-    semester_id: z.string().uuid('semester_id 格式不正确').optional(),
+    semesterId: databaseIdSchema.optional(),
+    semester_id: databaseIdSchema.optional(),
     status: z.string().optional(),
     keyword: z.string().max(128).trim().optional(),
   })
@@ -203,7 +208,7 @@ export type EnrollmentQuery = z.infer<typeof enrollmentQuerySchema>
 // C3 选课请求体：外部字段保持 snake_case，服务层使用 camelCase 与幂等键。
 const createEnrollmentBodyInputSchema = z
   .object({
-    course_offering_id: z.string().uuid('课程开设ID应为 UUID'),
+    course_offering_id: databaseIdSchema,
     client_request_id: z.string().min(1).max(128).optional(),
   })
   .strict()
@@ -214,7 +219,7 @@ export const createEnrollmentBodySchema = createEnrollmentBodyInputSchema
     clientRequestId: value.client_request_id,
   }))
   .pipe(z.object({
-    courseOfferingId: z.string().uuid('课程开设ID应为 UUID'),
+    courseOfferingId: databaseIdSchema,
     clientRequestId: z.string().min(1).max(128).optional(),
   }))
 
@@ -237,8 +242,8 @@ export type DropEnrollmentBody = z.infer<typeof dropEnrollmentBodySchema>
 
 export const admissionEnterBodySchema = z
   .object({
-    semesterId: z.string().uuid().optional(),
-    semester_id: z.string().uuid().optional(),
+    semesterId: databaseIdSchema.optional(),
+    semester_id: databaseIdSchema.optional(),
   })
   .strict()
   .transform(({ semesterId, semester_id }) => ({
@@ -247,8 +252,8 @@ export const admissionEnterBodySchema = z
 
 export const admissionLeaseBodySchema = z
   .object({
-    semesterId: z.string().uuid().optional(),
-    semester_id: z.string().uuid().optional(),
+    semesterId: databaseIdSchema.optional(),
+    semester_id: databaseIdSchema.optional(),
     leaseId: z.string().uuid().optional(),
     lease_id: z.string().uuid().optional(),
   })
@@ -274,7 +279,7 @@ export const admissionLeaseBodySchema = z
     leaseId: value.leaseId ?? value.lease_id ?? '',
   }))
   .pipe(z.object({
-    semesterId: z.string().uuid(),
+    semesterId: databaseIdSchema,
     leaseId: z.string().uuid(),
   }))
 
@@ -285,8 +290,8 @@ export type AdmissionLeaseBody = z.infer<typeof admissionLeaseBodySchema>
 // TODO(C5, FR-C-30, FR-C-31, FR-C-32, NFR-C-14): 列表查询支持按学期/阶段/状态过滤
 export const selectionPeriodQuerySchema = paginationSchema
   .extend({
-    semesterId: z.string().uuid().optional(),
-    semester_id: z.string().uuid().optional(),
+    semesterId: databaseIdSchema.optional(),
+    semester_id: databaseIdSchema.optional(),
     phase: z.string().optional(),
     isActive: booleanSchema,
     is_active: booleanSchema,
@@ -298,8 +303,8 @@ export const selectionPeriodQuerySchema = paginationSchema
   }))
 
 const selectionPeriodBodyInputSchema = z.object({
-  semesterId: z.string().uuid().optional(),
-  semester_id: z.string().uuid().optional(),
+  semesterId: databaseIdSchema.optional(),
+  semester_id: databaseIdSchema.optional(),
   phase: z.string().optional(),
   startTime: z.string().datetime({ offset: true }).optional(),
   start_time: z.string().datetime({ offset: true }).optional(),
@@ -372,7 +377,7 @@ export const createSelectionPeriodBodySchema = selectionPeriodBodyInputSchema
     isActive: value.isActive ?? value.is_active,
   }))
   .pipe(z.object({
-    semesterId: z.string().uuid(),
+    semesterId: databaseIdSchema,
     phase: z.string(),
     startTime: z.string().datetime({ offset: true }),
     endTime: z.string().datetime({ offset: true }),
@@ -393,7 +398,7 @@ export const updateSelectionPeriodBodySchema = selectionPeriodBodyInputSchema
     isActive: value.isActive ?? value.is_active,
   }))
   .pipe(z.object({
-    semesterId: z.string().uuid().optional(),
+    semesterId: databaseIdSchema.optional(),
     phase: z.enum(['first_round', 'second_round', 'adjustment']).optional(),
     startTime: z.string().datetime({ offset: true }).optional(),
     endTime: z.string().datetime({ offset: true }).optional(),
@@ -410,10 +415,10 @@ export type SelectionPeriodParams = z.infer<typeof selectionPeriodParamsSchema>
 
 // TODO(C5, FR-C-33, FR-C-34, NFR-C-04): 手动加课输入需包括理由并默认执行完整校验
 const manualEnrollmentBodyInputSchema = z.object({
-  studentId: z.string().uuid('学生ID应为 UUID').optional(),
-  student_id: z.string().uuid('学生ID应为 UUID').optional(),
-  courseOfferingId: z.string().uuid('课程开设ID应为 UUID').optional(),
-  course_offering_id: z.string().uuid('课程开设ID应为 UUID').optional(),
+  studentId: databaseIdSchema.optional(),
+  student_id: databaseIdSchema.optional(),
+  courseOfferingId: databaseIdSchema.optional(),
+  course_offering_id: databaseIdSchema.optional(),
   reason: z.string().trim().min(1, '必须填写操作原因').max(500),
   notifyStudent: booleanSchema,
   notify_student: booleanSchema,
@@ -468,8 +473,8 @@ export const manualEnrollmentBodySchema = manualEnrollmentBodyInputSchema
     notifyStudent: value.notifyStudent ?? value.notify_student ?? false,
   }))
   .pipe(z.object({
-    studentId: z.string().uuid('学生ID应为 UUID'),
-    courseOfferingId: z.string().uuid('课程开设ID应为 UUID'),
+    studentId: databaseIdSchema,
+    courseOfferingId: databaseIdSchema,
     reason: z.string().trim().min(1, '必须填写操作原因').max(500),
     notifyStudent: z.boolean(),
   }))
@@ -482,9 +487,9 @@ export const rosterQuerySchema = z.object({
   page_size: rosterPageSizeSchema.optional(),
 })
   .extend({
-    offeringId: z.string().uuid().optional(),
-    semesterId: z.string().uuid().optional(),
-    semester_id: z.string().uuid().optional(),
+    offeringId: databaseIdSchema.optional(),
+    semesterId: databaseIdSchema.optional(),
+    semester_id: databaseIdSchema.optional(),
     status: z.string().optional(),
     keyword: z.string().max(128).trim().optional(),
   })
@@ -510,8 +515,8 @@ export type RosterOfferingParams = z.infer<typeof rosterOfferingParamsSchema>
 // TODO(C4, FR-C-25, FR-C-26, NFR-C-08): 课表查询支持学期与输出格式开关
 export const timetableQuerySchema = z
   .object({
-    semesterId: z.string().uuid().optional(),
-    semester_id: z.string().uuid().optional(),
+    semesterId: databaseIdSchema.optional(),
+    semester_id: databaseIdSchema.optional(),
     format: z.enum(['grid', 'list']).optional(),
   })
   .transform(({ semesterId, semester_id, format }) => ({
@@ -523,8 +528,8 @@ export type TimetableQuery = z.infer<typeof timetableQuerySchema>
 
 // TODO(C6, FR-C-38, FR-C-42, NFR-C-09): AI 输入需支持课程/课表上下文，支持降级返回
 const aiRecommendBodyInputSchema = z.object({
-  semesterId: z.string().uuid().optional(),
-  semester_id: z.string().uuid().optional(),
+  semesterId: databaseIdSchema.optional(),
+  semester_id: databaseIdSchema.optional(),
   studentId: z.unknown().optional(),
   student_id: z.unknown().optional(),
   user_id: z.unknown().optional(),
@@ -550,14 +555,14 @@ export const aiRecommendBodySchema = aiRecommendBodyInputSchema
     maxRecommendations: value.maxRecommendations ?? value.max_recommendations ?? 5,
   }))
   .pipe(z.object({
-    semesterId: z.string().uuid().optional(),
+    semesterId: databaseIdSchema.optional(),
     preferences: z.record(z.unknown()).optional(),
     maxRecommendations: z.number().int().min(1).max(10),
   }))
 
 const aiExplainBodyInputSchema = z.object({
-  offeringId: z.string().uuid('课程开设ID应为 UUID').optional(),
-  course_offering_id: z.string().uuid('课程开设ID应为 UUID').optional(),
+  offeringId: databaseIdSchema.optional(),
+  course_offering_id: databaseIdSchema.optional(),
   question: z.string().max(500).optional(),
   studentId: z.unknown().optional(),
   user_id: z.unknown().optional(),
@@ -600,7 +605,7 @@ export const aiExplainBodySchema = aiExplainBodyInputSchema
     question: value.question,
   }))
   .pipe(z.object({
-    offeringId: z.string().uuid('课程开设ID应为 UUID'),
+    offeringId: databaseIdSchema,
     question: z.string().max(500).optional(),
   }))
 

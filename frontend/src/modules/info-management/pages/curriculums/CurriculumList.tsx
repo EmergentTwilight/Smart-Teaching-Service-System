@@ -91,10 +91,7 @@ const CurriculumList: React.FC = () => {
   });
 
   const loadDetail = useCallback(async (id: string) => {
-    console.log('[CurriculumList] load curriculum detail', id);
     const detail = await curriculumsApi.getById(id);
-    console.log('[CurriculumList] loaded curriculum detail', detail);
-    console.log('[CurriculumList] loaded curriculum courses', detail.courses);
     setDetailData(detail);
     return detail;
   }, []);
@@ -126,21 +123,8 @@ const CurriculumList: React.FC = () => {
 
   const handleCourseSubmit = async (values: AddCurriculumCourseDTO) => {
     if (!detailData) return;
-    console.log('[CurriculumList] handleCourseSubmit', {
-      curriculumId: detailData.id,
-      currentCourse,
-      values,
-    });
     try {
       if (currentCourse) {
-        console.log('[CurriculumList] updating curriculum course', {
-          curriculumId: detailData.id,
-          courseId: currentCourse.courseId,
-          payload: {
-            courseType: values.courseType,
-            semesterSuggestion: values.semesterSuggestion,
-          },
-        });
         await curriculumsApi.updateCourse(detailData.id, currentCourse.courseId, {
           courseType: values.courseType,
           semesterSuggestion: values.semesterSuggestion,
@@ -154,7 +138,6 @@ const CurriculumList: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ['curriculums'] });
       setCurrentCourse(undefined);
     } catch (error) {
-      console.log('[CurriculumList] handleCourseSubmit failed', error);
       throw new Error(error instanceof Error ? error.message : '培养方案课程信息保存失败');
     }
   };
@@ -254,7 +237,6 @@ const CurriculumList: React.FC = () => {
         onAddCourse={() => { setCurrentCourse(undefined); setCourseModalOpen(true); }}
         onBatchAddCourse={() => setBatchCourseModalOpen(true)}
         onEditCourse={(course) => {
-          console.log('[CurriculumList] onEditCourse', course);
           setCurrentCourse(course);
           setCourseModalOpen(true);
         }}

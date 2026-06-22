@@ -21,7 +21,6 @@ const CurriculumCourseModal: React.FC<CurriculumCourseModalProps> = ({ visible, 
 
   useEffect(() => {
     if (visible && initialData) {
-      console.log('[CurriculumCourseModal] open edit modal', initialData);
       form.setFieldsValue({
         courseId: initialData.courseId,
         courseType: initialData.courseType,
@@ -30,7 +29,6 @@ const CurriculumCourseModal: React.FC<CurriculumCourseModalProps> = ({ visible, 
       return;
     }
     if (visible) {
-      console.log('[CurriculumCourseModal] open add modal');
       form.resetFields();
       form.setFieldsValue({ courseType: 'REQUIRED' });
     }
@@ -39,7 +37,6 @@ const CurriculumCourseModal: React.FC<CurriculumCourseModalProps> = ({ visible, 
   const handleSubmit = async () => {
     try {
       const values = await form.validateFields();
-      console.log('[CurriculumCourseModal] submit values', values, 'initialData', initialData);
       await onSubmit(values);
       form.resetFields();
       onClose();

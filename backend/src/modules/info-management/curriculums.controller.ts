@@ -70,9 +70,7 @@ export const curriculumController = {
 
   async updateCourse(req: Request, res: Response) {
     const { id: curriculumId, course_id: courseId } = curriculumCourseParamsSchema.parse(req.params)
-    console.log('[curriculumController.updateCourse] raw body', req.body)
     const data = updateCurriculumCourseSchema.parse(req.body)
-    console.log('[curriculumController.updateCourse] parsed data', { curriculumId, courseId, data })
     await curriculumService.updateCurriculumCourse(curriculumId, courseId, data, req)
     success(res, null, '课程信息已更新')
   },

@@ -161,9 +161,9 @@
 - [√] 添加单门课程到培养方案：`POST /api/v1/curriculums/:id/courses`。
 - [√] 批量添加课程到培养方案：`POST /api/v1/curriculums/:id/courses/batch`。
 - [√] 从培养方案移除课程：`DELETE /api/v1/curriculums/:id/courses/:course_id`。
-- [ ] 更新培养方案内课程类型、建议学期：`PUT /api/v1/curriculums/:id/courses/:course_id`。
+- [√] 更新培养方案内课程类型、建议学期：`PUT /api/v1/curriculums/:id/courses/:course_id`。
 - [ ] 总学分、必修学分、选修学分输入非法时前后端都能拦截。(前端应该是可以拦截的,因为只接受数值输入)
-- [ ] 同一课程重复加入培养方案时显示冲突提示。
+- [√] 同一课程重复加入培养方案时显示冲突提示。
 - [ ] 删除或更新课程后，详情课程表同步刷新。(联调)
 - [ ] C 组智能选课中学生培养方案、学分进度能读取到 A 组最新培养方案数据。(联调)
 

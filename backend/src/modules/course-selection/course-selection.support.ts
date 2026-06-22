@@ -123,6 +123,7 @@ export const mapSelectionPeriodItem = (period: {
   startTime: Date
   endTime: Date
   maxCredits: Prisma.Decimal | null
+  allowDrop: boolean
   isActive: boolean
   semester: { id: string; name: string }
 }): SelectionPeriodItem => ({
@@ -132,6 +133,7 @@ export const mapSelectionPeriodItem = (period: {
   startTime: period.startTime.toISOString(),
   endTime: period.endTime.toISOString(),
   maxCredits: period.maxCredits === null ? undefined : decimalToNumber(period.maxCredits),
+  allowDrop: period.allowDrop,
   isActive: period.isActive,
   serverStatus: computeSelectionPeriodServerStatus(period.startTime, period.endTime),
 })

@@ -19,6 +19,7 @@ interface PeriodFormValues {
   startTime: Dayjs;
   endTime: Dayjs;
   maxCredits?: number;
+  allowDrop?: boolean;
   isActive?: boolean;
 }
 
@@ -68,6 +69,12 @@ const AdminSelectionPeriodPage: React.FC = () => {
     { title: '开始', dataIndex: 'startTime', key: 'startTime' },
     { title: '结束', dataIndex: 'endTime', key: 'endTime' },
     {
+      title: '允许退课',
+      dataIndex: 'allowDrop',
+      key: 'allowDrop',
+      render: (allowDrop: boolean) => <Text>{allowDrop ? '允许' : '不允许'}</Text>,
+    },
+    {
       title: '状态',
       dataIndex: 'isActive',
       key: 'isActive',
@@ -99,6 +106,7 @@ const AdminSelectionPeriodPage: React.FC = () => {
       startTime: dayjs(record.startTime),
       endTime: dayjs(record.endTime),
       maxCredits: record.maxCredits,
+      allowDrop: record.allowDrop,
       isActive: record.isActive,
     });
   };
@@ -124,6 +132,7 @@ const AdminSelectionPeriodPage: React.FC = () => {
       startTime: values.startTime.toISOString(),
       endTime: values.endTime.toISOString(),
       maxCredits: values.maxCredits,
+      allowDrop: Boolean(values.allowDrop),
       isActive: Boolean(values.isActive),
     };
 
@@ -171,7 +180,12 @@ const AdminSelectionPeriodPage: React.FC = () => {
             style={{ marginBottom: 16 }}
           />
         ) : null}
-        <Form form={form} layout="vertical" initialValues={{ isActive: true }} onFinish={handleSubmit}>
+        <Form
+          form={form}
+          layout="vertical"
+          initialValues={{ allowDrop: false, isActive: true }}
+          onFinish={handleSubmit}
+        >
           <Form.Item
             name="semesterId"
             label="学期ID"
@@ -202,6 +216,18 @@ const AdminSelectionPeriodPage: React.FC = () => {
           </Form.Item>
           <Form.Item name="maxCredits" label="该阶段最大学分">
             <InputNumber min={0} precision={1} style={{ width: '100%' }} />
+          </Form.Item>
+          <Form.Item
+            name="allowDrop"
+            label="是否允许退课"
+            rules={[{ required: true, message: '请选择是否允许退课' }]}
+          >
+            <Select
+              options={[
+                { value: true, label: '允许' },
+                { value: false, label: '不允许' },
+              ]}
+            />
           </Form.Item>
           <Form.Item
             name="isActive"

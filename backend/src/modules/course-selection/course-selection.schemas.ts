@@ -250,6 +250,8 @@ const selectionPeriodBodyInputSchema = z.object({
   end_time: z.string().datetime({ offset: true }).optional(),
   maxCredits: z.coerce.number().min(0).optional(),
   max_credits: z.coerce.number().min(0).optional(),
+  allowDrop: booleanSchema,
+  allow_drop: booleanSchema,
   isActive: booleanSchema,
   is_active: booleanSchema,
 })
@@ -309,6 +311,7 @@ export const createSelectionPeriodBodySchema = selectionPeriodBodyInputSchema
     startTime: value.startTime ?? value.start_time ?? '',
     endTime: value.endTime ?? value.end_time ?? '',
     maxCredits: value.maxCredits ?? value.max_credits,
+    allowDrop: value.allowDrop ?? value.allow_drop ?? false,
     isActive: value.isActive ?? value.is_active,
   }))
   .pipe(z.object({
@@ -317,6 +320,7 @@ export const createSelectionPeriodBodySchema = selectionPeriodBodyInputSchema
     startTime: z.string().datetime({ offset: true }),
     endTime: z.string().datetime({ offset: true }),
     maxCredits: z.number().min(0).optional(),
+    allowDrop: z.boolean(),
     isActive: z.boolean(),
   }))
 
@@ -328,6 +332,7 @@ export const updateSelectionPeriodBodySchema = selectionPeriodBodyInputSchema
     startTime: value.startTime ?? value.start_time,
     endTime: value.endTime ?? value.end_time,
     maxCredits: value.maxCredits ?? value.max_credits,
+    allowDrop: value.allowDrop ?? value.allow_drop,
     isActive: value.isActive ?? value.is_active,
   }))
   .pipe(z.object({
@@ -336,6 +341,7 @@ export const updateSelectionPeriodBodySchema = selectionPeriodBodyInputSchema
     startTime: z.string().datetime({ offset: true }).optional(),
     endTime: z.string().datetime({ offset: true }).optional(),
     maxCredits: z.number().min(0).optional(),
+    allowDrop: z.boolean().optional(),
     isActive: z.boolean().optional(),
   }))
 export const selectionPeriodParamsSchema = idSchema

@@ -952,11 +952,11 @@ curl -X PATCH "https://stss.example.com/api/v1/course-selection/enrollments/c9e1
 
 **事务、校验与说明**
 
-- 必须校验当前选课阶段允许退选，且以服务端时间判断。
+- 必须校验当前有效 `SelectionPeriod.allow_drop = true`，且以服务端时间判断。
 - 必须校验 `Enrollment.student_id` 属于当前登录学生，且当前状态为 `enrolled`。
 - 退选只更新状态为 `dropped` 并写入 `dropped_at`，不得删除记录。
 - 退选事务内同步减少 `CourseOffering.enrolled_count`，并保证计数不小于 0。
-- TODO-C-12（`FR-C-14`、`FR-C-32`）：不同阶段是否允许退选的具体阶段规则需由教务确认，默认 `second_round` 和 `adjustment` 可退选，`first_round` 是否允许由配置决定。
+- 退课是否允许由教务管理的 `allow_drop` 配置决定，不再由 `phase` 硬编码决定。
 
 ### 3.10 查看本人课表
 
@@ -1361,6 +1361,7 @@ curl -X GET "https://stss.example.com/api/v1/course-selection/admin/periods?seme
         "start_time": "2026-05-13T08:00:00+08:00",
         "end_time": "2026-05-20T18:00:00+08:00",
         "max_credits": 28.0,
+        "allow_drop": false,
         "is_active": true,
         "server_status": "open"
       }
@@ -1402,6 +1403,7 @@ Content-Type: application/json
 | `start_time` | string | 是 | ISO 8601 |
 | `end_time` | string | 是 | ISO 8601，必须晚于开始时间 |
 | `max_credits` | number | 否 | 当前阶段最大选课学分 |
+| `allow_drop` | boolean | 否 | 是否允许学生在该阶段退课，默认 `false` |
 | `is_active` | boolean | 是 | 是否启用 |
 
 **请求示例**
@@ -1416,6 +1418,7 @@ curl -X POST "https://stss.example.com/api/v1/course-selection/admin/periods" \
     "start_time": "2026-05-13T08:00:00+08:00",
     "end_time": "2026-05-20T18:00:00+08:00",
     "max_credits": 28.0,
+    "allow_drop": false,
     "is_active": true
   }'
 ```
@@ -1436,6 +1439,7 @@ curl -X POST "https://stss.example.com/api/v1/course-selection/admin/periods" \
     "start_time": "2026-05-13T08:00:00+08:00",
     "end_time": "2026-05-20T18:00:00+08:00",
     "max_credits": 28.0,
+    "allow_drop": false,
     "is_active": true,
     "server_status": "open"
   }
@@ -1477,6 +1481,7 @@ Content-Type: application/json
 | `start_time` | string | 否 | ISO 8601 |
 | `end_time` | string | 否 | ISO 8601 |
 | `max_credits` | number | 否 | 最大选课学分 |
+| `allow_drop` | boolean | 否 | 是否允许学生在该阶段退课 |
 | `is_active` | boolean | 否 | 是否启用 |
 
 **请求示例**
@@ -1488,6 +1493,7 @@ curl -X PATCH "https://stss.example.com/api/v1/course-selection/admin/periods/5f
   -d '{
     "end_time": "2026-05-21T18:00:00+08:00",
     "max_credits": 30.0,
+    "allow_drop": true,
     "is_active": true
   }'
 ```
@@ -1508,6 +1514,7 @@ curl -X PATCH "https://stss.example.com/api/v1/course-selection/admin/periods/5f
     "start_time": "2026-05-13T08:00:00+08:00",
     "end_time": "2026-05-21T18:00:00+08:00",
     "max_credits": 30.0,
+    "allow_drop": true,
     "is_active": true,
     "server_status": "open"
   }
@@ -1518,6 +1525,7 @@ curl -X PATCH "https://stss.example.com/api/v1/course-selection/admin/periods/5f
 
 - 不存在的时间段返回 `404`。
 - 修改后仍需满足时间合法、阶段合法、启用时间段不重叠等规则。
+- 学生退课是否允许以当前有效 `SelectionPeriod.allow_drop` 为准，不再由 `phase` 硬编码决定。
 - 修改正在开放的时间段会影响学生后续选课和退选请求，应写入审计日志。
 - TODO-C-20（`FR-C-32`、`FR-C-37`）：后续需定义“正在开放阶段被停用”时前端提示和在途请求处理策略。
 
@@ -1647,7 +1655,7 @@ C 模块错误响应的顶层 `code` 使用 HTTP 状态码；业务错误码放�
 | TODO-C-09 | `FR-C-16`、`FR-C-18`、`FR-C-22`、`NFR-C-05` | 明确并发选课行锁、条件更新或唯一约束策略，并补充并发测试。 |
 | TODO-C-10 | `FR-C-19` | 完成先修课硬性校验实现，依据有效成绩或等价课程完成记录判断通过状态。 |
 | TODO-C-11 | `FR-C-35`、`FR-C-36` | 选课提交接入准入控制和长时间无操作释放机制；该项由 C3 主责，C5 仅协作管理配置和阶段口径。 |
-| TODO-C-12 | `FR-C-14`、`FR-C-32` | 明确各选课阶段是否允许退选。 |
+| TODO-C-12 | `FR-C-14`、`FR-C-32` | 已改为 `SelectionPeriod.allow_drop` 配置驱动；后续仅需补充不同学院默认模板。 |
 | TODO-C-13 | `FR-C-25` | 前端实现课表打印，后端保持稳定数据结构。 |
 | TODO-C-14 | `FR-C-38` 至 `FR-C-43` | 确认 AI 服务提供方、超时、脱敏、提示词版本和降级策略。 |
 | TODO-C-15 | `FR-C-41`、`NFR-C-09` | 增加 AI 输出安全审查和规则结果一致性校验。 |

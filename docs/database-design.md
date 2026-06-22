@@ -525,6 +525,7 @@ v2.0 需求报告要求学生确认培养方案，并将确认结果作为进入
 | start_time  | TIMESTAMP    | NOT NULL       | 开始时间                                  |
 | end_time    | TIMESTAMP    | NOT NULL       | 结束时间                                  |
 | max_credits | DECIMAL(3,1) |                | 最大选课学分                              |
+| allow_drop  | BOOLEAN      | NOT NULL       | 是否允许该阶段退课                        |
 | is_active   | BOOLEAN      | NOT NULL       | 是否启用                                  |
 
 ---

@@ -143,12 +143,8 @@ const ensurePeriodHasMaxCredits = (period: { maxCredits: Prisma.Decimal | null }
   return maxCredits
 }
 
-const ensureDropAllowedInPeriod = (period: { phase: SelectionPhase }) => {
-  // TODO-C-12: first_round 是否允许退选仍需教务确认；当前默认仅补退选与调整阶段允许退选。
-  if (
-    period.phase !== SelectionPhase.SECOND_ROUND &&
-    period.phase !== SelectionPhase.ADJUSTMENT
-  ) {
+const ensureDropAllowedInPeriod = (period: { allowDrop: boolean }) => {
+  if (!period.allowDrop) {
     throwCourseSelectionError('PERIOD_CLOSED', 422, '当前选课阶段不允许退选')
   }
 }

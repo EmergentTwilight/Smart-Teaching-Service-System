@@ -62,6 +62,7 @@ const buildPeriod = (overrides: Record<string, unknown> = {}) => ({
   startTime: new Date('2026-05-01T00:00:00.000Z'),
   endTime: new Date('2026-06-01T00:00:00.000Z'),
   maxCredits: 28,
+  allowDrop: true,
   isActive: true,
   ...overrides,
 })
@@ -768,9 +769,7 @@ describe('enrollmentService.dropEnrollment', () => {
       ...buildEnrollment(),
       courseOffering: buildOffering({ schedules: undefined }),
     })
-    prismaMock.selectionPeriod.findFirst.mockResolvedValueOnce(
-      buildPeriod({ phase: SelectionPhase.FIRST_ROUND })
-    )
+    prismaMock.selectionPeriod.findFirst.mockResolvedValueOnce(buildPeriod({ allowDrop: false }))
 
     await expectCourseSelectionError(
       enrollmentService.dropEnrollment('student-1', 'enrollment-1', {}),

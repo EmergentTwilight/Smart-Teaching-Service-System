@@ -120,6 +120,7 @@ export interface CreateSelectionPeriodBody {
   startTime: string
   endTime: string
   maxCredits?: number
+  allowDrop: boolean
   isActive: boolean
 }
 
@@ -129,6 +130,7 @@ export interface UpdateSelectionPeriodBody {
   startTime?: string
   endTime?: string
   maxCredits?: number
+  allowDrop?: boolean
   isActive?: boolean
 }
 
@@ -490,6 +492,7 @@ export interface SelectionPeriodItem {
   startTime: string
   endTime: string
   maxCredits?: number
+  allowDrop: boolean
   isActive: boolean
   serverStatus: SelectionPeriodServerStatusValue
 }

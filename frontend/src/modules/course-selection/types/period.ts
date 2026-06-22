@@ -11,6 +11,7 @@ export interface SelectionPeriodItem {
   startTime: string;
   endTime: string;
   maxCredits?: number;
+  allowDrop: boolean;
   isActive: boolean;
   serverStatus: SelectionPeriodServerStatus;
 }
@@ -27,6 +28,7 @@ export interface CreateSelectionPeriodPayload {
   startTime: string;
   endTime: string;
   maxCredits?: number;
+  allowDrop: boolean;
   isActive: boolean;
 }
 
@@ -35,6 +37,7 @@ export interface UpdateSelectionPeriodPayload {
   startTime?: string;
   endTime?: string;
   maxCredits?: number;
+  allowDrop?: boolean;
   isActive?: boolean;
 }
 

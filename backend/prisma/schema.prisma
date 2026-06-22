@@ -640,6 +640,8 @@ model SelectionPeriod {
   endTime    DateTime       @map("end_time")
   /// 最大学分
   maxCredits Decimal?       @map("max_credits") @db.Decimal(3, 1)
+  /// 是否允许退课
+  allowDrop  Boolean        @default(false) @map("allow_drop")
   /// 是否激活
   isActive   Boolean        @default(false) @map("is_active")
 

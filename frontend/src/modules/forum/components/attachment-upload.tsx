@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { InboxOutlined } from '@ant-design/icons'
-import { Upload, message } from 'antd'
+import { Alert, Upload, message } from 'antd'
 import { forumApi } from '../api/forum-api'
 import { ALLOWED_ATTACHMENT_EXT, MAX_ATTACHMENT_SIZE } from '../constants/forum'
 import type { UploadAttachmentResult } from '../types'
@@ -16,6 +16,7 @@ type LocalAttachment = UploadAttachmentResult & {
 type UploadErrorLike = {
   code?: unknown
   message?: unknown
+  status?: unknown
   response?: {
     status?: number
     data?: {
@@ -46,11 +47,14 @@ function getString(value: unknown): string | undefined {
 
 function getUploadErrorMessage(error: unknown): string {
   const err = error as UploadErrorLike
-  const status = err.response?.status
+  const status =
+    err.response?.status ?? (typeof err.status === 'number' ? err.status : undefined)
   const apiMessage = getString(err.response?.data?.message) || getString(err.response?.data?.error)
 
   if (apiMessage) return apiMessage
   if (status === 413) return '文件太大，请确认文件不超过 10MB'
+  if (status === 415) return '文件格式不支持，请上传图片、PDF、Office 文档、TXT 或 Markdown 文件'
+  if (status === 400 && error instanceof Error && error.message) return error.message
   if (err.code === 'ECONNABORTED') return '上传超时，请稍后重试'
   if (error instanceof Error && error.message) return error.message
   if (typeof status === 'number') return `上传失败（HTTP ${status}）`
@@ -80,6 +84,7 @@ export function AttachmentUpload({ value = [], onChange, demoMode }: AttachmentU
   const latestValueRef = useRef(value)
   const [pendingFiles, setPendingFiles] = useState<LocalAttachment[]>([])
   const [uploading, setUploading] = useState(false)
+  const [uploadError, setUploadError] = useState<string | null>(null)
 
   useEffect(() => {
     latestValueRef.current = value
@@ -90,24 +95,28 @@ export function AttachmentUpload({ value = [], onChange, demoMode }: AttachmentU
     return dotIndex >= 0 ? fileName.slice(dotIndex).toLowerCase() : ''
   }
 
-  const validateFile = (file: File) => {
+  const validateFile = (file: File): string | null => {
     const ext = getFileExt(file.name)
+    const allowedText = ALLOWED_ATTACHMENT_EXT.join('、')
 
     if (!ALLOWED_ATTACHMENT_EXT.includes(ext)) {
-      message.error('不支持的文件类型')
-      return false
+      return `不支持 ${ext || '无扩展名'} 文件，请上传以下格式：${allowedText}`
     }
 
     if (file.size > MAX_ATTACHMENT_SIZE) {
-      message.error('文件不能超过 10MB')
-      return false
+      return '文件过大，单个附件不能超过 10MB'
     }
 
-    return true
+    return null
   }
 
   const handleUpload = async (file: File) => {
-    if (!validateFile(file)) return
+    const validationError = validateFile(file)
+    if (validationError) {
+      setUploadError(validationError)
+      message.error(validationError)
+      return
+    }
 
     const pendingId = `pending-${Date.now()}-${file.name}`
     const ext = getFileExt(file.name)
@@ -122,6 +131,7 @@ export function AttachmentUpload({ value = [], onChange, demoMode }: AttachmentU
 
     setPendingFiles((files) => [...files, pendingFile])
     setUploading(true)
+    setUploadError(null)
 
     try {
       if (demoMode) {
@@ -154,6 +164,7 @@ export function AttachmentUpload({ value = [], onChange, demoMode }: AttachmentU
     } catch (error) {
       const errorMessage = getUploadErrorMessage(error)
       console.error('Attachment upload failed:', error)
+      setUploadError(`${file.name} 上传失败：${errorMessage}`)
       setPendingFiles((files) =>
         files.map((item) =>
           item.id === pendingId
@@ -170,6 +181,7 @@ export function AttachmentUpload({ value = [], onChange, demoMode }: AttachmentU
   const handleRemove = async (id: string) => {
     if (id.startsWith('pending-')) {
       setPendingFiles((files) => files.filter((file) => file.id !== id))
+      setUploadError(null)
       return
     }
 
@@ -177,13 +189,16 @@ export function AttachmentUpload({ value = [], onChange, demoMode }: AttachmentU
       try {
         await forumApi.deleteAttachment(id)
       } catch {
-        message.error('删除附件失败')
+        const errorMessage = '删除附件失败'
+        setUploadError(errorMessage)
+        message.error(errorMessage)
         return
       }
     }
 
     const nextFiles = latestValueRef.current.filter((file) => file.id !== id)
     latestValueRef.current = nextFiles
+    setUploadError(null)
     onChange?.(nextFiles)
   }
 
@@ -209,6 +224,16 @@ export function AttachmentUpload({ value = [], onChange, demoMode }: AttachmentU
           <p className="ant-upload-hint">支持图片、PDF、Office 文档，单文件不超过 10MB</p>
         </Dragger>
       </div>
+      {uploadError && (
+        <Alert
+          type="error"
+          showIcon
+          message={uploadError}
+          closable
+          onClose={() => setUploadError(null)}
+          style={{ marginTop: 12 }}
+        />
+      )}
       <AttachmentList files={visibleFiles} onRemove={handleRemove} />
     </div>
   )

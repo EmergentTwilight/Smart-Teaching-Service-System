@@ -24,6 +24,7 @@ vi.mock('antd', async () => {
       React.createElement('div', null, description, children),
     List: ({ dataSource = [], renderItem }: { dataSource?: unknown[]; renderItem?: (item: unknown) => React.ReactNode }) =>
       React.createElement('div', null, dataSource.map((item, index) => React.createElement('div', { key: index }, renderItem?.(item)))),
+    Progress: () => React.createElement('div', null),
     Row: block(),
     Space: block('span'),
     Spin: () => React.createElement('div', null, '加载中'),
@@ -55,6 +56,13 @@ vi.mock('../api/curriculum', () => ({
     confirmMyCurriculum: vi.fn(),
   },
 }));
+
+Object.defineProperty(window, 'getComputedStyle', {
+  writable: true,
+  value: () => ({
+    getPropertyValue: () => '',
+  }),
+});
 
 const curriculumPayload: CurriculumPayload = {
   curriculum: {

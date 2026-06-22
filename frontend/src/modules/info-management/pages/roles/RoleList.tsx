@@ -32,6 +32,10 @@ const RoleList: React.FC = () => {
   const [detailOpen, setDetailOpen] = useState(false);
   const [assignOpen, setAssignOpen] = useState(false);
   const [currentRole, setCurrentRole] = useState<Role | null>(null);
+  const [roleToDelete, setRoleToDelete] = useState<Role | null>(null);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [permissionToRevoke, setPermissionToRevoke] = useState<Permission | null>(null);
+  const [revokeModalOpen, setRevokeModalOpen] = useState(false);
   const [detailData, setDetailData] = useState<RoleDetailData | null>(null);
 
   const roles = loggedInUser?.roles || [];
@@ -144,26 +148,14 @@ const RoleList: React.FC = () => {
   };
 
   const handleDelete = (role: Role) => {
-    Modal.confirm({
-      title: '确认删除',
-      content: `确定要删除角色 ${role.name} 吗？`,
-      okText: '确定',
-      cancelText: '取消',
-      okButtonProps: { danger: true },
-      onOk: () => deleteMutation.mutateAsync(role.id),
-    });
+    setRoleToDelete(role);
+    setDeleteModalOpen(true);
   };
 
   const handleRevoke = (permission: Permission) => {
     if (!detailData) return;
-    Modal.confirm({
-      title: '确认撤销权限',
-      content: `确定要从角色 ${detailData.name} 撤销 ${permission.name} 吗？`,
-      okText: '确定',
-      cancelText: '取消',
-      okButtonProps: { danger: true },
-      onOk: () => revokeMutation.mutateAsync({ roleId: detailData.id, permissionId: permission.id }),
-    });
+    setPermissionToRevoke(permission);
+    setRevokeModalOpen(true);
   };
 
   const resourceOptions = useMemo(() => {
@@ -201,7 +193,14 @@ const RoleList: React.FC = () => {
               <Button type="link" size="small" icon={<EditOutlined />} onClick={() => { setCurrentRole(record); setFormOpen(true); }}>
                 编辑
               </Button>
-              <Button type="link" size="small" danger icon={<DeleteOutlined />} disabled={record.builtin || record.userCount > 0} onClick={() => handleDelete(record)}>
+              <Button
+                type="link"
+                size="small"
+                danger
+                icon={<DeleteOutlined />}
+                disabled={record.builtin}
+                onClick={() => handleDelete(record)}
+              >
                 删除
               </Button>
             </>
@@ -331,6 +330,54 @@ const RoleList: React.FC = () => {
         canManage={canManage}
         onRevokePermission={handleRevoke}
       />
+
+      <Modal
+        title="确认删除"
+        open={deleteModalOpen}
+        onCancel={() => {
+          setDeleteModalOpen(false);
+          setRoleToDelete(null);
+        }}
+        onOk={async () => {
+          if (!roleToDelete) return;
+          await deleteMutation.mutateAsync(roleToDelete.id);
+          setDeleteModalOpen(false);
+          setRoleToDelete(null);
+        }}
+        okText="确定"
+        cancelText="取消"
+        okButtonProps={{ danger: true, loading: deleteMutation.isPending }}
+      >
+        <p>
+          确定要删除角色 <strong>{roleToDelete?.name}</strong> 吗？此操作不可恢复。
+        </p>
+      </Modal>
+
+      <Modal
+        title="确认撤销权限"
+        open={revokeModalOpen}
+        onCancel={() => {
+          setRevokeModalOpen(false);
+          setPermissionToRevoke(null);
+        }}
+        onOk={async () => {
+          if (!detailData || !permissionToRevoke) return;
+          await revokeMutation.mutateAsync({
+            roleId: detailData.id,
+            permissionId: permissionToRevoke.id,
+          });
+          setRevokeModalOpen(false);
+          setPermissionToRevoke(null);
+        }}
+        okText="确定"
+        cancelText="取消"
+        okButtonProps={{ danger: true, loading: revokeMutation.isPending }}
+      >
+        <p>
+          确定要从角色 <strong>{detailData?.name}</strong> 撤销权限{' '}
+          <strong>{permissionToRevoke?.name}</strong> 吗？
+        </p>
+      </Modal>
     </div>
   );
 };

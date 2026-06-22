@@ -197,7 +197,6 @@ export const majorService = {
   },
 
   async updateMajor(id: string, data: UpdateMajorSchema, req: Request) {
-    console.log('[majorService.updateMajor] input', { id, data })
     const updated = await prisma.$transaction(async (tx) => {
       const major = await tx.major.findUnique({ where: { id } })
       if (!major) {
@@ -222,12 +221,6 @@ export const majorService = {
           degreeType: data.degree_type,
           totalCredits: data.total_credits,
         },
-      })
-      console.log('[majorService.updateMajor] updated', {
-        id: updatedMajor.id,
-        name: updatedMajor.name,
-        degreeType: updatedMajor.degreeType,
-        totalCredits: updatedMajor.totalCredits?.toString(),
       })
       await tx.systemLog.create({
         data: {

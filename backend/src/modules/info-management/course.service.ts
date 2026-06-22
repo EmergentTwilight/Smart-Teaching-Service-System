@@ -320,7 +320,7 @@ export const courseService = {
         tx.coursePrerequisite.count({ where: { prerequisiteId: course_id } }),
       ])
       const references = [
-        curriculumCourseCount > 0 ? `培养方案 ${curriculumCourseCount} 条` : null,
+        curriculumCourseCount > 0 ? `培养方案引用 ${curriculumCourseCount} 条` : null,
         courseOfferingCount > 0 ? `开课记录 ${courseOfferingCount} 条` : null,
         scheduleCount > 0 ? `排课记录 ${scheduleCount} 条` : null,
         enrollmentCount > 0 ? `选课记录 ${enrollmentCount} 条` : null,

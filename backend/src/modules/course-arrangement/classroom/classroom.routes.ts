@@ -1,5 +1,5 @@
 import { Router } from 'express'
-import { authMiddleware } from '../../../shared/middleware/auth.js'
+import { authMiddleware, requireRoles } from '../../../shared/middleware/auth.js'
 import {
   getClassrooms,
   createClassroom,
@@ -15,9 +15,9 @@ router.use(authMiddleware)
 
 // 路径已经在模块外层定义前缀，这里写子路径
 router.get('/', getClassrooms)
-router.post('/', createClassroom)
+router.post('/', requireRoles('admin', 'super_admin'), createClassroom)
 router.get('/available', getAvailableClassrooms) // 6.1.5 放在这里
 router.get('/:id', getClassroomById) // 6.1.2
-router.patch('/:id', updateClassroom) // 6.1.4
+router.patch('/:id', requireRoles('admin', 'super_admin'), updateClassroom) // 6.1.4
 
 export default router

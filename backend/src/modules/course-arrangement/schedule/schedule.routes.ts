@@ -1,5 +1,5 @@
 import { Router } from 'express'
-import { authMiddleware } from '../../../shared/middleware/auth.js'
+import { authMiddleware, requireRoles } from '../../../shared/middleware/auth.js'
 import {
   createSchedule,
   validateSchedule,
@@ -15,10 +15,10 @@ const router: Router = Router()
 router.use(authMiddleware)
 
 router.get('/', getSchedules)
-router.post('/', createSchedule)
-router.post('/validate', validateSchedule) // 6.2.3 预校验
+router.post('/', requireRoles('admin', 'super_admin'), createSchedule)
+router.post('/validate', requireRoles('admin', 'super_admin'), validateSchedule) // 6.2.3 预校验
 router.get('/:id', getScheduleById)
-router.patch('/:id', updateSchedule)
-router.delete('/:id', deleteSchedule)
+router.patch('/:id', requireRoles('admin', 'super_admin'), updateSchedule)
+router.delete('/:id', requireRoles('admin', 'super_admin'), deleteSchedule)
 
 export default router

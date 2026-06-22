@@ -1,5 +1,5 @@
 import { Router } from 'express'
-import { authMiddleware } from '../../../shared/middleware/auth.js'
+import { authMiddleware, requireRoles } from '../../../shared/middleware/auth.js'
 import {
   setSchedulingRule,
   getRulesList,
@@ -16,11 +16,11 @@ router.use(authMiddleware)
 
 // 对应文档 6.5.1，添加了 overview 路由用于初始化学期、课程、教室等必需信息
 // 移除 validate 中间件，把参数检查任务交给 controller
-router.post('/', setSchedulingRule)
+router.post('/', requireRoles('admin', 'super_admin'), setSchedulingRule)
 router.get('/', getRulesList)
 router.get('/overview', getSchedulingOverview)
 router.get('/:id', getRuleById)
-router.delete('/:id', deleteRule)
-router.post('/batch-delete', batchDeleteRules)
+router.delete('/:id', requireRoles('admin', 'super_admin'), deleteRule)
+router.post('/batch-delete', requireRoles('admin', 'super_admin'), batchDeleteRules)
 
 export default router

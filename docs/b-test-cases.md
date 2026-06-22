@@ -2,7 +2,8 @@
 
 ## 1. 说明
 
-- 分支：`fix/B-test-env-0504`
+- 原始测试分支：`fix/B-test-env-0504`
+- 本次补测基线：`87338ab`（`origin/develop`，已合并 `dev/B`）
 - 范围：B 自动排课模块
 - 原则：先测，后改
 
@@ -34,6 +35,8 @@
 | `B-TTB-001`  | 课表     | 导出格式           | 导出接口可用               | 当前实现应明确只支持 `csv`     | `csv` 返回 `200`；`pdf` 返回 `400`                      | 通过 |
 | `B-TTB-002`  | 课表     | 按教室查询         | 提供合法教室 ID            | 应正常返回课表列表             | 返回 `200`，当前数据为空数组                            | 通过 |
 | `B-AUTH-001` | 权限     | 综合课表未登录访问 | 不带登录态                 | 应拒绝访问                     | 返回 `401`                                              | 通过 |
+| `B-AUTH-002` | 权限     | 写接口角色限制     | 学生/教师登录态            | 应拒绝教室、规则、排课写操作   | 返回 `403`，控制器未执行                                | 通过 |
+| `B-AUTH-003` | 权限     | 管理员写接口访问   | 管理员登录态               | 应允许进入写接口控制器         | 已进入 mock 控制器                                      | 通过 |
 | `B-RUL-001`  | 规则     | 教室类型枚举       | 规则接口、自动排课接口可用 | 前后端值应一致                 | 小写值返回 `400`；大写值保存成功，自动排课成功率 `100%` | 通过 |
 
 ## 4. 页面级测试
@@ -76,14 +79,98 @@
 | `B-PAGE-AUTO-001` | 自动排课页 | 默认学期与启动按钮状态 | 概览未加载完时不应误启动任务     | 已修：无学期或加载中禁用按钮     | 通过 |
 | `B-PAGE-AUTO-002` | 自动排课页 | 任务主链路             | 发起任务、轮询、预览、应用应闭环 | 接口链路已通过，待补页面操作复验 | 待补 |
 
-## 5. 当前结论
+## 5. 代码级自动化测试
+
+执行时间：2026-06-17
+
+执行命令：
+
+```bash
+pnpm --filter @stss/server exec vitest run \
+  src/__tests__/modules/course-arrangement/classroom.service.test.ts \
+  src/__tests__/modules/course-arrangement/schedule.service.test.ts \
+  src/__tests__/modules/course-arrangement/auto-schedule.service.test.ts
+```
+
+环境记录：
+
+- 首次运行失败，原因是 `node_modules/.pnpm` 缺失，后端依赖链接断开。
+- 执行 `pnpm install` 后依赖恢复。
+- 因安装时跳过了 Prisma 构建脚本，补执行 `pnpm --filter @stss/server db:generate`。
+- 修正 1 个测试断言：教师不可用时间是具体时段，不是整天不可排。
+
+| 编号           | 测试文件                        | 覆盖点                         | 结果                 | 状态 |
+| -------------- | ------------------------------- | ------------------------------ | -------------------- | ---- |
+| `B-UT-CLS-01`  | `classroom.service.test.ts`     | 重复教室拦截                   | 抛出“该教室已存在”   | 通过 |
+| `B-UT-CLS-02`  | `classroom.service.test.ts`     | 新增教室保留设备字段           | `equipment` 正常传入 | 通过 |
+| `B-UT-CLS-03`  | `classroom.service.test.ts`     | 查询可用教室排除已占用教室     | 查询条件正确         | 通过 |
+| `B-UT-SCH-01`  | `schedule.service.test.ts`      | 维护中教室不能排课             | 拒绝创建             | 通过 |
+| `B-UT-SCH-02`  | `schedule.service.test.ts`      | 同教室周次/节次重叠冲突        | 拒绝创建             | 通过 |
+| `B-UT-SCH-03`  | `schedule.service.test.ts`      | 冲突预校验                     | 返回 `valid:false`   | 通过 |
+| `B-UT-SCH-04`  | `schedule.service.test.ts`      | 更新排课时排除当前记录         | 冲突检测条件正确     | 通过 |
+| `B-UT-AUTO-01` | `auto-schedule.service.test.ts` | 自动排课遵守教室类型和容量约束 | 选中符合条件教室     | 通过 |
+| `B-UT-AUTO-02` | `auto-schedule.service.test.ts` | 自动排课避开教师不可用时段     | 未落入禁用时段       | 通过 |
+| `B-UT-AUTO-03` | `auto-schedule.service.test.ts` | 应用自动排课结果               | 批量写入 Schedule    | 通过 |
+
+最终结果：
+
+```text
+Test Files  3 passed (3)
+Tests       10 passed (10)
+```
+
+### 5.1 写接口鉴权补测
+
+执行时间：2026-06-22
+
+背景：`req.md` 指出 B 组 `classroom`、`schedule`、`rule`、`auto-schedule` 写接口只有登录校验，任意已登录用户可调用。
+
+处理结果：写接口已统一加 `requireRoles('admin', 'super_admin')`，读接口保持登录可访问。
+
+| 编号           | 模块     | 写接口范围                                  | 学生/教师结果 | 管理员结果 | 状态 |
+| -------------- | -------- | ------------------------------------------- | ------------- | ---------- | ---- |
+| `B-AUTH-W-001` | 教室管理 | `POST /classrooms`、`PATCH /classrooms/:id` | `403`         | 放行       | 通过 |
+| `B-AUTH-W-002` | 手动排课 | 新增、预校验、更新、删除排课                | `403`         | 放行       | 通过 |
+| `B-AUTH-W-003` | 规则管理 | 新增、删除、批量删除规则                    | `403`         | 放行       | 通过 |
+| `B-AUTH-W-004` | 自动排课 | 创建任务、应用结果                          | `403`         | 放行       | 通过 |
+| `B-AUTH-R-001` | 读接口   | 教室列表读取                                | 学生可访问    | 可访问     | 通过 |
+
+执行命令：
+
+```bash
+pnpm --filter @stss/server exec vitest run \
+  src/__tests__/modules/course-arrangement/write-routes-auth.test.ts \
+  src/__tests__/modules/course-arrangement/classroom.service.test.ts \
+  src/__tests__/modules/course-arrangement/schedule.service.test.ts \
+  src/__tests__/modules/course-arrangement/auto-schedule.service.test.ts
+```
+
+最终结果：
+
+```text
+Test Files  4 passed (4)
+Tests       44 passed (44)
+```
+
+同时执行：
+
+```bash
+pnpm --filter @stss/server typecheck
+```
+
+结果：通过。
+
+## 6. 当前结论
 
 - 环境问题已基本收口。
 - B 模块主链路已能跑通。
+- 代码级自动化测试已覆盖教室管理、手动排课、自动排课 3 个核心 service。
+- `req.md` 提出的 B 组写接口越权问题已修复，并补充学生/教师 `403` 自动化测试。
 - 已修问题主要集中在：
   - 启动流程
   - 前后端契约
   - 枚举值统一
+  - 写接口角色鉴权
   - 页面默认值与筛选行为
 - 仍建议补的内容：
   - 教室编辑页面实际回显复验

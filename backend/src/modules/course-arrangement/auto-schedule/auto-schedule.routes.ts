@@ -1,5 +1,5 @@
 import { Router } from 'express'
-import { authMiddleware } from '../../../shared/middleware/auth.js'
+import { authMiddleware, requireRoles } from '../../../shared/middleware/auth.js'
 import {
   createAutoTask,
   getTaskStatus,
@@ -12,9 +12,9 @@ const router: Router = Router()
 // 所有自动排课接口需登录鉴权
 router.use(authMiddleware)
 
-router.post('/tasks', createAutoTask)
+router.post('/tasks', requireRoles('admin', 'super_admin'), createAutoTask)
 router.get('/tasks/:taskId', getTaskStatus)
 router.get('/tasks/:taskId/preview', getTaskPreview)
-router.post('/tasks/:taskId/apply', applyTask)
+router.post('/tasks/:taskId/apply', requireRoles('admin', 'super_admin'), applyTask)
 
 export default router

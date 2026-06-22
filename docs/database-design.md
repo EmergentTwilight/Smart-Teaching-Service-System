@@ -470,20 +470,22 @@ model PasswordResetToken {
 | course_type         | ENUM | NOT NULL | 类型: required/elective/general |
 | semester_suggestion | INT  |          | 建议修读学期                    |
 
-#### C 模块待办：学生培养方案确认记录
+#### StudentCurriculumConfirmation - 学生培养方案确认记录表
 
-v2.0 需求报告要求学生确认培养方案，并将确认结果作为进入选课流程的前置条件。当前数据库设计尚未提供学生与培养方案确认关系的持久化承载，C 组不得在未评审的情况下擅自新增业务表或修改 Prisma schema。
+v2.0 需求报告要求学生确认培养方案，并将确认结果作为进入选课流程的前置条件。确认记录只保存当前登录学生对匹配培养方案的确认事实，不由前端传入学生身份决定。
 
-后续数据库设计需补充学生培养方案确认记录，至少能够表达：
+| 字段          | 类型      | 约束                          | 说明         |
+| ------------- | --------- | ----------------------------- | ------------ |
+| id            | UUID      | PK                            | 确认记录ID   |
+| student_id    | UUID      | FK -> Student, UNIQUE 组合项  | 学生ID       |
+| curriculum_id | UUID      | FK -> Curriculum, UNIQUE 组合项 | 培养方案ID   |
+| confirmed_at  | TIMESTAMP | NOT NULL                      | 确认时间     |
+| created_at    | TIMESTAMP | NOT NULL                      | 创建时间     |
+| updated_at    | TIMESTAMP | NOT NULL                      | 更新时间     |
 
-| 字段方向 | 说明 |
-| -------- | ---- |
-| 学生引用 | 关联当前学生，不由前端传入学生身份决定 |
-| 培养方案引用 | 关联被确认的 `Curriculum` |
-| 确认时间 | 记录学生确认发生时间 |
-| 有效性 | 能区分当前有效确认与培养方案变更后的失效状态 |
+**唯一约束**：`(student_id, curriculum_id)`，同一学生对同一培养方案只保留一条确认记录，重复确认刷新 `confirmed_at`。
 
-该待办完成前，C 组 API 可以保留目标确认契约和 TODO，但不得把前端本地状态当作后端已确认事实。
+**有效性规则**：确认记录的 `confirmed_at` 必须不早于对应 `Curriculum.updated_at`，才视为当前有效确认。培养方案被更新后无需 A 组额外写失效字段，C 组选课流程在读取时按该规则要求学生重新确认。
 
 #### Semester - 学期表
 

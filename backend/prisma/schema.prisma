@@ -155,6 +155,7 @@ model Student {
   enrollments Enrollment[]
   testResults TestResult[]
   scores      Score[]
+  curriculumConfirmations StudentCurriculumConfirmation[]
 
   // 索引优化：常用查询字段
   @@index([majorId]) // 按专业查询学生
@@ -580,9 +581,34 @@ model Curriculum {
   updatedAt       DateTime @default(now()) @updatedAt @map("updated_at")
 
   major   Major              @relation(fields: [majorId], references: [id])
-  courses CurriculumCourse[]
+  courses        CurriculumCourse[]
+  confirmations StudentCurriculumConfirmation[]
 
   @@map("curriculums")
+}
+
+/// 学生培养方案确认记录表
+model StudentCurriculumConfirmation {
+  /// 确认记录ID
+  id           String   @id @default(uuid())
+  /// 学生ID
+  studentId    String   @map("student_id")
+  /// 培养方案ID
+  curriculumId String   @map("curriculum_id")
+  /// 确认时间
+  confirmedAt  DateTime @default(now()) @map("confirmed_at")
+  /// 创建时间
+  createdAt    DateTime @default(now()) @map("created_at")
+  /// 更新时间
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  student    Student    @relation(fields: [studentId], references: [userId], onDelete: Cascade)
+  curriculum Curriculum @relation(fields: [curriculumId], references: [id], onDelete: Cascade)
+
+  @@unique([studentId, curriculumId])
+  @@index([studentId])
+  @@index([curriculumId])
+  @@map("student_curriculum_confirmations")
 }
 
 /// 培养方案课程关联表

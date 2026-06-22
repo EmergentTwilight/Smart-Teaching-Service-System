@@ -106,6 +106,9 @@ const StudentCourseSelectionPage: React.FC = () => {
   const enrollments = useMemo(() => enrollmentItems ?? [], [enrollmentItems]);
   const hasActiveEnrollments = enrollments.some((item) => item.status === 'enrolled');
   const admissionReady = admissionStatus === 'admitted' && Boolean(admissionLease);
+  const admissionLeaseId = admissionLease?.leaseId ?? null;
+  const heartbeatIntervalSeconds = admissionLease?.heartbeatIntervalSeconds ?? null;
+  const idleTimeoutSeconds = admissionLease?.idleTimeoutSeconds ?? null;
 
   const releaseAdmissionLease = useCallback((lease: AdmissionLeasePayload | null) => {
     if (!lease) {
@@ -154,11 +157,11 @@ const StudentCourseSelectionPage: React.FC = () => {
   }, [requestAdmission, releaseAdmissionLease]);
 
   useEffect(() => {
-    if (!admissionLease) {
+    if (admissionLeaseId === null || heartbeatIntervalSeconds === null) {
       return undefined;
     }
 
-    const intervalMs = Math.max(admissionLease.heartbeatIntervalSeconds, 5) * 1000;
+    const intervalMs = Math.max(heartbeatIntervalSeconds, 5) * 1000;
     const timer = window.setInterval(() => {
       const lease = admissionLeaseRef.current;
       if (!lease) {
@@ -189,14 +192,13 @@ const StudentCourseSelectionPage: React.FC = () => {
     }, intervalMs);
 
     return () => window.clearInterval(timer);
-  }, [admissionLease?.heartbeatIntervalSeconds, admissionLease?.leaseId]);
+  }, [heartbeatIntervalSeconds, admissionLeaseId]);
 
   useEffect(() => {
-    if (!admissionLease) {
+    if (admissionLeaseId === null || idleTimeoutSeconds === null) {
       return undefined;
     }
 
-    const idleTimeoutSeconds = admissionLease.idleTimeoutSeconds;
     let idleTimer: number | undefined;
     const expireByIdle = () => {
       const lease = admissionLeaseRef.current;
@@ -226,7 +228,7 @@ const StudentCourseSelectionPage: React.FC = () => {
       }
       events.forEach((event) => window.removeEventListener(event, resetIdleTimer));
     };
-  }, [admissionLease?.idleTimeoutSeconds, admissionLease?.leaseId, releaseAdmissionLease]);
+  }, [idleTimeoutSeconds, admissionLeaseId, releaseAdmissionLease]);
 
   const enrollmentStateByOfferingId = useMemo(() => {
     const map = new Map<string, { enrollmentId: string; status: EnrollmentStatus }>();

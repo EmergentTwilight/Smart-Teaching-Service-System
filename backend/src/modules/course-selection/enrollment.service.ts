@@ -3,7 +3,6 @@ import {
   EnrollmentStatus,
   OfferingStatus,
   Prisma,
-  SelectionPhase,
 } from '@prisma/client'
 import { AppError } from '@stss/shared'
 import prisma from '../../shared/prisma/client.js'

@@ -12,6 +12,7 @@ import {
   pickEffectiveScoresByCourse,
 } from '../score-management/score-statistics.js'
 import { admissionService } from './admission.service.js'
+import { assertCurriculumConfirmedForSelection } from './course-selection.support.js'
 import type {
   CreateEnrollmentBody,
   DropEnrollmentBody,
@@ -163,21 +164,30 @@ const ensureWithinCurriculum = async (
     '学生未绑定专业，无法匹配培养方案'
   )
 
-  const curriculum = await tx.curriculum.findFirst({
+  const curriculums = await tx.curriculum.findMany({
     where: {
       majorId,
       year: student.grade,
     },
-    select: { id: true },
+    select: { id: true, updatedAt: true },
   })
 
   assertCourseSelectionExists(
-    curriculum,
+    curriculums[0],
     'PREREQUISITE_NOT_MET',
     422,
     '未找到当前学生匹配的培养方案'
   )
 
+  if (curriculums.length !== 1) {
+    throwCourseSelectionError(
+      'PREREQUISITE_NOT_MET',
+      422,
+      '当前学生匹配的培养方案不唯一'
+    )
+  }
+
+  const curriculum = curriculums[0]
   const curriculumCourse = await tx.curriculumCourse.findUnique({
     where: {
       curriculumId_courseId: {
@@ -191,6 +201,26 @@ const ensureWithinCurriculum = async (
   if (!curriculumCourse) {
     throwCourseSelectionError('PREREQUISITE_NOT_MET', 422, '目标课程不在当前学生培养方案内')
   }
+
+  return curriculum
+}
+
+const ensureCurriculumConfirmed = async (
+  tx: CourseSelectionTx,
+  studentId: string,
+  curriculum: { id: string; updatedAt: Date }
+) => {
+  const confirmation = await tx.studentCurriculumConfirmation.findUnique({
+    where: {
+      studentId_curriculumId: {
+        studentId,
+        curriculumId: curriculum.id,
+      },
+    },
+    select: { confirmedAt: true },
+  })
+
+  assertCurriculumConfirmedForSelection(confirmation, curriculum)
 }
 
 const ensurePrerequisitesMet = async (
@@ -628,7 +658,8 @@ export const enrollmentService = {
           currentEnrollments
         )
         ensureMaxCreditsNotExceeded(currentSelectedCredits, targetCredits, maxCredits)
-        await ensureWithinCurriculum(tx, student, offering.courseId)
+        const curriculum = await ensureWithinCurriculum(tx, student, offering.courseId)
+        await ensureCurriculumConfirmed(tx, studentId, curriculum)
         await ensurePrerequisitesMet(tx, studentId, offering.courseId)
 
         let enrollment: EnrollmentRecord | null

@@ -15,6 +15,10 @@ import {
   toCourseStatusValue,
   toOfferingStatusValue
 } from './course-selection.types.js'
+import {
+  CURRICULUM_CONFIRMATION_REQUIRED_MESSAGE,
+  isCurriculumConfirmationCurrent,
+} from './course-selection.support.js'
 
 import { 
   PrismaClient,
@@ -364,6 +368,21 @@ export const courseSearchService = {
       return '对应培养方案不唯一'
     }
     const curriculum = curriculums[0]
+    const confirmationRecord = await prisma.studentCurriculumConfirmation.findUnique({
+      where: {
+        studentId_curriculumId: {
+          studentId,
+          curriculumId: curriculum.id
+        }
+      },
+      select: {
+        confirmedAt: true
+      }
+    })
+    const curriculumConfirmed = isCurriculumConfirmationCurrent(
+      confirmationRecord,
+      curriculum
+    )
 
     let semesterId = query.semester_id ?? query.semesterId ?? undefined;
     const courseType = query.course_type ?? query.courseType ?? undefined;
@@ -498,7 +517,7 @@ export const courseSearchService = {
           break
         }
       }
-      const isAvailable = !offeringStatusReason && !courseStatusReason && !isEnrolled && !isFull && !hasTimeConflict && prerequisiteSatisfied && withinCurriculum
+      const isAvailable = curriculumConfirmed && !offeringStatusReason && !courseStatusReason && !isEnrolled && !isFull && !hasTimeConflict && prerequisiteSatisfied && withinCurriculum
       if(!isAvailable && !includeUnavailable) {
         continue
       }
@@ -519,6 +538,7 @@ export const courseSearchService = {
           isEnrolled: isEnrolled,
           isFull: isFull,
           hasTimeConflict: hasTimeConflict,
+          curriculumConfirmed: curriculumConfirmed,
           prerequisiteSatisfied: prerequisiteSatisfied,
           withinCurriculum: withinCurriculum,
           reasons: []
@@ -538,6 +558,9 @@ export const courseSearchService = {
       }
       if(hasTimeConflict) {
         courses[courses.length - 1].eligibility.reasons.push('课程有时间冲突')
+      }
+      if(!curriculumConfirmed) {
+        courses[courses.length - 1].eligibility.reasons.push(CURRICULUM_CONFIRMATION_REQUIRED_MESSAGE)
       }
       if(!prerequisiteSatisfied) {
         courses[courses.length - 1].eligibility.reasons.push('课程先修条件不满足')
@@ -724,6 +747,21 @@ export const courseSearchService = {
       return '对应培养方案不唯一'
     }
     const curriculum = curriculums[0]
+    const confirmationRecord = await prisma.studentCurriculumConfirmation.findUnique({
+      where: {
+        studentId_curriculumId: {
+          studentId: requesterUserId,
+          curriculumId: curriculum.id
+        }
+      },
+      select: {
+        confirmedAt: true
+      }
+    })
+    const curriculumConfirmed = isCurriculumConfirmationCurrent(
+      confirmationRecord,
+      curriculum
+    )
     
     let isEnrolled: boolean = false, hasTimeConflict: boolean = false, prerequisiteSatisfied: boolean = true, withinCurriculum: boolean = false
     const isFull = offering.capacity <= offering.enrolledCount
@@ -781,12 +819,13 @@ export const courseSearchService = {
         break
       }
     }
-    const isAvailable = !offeringStatusReason && !courseStatusReason && !isEnrolled && !isFull && !hasTimeConflict && prerequisiteSatisfied && withinCurriculum
+    const isAvailable = curriculumConfirmed && !offeringStatusReason && !courseStatusReason && !isEnrolled && !isFull && !hasTimeConflict && prerequisiteSatisfied && withinCurriculum
     const eligibility: CourseEligibilitySnapshot = {
       isAvailable: isAvailable,
       isEnrolled: isEnrolled,
       isFull: isFull,
       hasTimeConflict: hasTimeConflict,
+      curriculumConfirmed: curriculumConfirmed,
       prerequisiteSatisfied: prerequisiteSatisfied,
       withinCurriculum: withinCurriculum,
       reasons: []
@@ -805,6 +844,9 @@ export const courseSearchService = {
     }
     if(hasTimeConflict) {
       eligibility.reasons.push('课程有时间冲突')
+    }
+    if(!curriculumConfirmed) {
+      eligibility.reasons.push(CURRICULUM_CONFIRMATION_REQUIRED_MESSAGE)
     }
     if(!prerequisiteSatisfied) {
       eligibility.reasons.push('课程先修条件不满足')

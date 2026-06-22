@@ -1,9 +1,9 @@
-import { Alert, Card, Col, Empty, List, Row, Spin, Tag, Typography } from 'antd';
+import { Alert, Button, Card, Col, Empty, List, Row, Space, Spin, Tag, Typography, message } from 'antd';
 import { curriculumApi } from '../api/curriculum';
 import type { CurriculumCourseGroup } from '../types/curriculum';
 import { CreditProgressCard } from '../components/CreditProgressCard';
 import { extractErrorMessage, getErrorStatus } from '@/shared/utils/error';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ExclamationCircleOutlined, InfoCircleOutlined } from '@ant-design/icons';
 
 const { Title, Text, Paragraph } = Typography;
@@ -27,6 +27,7 @@ const COURSE_TYPE_LABELS: Record<string, string> = {
  */
 const StudentCurriculumPage: React.FC = () => {
   const includeCourses = true;
+  const queryClient = useQueryClient();
 
   const curriculumQuery = useQuery({
     queryKey: ['course-selection', 'curriculum', 'me', { includeCourses }],
@@ -51,6 +52,23 @@ const StudentCurriculumPage: React.FC = () => {
   const courseGroups = curriculumQuery.data?.courseGroups ?? EMPTY_COURSE_GROUPS;
   const confirmation = curriculumQuery.data?.confirmation ?? null;
   const progress = progressQuery.data ?? null;
+
+  const confirmMutation = useMutation({
+    mutationFn: () => {
+      if (!curriculum) {
+        throw new Error('当前暂无可确认的培养方案');
+      }
+      return curriculumApi.confirmMyCurriculum(curriculum.id);
+    },
+    onSuccess: () => {
+      message.success('培养方案确认成功');
+      queryClient.invalidateQueries({ queryKey: ['course-selection', 'curriculum'] });
+      queryClient.invalidateQueries({ queryKey: ['course-selection', 'offerings', 'available'] });
+    },
+    onError: (error: unknown) => {
+      message.error(extractErrorMessage(error, '培养方案确认失败'));
+    },
+  });
 
   const curriculumError = curriculumQuery.isError
     ? extractErrorMessage(curriculumQuery.error, '培养方案加载失败')
@@ -107,6 +125,18 @@ const StudentCurriculumPage: React.FC = () => {
           description={
             confirmation.message ?? '请先查看并确认培养方案后再进入正式选课流程。'
           }
+          action={
+            curriculum ? (
+              <Button
+                type="primary"
+                size="small"
+                loading={confirmMutation.isPending}
+                onClick={() => confirmMutation.mutate()}
+              >
+                确认培养方案
+              </Button>
+            ) : undefined
+          }
           showIcon
           style={{ marginBottom: 16 }}
         />
@@ -122,7 +152,14 @@ const StudentCurriculumPage: React.FC = () => {
             }
             extra={
               curriculum ? (
-                <Tag color="blue">年度：{curriculum.year}</Tag>
+                <Space size={8}>
+                  <Tag color="blue">年度：{curriculum.year}</Tag>
+                  {confirmation?.requiredBeforeSelection ? (
+                    <Tag color={confirmation.confirmed ? 'success' : 'warning'}>
+                      {confirmation.confirmed ? '已确认' : '待确认'}
+                    </Tag>
+                  ) : null}
+                </Space>
               ) : null
             }
           >

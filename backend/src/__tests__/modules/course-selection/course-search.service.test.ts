@@ -10,6 +10,9 @@ const prismaMock = vi.hoisted(() => ({
   curriculum: {
     findMany: vi.fn(),
   },
+  studentCurriculumConfirmation: {
+    findUnique: vi.fn(),
+  },
   semester: {
     findFirst: vi.fn(),
   },
@@ -133,9 +136,13 @@ beforeEach(() => {
   prismaMock.curriculum.findMany.mockResolvedValue([
     {
       id: 'curriculum-1',
+      updatedAt: new Date('2026-01-01T00:00:00.000Z'),
       courses: [{ courseId: 'course-1' }],
     },
   ])
+  prismaMock.studentCurriculumConfirmation.findUnique.mockResolvedValue({
+    confirmedAt: new Date('2026-02-01T00:00:00.000Z'),
+  })
   prismaMock.semester.findFirst.mockResolvedValue({ id: 'semester-1' })
 })
 
@@ -160,6 +167,7 @@ describe('courseSearchService eligibility', () => {
 
     expect(result.items).toHaveLength(2)
     expect(result.items[0].eligibility.isEnrolled).toBe(true)
+    expect(result.items[0].eligibility.curriculumConfirmed).toBe(true)
     expect(result.items[0].eligibility.reasons).toContain('课程已选')
     expect(result.items[1].eligibility.isEnrolled).toBe(false)
     expect(result.items[1].eligibility.reasons).not.toContain('课程已选')
@@ -253,6 +261,30 @@ describe('courseSearchService eligibility', () => {
     expect(result.items[0].eligibility.reasons).toContain('课程已归档')
   })
 
+  it('marks offerings unavailable when the curriculum is not confirmed', async () => {
+    prismaMock.studentCurriculumConfirmation.findUnique.mockResolvedValueOnce(null)
+    prismaMock.courseOffering.findMany.mockResolvedValue([
+      buildOffering({ id: 'unconfirmed-offering' }),
+    ])
+
+    const result = await courseSearchService.listAvailableOfferings('student-user-1', {
+      semesterId: 'semester-1',
+      includeUnavailable: true,
+      page: 1,
+      pageSize: 20,
+    })
+
+    expect(result).not.toBeTypeOf('string')
+    if (typeof result === 'string') {
+      throw new Error(result)
+    }
+
+    expect(result.items).toHaveLength(1)
+    expect(result.items[0].eligibility.isAvailable).toBe(false)
+    expect(result.items[0].eligibility.curriculumConfirmed).toBe(false)
+    expect(result.items[0].eligibility.reasons).toContain('请先确认当前培养方案后再进入正式选课流程。')
+  })
+
   it('returns complete eligibility flags for offering detail', async () => {
     prismaMock.user.findUnique.mockResolvedValue({
       id: 'student-user-1',
@@ -284,6 +316,7 @@ describe('courseSearchService eligibility', () => {
       isEnrolled: true,
       isFull: false,
       hasTimeConflict: false,
+      curriculumConfirmed: true,
       prerequisiteSatisfied: true,
       withinCurriculum: true,
       reasons: ['课程已选'],

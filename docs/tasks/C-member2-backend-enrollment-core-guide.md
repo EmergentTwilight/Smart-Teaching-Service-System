@@ -150,7 +150,7 @@ backend/src/modules/course-selection/ai-advisor.service.ts
 | `backend/src/modules/course-selection/enrollment.service.ts`：退选函数 | `TODO(C3, FR-C-21, FR-C-22, NFR-C-04)`、`TODO(C3, FR-C-23)` | 实现退选事务：只能退选当前学生本人 `Enrollment`，阶段必须允许退选，目标状态必须为 `enrolled`；只更新 `status=dropped` 和 `dropped_at`，不得删除记录，不写不存在的退选原因字段；同事务减少 `enrolled_count` 且不小于 0。 |
 | `backend/src/modules/course-selection/course-selection.schemas.ts`：选课/退选 schema | `TODO(C3, FR-C-14, FR-C-16, NFR-C-04)`、`TODO(C3, FR-C-16, FR-C-14, NFR-C-04)`、`TODO(C3, FR-C-21, NFR-C-04)` | 保持请求体只使用 `course_offering_id`、`client_request_id` 等文档字段；学生身份不得来自请求体；退选 schema 透传 `client_request_id`，不推动新增 `Enrollment.reason`。 |
 
-依赖其他成员的内容不要在 C3 中直接实现：可选课程 eligibility 属于 C1/C2，`GET /enrollments/me` 和课表属于 C4，手动加课属于 C5。培养方案确认持久化、先修通过情况和退选阶段规则应分别引用 `TODO-C-01`、`TODO-C-10`、`TODO-C-12` 并写清负责人确认项。v2.0 `FR-C-15` 准入控制和空闲释放由 C3 主责，C5 仅协作阶段和配置口径。
+依赖其他成员的内容不要在 C3 中直接实现：可选课程 eligibility 属于 C1/C2，`GET /enrollments/me` 和课表属于 C4，手动加课属于 C5。培养方案确认状态必须读取 `student_curriculum_confirmations`；先修通过情况和退选阶段规则应分别引用 `TODO-C-10`、`TODO-C-12` 并写清负责人确认项。v2.0 `FR-C-15` 准入控制和空闲释放由 C3 主责，C5 仅协作阶段和配置口径。
 
 ## 6. 选课事务必须完成的校验
 
@@ -158,7 +158,7 @@ backend/src/modules/course-selection/ai-advisor.service.ts
 
 1. 当前用户必须是 `student`。
 2. 学生身份来自认证上下文，不得信任请求体中的 `student_id` 或 `studentId`。
-3. 当前学生已确认当前匹配培养方案；确认状态必须来自后端持久化记录，未落库前按 `TODO-C-01` 处理。
+3. 当前学生已确认当前匹配培养方案；确认状态必须来自后端持久化记录，且 `confirmed_at` 不早于 `Curriculum.updated_at`。
 4. 当前存在启用的 `SelectionPeriod`。
 5. 服务端当前时间位于 `start_time` 和 `end_time` 范围内。
 6. `CourseOffering.status = open`。

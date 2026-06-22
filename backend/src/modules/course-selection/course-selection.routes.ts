@@ -11,6 +11,7 @@ import { selectionPeriodController } from './selection-period.controller.js'
 import { aiAdvisorController } from './ai-advisor.controller.js'
 import { admissionController } from './admission.controller.js'
 import {
+  curriculumConfirmationBodySchema,
   curriculumQuerySchema,
   curriculumProgressQuerySchema,
   courseSearchQuerySchema,
@@ -61,6 +62,12 @@ router.post(
   admissionController.leave
 )
 router.get('/curriculum/me', requireRoles('student'), validate(curriculumQuerySchema, 'query'), curriculumController.getMyCurriculum)
+router.post(
+  '/curriculum/me/confirmation',
+  requireRoles('student'),
+  validate(curriculumConfirmationBodySchema, 'body'),
+  curriculumController.confirmMyCurriculum
+)
 router.get(
   '/curriculum/me/progress',
   requireRoles('student'),

@@ -273,7 +273,7 @@ docs/tasks/C-integration-and-acceptance-guide.md
 SelectionPeriod 判断必须以服务端时间为准，不能依赖客户端时间。
 ```
 
-培养方案确认持久化属于数据库设计待办。任何成员不得为了满足 v2.0 验收基线擅自新增业务表或修改 Prisma schema；确认记录设计完成前，C1/C3 只能在文档、接口契约和 TODO 中保留目标口径。
+培养方案确认持久化已由 `student_curriculum_confirmations` 承载。C1 负责确认状态查询/确认接口，C2 负责可选课程只读 eligibility 提示，C3 必须在选课事务中校验当前确认有效；确认时间早于 `Curriculum.updated_at` 时视为未确认。
 
 ### C6 AI 辅助选课
 

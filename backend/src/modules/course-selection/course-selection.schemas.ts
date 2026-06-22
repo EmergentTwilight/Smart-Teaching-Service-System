@@ -78,6 +78,17 @@ export const curriculumProgressQuerySchema = z
 
 export type CurriculumProgressQuery = z.infer<typeof curriculumProgressQuerySchema>
 
+export const curriculumConfirmationBodySchema = z
+  .object({
+    curriculum_id: z.string().uuid('培养方案ID应为 UUID'),
+  })
+  .strict()
+  .transform((value) => ({
+    curriculumId: value.curriculum_id,
+  }))
+
+export type CurriculumConfirmationBody = z.infer<typeof curriculumConfirmationBodySchema>
+
 // TODO(C2, FR-C-08, FR-C-12, NFR-C-13): 规范课程搜索入参，支持课程名/教师/学期/课程类型等筛选
 export const courseSearchQuerySchema = z
   .object({

@@ -103,6 +103,10 @@ export interface CreateEnrollmentBody {
   clientRequestId?: string
 }
 
+export interface CurriculumConfirmationBody {
+  curriculumId: string
+}
+
 export interface DropEnrollmentBody {
   reason?: string
   clientRequestId?: string
@@ -227,6 +231,7 @@ export const COURSE_SELECTION_ERROR_CODES = {
   DUPLICATE_ENROLLMENT: 'CS_DUPLICATE_ENROLLMENT',
   SCHEDULE_CONFLICT: 'CS_SCHEDULE_CONFLICT',
   MAX_CREDITS_EXCEEDED: 'CS_MAX_CREDITS_EXCEEDED',
+  CURRICULUM_NOT_CONFIRMED: 'CS_CURRICULUM_NOT_CONFIRMED',
   PREREQUISITE_NOT_MET: 'CS_PREREQUISITE_NOT_MET',
   ENROLLMENT_NOT_FOUND: 'CS_ENROLLMENT_NOT_FOUND',
   FORBIDDEN: 'CS_FORBIDDEN',
@@ -270,12 +275,17 @@ export interface CurriculumCourseGroup {
 export interface CurriculumConfirmation {
   requiredBeforeSelection: boolean
   confirmed: boolean
+  confirmedAt?: string | null
   message?: string
 }
 
 export interface CurriculumPayload {
   curriculum: CurriculumInfo
   courseGroups: CurriculumCourseGroup[]
+  confirmation: CurriculumConfirmation
+}
+
+export interface CurriculumConfirmationPayload {
   confirmation: CurriculumConfirmation
 }
 
@@ -369,6 +379,7 @@ export interface CourseEligibilitySnapshot {
   isEnrolled?: boolean
   isFull?: boolean
   hasTimeConflict?: boolean
+  curriculumConfirmed?: boolean
   prerequisiteSatisfied?: boolean
   withinCurriculum?: boolean
   reasons: string[]

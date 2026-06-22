@@ -1,5 +1,7 @@
 import type {
   CurriculumPayload,
+  CurriculumConfirmationBody,
+  CurriculumConfirmationPayload,
   CurriculumProgress,
   CurriculumQuery,
   CurriculumProgressQuery,
@@ -14,16 +16,58 @@ import type {
 import {
   toCourseTypeValue,
 } from './course-selection.types.js'
+import {
+  buildCurriculumConfirmationPayload,
+} from './course-selection.support.js'
 
-import { 
-  PrismaClient,
+import {
   CourseType,
   CourseStatus,
   EnrollmentStatus
 } from '@prisma/client'
 import type { Prisma } from '@prisma/client'
+import prisma from '../../shared/prisma/client.js'
 
-const prisma = new PrismaClient()
+const resolveCurrentCurriculumContext = async (studentId: string) => {
+  const student = await prisma.student.findUnique({
+    where: {
+      userId: studentId
+    },
+    include: {
+      major: true
+    }
+  })
+  if(!student) {
+    return '无法找到对应学生'
+  }
+  const majorId = student.majorId
+  const major = student.major
+  if(!majorId || !major) {
+    return '无法找到对应专业'
+  }
+
+  const curriculums = await prisma.curriculum.findMany({
+    where: {
+      majorId,
+      year: student.grade
+    }
+  })
+  if(curriculums.length === 0) {
+    return '无法找到对应培养方案'
+  }
+  if(curriculums.length !== 1) {
+    return '对应培养方案不唯一'
+  }
+
+  return {
+    student: {
+      ...student,
+      majorId,
+      major
+    },
+    curriculum: curriculums[0]
+  }
+}
 
 /**
  * C1: 培养方案与学分进展服务
@@ -36,41 +80,17 @@ export const curriculumService = {
     studentId: string,
     query: CurriculumQuery
   ): Promise<CurriculumPayload | string> {
-    void studentId
     void query
 
     // TODO(C1, FR-C-01, FR-C-02, FR-C-03, FR-C-06, NFR-C-13):
     // 由 C1 成员实现学生 major/grade 到 Curriculum 的匹配，以及 CurriculumCourse 分类输出。
     // 负责人骨架不得提前写入未经 C1 review 的 Prisma 查询假设。
-    const student = await prisma.student.findUnique({
-      where: {
-        userId: studentId
-      },
-      include: {
-        major: true
-      }
-    })
-    if(!student) {
-      return '无法找到对应学生'
-    }
-    if(!student.majorId || !student.major) {
-      return '无法找到对应专业'
+    const context = await resolveCurrentCurriculumContext(studentId)
+    if(typeof context === 'string') {
+      return context
     }
 
-    const curriculums = await prisma.curriculum.findMany({
-      where: {
-        majorId: student.majorId,
-        year:  student.grade
-      }
-    })
-    if(curriculums.length === 0) {
-      return '无法找到对应培养方案'
-    }
-    if(curriculums.length !== 1) {
-      return '对应培养方案不唯一'
-    }
-
-    const curriculum = curriculums[0]
+    const { student, curriculum } = context
     const info: CurriculumInfo = {
       id: curriculum.id,
       name: curriculum.name,
@@ -158,11 +178,22 @@ export const curriculumService = {
       }
     }
 
-    const confirmation: CurriculumConfirmation = {
-      requiredBeforeSelection: false,
-      confirmed: true,
-      message: '当前培养方案仅供查看，暂无需额外确认。'
-    }
+    const confirmationRecord = await prisma.studentCurriculumConfirmation.findUnique({
+      where: {
+        studentId_curriculumId: {
+          studentId,
+          curriculumId: curriculum.id
+        }
+      },
+      select: {
+        confirmedAt: true
+      }
+    })
+
+    const confirmation: CurriculumConfirmation = buildCurriculumConfirmationPayload(
+      confirmationRecord,
+      curriculum
+    )
 
     const payload: CurriculumPayload = {
       curriculum: info,
@@ -173,13 +204,55 @@ export const curriculumService = {
   },
 
   /**
+   * 确认当前学生匹配的培养方案
+   */
+  async confirmMyCurriculum(
+    studentId: string,
+    body: CurriculumConfirmationBody
+  ): Promise<CurriculumConfirmationPayload | string> {
+    const context = await resolveCurrentCurriculumContext(studentId)
+    if(typeof context === 'string') {
+      return context
+    }
+
+    const { curriculum } = context
+    if(body.curriculumId !== curriculum.id) {
+      return '提交的培养方案与当前学生匹配培养方案不一致'
+    }
+
+    const now = new Date()
+    const confirmationRecord = await prisma.studentCurriculumConfirmation.upsert({
+      where: {
+        studentId_curriculumId: {
+          studentId,
+          curriculumId: curriculum.id
+        }
+      },
+      create: {
+        studentId,
+        curriculumId: curriculum.id,
+        confirmedAt: now
+      },
+      update: {
+        confirmedAt: now
+      },
+      select: {
+        confirmedAt: true
+      }
+    })
+
+    return {
+      confirmation: buildCurriculumConfirmationPayload(confirmationRecord, curriculum)
+    }
+  },
+
+  /**
    * 获取当前学生学分进展
    */
   async getMyCurriculumProgress(
     studentId: string,
     query: CurriculumProgressQuery
   ): Promise<CurriculumProgress | string> {
-    void studentId
     void query
 
     // TODO(C1, FR-C-05, NFR-C-07): 由有效 Enrollment 汇总真实学分进度
@@ -188,35 +261,12 @@ export const curriculumService = {
     // - 计算与 Curriculum 目标学分的比例
     // TODO(C1, FR-C-05, NFR-C-12): 进度统计结果与后续选课/退课事务需保持一致
     // 负责人 scaffold 不返回 200 全零进度，避免把未实现误判为真实统计结果。
-    const student = await prisma.student.findUnique({
-      where: {
-        userId: studentId
-      },
-      include: {
-        major: true
-      }
-    })
-    if(!student) {
-      return '无法找到对应学生'
-    }
-    if(!student.majorId || !student.major) {
-      return '无法找到对应专业'
+    const context = await resolveCurrentCurriculumContext(studentId)
+    if(typeof context === 'string') {
+      return context
     }
 
-    const curriculums = await prisma.curriculum.findMany({
-      where: {
-        majorId: student.majorId,
-        year:  student.grade
-      }
-    })
-    if(curriculums.length === 0) {
-      return '无法找到对应培养方案'
-    }
-    if(curriculums.length !== 1) {
-      return '对应培养方案不唯一'
-    }
-
-    const curriculum = curriculums[0]
+    const { curriculum } = context
     const requirements: CurriculumCreditSummary = {
       totalCredits: Number(curriculum.totalCredits),
       requiredCredits: Number(curriculum.requiredCredits),

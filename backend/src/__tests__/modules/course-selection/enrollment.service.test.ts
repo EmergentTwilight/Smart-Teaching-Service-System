@@ -26,9 +26,12 @@ const prismaMock = vi.hoisted(() => ({
     updateMany: vi.fn(),
   },
   curriculum: {
-    findFirst: vi.fn(),
+    findMany: vi.fn(),
   },
   curriculumCourse: {
+    findUnique: vi.fn(),
+  },
+  studentCurriculumConfirmation: {
     findUnique: vi.fn(),
   },
   coursePrerequisite: {
@@ -171,8 +174,13 @@ beforeEach(() => {
   prismaMock.selectionPeriod.findFirst.mockResolvedValue(buildPeriod())
   prismaMock.enrollment.findUnique.mockResolvedValue(null)
   prismaMock.enrollment.findMany.mockResolvedValue([])
-  prismaMock.curriculum.findFirst.mockResolvedValue({ id: 'curriculum-1' })
+  prismaMock.curriculum.findMany.mockResolvedValue([
+    { id: 'curriculum-1', updatedAt: new Date('2026-01-01T00:00:00.000Z') },
+  ])
   prismaMock.curriculumCourse.findUnique.mockResolvedValue({ courseId: 'course-1' })
+  prismaMock.studentCurriculumConfirmation.findUnique.mockResolvedValue({
+    confirmedAt: new Date('2026-02-01T00:00:00.000Z'),
+  })
   prismaMock.coursePrerequisite.findMany.mockResolvedValue([])
   prismaMock.score.findMany.mockResolvedValue([])
   prismaMock.courseOffering.updateMany.mockResolvedValue({ count: 1 })
@@ -581,6 +589,19 @@ describe('enrollmentService.createEnrollment', () => {
     await expectCourseSelectionError(
       enrollmentService.createEnrollment('student-1', { courseOfferingId: 'offering-1' }),
       COURSE_SELECTION_ERROR_CODES.PREREQUISITE_NOT_MET,
+      422
+    )
+    expect(prismaMock.enrollment.create).not.toHaveBeenCalled()
+    expect(prismaMock.courseOffering.updateMany).not.toHaveBeenCalled()
+  })
+
+  it('rejects selection before the current curriculum is confirmed', async () => {
+    prismaMock.courseOffering.findUnique.mockResolvedValueOnce(buildOffering({ schedules: [] }))
+    prismaMock.studentCurriculumConfirmation.findUnique.mockResolvedValueOnce(null)
+
+    await expectCourseSelectionError(
+      enrollmentService.createEnrollment('student-1', { courseOfferingId: 'offering-1' }),
+      COURSE_SELECTION_ERROR_CODES.CURRICULUM_NOT_CONFIRMED,
       422
     )
     expect(prismaMock.enrollment.create).not.toHaveBeenCalled()

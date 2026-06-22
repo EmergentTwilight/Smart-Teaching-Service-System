@@ -286,7 +286,7 @@ curl -X GET "https://stss.example.com/api/v1/course-selection/curriculum/me?incl
 - 若当前学生无法匹配培养方案，返回 `422`，并阻止自动生成可选课程列表。
 - 培养方案、课程分类和课程代码只读取主数据，不由 C 模块复制或新建。
 - `confirmation.required_before_selection` 表示 v2.0 验收基线要求培养方案确认作为选课前置条件；`confirmed` 与 `confirmed_at` 应来自后端持久化确认记录，不得由前端本地状态伪造。
-- TODO-C-01（`FR-C-04`）：当前数据库设计未提供培养方案确认记录字段或表。实现确认阻断前必须先更新数据库设计；未完成落库前不得用无法验证的前端确认状态替代后端事实，也不得在 C 模块擅自新增业务表。
+- 确认记录来自 `student_curriculum_confirmations`；若 `confirmed_at` 早于对应 `Curriculum.updated_at`，视为未确认并要求学生重新确认。
 
 ### 3.1.1 确认本人培养方案
 
@@ -326,7 +326,7 @@ Content-Type: application/json
 
 - 必须校验 `curriculum_id` 与当前学生专业和年级匹配的培养方案一致。
 - 确认结果用于 `GET /offerings/available` 和 `POST /enrollments` 的前置校验。
-- TODO-C-01 阻塞该接口落地：未完成数据库设计和 Prisma schema 评审前，本接口只作为目标契约，不应实现危险假确认。
+- 重复确认同一培养方案时刷新 `confirmed_at`；确认状态必须以后端持久化记录为准。
 
 ### 3.2 查看本人培养方案进度
 
@@ -400,7 +400,7 @@ curl -X GET "https://stss.example.com/api/v1/course-selection/curriculum/me/prog
 
 - 仅统计 `status = enrolled` 的有效选课；`include_dropped=true` 仅用于展示历史，不计入进度。
 - 进度按 `Course.course_type` 或 `CurriculumCourse.course_type` 聚合，字段冲突时以培养方案课程关系为准。
-- 学分进展应基于已确认培养方案；确认持久化落地前按 TODO-C-01 标记为数据库设计阻塞项。
+- 学分进展应基于已确认培养方案；确认记录早于培养方案更新时间时应提示重新确认。
 - TODO-C-02（`FR-C-05`）：公共课最低学分要求在数据库设计中暂无独立字段，后续需与数据库负责人确认是否由 `Curriculum.elective_credits` 拆分、由课程分类派生，或修改数据库设计。
 
 ### 3.3 搜索课程目录
@@ -668,7 +668,7 @@ curl -X GET "https://stss.example.com/api/v1/course-selection/offerings/availabl
 
 **校验与说明**
 
-- 无匹配培养方案或未确认培养方案时返回 `422`，不生成可选课程列表；未确认时错误码使用 `CS_CURRICULUM_NOT_CONFIRMED`。
+- 无匹配培养方案时返回 `422`，不生成可选课程列表；未确认培养方案时返回课程列表但将 `eligibility.curriculum_confirmed=false`、`is_available=false`，正式提交选课时返回 `CS_CURRICULUM_NOT_CONFIRMED`。
 - 可选性解释必须覆盖未确认培养方案、容量、已选、冲突、先修、培养方案适配、当前阶段等原因。
 - TODO-C-05（`FR-C-19`）：先修课程是否满足需要依赖 F 子系统有效成绩或等价课程完成记录；缺少可判定数据时正式策略应阻止选课并返回明确提示。
 - `FR-C-15` 准入控制已由 `/admission/enter`、`/admission/heartbeat`、`/admission/leave` 和选课提交前租约校验承接；不得新增数据库业务表。
@@ -935,7 +935,6 @@ curl -X POST "https://stss.example.com/api/v1/course-selection/enrollments" \
 - 必须校验 `CourseOffering.status = open`、`Course.status = active`、容量未满、未重复选课、未超过 `max_credits`、课表不冲突、符合培养方案和先修课通过状态。
 - 若已有同一学生同一课程开设的 `dropped` 记录，可更新为 `enrolled` 并刷新 `enrolled_at`；不得创建多个有效 `enrolled` 记录。
 - TODO-C-09（`FR-C-16`、`FR-C-18`、`FR-C-22`、`NFR-C-05`）：后续实现需明确 PostgreSQL 行锁或条件更新方案，并补充并发测试。
-- TODO-C-01（`FR-C-04`）：选课确认阻断依赖培养方案确认记录的数据库设计，不得用前端本地状态替代后端持久化事实。
 - TODO-C-10（`FR-C-19`）：先修课校验需与 F 子系统确定“有效成绩/等价课程完成记录”的读取方式。
 - 选课提交必须存在当前学生、当前学期的有效 Redis 准入租约；缺失或过期时返回 `CS_ADMISSION_LIMITED`。
 
@@ -1695,7 +1694,6 @@ C 模块错误响应的顶层 `code` 使用 HTTP 状态码；业务错误码放�
 
 | TODO | 对应需求 | 后续任务 |
 | ---- | -------- | -------- |
-| TODO-C-01 | `FR-C-04` | v2.0 验收基线要求培养方案确认作为选课前置条件；需先更新数据库设计，增加学生培养方案确认记录承载，再实现确认接口和选课阻断，不在 C 模块擅自新增表。 |
 | TODO-C-02 | `FR-C-05` | 明确公共课最低学分要求来源，当前数据库只有 `required_credits` 和 `elective_credits`。 |
 | TODO-C-03 | `FR-C-08` 至 `FR-C-12` | 设计课程名称、课程代码、教师姓名检索索引和分页策略。 |
 | TODO-C-04 | `FR-C-12`、`NFR-C-13` | 统一课程搜索、开设列表和可选课程列表筛选字段。 |

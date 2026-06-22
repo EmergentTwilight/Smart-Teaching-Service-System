@@ -66,8 +66,9 @@ const getEffectiveEligibility = (
     ? record.eligibility.reasons.filter((reason) => !isEnrolledReason(reason))
     : record.eligibility.reasons;
   const hasBlockingEligibilityFlag = Boolean(
-    record.eligibility.isFull ||
+      record.eligibility.isFull ||
       record.eligibility.hasTimeConflict ||
+      record.eligibility.curriculumConfirmed === false ||
       record.eligibility.prerequisiteSatisfied === false ||
       record.eligibility.withinCurriculum === false
   );
@@ -77,6 +78,7 @@ const getEffectiveEligibility = (
     isEnrolled: false,
     isAvailable:
       record.status === 'open' &&
+      record.eligibility.curriculumConfirmed !== false &&
       (record.eligibility.isAvailable || (hasKnownInactiveEnrollment && !hasBlockingEligibilityFlag)),
     reasons: uniqueReasons(statusReason ? [...reasons, statusReason] : reasons),
   };

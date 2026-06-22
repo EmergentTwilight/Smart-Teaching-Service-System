@@ -45,7 +45,12 @@ export interface CurriculumCourseGroup {
 export interface CurriculumConfirmation {
   requiredBeforeSelection: boolean;
   confirmed: boolean;
+  confirmedAt?: string | null;
   message?: string;
+}
+
+export interface CurriculumConfirmationPayload {
+  confirmation: CurriculumConfirmation;
 }
 
 export interface CurriculumPayload {

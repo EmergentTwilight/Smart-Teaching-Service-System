@@ -6,6 +6,8 @@ import IORedis from 'ioredis'
 
 type SetOptions = {
   ex?: number
+  px?: number
+  nx?: boolean
 }
 
 type CacheRecord = {
@@ -32,11 +34,21 @@ class MemoryRedisClient {
     return this.store.get(key)?.value ?? null
   }
 
-  async set(key: string, value: string, options: SetOptions = {}): Promise<void> {
+  async set(key: string, value: string, options: SetOptions = {}): Promise<boolean> {
+    this.cleanupExpired(key)
+    if (options.nx && this.store.has(key)) {
+      return false
+    }
+
     this.store.set(key, {
       value,
-      expires_at: options.ex ? Date.now() + options.ex * 1000 : undefined,
+      expires_at: options.px
+        ? Date.now() + options.px
+        : options.ex
+          ? Date.now() + options.ex * 1000
+          : undefined,
     })
+    return true
   }
 
   async incr(key: string): Promise<number> {
@@ -80,7 +92,7 @@ class MemoryRedisClient {
  */
 interface RedisClient {
   get(key: string): Promise<string | null>
-  set(key: string, value: string, options?: SetOptions): Promise<void>
+  set(key: string, value: string, options?: SetOptions): Promise<boolean>
   incr(key: string): Promise<number>
   expire(key: string, seconds: number): Promise<void>
   del(...keys: string[]): Promise<number>
@@ -103,11 +115,21 @@ function createRedisClient(): RedisClient {
         return redis.get(key) as Promise<string | null>
       },
       async set(key: string, value: string, options: SetOptions = {}) {
+        if (options.nx && options.px) {
+          return (await redis.set(key, value, 'PX', options.px, 'NX')) === 'OK'
+        }
+        if (options.nx && options.ex) {
+          return (await redis.set(key, value, 'EX', options.ex, 'NX')) === 'OK'
+        }
+        if (options.px) {
+          return (await redis.set(key, value, 'PX', options.px)) === 'OK'
+        }
         if (options.ex) {
           await redis.setex(key, options.ex, value)
-        } else {
-          await redis.set(key, value)
+          return true
         }
+        await redis.set(key, value)
+        return true
       },
       async incr(key: string) {
         return redis.incr(key) as Promise<number>

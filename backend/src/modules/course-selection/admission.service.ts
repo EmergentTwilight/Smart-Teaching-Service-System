@@ -24,6 +24,8 @@ interface AdmissionState {
 const DEFAULT_MAX_ACTIVE_SESSIONS = 200
 const DEFAULT_IDLE_TIMEOUT_SECONDS = 300
 const DEFAULT_HEARTBEAT_INTERVAL_SECONDS = 30
+const DEFAULT_LOCK_WAIT_MILLISECONDS = 30_000
+const DEFAULT_LOCK_TTL_MILLISECONDS = 15_000
 
 const readPositiveIntegerEnv = (name: string, fallback: number): number => {
   const raw = process.env[name]
@@ -49,6 +51,14 @@ const getAdmissionConfig = () => ({
 
 const stateKeyOf = (semesterId: string): string =>
   `course-selection:admission:${semesterId}`
+
+const lockKeyOf = (semesterId: string): string =>
+  `course-selection:admission:${semesterId}:lock`
+
+const sleep = (ms: number): Promise<void> =>
+  new Promise((resolve) => {
+    setTimeout(resolve, ms)
+  })
 
 const throwAdmissionError = (message: string): never => {
   const code = COURSE_SELECTION_ERROR_CODES.ADMISSION_LIMITED
@@ -91,6 +101,40 @@ const writeState = async (
   ttlSeconds: number
 ): Promise<void> => {
   await redisClient.set(stateKeyOf(semesterId), JSON.stringify(state), { ex: ttlSeconds })
+}
+
+const withAdmissionLock = async <T>(
+  semesterId: string,
+  action: () => Promise<T>
+): Promise<T> => {
+  const lockKey = lockKeyOf(semesterId)
+  const lockToken = randomUUID()
+  const lockWaitMs = readPositiveIntegerEnv(
+    'COURSE_SELECTION_ADMISSION_LOCK_WAIT_MS',
+    DEFAULT_LOCK_WAIT_MILLISECONDS
+  )
+  const lockTtlMs = readPositiveIntegerEnv(
+    'COURSE_SELECTION_ADMISSION_LOCK_TTL_MS',
+    DEFAULT_LOCK_TTL_MILLISECONDS
+  )
+  const deadline = Date.now() + lockWaitMs
+
+  while (Date.now() < deadline) {
+    const acquired = await redisClient.set(lockKey, lockToken, { px: lockTtlMs, nx: true })
+    if (acquired !== false) {
+      try {
+        return await action()
+      } finally {
+        if ((await redisClient.get(lockKey)) === lockToken) {
+          await redisClient.del(lockKey)
+        }
+      }
+    }
+
+    await sleep(5 + Math.floor(Math.random() * 10))
+  }
+
+  return throwAdmissionError('选课准入系统繁忙，请稍后重试')
 }
 
 const loadOpenSelectionSemester = async (
@@ -149,35 +193,38 @@ export const admissionService = {
     const now = new Date()
     const nowMs = now.getTime()
     const semesterId = await loadOpenSelectionSemester(body.semesterId, now)
-    const state = await readState(semesterId, nowMs)
-    const existingLease = state.leases[studentId]
 
-    if (existingLease) {
-      const refreshedLease = {
-        ...existingLease,
+    return withAdmissionLock(semesterId, async () => {
+      const state = await readState(semesterId, nowMs)
+      const existingLease = state.leases[studentId]
+
+      if (existingLease) {
+        const refreshedLease = {
+          ...existingLease,
+          expiresAt: nowMs + config.idleTimeoutSeconds * 1000,
+          updatedAt: nowMs,
+        }
+        state.leases[studentId] = refreshedLease
+        await writeState(semesterId, state, config.idleTimeoutSeconds + 60)
+
+        return buildLeasePayload(semesterId, refreshedLease, activeLeaseCount(state))
+      }
+
+      if (activeLeaseCount(state) >= config.maxActiveSessions) {
+        throwAdmissionError('选课核心流程达到准入上限，请稍后重试')
+      }
+
+      const lease: AdmissionLeaseRecord = {
+        leaseId: randomUUID(),
+        studentId,
         expiresAt: nowMs + config.idleTimeoutSeconds * 1000,
         updatedAt: nowMs,
       }
-      state.leases[studentId] = refreshedLease
+      state.leases[studentId] = lease
       await writeState(semesterId, state, config.idleTimeoutSeconds + 60)
 
-      return buildLeasePayload(semesterId, refreshedLease, activeLeaseCount(state))
-    }
-
-    if (activeLeaseCount(state) >= config.maxActiveSessions) {
-      throwAdmissionError('选课核心流程达到准入上限，请稍后重试')
-    }
-
-    const lease: AdmissionLeaseRecord = {
-      leaseId: randomUUID(),
-      studentId,
-      expiresAt: nowMs + config.idleTimeoutSeconds * 1000,
-      updatedAt: nowMs,
-    }
-    state.leases[studentId] = lease
-    await writeState(semesterId, state, config.idleTimeoutSeconds + 60)
-
-    return buildLeasePayload(semesterId, lease, activeLeaseCount(state))
+      return buildLeasePayload(semesterId, lease, activeLeaseCount(state))
+    })
   },
 
   async heartbeat(
@@ -188,54 +235,63 @@ export const admissionService = {
     const now = new Date()
     const nowMs = now.getTime()
     const semesterId = await loadOpenSelectionSemester(body.semesterId, now)
-    const state = await readState(semesterId, nowMs)
-    const existingLease = state.leases[studentId]
 
-    if (!existingLease || existingLease.leaseId !== body.leaseId) {
-      throwAdmissionError('选课准入已过期，请重新进入选课页')
-    }
+    return withAdmissionLock(semesterId, async () => {
+      const state = await readState(semesterId, nowMs)
+      const existingLease = state.leases[studentId]
 
-    const refreshedLease = {
-      ...existingLease,
-      expiresAt: nowMs + config.idleTimeoutSeconds * 1000,
-      updatedAt: nowMs,
-    }
-    state.leases[studentId] = refreshedLease
-    await writeState(semesterId, state, config.idleTimeoutSeconds + 60)
+      if (!existingLease || existingLease.leaseId !== body.leaseId) {
+        throwAdmissionError('选课准入已过期，请重新进入选课页')
+      }
 
-    return buildLeasePayload(semesterId, refreshedLease, activeLeaseCount(state))
+      const refreshedLease = {
+        ...existingLease,
+        expiresAt: nowMs + config.idleTimeoutSeconds * 1000,
+        updatedAt: nowMs,
+      }
+      state.leases[studentId] = refreshedLease
+      await writeState(semesterId, state, config.idleTimeoutSeconds + 60)
+
+      return buildLeasePayload(semesterId, refreshedLease, activeLeaseCount(state))
+    })
   },
 
   async leave(studentId: string, body: AdmissionLeaseBody): Promise<AdmissionLeavePayload> {
     const config = getAdmissionConfig()
     const nowMs = Date.now()
-    const state = await readState(body.semesterId, nowMs)
-    const existingLease = state.leases[studentId]
-    let released = false
 
-    if (existingLease?.leaseId === body.leaseId) {
-      delete state.leases[studentId]
-      released = true
-      await writeState(body.semesterId, state, config.idleTimeoutSeconds + 60)
-    }
+    return withAdmissionLock(body.semesterId, async () => {
+      const state = await readState(body.semesterId, nowMs)
+      const existingLease = state.leases[studentId]
+      let released = false
 
-    return {
-      released,
-      semesterId: body.semesterId,
-    }
+      if (existingLease?.leaseId === body.leaseId) {
+        delete state.leases[studentId]
+        released = true
+        await writeState(body.semesterId, state, config.idleTimeoutSeconds + 60)
+      }
+
+      return {
+        released,
+        semesterId: body.semesterId,
+      }
+    })
   },
 
   async assertActiveLease(studentId: string, semesterId: string): Promise<void> {
     const config = getAdmissionConfig()
     const nowMs = Date.now()
-    const state = await readState(semesterId, nowMs)
-    const lease = state.leases[studentId]
 
-    if (!lease) {
+    await withAdmissionLock(semesterId, async () => {
+      const state = await readState(semesterId, nowMs)
+      const lease = state.leases[studentId]
+
+      if (!lease) {
+        await writeState(semesterId, state, config.idleTimeoutSeconds + 60)
+        throwAdmissionError('选课准入已过期，请重新进入选课页')
+      }
+
       await writeState(semesterId, state, config.idleTimeoutSeconds + 60)
-      throwAdmissionError('选课准入已过期，请重新进入选课页')
-    }
-
-    await writeState(semesterId, state, config.idleTimeoutSeconds + 60)
+    })
   },
 }

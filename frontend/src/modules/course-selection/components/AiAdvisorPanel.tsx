@@ -310,27 +310,35 @@ const AdviceBubble = ({
             隐藏
           </Button>
         </Space>
-        {riskSections.length === 0 ? (
-          <Text type="secondary">当前无显式冲突风险。</Text>
-        ) : (
-          riskSections.map((section) => (
-            <div key={section.key}>
-              <Space size="small" style={{ marginBottom: 4 }}>
-                <Tag color={section.color}>{section.title}</Tag>
-                <Text type="secondary">{section.items.length} 项</Text>
-              </Space>
-              <List
-                size="small"
-                dataSource={section.items}
-                renderItem={(item) => (
-                  <List.Item style={{ padding: '4px 0' }}>
-                    <Text>{item}</Text>
-                  </List.Item>
-                )}
-              />
-            </div>
-          ))
-        )}
+        <div
+          role="region"
+          aria-label="风险与限制明细"
+          style={{ maxHeight: 320, overflowY: 'auto', paddingRight: 4 }}
+        >
+          {riskSections.length === 0 ? (
+            <Text type="secondary">当前无显式冲突风险。</Text>
+          ) : (
+            <Space direction="vertical" size="small" style={{ width: '100%' }}>
+              {riskSections.map((section) => (
+                <div key={section.key}>
+                  <Space size="small" style={{ marginBottom: 4 }}>
+                    <Tag color={section.color}>{section.title}</Tag>
+                    <Text type="secondary">{section.items.length} 项</Text>
+                  </Space>
+                  <List
+                    size="small"
+                    dataSource={section.items}
+                    renderItem={(item) => (
+                      <List.Item style={{ padding: '4px 0' }}>
+                        <Text>{item}</Text>
+                      </List.Item>
+                    )}
+                  />
+                </div>
+              ))}
+            </Space>
+          )}
+        </div>
       </Space>
     </div>
   );

@@ -36,12 +36,33 @@ const advice: AiAdvicePayload = {
         riskInverse: 0.07,
       },
     },
+    {
+      courseOfferingId: 'offering-3',
+      courseCode: 'CS202',
+      courseName: '数据结构',
+      credits: 4,
+      teacherName: '李老师',
+      recommendationScore: 0.82,
+      reasons: ['满足培养方案要求'],
+      risks: ['课程作业负担较高', '期末项目需要组队完成'],
+      eligibilitySnapshot: {
+        isAvailable: true,
+        remainingCapacity: 5,
+        hasTimeConflict: false,
+        prerequisiteSatisfied: true,
+      },
+    },
   ],
   conflictNotes: [
     {
       courseOfferingId: 'offering-2',
       courseName: '编译原理',
       message: '该课程和已选课程时间冲突',
+    },
+    {
+      courseOfferingId: 'offering-4',
+      courseName: '操作系统',
+      message: '该课程先修条件暂未完全满足',
     },
   ],
   plans: [
@@ -98,6 +119,14 @@ const advice: AiAdvicePayload = {
       riskLevel: 'high',
       riskReason: '剩余名额较少，可能很快满员',
     },
+    {
+      courseOfferingId: 'offering-3',
+      courseName: '数据结构',
+      remainingCapacity: 5,
+      fillRate: 0.85,
+      riskLevel: 'medium',
+      riskReason: '容量消耗较快',
+    },
   ],
 };
 
@@ -121,6 +150,20 @@ describe('AiAdvisorPanel', () => {
     expect(screen.getByText('风险与限制')).toBeInTheDocument();
     expect(screen.getByText(/编译原理：该课程和已选课程时间冲突/)).toBeInTheDocument();
     expect(screen.getByText(/程序设计基础：剩余 2 人，剩余名额较少/)).toBeInTheDocument();
+  });
+
+  it('renders risk details in a fixed-height scrollable region', () => {
+    const turns: AiAdvisorTurn[] = [{ id: 'turn-1', type: 'recommend', advice }];
+
+    render(<AiAdvisorPanel turns={turns} onExplain={vi.fn()} />);
+
+    const riskDetails = screen.getByRole('region', { name: '风险与限制明细' });
+
+    expect(riskDetails.style.maxHeight).toBe('320px');
+    expect(riskDetails.style.overflowY).toBe('auto');
+    expect(riskDetails.style.paddingRight).toBe('4px');
+    expect(screen.getByText(/操作系统：该课程先修条件暂未完全满足/)).toBeInTheDocument();
+    expect(screen.getByText(/数据结构：课程作业负担较高/)).toBeInTheDocument();
   });
 
   it('hides and restores the risk sidebar without hiding recommendations', () => {

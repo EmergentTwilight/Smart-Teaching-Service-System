@@ -61,6 +61,7 @@ interface AiAdvisorPanelProps {
   onSaveTurn?: (turn: AiAdvisorTurn, question?: string) => void;
   savedTurnIds?: string[];
   savingTurnId?: string | null;
+  readOnly?: boolean;
 }
 
 interface UserFallbackNotice {
@@ -231,27 +232,33 @@ const RecommendationListItem = ({
   item,
   onExplain,
   onGoToSelection,
+  readOnly,
 }: {
   item: AiRecommendation;
   onExplain: (offeringId: string, courseName: string) => void;
   onGoToSelection?: () => void;
+  readOnly?: boolean;
 }) => {
   return (
     <List.Item
-      actions={[
-        onGoToSelection ? (
-          <Button key={`${item.courseOfferingId}-select`} size="small" onClick={onGoToSelection}>
-            前往选课
-          </Button>
-        ) : null,
-        <Button
-          key={`${item.courseOfferingId}-explain`}
-          size="small"
-          onClick={() => onExplain(item.courseOfferingId, item.courseName)}
-        >
-          查看解释
-        </Button>,
-      ]}
+      actions={
+        readOnly
+          ? []
+          : [
+              onGoToSelection ? (
+                <Button key={`${item.courseOfferingId}-select`} size="small" onClick={onGoToSelection}>
+                  前往选课
+                </Button>
+              ) : null,
+              <Button
+                key={`${item.courseOfferingId}-explain`}
+                size="small"
+                onClick={() => onExplain(item.courseOfferingId, item.courseName)}
+              >
+                查看解释
+              </Button>,
+            ]
+      }
     >
       <List.Item.Meta
         title={
@@ -284,10 +291,12 @@ const AdviceBubble = ({
   advice,
   onExplain,
   onGoToSelection,
+  readOnly,
 }: {
   advice: AiAdvicePayload;
   onExplain: (offeringId: string, courseName: string) => void;
   onGoToSelection?: () => void;
+  readOnly?: boolean;
 }) => {
   const [riskPanelOpen, setRiskPanelOpen] = useState(true);
   const riskSections = useMemo(() => collectRiskSections(advice), [advice]);
@@ -318,7 +327,14 @@ const AdviceBubble = ({
         <List
           size="small"
           dataSource={plan.recommendations}
-          renderItem={(item) => <RecommendationListItem item={item} onExplain={onExplain} onGoToSelection={onGoToSelection} />}
+          renderItem={(item) => (
+            <RecommendationListItem
+              item={item}
+              onExplain={onExplain}
+              onGoToSelection={onGoToSelection}
+              readOnly={readOnly}
+            />
+          )}
         />
       ),
     })) ?? [];
@@ -448,7 +464,12 @@ const AdviceBubble = ({
                   size="small"
                   dataSource={advice.recommendations}
                   renderItem={(item) => (
-                    <RecommendationListItem item={item} onExplain={onExplain} onGoToSelection={onGoToSelection} />
+                    <RecommendationListItem
+                      item={item}
+                      onExplain={onExplain}
+                      onGoToSelection={onGoToSelection}
+                      readOnly={readOnly}
+                    />
                   )}
                 />
               )}
@@ -496,7 +517,8 @@ const ExplainBubble = ({ turn }: { turn: AiAdvisorExplainTurn }) => {
 const renderResponseTurn = (
   turn: AiAdvisorTurn,
   onExplain: (offeringId: string, courseName: string) => void,
-  onGoToSelection?: () => void
+  onGoToSelection?: () => void,
+  readOnly?: boolean
 ) => {
   if (turn.type === 'loading') {
     return (
@@ -516,7 +538,14 @@ const renderResponseTurn = (
   }
 
   if (turn.type === 'recommend') {
-    return <AdviceBubble advice={turn.advice} onExplain={onExplain} onGoToSelection={onGoToSelection} />;
+    return (
+      <AdviceBubble
+        advice={turn.advice}
+        onExplain={onExplain}
+        onGoToSelection={onGoToSelection}
+        readOnly={readOnly}
+      />
+    );
   }
 
   return null;
@@ -531,6 +560,7 @@ const ConversationGroup = ({
   onSaveTurn,
   savedTurnIds = [],
   savingTurnId,
+  readOnly,
 }: {
   group: AiConversationGroup;
   onExplain: (offeringId: string, courseName: string) => void;
@@ -538,6 +568,7 @@ const ConversationGroup = ({
   onSaveTurn?: (turn: AiAdvisorTurn, question?: string) => void;
   savedTurnIds?: string[];
   savingTurnId?: string | null;
+  readOnly?: boolean;
 }) => {
   return (
     <section
@@ -584,7 +615,7 @@ const ConversationGroup = ({
             ) : (
               group.responses.map((turn) => (
                 <div key={turn.id}>
-                  {onSaveTurn && isSavableTurn(turn) ? (
+                  {!readOnly && onSaveTurn && isSavableTurn(turn) ? (
                     <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
                       <Button
                         size="small"
@@ -598,7 +629,7 @@ const ConversationGroup = ({
                       </Button>
                     </div>
                   ) : null}
-                  {renderResponseTurn(turn, onExplain, onGoToSelection)}
+                  {renderResponseTurn(turn, onExplain, onGoToSelection, readOnly)}
                 </div>
               ))
             )}
@@ -617,6 +648,7 @@ export const AiAdvisorPanel: FC<AiAdvisorPanelProps> = ({
   onSaveTurn,
   savedTurnIds,
   savingTurnId,
+  readOnly,
 }) => {
   if (turns.length === 0 && !loading) {
     return (
@@ -639,6 +671,7 @@ export const AiAdvisorPanel: FC<AiAdvisorPanelProps> = ({
           onSaveTurn={onSaveTurn}
           savedTurnIds={savedTurnIds}
           savingTurnId={savingTurnId}
+          readOnly={readOnly}
         />
       ))}
 

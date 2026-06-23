@@ -214,7 +214,7 @@ describe('CourseSelectionAiPage', () => {
     expect(saveRecordMutate.mock.calls[0][0].title.length).toBeLessThanOrEqual(120);
   });
 
-  it('renders saved records and can restore them into the conversation', async () => {
+  it('shows saved records in a sidebar and previews them in a fullscreen dialog', async () => {
     vi.mocked(useAiAdvisor).mockReturnValue({
       recommend: { mutate: recommendMutate, isPending: false, data: null },
       explain: { mutate: explainMutate, isPending: false, data: null },
@@ -245,6 +245,8 @@ describe('CourseSelectionAiPage', () => {
 
     renderPage();
 
+    fireEvent.click(screen.getByRole('button', { name: /已保存建议/ }));
+
     expect(screen.getByText('已保存推荐')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: '查看' }));
 
@@ -252,6 +254,15 @@ describe('CourseSelectionAiPage', () => {
       expect(screen.getByText('这是保存的问题')).toBeInTheDocument();
     });
     expect(screen.getByText(/程序设计基础/)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '保存' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '查看解释' })).not.toBeInTheDocument();
+
+    const closeButton = document.querySelector('.ant-modal-close') as HTMLElement;
+    fireEvent.click(closeButton);
+
+    await waitFor(() => {
+      expect(screen.queryByText('这是保存的问题')).not.toBeInTheDocument();
+    });
   });
 
   it('deletes saved records through the AI advisor hook', () => {
@@ -285,6 +296,7 @@ describe('CourseSelectionAiPage', () => {
 
     renderPage();
 
+    fireEvent.click(screen.getByRole('button', { name: /已保存建议/ }));
     fireEvent.click(screen.getByRole('button', { name: '删除' }));
 
     expect(deleteRecordMutate).toHaveBeenCalledWith('saved-1', expect.any(Object));

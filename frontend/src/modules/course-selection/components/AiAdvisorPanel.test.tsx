@@ -286,6 +286,29 @@ describe('AiAdvisorPanel', () => {
     );
   });
 
+  it('renders saved advice read-only without save or navigation actions', () => {
+    const turns: AiAdvisorTurn[] = [
+      { id: 'question-1', type: 'question', content: '这是保存的问题' },
+      { id: 'turn-1', type: 'recommend', advice },
+    ];
+
+    render(
+      <AiAdvisorPanel
+        turns={turns}
+        onExplain={vi.fn()}
+        onGoToSelection={vi.fn()}
+        onSaveTurn={vi.fn()}
+        readOnly
+      />
+    );
+
+    expect(screen.getByText('这是保存的问题')).toBeInTheDocument();
+    expect(screen.getByText(/CS101/)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '保存' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '查看解释' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '前往选课' })).not.toBeInTheDocument();
+  });
+
   it('renders empty state without advice', () => {
     render(<AiAdvisorPanel turns={[]} onExplain={vi.fn()} />);
 

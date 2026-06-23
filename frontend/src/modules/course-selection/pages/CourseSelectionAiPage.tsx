@@ -1,5 +1,22 @@
 import { useMemo, useState } from 'react';
-import { Button, Card, Checkbox, Empty, Form, Input, InputNumber, List, Select, Space, Tag, Typography, message } from 'antd';
+import {
+  Button,
+  Card,
+  Checkbox,
+  Drawer,
+  Empty,
+  Form,
+  Input,
+  InputNumber,
+  List,
+  Modal,
+  Select,
+  Space,
+  Tag,
+  Typography,
+  message,
+} from 'antd';
+import { BookOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { useAiAdvisor } from '../hooks/useAiAdvisor';
 import { AiAdvisorPanel, type AiAdvisorTurn } from '../components/AiAdvisorPanel';
@@ -39,6 +56,36 @@ const formatRiskText: Record<'low' | 'medium' | 'high', string> = {
 
 const buildSavedAdviceTitle = (value: string): string => value.trim().slice(0, 120);
 
+const buildSavedRecordTurns = (
+  record: AiAdvisorSavedRecord,
+  buildId: () => string
+): AiAdvisorTurn[] => {
+  const questionTurn: AiAdvisorTurn = {
+    id: buildId(),
+    type: 'question',
+    content: record.question || `查看已保存：${record.title}`,
+  };
+
+  const responseTurn: AiAdvisorTurn =
+    record.recordType === 'recommendation'
+      ? {
+          id: buildId(),
+          type: 'recommend',
+          advice: record.resultPayload as unknown as AiAdvicePayload,
+        }
+      : {
+          id: buildId(),
+          type: 'explain',
+          courseName:
+            typeof record.resultPayload.courseName === 'string'
+              ? record.resultPayload.courseName
+              : record.title.replace(/^课程解释：/, ''),
+          explanation: record.resultPayload as unknown as AiExplainPayloadResult,
+        };
+
+  return [questionTurn, responseTurn];
+};
+
 /**
  * TODO(C6, FR-C-38, FR-C-39, FR-C-40, FR-C-41, FR-C-42, NFR-C-09, NFR-C-10):
  * - 页面仅请求推荐和解释；不触发任何 Enrollment 写入动作；
@@ -50,6 +97,8 @@ const CourseSelectionAiPage: React.FC = () => {
   const [conversation, setConversation] = useState<AiAdvisorTurn[]>([]);
   const [savedTurnIds, setSavedTurnIds] = useState<string[]>([]);
   const [savingTurnId, setSavingTurnId] = useState<string | null>(null);
+  const [savedDrawerOpen, setSavedDrawerOpen] = useState(false);
+  const [previewSavedRecord, setPreviewSavedRecord] = useState<AiAdvisorSavedRecord | null>(null);
   const [messageApi, messageContextHolder] = message.useMessage();
 
   const navigate = useNavigate();
@@ -247,30 +296,8 @@ const CourseSelectionAiPage: React.FC = () => {
   };
 
   const handleShowSavedRecord = (record: AiAdvisorSavedRecord) => {
-    const questionTurn: AiAdvisorTurn = {
-      id: buildUniqueId(),
-      type: 'question',
-      content: record.question || `查看已保存：${record.title}`,
-    };
-
-    const responseTurn: AiAdvisorTurn =
-      record.recordType === 'recommendation'
-        ? {
-            id: buildUniqueId(),
-            type: 'recommend',
-            advice: record.resultPayload as unknown as AiAdvicePayload,
-          }
-        : {
-            id: buildUniqueId(),
-            type: 'explain',
-            courseName:
-              typeof record.resultPayload.courseName === 'string'
-                ? record.resultPayload.courseName
-                : record.title.replace(/^课程解释：/, ''),
-            explanation: record.resultPayload as unknown as AiExplainPayloadResult,
-          };
-
-    prependTurns([questionTurn, responseTurn]);
+    setPreviewSavedRecord(record);
+    setSavedDrawerOpen(false);
   };
 
   const handleDeleteSavedRecord = (id: string) => {
@@ -286,17 +313,80 @@ const CourseSelectionAiPage: React.FC = () => {
 
   const isBusy = aiAdvisor.recommend.isPending || aiAdvisor.explain.isPending;
   const savedRecords = aiAdvisor.savedRecords.data?.items ?? [];
+  const previewTurns = useMemo(
+    () => (previewSavedRecord ? buildSavedRecordTurns(previewSavedRecord, buildUniqueId) : []),
+    [buildUniqueId, previewSavedRecord]
+  );
+
+  const savedRecordList =
+    savedRecords.length === 0 ? (
+      <Empty description="暂无保存记录" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+    ) : (
+      <List
+        size="small"
+        dataSource={savedRecords}
+        renderItem={(record) => (
+          <List.Item
+            actions={[
+              <Button
+                key={`${record.id}-view`}
+                size="small"
+                aria-label="查看"
+                onClick={() => handleShowSavedRecord(record)}
+              >
+                查看
+              </Button>,
+              <Button
+                key={`${record.id}-delete`}
+                size="small"
+                danger
+                aria-label="删除"
+                loading={aiAdvisor.deleteRecord.isPending}
+                onClick={() => handleDeleteSavedRecord(record.id)}
+              >
+                删除
+              </Button>,
+            ]}
+          >
+            <List.Item.Meta
+              title={
+                <Space wrap>
+                  <Text strong>{record.title}</Text>
+                  <Tag color={record.recordType === 'recommendation' ? 'blue' : 'purple'}>
+                    {record.recordType === 'recommendation' ? '推荐' : '解释'}
+                  </Tag>
+                </Space>
+              }
+              description={
+                <Text type="secondary">
+                  {new Date(record.createdAt).toLocaleString()} · 保存内容仅供回看，正式选课会重新校验
+                </Text>
+              }
+            />
+          </List.Item>
+        )}
+      />
+    );
 
   return (
     <div className="fade-in">
       {messageContextHolder}
-      <div className="page-header" style={{ marginBottom: 16 }}>
-        <Text strong style={{ fontSize: 24 }}>
-          AI 课程推荐
-        </Text>
-        <Text type="secondary" style={{ marginLeft: 8 }}>
-          仅展示解释与建议，不会写入选课记录。
-        </Text>
+      <div
+        className="page-header"
+        style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', gap: 16, alignItems: 'flex-start' }}
+      >
+        <Space direction="vertical" size={2}>
+          <Text strong style={{ fontSize: 24 }}>
+            AI 课程推荐
+          </Text>
+          <Text type="secondary">
+            仅展示解释与建议，不会写入选课记录。
+          </Text>
+        </Space>
+        <Button icon={<BookOutlined />} onClick={() => setSavedDrawerOpen(true)}>
+          已保存建议
+          <Tag style={{ marginInlineStart: 8, marginInlineEnd: 0 }}>{savedRecords.length}</Tag>
+        </Button>
       </div>
 
       <Card title="你想怎么选" style={{ marginBottom: 16 }}>
@@ -373,8 +463,12 @@ const CourseSelectionAiPage: React.FC = () => {
         </Form>
       </Card>
 
-      <Card
+      <Drawer
         title="已保存建议"
+        placement="right"
+        width={420}
+        open={savedDrawerOpen}
+        onClose={() => setSavedDrawerOpen(false)}
         extra={
           aiAdvisor.savedRecords.isFetching ? (
             <Text type="secondary">刷新中...</Text>
@@ -382,57 +476,33 @@ const CourseSelectionAiPage: React.FC = () => {
             <Text type="secondary">{savedRecords.length} 条</Text>
           )
         }
-        style={{ marginBottom: 16 }}
       >
-        {savedRecords.length === 0 ? (
-          <Empty description="暂无保存记录" image={Empty.PRESENTED_IMAGE_SIMPLE} />
-        ) : (
-          <List
-            size="small"
-            dataSource={savedRecords}
-            renderItem={(record) => (
-              <List.Item
-                actions={[
-                  <Button
-                    key={`${record.id}-view`}
-                    size="small"
-                    aria-label="查看"
-                    onClick={() => handleShowSavedRecord(record)}
-                  >
-                    查看
-                  </Button>,
-                  <Button
-                    key={`${record.id}-delete`}
-                    size="small"
-                    danger
-                    aria-label="删除"
-                    loading={aiAdvisor.deleteRecord.isPending}
-                    onClick={() => handleDeleteSavedRecord(record.id)}
-                  >
-                    删除
-                  </Button>,
-                ]}
-              >
-                <List.Item.Meta
-                  title={
-                    <Space wrap>
-                      <Text strong>{record.title}</Text>
-                      <Tag color={record.recordType === 'recommendation' ? 'blue' : 'purple'}>
-                        {record.recordType === 'recommendation' ? '推荐' : '解释'}
-                      </Tag>
-                    </Space>
-                  }
-                  description={
-                    <Text type="secondary">
-                      {new Date(record.createdAt).toLocaleString()} · 保存内容仅供回看，正式选课会重新校验
-                    </Text>
-                  }
-                />
-              </List.Item>
-            )}
-          />
-        )}
-      </Card>
+        {savedRecordList}
+      </Drawer>
+
+      <Modal
+        title={previewSavedRecord?.title ?? '已保存建议'}
+        open={Boolean(previewSavedRecord)}
+        footer={null}
+        width="calc(100vw - 48px)"
+        style={{ top: 24, maxWidth: 1180 }}
+        styles={{ body: { maxHeight: 'calc(100vh - 120px)', overflowY: 'auto' } }}
+        destroyOnHidden
+        onCancel={() => setPreviewSavedRecord(null)}
+      >
+        {previewSavedRecord ? (
+          <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+            <Space wrap>
+              <Tag color={previewSavedRecord.recordType === 'recommendation' ? 'blue' : 'purple'}>
+                {previewSavedRecord.recordType === 'recommendation' ? '推荐' : '解释'}
+              </Tag>
+              <Text type="secondary">{new Date(previewSavedRecord.createdAt).toLocaleString()}</Text>
+              <Text type="secondary">保存内容仅供回看，正式选课会重新校验</Text>
+            </Space>
+            <AiAdvisorPanel turns={previewTurns} loading={false} onExplain={() => undefined} readOnly />
+          </Space>
+        ) : null}
+      </Modal>
 
       <AiAdvisorPanel
         turns={conversation}

@@ -37,7 +37,13 @@ const advice: AiAdvicePayload = {
       },
     },
   ],
-  conflictNotes: [],
+  conflictNotes: [
+    {
+      courseOfferingId: 'offering-2',
+      courseName: '编译原理',
+      message: '该课程和已选课程时间冲突',
+    },
+  ],
   plans: [
     {
       id: 'balanced',
@@ -58,6 +64,7 @@ const advice: AiAdvicePayload = {
     code: 'policy_validation_failed',
     reason: 'LLM 生成失败，返回模板方案',
     source: 'llm',
+    retriable: true,
   },
   progressAudit: {
     currentSelectedCredits: 6,
@@ -82,21 +89,75 @@ const advice: AiAdvicePayload = {
     loadLevel: 'medium',
     notes: ['当前已选课程中有 1 个早课时段。'],
   },
+  capacityRisks: [
+    {
+      courseOfferingId: 'offering-1',
+      courseName: '程序设计基础',
+      remainingCapacity: 2,
+      fillRate: 0.95,
+      riskLevel: 'high',
+      riskReason: '剩余名额较少，可能很快满员',
+    },
+  ],
 };
 
 describe('AiAdvisorPanel', () => {
-  it('renders disclaimer, degraded state, scores, reasons and risks', () => {
+  it('renders user-friendly fallback, scores, reasons and risks', () => {
     const turns: AiAdvisorTurn[] = [{ id: 'turn-1', type: 'recommend', advice }];
 
     render(<AiAdvisorPanel turns={turns} onExplain={vi.fn()} />);
 
     expect(screen.getByText(advice.disclaimer)).toBeInTheDocument();
-    expect(screen.getByText('降级提示：policy_validation_failed')).toBeInTheDocument();
+    expect(screen.getByText('已切换为规则推荐')).toBeInTheDocument();
+    expect(screen.getByText(/智能生成结果没有通过系统校验/)).toBeInTheDocument();
+    expect(screen.getByText(/可以稍后重试/)).toBeInTheDocument();
+    expect(screen.queryByText(/policy_validation_failed/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/LLM 生成失败/)).not.toBeInTheDocument();
     expect(screen.getAllByText(/推荐分数 0.90/).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/评分构成：培养方案 0.30/).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/属于当前培养方案范围/).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/课程剩余名额较少/).length).toBeGreaterThan(0);
     expect(screen.getByText(/必修缺口 94/)).toBeInTheDocument();
+    expect(screen.getByText('风险与限制')).toBeInTheDocument();
+    expect(screen.getByText(/编译原理：该课程和已选课程时间冲突/)).toBeInTheDocument();
+    expect(screen.getByText(/程序设计基础：剩余 2 人，剩余名额较少/)).toBeInTheDocument();
+  });
+
+  it('hides and restores the risk sidebar without hiding recommendations', () => {
+    const turns: AiAdvisorTurn[] = [{ id: 'turn-1', type: 'recommend', advice }];
+
+    render(<AiAdvisorPanel turns={turns} onExplain={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole('button', { name: /隐藏/ }));
+
+    expect(screen.queryByText('风险与限制')).not.toBeInTheDocument();
+    expect(screen.queryByText(/编译原理：该课程和已选课程时间冲突/)).not.toBeInTheDocument();
+    expect(screen.getByText(/CS101/)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /显示风险与限制/ }));
+
+    expect(screen.getByText('风险与限制')).toBeInTheDocument();
+    expect(screen.getByText(/编译原理：该课程和已选课程时间冲突/)).toBeInTheDocument();
+  });
+
+  it('explains non-retriable rule fallback without suggesting repeated retries', () => {
+    const ruleOnlyAdvice: AiAdvicePayload = {
+      ...advice,
+      recommendations: [],
+      fallbackInfo: {
+        code: 'policy_validation_failed',
+        reason: '当前无满足硬性规则课程',
+        source: 'rule',
+        retriable: false,
+      },
+    };
+    const turns: AiAdvisorTurn[] = [{ id: 'turn-rule', type: 'recommend', advice: ruleOnlyAdvice }];
+
+    render(<AiAdvisorPanel turns={turns} onExplain={vi.fn()} />);
+
+    expect(screen.getByText('已按规则生成建议')).toBeInTheDocument();
+    expect(screen.getByText(/短时间重试通常不会改变结果/)).toBeInTheDocument();
+    expect(screen.getByText('当前没有可推荐课程。')).toBeInTheDocument();
   });
 
   it('calls explain and go-to-selection handlers without enrollment actions', () => {
@@ -127,4 +188,3 @@ describe('AiAdvisorPanel', () => {
     expect(screen.getByText('暂无建议，可继续使用基础课程搜索与选课流程。')).toBeInTheDocument();
   });
 });
-

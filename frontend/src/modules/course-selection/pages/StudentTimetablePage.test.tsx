@@ -9,9 +9,21 @@ import StudentTimetablePage from './StudentTimetablePage';
 vi.mock('antd', async () => {
   const React = await import('react');
 
-  const block = (tag = 'div') =>
-    ({ children, title, extra, ...props }: { children?: ReactNode; title?: ReactNode; extra?: ReactNode }) =>
-      React.createElement(tag, props, title, extra, children);
+  const block = (tag = 'div') => {
+    const MockAntdBlock = ({
+      children,
+      title,
+      extra,
+      ...props
+    }: {
+      children?: ReactNode;
+      title?: ReactNode;
+      extra?: ReactNode;
+    }) => React.createElement(tag, props, title, extra, children);
+
+    MockAntdBlock.displayName = `MockAntdBlock(${tag})`;
+    return MockAntdBlock;
+  };
 
   const Descriptions = Object.assign(
     ({ children }: { children?: ReactNode }) => React.createElement('dl', null, children),

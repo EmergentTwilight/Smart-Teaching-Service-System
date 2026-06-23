@@ -9,9 +9,21 @@ import StudentCurriculumPage from './StudentCurriculumPage';
 vi.mock('antd', async () => {
   const React = await import('react');
 
-  const block = (tag = 'div') =>
-    ({ children, title, extra, ...props }: { children?: ReactNode; title?: ReactNode; extra?: ReactNode }) =>
-      React.createElement(tag, props, title, extra, children);
+  const block = (tag = 'div') => {
+    const MockAntdBlock = ({
+      children,
+      title,
+      extra,
+      ...props
+    }: {
+      children?: ReactNode;
+      title?: ReactNode;
+      extra?: ReactNode;
+    }) => React.createElement(tag, props, title, extra, children);
+
+    MockAntdBlock.displayName = `MockAntdBlock(${tag})`;
+    return MockAntdBlock;
+  };
 
   const List = Object.assign(
     ({ dataSource = [], renderItem }: { dataSource?: unknown[]; renderItem?: (item: unknown) => React.ReactNode }) =>

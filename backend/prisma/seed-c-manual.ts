@@ -50,6 +50,497 @@ const scheduleIds = Array.from({ length: 32 }, (_, index) =>
   `cmanual-schedule-${String(index + 1).padStart(3, '0')}`
 )
 
+const courseCatalog = [
+  {
+    code: 'CMAN-CS101',
+    name: 'Introduction to Programming',
+    credits: 4,
+    type: CourseType.REQUIRED,
+    category: 'programming foundation',
+    semester: 1,
+    description: 'Python-based computational thinking, control flow, functions, and basic testing.',
+  },
+  {
+    code: 'CMAN-CS102',
+    name: 'Object-Oriented Programming',
+    credits: 4,
+    type: CourseType.REQUIRED,
+    category: 'programming foundation',
+    semester: 2,
+    description: 'Object-oriented design, Java programming, interfaces, inheritance, and unit testing.',
+  },
+  {
+    code: 'CMAN-MATH101',
+    name: 'Calculus I',
+    credits: 4,
+    type: CourseType.REQUIRED,
+    category: 'mathematics',
+    semester: 1,
+    description: 'Limits, derivatives, integrals, and mathematical modeling for computing students.',
+  },
+  {
+    code: 'CMAN-MATH102',
+    name: 'Linear Algebra',
+    credits: 3,
+    type: CourseType.REQUIRED,
+    category: 'mathematics',
+    semester: 2,
+    description: 'Vectors, matrices, linear transformations, eigenvalues, and applications in computing.',
+  },
+  {
+    code: 'CMAN-CS103',
+    name: 'Discrete Mathematics',
+    credits: 3,
+    type: CourseType.REQUIRED,
+    category: 'mathematics',
+    semester: 2,
+    description: 'Logic, sets, induction, combinatorics, graphs, and proof techniques.',
+  },
+  {
+    code: 'CMAN-CS201',
+    name: 'Data Structures',
+    credits: 4,
+    type: CourseType.REQUIRED,
+    category: 'computer science core',
+    semester: 3,
+    description: 'Lists, trees, graphs, hash tables, asymptotic analysis, and implementation tradeoffs.',
+  },
+  {
+    code: 'CMAN-CS202',
+    name: 'Computer Organization',
+    credits: 4,
+    type: CourseType.REQUIRED,
+    category: 'computer systems',
+    semester: 3,
+    description: 'Instruction sets, memory hierarchy, assembly basics, and processor organization.',
+  },
+  {
+    code: 'CMAN-STAT201',
+    name: 'Probability and Statistics',
+    credits: 3,
+    type: CourseType.REQUIRED,
+    category: 'mathematics',
+    semester: 3,
+    description: 'Probability models, random variables, estimation, and statistical reasoning.',
+  },
+  {
+    code: 'CMAN-CS203',
+    name: 'Software Construction',
+    credits: 3,
+    type: CourseType.REQUIRED,
+    category: 'software engineering',
+    semester: 3,
+    description: 'Version control, modular design, testing, documentation, and maintainable code.',
+  },
+  {
+    code: 'CMAN-CS301',
+    name: 'Algorithms',
+    credits: 4,
+    type: CourseType.REQUIRED,
+    category: 'computer science core',
+    semester: 4,
+    description: 'Greedy algorithms, divide and conquer, dynamic programming, graph algorithms, and complexity.',
+  },
+  {
+    code: 'CMAN-CS302',
+    name: 'Operating Systems',
+    credits: 4,
+    type: CourseType.REQUIRED,
+    category: 'computer systems',
+    semester: 5,
+    description: 'Processes, threads, scheduling, virtual memory, file systems, and synchronization.',
+  },
+  {
+    code: 'CMAN-CS303',
+    name: 'Database Systems',
+    credits: 3,
+    type: CourseType.REQUIRED,
+    category: 'data systems',
+    semester: 4,
+    description: 'Relational modeling, SQL, indexing, transactions, query processing, and normalization.',
+  },
+  {
+    code: 'CMAN-CS304',
+    name: 'Computer Networks',
+    credits: 3,
+    type: CourseType.REQUIRED,
+    category: 'computer systems',
+    semester: 4,
+    description: 'Layered network architecture, routing, transport protocols, congestion control, and security basics.',
+  },
+  {
+    code: 'CMAN-CS305',
+    name: 'Software Engineering',
+    credits: 3,
+    type: CourseType.REQUIRED,
+    category: 'software engineering',
+    semester: 4,
+    description: 'Requirements, architecture, agile delivery, testing strategy, and team project practices.',
+  },
+  {
+    code: 'CMAN-CS306',
+    name: 'Theory of Computation',
+    credits: 3,
+    type: CourseType.REQUIRED,
+    category: 'theory',
+    semester: 5,
+    description: 'Automata, computability, reductions, and complexity classes.',
+  },
+  {
+    code: 'CMAN-CS307',
+    name: 'Compilers',
+    credits: 3,
+    type: CourseType.REQUIRED,
+    category: 'computer systems',
+    semester: 6,
+    description: 'Lexing, parsing, semantic analysis, optimization, and code generation.',
+  },
+  {
+    code: 'CMAN-CS308',
+    name: 'Artificial Intelligence',
+    credits: 3,
+    type: CourseType.REQUIRED,
+    category: 'ai and data',
+    semester: 5,
+    description: 'Search, planning, knowledge representation, reasoning under uncertainty, and learning basics.',
+  },
+  {
+    code: 'CMAN-CS309',
+    name: 'Machine Learning',
+    credits: 3,
+    type: CourseType.ELECTIVE,
+    category: 'ai and data',
+    semester: 6,
+    description: 'Supervised learning, model evaluation, regularization, neural networks, and responsible deployment.',
+  },
+  {
+    code: 'CMAN-CS310',
+    name: 'Low-Level Systems Programming',
+    credits: 3,
+    type: CourseType.REQUIRED,
+    category: 'computer systems',
+    semester: 4,
+    description: 'C programming, memory layout, pointers, debugging, and systems-level performance.',
+  },
+  {
+    code: 'CMAN-CS311',
+    name: 'Web Application Development',
+    credits: 2,
+    type: CourseType.ELECTIVE,
+    category: 'software engineering',
+    semester: 4,
+    description: 'Modern web frontends, HTTP APIs, state management, and deployment basics.',
+  },
+  {
+    code: 'CMAN-CS401',
+    name: 'Distributed Systems',
+    credits: 3,
+    type: CourseType.ELECTIVE,
+    category: 'computer systems',
+    semester: 6,
+    description: 'Replication, consensus, fault tolerance, distributed storage, and service reliability.',
+  },
+  {
+    code: 'CMAN-CS402',
+    name: 'Computer Security',
+    credits: 3,
+    type: CourseType.ELECTIVE,
+    category: 'computer systems',
+    semester: 6,
+    description: 'Threat models, cryptography basics, secure systems, web security, and incident response.',
+  },
+  {
+    code: 'CMAN-CS403',
+    name: 'Cloud Computing',
+    credits: 3,
+    type: CourseType.ELECTIVE,
+    category: 'computer systems',
+    semester: 6,
+    description: 'Virtualization, containers, orchestration, cloud storage, and scalable service design.',
+  },
+  {
+    code: 'CMAN-CS404',
+    name: 'Parallel Computing',
+    credits: 3,
+    type: CourseType.ELECTIVE,
+    category: 'computer systems',
+    semester: 7,
+    description: 'Parallel algorithms, shared-memory programming, GPU basics, and performance analysis.',
+  },
+  {
+    code: 'CMAN-CS405',
+    name: 'Data Mining',
+    credits: 3,
+    type: CourseType.ELECTIVE,
+    category: 'ai and data',
+    semester: 5,
+    description: 'Data preprocessing, clustering, association analysis, classification, and pattern discovery.',
+  },
+  {
+    code: 'CMAN-CS406',
+    name: 'Natural Language Processing',
+    credits: 3,
+    type: CourseType.ELECTIVE,
+    category: 'ai and data',
+    semester: 6,
+    description: 'Language modeling, embeddings, sequence models, information extraction, and evaluation.',
+  },
+  {
+    code: 'CMAN-CS407',
+    name: 'Computer Vision',
+    credits: 3,
+    type: CourseType.ELECTIVE,
+    category: 'ai and data',
+    semester: 6,
+    description: 'Image formation, features, detection, segmentation, and neural vision models.',
+  },
+  {
+    code: 'CMAN-CS408',
+    name: 'Human-Computer Interaction',
+    credits: 2,
+    type: CourseType.ELECTIVE,
+    category: 'software engineering',
+    semester: 5,
+    description: 'User research, prototyping, usability evaluation, accessibility, and interaction design.',
+  },
+  {
+    code: 'CMAN-CS409',
+    name: 'Computer Graphics',
+    credits: 3,
+    type: CourseType.ELECTIVE,
+    category: 'graphics',
+    semester: 5,
+    description: 'Rendering pipeline, geometry, shading, transformations, and interactive graphics.',
+  },
+  {
+    code: 'CMAN-CS410',
+    name: 'Mobile Application Development',
+    credits: 2,
+    type: CourseType.ELECTIVE,
+    category: 'software engineering',
+    semester: 5,
+    description: 'Mobile UI, local persistence, networked apps, platform constraints, and release workflows.',
+  },
+  {
+    code: 'CMAN-CS411',
+    name: 'Software Testing and Quality',
+    credits: 2,
+    type: CourseType.ELECTIVE,
+    category: 'software engineering',
+    semester: 5,
+    description: 'Test design, coverage, integration testing, CI, mutation testing, and quality metrics.',
+  },
+  {
+    code: 'CMAN-CS412',
+    name: 'Information Retrieval',
+    credits: 3,
+    type: CourseType.ELECTIVE,
+    category: 'ai and data',
+    semester: 6,
+    description: 'Indexing, ranking, search evaluation, recommendation, and retrieval-augmented applications.',
+  },
+  {
+    code: 'CMAN-CS413',
+    name: 'Robotics',
+    credits: 3,
+    type: CourseType.ELECTIVE,
+    category: 'ai and systems',
+    semester: 7,
+    description: 'Sensors, kinematics, planning, control, and robot software architecture.',
+  },
+  {
+    code: 'CMAN-CS414',
+    name: 'Blockchain Systems',
+    credits: 2,
+    type: CourseType.ELECTIVE,
+    category: 'computer systems',
+    semester: 7,
+    description: 'Consensus protocols, smart contracts, distributed ledgers, and security tradeoffs.',
+  },
+  {
+    code: 'CMAN-CS415',
+    name: 'Computer Science Research Seminar',
+    credits: 2,
+    type: CourseType.ELECTIVE,
+    category: 'research',
+    semester: 7,
+    description: 'Reading papers, presenting research, and designing small-scale CS investigations.',
+  },
+  {
+    code: 'CMAN-CS416',
+    name: 'Senior Capstone Project I',
+    credits: 3,
+    type: CourseType.REQUIRED,
+    category: 'capstone',
+    semester: 7,
+    description: 'Team project proposal, requirements, architecture, and early implementation milestone.',
+  },
+  {
+    code: 'CMAN-CS417',
+    name: 'Senior Capstone Project II',
+    credits: 4,
+    type: CourseType.REQUIRED,
+    category: 'capstone',
+    semester: 8,
+    description: 'Full implementation, validation, deployment, final report, and project presentation.',
+  },
+  {
+    code: 'CMAN-CS418',
+    name: 'Professional Internship Practice',
+    credits: 2,
+    type: CourseType.ELECTIVE,
+    category: 'practice',
+    semester: 7,
+    description: 'Supervised industry practice with reflection on engineering process and professional conduct.',
+  },
+  {
+    code: 'CMAN-GEN101',
+    name: 'Academic Writing',
+    credits: 2,
+    type: CourseType.GENERAL,
+    category: 'general education',
+    semester: 1,
+    description: 'Academic reading, argument structure, citation, and technical communication basics.',
+  },
+  {
+    code: 'CMAN-GEN102',
+    name: 'Scientific Ethics',
+    credits: 2,
+    type: CourseType.GENERAL,
+    category: 'general education',
+    semester: 2,
+    description: 'Research integrity, privacy, fairness, and professional responsibility in computing.',
+  },
+  {
+    code: 'CMAN-GEN201',
+    name: 'Communication and Collaboration',
+    credits: 2,
+    type: CourseType.GENERAL,
+    category: 'general education',
+    semester: 3,
+    description: 'Presentation, teamwork, negotiation, and collaborative problem solving.',
+  },
+  {
+    code: 'CMAN-GEN202',
+    name: 'Innovation and Entrepreneurship',
+    credits: 2,
+    type: CourseType.GENERAL,
+    category: 'general education',
+    semester: 4,
+    description: 'Product discovery, business modeling, intellectual property, and startup case studies.',
+  },
+  {
+    code: 'CMAN-GEN301',
+    name: 'Technical Writing',
+    credits: 2,
+    type: CourseType.GENERAL,
+    category: 'general education',
+    semester: 5,
+    description: 'Engineering documents, API documentation, design reports, and review writing.',
+  },
+  {
+    code: 'CMAN-GEN302',
+    name: 'Career Planning for Computing',
+    credits: 1,
+    type: CourseType.GENERAL,
+    category: 'general education',
+    semester: 6,
+    description: 'Portfolio preparation, interview practice, career planning, and workplace norms.',
+  },
+  {
+    code: 'CMAN-CS499',
+    name: 'Legacy Systems Laboratory',
+    credits: 1,
+    type: CourseType.ELECTIVE,
+    category: 'archived elective',
+    semester: 8,
+    description: 'Archived laboratory course retained for unavailable-course and legacy-data checks.',
+    status: CourseStatus.ARCHIVED,
+  },
+] satisfies Array<{
+  code: string
+  name: string
+  credits: number
+  type: CourseType
+  category: string
+  semester: number
+  description: string
+  status?: CourseStatus
+}>
+
+const offeringCourseIndices = [
+  1, 2, 3, 4, 5, 6, 7, 8, 10, 12, 18, 11,
+  13, 14, 15, 16, 19, 20, 25, 22, 29, 27, 32, 24,
+  17, 30, 28, 31, 12, 13, 21, 35, 33, 34, 38, 36,
+  37, 44, 39, 40, 41, 42, 43, 21, 23, 36, 45, 17,
+]
+
+const prerequisitePairs = [
+  [2, 1],
+  [6, 2],
+  [6, 5],
+  [7, 1],
+  [8, 3],
+  [9, 2],
+  [9, 6],
+  [10, 5],
+  [10, 6],
+  [11, 6],
+  [11, 7],
+  [11, 19],
+  [12, 6],
+  [13, 6],
+  [14, 6],
+  [14, 9],
+  [15, 5],
+  [15, 10],
+  [16, 7],
+  [16, 10],
+  [17, 8],
+  [17, 10],
+  [18, 4],
+  [18, 8],
+  [18, 10],
+  [19, 1],
+  [20, 2],
+  [21, 11],
+  [21, 13],
+  [22, 11],
+  [22, 13],
+  [23, 11],
+  [23, 13],
+  [24, 10],
+  [24, 11],
+  [25, 10],
+  [25, 12],
+  [26, 18],
+  [27, 18],
+  [28, 2],
+  [29, 4],
+  [29, 6],
+  [30, 20],
+  [31, 14],
+  [32, 10],
+  [32, 12],
+  [33, 7],
+  [33, 17],
+  [34, 12],
+  [34, 22],
+  [35, 10],
+  [36, 10],
+  [36, 14],
+  [37, 36],
+  [38, 14],
+]
+
+if (courseCatalog.length !== courseIds.length) {
+  throw new Error('C manual course catalog must match courseIds length')
+}
+
+if (offeringCourseIndices.length !== offeringIds.length) {
+  throw new Error('C manual offering catalog must match offeringIds length')
+}
+
 const ensureRole = async (code: string, name: string) =>
   prisma.role.upsert({
     where: { code },
@@ -68,14 +559,11 @@ const addDays = (base: Date, days: number) =>
   new Date(base.getTime() + days * 24 * 60 * 60 * 1000)
 
 const courseTypeOf = (index: number) => {
-  if (index <= 24) return CourseType.REQUIRED
-  if (index <= 38) return CourseType.ELECTIVE
-  return CourseType.GENERAL
+  return courseCatalog[index - 1].type
 }
 
 const creditsOf = (index: number) => {
-  const pattern = [3, 4, 2]
-  return pattern[(index - 1) % pattern.length]
+  return courseCatalog[index - 1].credits
 }
 
 const gradePointOf = (score: number) => {
@@ -258,14 +746,14 @@ async function seedBaseData(
     where: { id: DEPARTMENT_ID },
     update: {
       code: 'CMAN',
-      name: 'C Manual QA Department',
-      description: 'Course selection manual QA data',
+      name: 'C Manual Computer Science Department',
+      description: 'Realistic CS curriculum manual QA data for course selection',
     },
     create: {
       id: DEPARTMENT_ID,
       code: 'CMAN',
-      name: 'C Manual QA Department',
-      description: 'Course selection manual QA data',
+      name: 'C Manual Computer Science Department',
+      description: 'Realistic CS curriculum manual QA data for course selection',
     },
   })
 
@@ -273,16 +761,16 @@ async function seedBaseData(
     where: { id: MAJOR_ID },
     update: {
       departmentId: DEPARTMENT_ID,
-      code: 'CMAN-SE',
-      name: 'C Manual Software Engineering',
-      totalCredits: 130,
+      code: 'CMAN-CS',
+      name: 'C Manual Computer Science',
+      totalCredits: 132,
     },
     create: {
       id: MAJOR_ID,
       departmentId: DEPARTMENT_ID,
-      code: 'CMAN-SE',
-      name: 'C Manual Software Engineering',
-      totalCredits: 130,
+      code: 'CMAN-CS',
+      name: 'C Manual Computer Science',
+      totalCredits: 132,
     },
   })
 
@@ -291,14 +779,14 @@ async function seedBaseData(
       where: { userId: student.id },
       update: {
         majorId: MAJOR_ID,
-        grade: 2026,
+        grade: 2024,
         className: `CM-${index < 3 ? '1' : '2'}`,
       },
       create: {
         userId: student.id,
-        studentNumber: `CMAN2026${String(index + 1).padStart(2, '0')}`,
+        studentNumber: `CMAN2024${String(index + 1).padStart(2, '0')}`,
         majorId: MAJOR_ID,
-        grade: 2026,
+        grade: 2024,
         className: `CM-${index < 3 ? '1' : '2'}`,
       },
     })
@@ -310,14 +798,14 @@ async function seedBaseData(
       update: {
         departmentId: DEPARTMENT_ID,
         title: ['Lecturer', 'Associate Professor', 'Professor'][index],
-        officeLocation: `Manual Building ${index + 1}01`,
+        officeLocation: `CS Manual Building ${index + 1}01`,
       },
       create: {
         userId: teacher.id,
         teacherNumber: `CMANT${String(index + 1).padStart(3, '0')}`,
         departmentId: DEPARTMENT_ID,
         title: ['Lecturer', 'Associate Professor', 'Professor'][index],
-        officeLocation: `Manual Building ${index + 1}01`,
+        officeLocation: `CS Manual Building ${index + 1}01`,
       },
     })
   }
@@ -325,12 +813,12 @@ async function seedBaseData(
   await prisma.semester.upsert({
     where: { id: SEMESTER_ID },
     update: {
-      name: '2026 Spring C Manual QA',
+      name: '2026 Spring CS Manual QA',
       status: SemesterStatus.CURRENT,
     },
     create: {
       id: SEMESTER_ID,
-      name: '2026 Spring C Manual QA',
+      name: '2026 Spring CS Manual QA',
       startDate: new Date('2026-02-23'),
       endDate: new Date('2026-07-10'),
       status: SemesterStatus.CURRENT,
@@ -341,7 +829,7 @@ async function seedBaseData(
     await prisma.classroom.upsert({
       where: { id: classroomId },
       update: {
-        building: 'C Manual Building',
+        building: 'CS Manual Building',
         roomNumber: `${201 + index}`,
         campus: 'Main',
         capacity: index % 2 === 0 ? 80 : 48,
@@ -350,7 +838,7 @@ async function seedBaseData(
       },
       create: {
         id: classroomId,
-        building: 'C Manual Building',
+        building: 'CS Manual Building',
         roomNumber: `${201 + index}`,
         campus: 'Main',
         capacity: index % 2 === 0 ? 80 : 48,
@@ -364,34 +852,35 @@ async function seedBaseData(
 async function seedCourses(teachers: Awaited<ReturnType<typeof ensureUsers>>['teachers']) {
   for (let index = 1; index <= courseIds.length; index += 1) {
     const courseId = courseIds[index - 1]
+    const course = courseCatalog[index - 1]
     await prisma.course.upsert({
       where: { id: courseId },
       update: {
-        code: `CMAN-${String(index).padStart(3, '0')}`,
-        name: `C Manual Course ${String(index).padStart(3, '0')}`,
-        credits: creditsOf(index),
+        code: course.code,
+        name: course.name,
+        credits: course.credits,
         hours: creditsOf(index) * 16,
         courseType: courseTypeOf(index),
-        category: index <= 18 ? 'core' : index <= 30 ? 'advanced' : 'general',
+        category: course.category,
         departmentId: DEPARTMENT_ID,
         teacherId: teachers[(index - 1) % teachers.length].id,
-        description: `Manual QA course ${index}`,
-        assessmentMethod: 'usual 30%, final 70%',
-        status: index === 45 ? CourseStatus.ARCHIVED : CourseStatus.ACTIVE,
+        description: course.description,
+        assessmentMethod: 'usual 30%, project 20%, final 50%',
+        status: course.status ?? CourseStatus.ACTIVE,
       },
       create: {
         id: courseId,
-        code: `CMAN-${String(index).padStart(3, '0')}`,
-        name: `C Manual Course ${String(index).padStart(3, '0')}`,
-        credits: creditsOf(index),
+        code: course.code,
+        name: course.name,
+        credits: course.credits,
         hours: creditsOf(index) * 16,
         courseType: courseTypeOf(index),
-        category: index <= 18 ? 'core' : index <= 30 ? 'advanced' : 'general',
+        category: course.category,
         departmentId: DEPARTMENT_ID,
         teacherId: teachers[(index - 1) % teachers.length].id,
-        description: `Manual QA course ${index}`,
-        assessmentMethod: 'usual 30%, final 70%',
-        status: index === 45 ? CourseStatus.ARCHIVED : CourseStatus.ACTIVE,
+        description: course.description,
+        assessmentMethod: 'usual 30%, project 20%, final 50%',
+        status: course.status ?? CourseStatus.ACTIVE,
       },
     })
   }
@@ -400,20 +889,20 @@ async function seedCourses(teachers: Awaited<ReturnType<typeof ensureUsers>>['te
     where: { id: CURRICULUM_ID },
     update: {
       majorId: MAJOR_ID,
-      name: 'C Manual 2026 Curriculum',
-      year: 2026,
-      totalCredits: 130,
-      requiredCredits: 84,
-      electiveCredits: 30,
+      name: 'C Manual CS 2024 Curriculum',
+      year: 2024,
+      totalCredits: 132,
+      requiredCredits: 78,
+      electiveCredits: 42,
     },
     create: {
       id: CURRICULUM_ID,
       majorId: MAJOR_ID,
-      name: 'C Manual 2026 Curriculum',
-      year: 2026,
-      totalCredits: 130,
-      requiredCredits: 84,
-      electiveCredits: 30,
+      name: 'C Manual CS 2024 Curriculum',
+      year: 2024,
+      totalCredits: 132,
+      requiredCredits: 78,
+      electiveCredits: 42,
     },
   })
 
@@ -427,31 +916,18 @@ async function seedCourses(teachers: Awaited<ReturnType<typeof ensureUsers>>['te
       },
       update: {
         courseType: courseTypeOf(index),
-        semesterSuggestion: Math.min(8, Math.ceil(index / 6)),
+        semesterSuggestion: courseCatalog[index - 1].semester,
       },
       create: {
         curriculumId: CURRICULUM_ID,
         courseId: courseIds[index - 1],
         courseType: courseTypeOf(index),
-        semesterSuggestion: Math.min(8, Math.ceil(index / 6)),
+        semesterSuggestion: courseCatalog[index - 1].semester,
       },
     })
   }
 
-  const prerequisites = [
-    [9, 1],
-    [10, 2],
-    [11, 4],
-    [12, 5],
-    [13, 7],
-    [14, 8],
-    [15, 1],
-    [15, 4],
-    [16, 6],
-    [17, 3],
-  ]
-
-  for (const [courseIndex, prerequisiteIndex] of prerequisites) {
+  for (const [courseIndex, prerequisiteIndex] of prerequisitePairs) {
     await prisma.coursePrerequisite.upsert({
       where: {
         courseId_prerequisiteId: {
@@ -472,6 +948,7 @@ async function seedOfferingsAndSchedules(
   teachers: Awaited<ReturnType<typeof ensureUsers>>['teachers']
 ) {
   for (let index = 1; index <= offeringIds.length; index += 1) {
+    const courseIndex = offeringCourseIndices[index - 1]
     const status =
       index === 46
         ? OfferingStatus.PLANNED
@@ -483,7 +960,7 @@ async function seedOfferingsAndSchedules(
     await prisma.courseOffering.upsert({
       where: { id: offeringIds[index - 1] },
       update: {
-        courseId: courseIds[(index - 1) % courseIds.length],
+        courseId: courseIds[courseIndex - 1],
         semesterId: SEMESTER_ID,
         teacherId: teachers[(index - 1) % teachers.length].id,
         capacity,
@@ -491,7 +968,7 @@ async function seedOfferingsAndSchedules(
       },
       create: {
         id: offeringIds[index - 1],
-        courseId: courseIds[(index - 1) % courseIds.length],
+        courseId: courseIds[courseIndex - 1],
         semesterId: SEMESTER_ID,
         teacherId: teachers[(index - 1) % teachers.length].id,
         capacity,
@@ -515,7 +992,7 @@ async function seedOfferingsAndSchedules(
         endWeek: 16,
         startPeriod,
         endPeriod: startPeriod + 1,
-        notes: index === 20 ? 'Conflicts with cmanual-offering-001' : null,
+        notes: index === 20 ? 'Conflicts with CMAN-CS101 for cstudent01' : null,
       },
       create: {
         id: scheduleIds[index - 1],
@@ -526,7 +1003,7 @@ async function seedOfferingsAndSchedules(
         endWeek: 16,
         startPeriod,
         endPeriod: startPeriod + 1,
-        notes: index === 20 ? 'Conflicts with cmanual-offering-001' : null,
+        notes: index === 20 ? 'Conflicts with CMAN-CS101 for cstudent01' : null,
       },
     })
   }
@@ -586,25 +1063,34 @@ async function seedEnrollmentsAndScores(
   teachers: Awaited<ReturnType<typeof ensureUsers>>['teachers']
 ) {
   const enrollmentRecords = [
-    ...[1, 2, 3, 4, 5, 6, 7, 8].map((offeringIndex) => ({
+    ...[1, 2, 4, 5, 6, 7].map((offeringIndex) => ({
       studentIndex: 0,
       offeringIndex,
       status: EnrollmentStatus.ENROLLED,
     })),
-    { studentIndex: 0, offeringIndex: 14, status: EnrollmentStatus.DROPPED },
-    { studentIndex: 0, offeringIndex: 15, status: EnrollmentStatus.DROPPED },
+    { studentIndex: 0, offeringIndex: 3, status: EnrollmentStatus.DROPPED },
+    { studentIndex: 0, offeringIndex: 8, status: EnrollmentStatus.DROPPED },
     { studentIndex: 1, offeringIndex: 1, status: EnrollmentStatus.ENROLLED },
     { studentIndex: 1, offeringIndex: 2, status: EnrollmentStatus.ENROLLED },
     { studentIndex: 2, offeringIndex: 1, status: EnrollmentStatus.ENROLLED },
-    ...[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((offeringIndex) => ({
+    { studentIndex: 2, offeringIndex: 2, status: EnrollmentStatus.ENROLLED },
+    { studentIndex: 2, offeringIndex: 5, status: EnrollmentStatus.ENROLLED },
+    { studentIndex: 2, offeringIndex: 6, status: EnrollmentStatus.ENROLLED },
+    ...[1, 2, 4, 5, 6, 7, 8, 9, 10].map((offeringIndex) => ({
       studentIndex: 3,
       offeringIndex,
       status: EnrollmentStatus.ENROLLED,
     })),
-    { studentIndex: 4, offeringIndex: 17, status: EnrollmentStatus.DROPPED },
-    { studentIndex: 4, offeringIndex: 18, status: EnrollmentStatus.ENROLLED },
+    { studentIndex: 4, offeringIndex: 1, status: EnrollmentStatus.ENROLLED },
+    { studentIndex: 4, offeringIndex: 2, status: EnrollmentStatus.ENROLLED },
+    { studentIndex: 4, offeringIndex: 5, status: EnrollmentStatus.ENROLLED },
+    { studentIndex: 4, offeringIndex: 8, status: EnrollmentStatus.DROPPED },
+    { studentIndex: 4, offeringIndex: 17, status: EnrollmentStatus.ENROLLED },
     { studentIndex: 4, offeringIndex: 44, status: EnrollmentStatus.ENROLLED },
-    { studentIndex: 5, offeringIndex: 19, status: EnrollmentStatus.ENROLLED },
+    { studentIndex: 5, offeringIndex: 1, status: EnrollmentStatus.ENROLLED },
+    { studentIndex: 5, offeringIndex: 2, status: EnrollmentStatus.ENROLLED },
+    { studentIndex: 5, offeringIndex: 5, status: EnrollmentStatus.ENROLLED },
+    { studentIndex: 5, offeringIndex: 6, status: EnrollmentStatus.ENROLLED },
     { studentIndex: 5, offeringIndex: 44, status: EnrollmentStatus.ENROLLED },
   ]
 
@@ -635,19 +1121,31 @@ async function seedEnrollmentsAndScores(
   }
 
   const scoreRecords = [
-    { studentIndex: 0, offeringIndex: 1, total: 88, status: ScoreStatus.SUBMITTED },
-    { studentIndex: 0, offeringIndex: 2, total: 76, status: ScoreStatus.CONFIRMED },
-    { studentIndex: 0, offeringIndex: 3, total: 61, status: ScoreStatus.SUBMITTED },
-    { studentIndex: 0, offeringIndex: 4, total: 59, status: ScoreStatus.CONFIRMED },
-    { studentIndex: 0, offeringIndex: 5, total: 90, status: ScoreStatus.DRAFT },
-    { studentIndex: 0, offeringIndex: 6, total: 92, status: ScoreStatus.CONFIRMED },
-    { studentIndex: 0, offeringIndex: 7, total: 55, status: ScoreStatus.SUBMITTED },
-    { studentIndex: 0, offeringIndex: 8, total: 80, status: ScoreStatus.CONFIRMED },
+    { studentIndex: 0, offeringIndex: 1, total: 91, status: ScoreStatus.SUBMITTED },
+    { studentIndex: 0, offeringIndex: 2, total: 86, status: ScoreStatus.CONFIRMED },
+    { studentIndex: 0, offeringIndex: 3, total: 82, status: ScoreStatus.CONFIRMED },
+    { studentIndex: 0, offeringIndex: 4, total: 88, status: ScoreStatus.CONFIRMED },
+    { studentIndex: 0, offeringIndex: 5, total: 84, status: ScoreStatus.SUBMITTED },
+    { studentIndex: 0, offeringIndex: 6, total: 82, status: ScoreStatus.CONFIRMED },
+    { studentIndex: 0, offeringIndex: 7, total: 79, status: ScoreStatus.CONFIRMED },
+    { studentIndex: 0, offeringIndex: 8, total: 55, status: ScoreStatus.CONFIRMED },
+    { studentIndex: 1, offeringIndex: 1, total: 72, status: ScoreStatus.DRAFT },
+    { studentIndex: 2, offeringIndex: 1, total: 83, status: ScoreStatus.SUBMITTED },
+    { studentIndex: 2, offeringIndex: 2, total: 80, status: ScoreStatus.CONFIRMED },
+    { studentIndex: 2, offeringIndex: 5, total: 78, status: ScoreStatus.CONFIRMED },
+    { studentIndex: 2, offeringIndex: 6, total: 81, status: ScoreStatus.CONFIRMED },
     { studentIndex: 3, offeringIndex: 1, total: 84, status: ScoreStatus.SUBMITTED },
     { studentIndex: 3, offeringIndex: 2, total: 81, status: ScoreStatus.CONFIRMED },
-    { studentIndex: 3, offeringIndex: 3, total: 78, status: ScoreStatus.SUBMITTED },
-    { studentIndex: 3, offeringIndex: 4, total: 86, status: ScoreStatus.CONFIRMED },
-    { studentIndex: 1, offeringIndex: 1, total: 72, status: ScoreStatus.DRAFT },
+    { studentIndex: 3, offeringIndex: 4, total: 76, status: ScoreStatus.CONFIRMED },
+    { studentIndex: 3, offeringIndex: 5, total: 86, status: ScoreStatus.CONFIRMED },
+    { studentIndex: 3, offeringIndex: 6, total: 88, status: ScoreStatus.CONFIRMED },
+    { studentIndex: 4, offeringIndex: 1, total: 68, status: ScoreStatus.CONFIRMED },
+    { studentIndex: 4, offeringIndex: 2, total: 64, status: ScoreStatus.SUBMITTED },
+    { studentIndex: 4, offeringIndex: 8, total: 52, status: ScoreStatus.CONFIRMED },
+    { studentIndex: 5, offeringIndex: 1, total: 89, status: ScoreStatus.CONFIRMED },
+    { studentIndex: 5, offeringIndex: 2, total: 87, status: ScoreStatus.CONFIRMED },
+    { studentIndex: 5, offeringIndex: 5, total: 85, status: ScoreStatus.CONFIRMED },
+    { studentIndex: 5, offeringIndex: 6, total: 83, status: ScoreStatus.CONFIRMED },
   ]
 
   for (const [index, record] of scoreRecords.entries()) {
@@ -745,17 +1243,19 @@ async function main() {
   console.log('  cstudent01..cstudent06 / student123')
   console.log('  cteacher01..cteacher03 / teacher123')
   console.log('Recommended manual scenarios:')
-  console.log('  cstudent01: confirmed curriculum, normal selection, AI context')
+  console.log('  cstudent01: mid-program CS student, confirmed curriculum, AI recommendation context')
   console.log('  cstudent02: curriculum not confirmed')
   console.log('  cstudent03: stale curriculum confirmation')
-  console.log('  cstudent04: max credit pressure')
+  console.log('  cstudent04: max credit pressure after selecting many core courses')
+  console.log('  cstudent05: weak/failed prerequisite background')
+  console.log('  cstudent06: capacity pressure and roster checks')
   console.log('Key ids:')
   console.log(`  active period: ${PERIOD_ACTIVE_ID}`)
-  console.log('  selectable offering: cmanual-offering-009')
-  console.log('  unmet prerequisite offering: cmanual-offering-011')
-  console.log('  time conflict offering: cmanual-offering-020')
-  console.log('  full offering: cmanual-offering-044')
-  console.log('  manual add target: cmanual-offering-021')
+  console.log('  selectable offering: cmanual-offering-009 (CMAN-CS301 Algorithms)')
+  console.log('  unmet prerequisite offering: cmanual-offering-011 (CMAN-CS309 Machine Learning)')
+  console.log('  time conflict offering: cmanual-offering-020 (CMAN-CS402 Computer Security)')
+  console.log('  full offering: cmanual-offering-044 (CMAN-CS401 Distributed Systems)')
+  console.log('  manual add target: cmanual-offering-021 (CMAN-CS409 Computer Graphics)')
   console.log(`  academic user id: ${academic.id}`)
 }
 

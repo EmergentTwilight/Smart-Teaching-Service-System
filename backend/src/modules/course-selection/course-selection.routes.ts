@@ -109,6 +109,11 @@ router.patch(
   enrollmentController.dropEnrollment
 )
 router.get(
+  '/timetable/me/semesters',
+  requireRoles('student'),
+  timetableController.listMyTimetableSemesters
+)
+router.get(
   '/timetable/me',
   requireRoles('student'),
   validate(timetableQuerySchema, 'query'),

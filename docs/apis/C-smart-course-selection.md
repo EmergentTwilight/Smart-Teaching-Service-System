@@ -137,6 +137,7 @@ link: https://tcncx9czflpz.feishu.cn/wiki/BgpmwKkYqifNkjk1Psdc0gitn2b
 | 提交选课 | POST | `/enrollments` | `FR-C-14` 至 `FR-C-23` |
 | 退选课程 | PATCH | `/enrollments/:id/drop` | `FR-C-14`、`FR-C-21`、`FR-C-22` |
 | 查看本人课表 | GET | `/timetable/me` | `FR-C-25`、`FR-C-26` |
+| 查询本人课表可选学期 | GET | `/timetable/me/semesters` | `FR-C-25`、`FR-C-26` |
 | AI 推荐课程 | POST | `/ai-advisor/recommend` | `FR-C-38` 至 `FR-C-43` |
 | AI 解释课程 | POST | `/ai-advisor/explain` | `FR-C-38` 至 `FR-C-43` |
 | 保存 AI 建议快照 | POST | `/ai-advisor/saved` | `FR-C-38` 至 `FR-C-43` |
@@ -269,7 +270,8 @@ curl -X GET "https://stss.example.com/api/v1/course-selection/curriculum/me?incl
             "course_name": "程序设计基础",
             "credits": 4.0,
             "semester_suggestion": 1,
-            "status": "active"
+            "status": "active",
+            "study_status": "completed"
           }
         ]
       }
@@ -288,6 +290,7 @@ curl -X GET "https://stss.example.com/api/v1/course-selection/curriculum/me?incl
 
 - 若当前学生无法匹配培养方案，返回 `422`，并阻止自动生成可选课程列表。
 - 培养方案、课程分类和课程代码只读取主数据，不由 C 模块复制或新建。
+- `study_status` 用于区分 `completed`（已修读）、`in_progress`（正在修读）、`not_started`（未修读）。已修读基于 F 组 `Score.status in (SUBMITTED, CONFIRMED)` 且达到及格线判断；正在修读仅统计当前/默认学期的 `Enrollment.status = ENROLLED`。
 - `confirmation.required_before_selection` 表示 v2.0 验收基线要求培养方案确认作为选课前置条件；`confirmed` 与 `confirmed_at` 应来自后端持久化确认记录，不得由前端本地状态伪造。
 - 确认记录来自 `student_curriculum_confirmations`；若 `confirmed_at` 早于对应 `Curriculum.updated_at`，视为未确认并要求学生重新确认。
 
@@ -376,6 +379,18 @@ curl -X GET "https://stss.example.com/api/v1/course-selection/curriculum/me/prog
       "elective_credits": 4.0,
       "general_credits": 4.0
     },
+    "completed": {
+      "total_credits": 14.0,
+      "required_credits": 10.0,
+      "elective_credits": 0.0,
+      "general_credits": 4.0
+    },
+    "in_progress": {
+      "total_credits": 4.0,
+      "required_credits": 0.0,
+      "elective_credits": 4.0,
+      "general_credits": 0.0
+    },
     "remaining": {
       "total_credits": 142.0,
       "required_credits": 82.0,
@@ -385,6 +400,8 @@ curl -X GET "https://stss.example.com/api/v1/course-selection/curriculum/me/prog
       {
         "course_type": "required",
         "selected_credits": 10.0,
+        "completed_credits": 10.0,
+        "in_progress_credits": 0.0,
         "requirement_credits": 92.0,
         "course_count": 3
       }
@@ -401,7 +418,9 @@ curl -X GET "https://stss.example.com/api/v1/course-selection/curriculum/me/prog
 
 **校验与说明**
 
-- 仅统计 `status = enrolled` 的有效选课；`include_dropped=true` 仅用于展示历史，不计入进度。
+- `selected` 为 `completed + in_progress` 的兼容汇总；前端如需区分已修读/正在修读，应优先读取 `completed`、`in_progress` 和分类型拆分字段。
+- 已修读基于 F 组有效成绩（`SUBMITTED/CONFIRMED`、及格线、有效成绩去重）统计；正在修读仅统计目标/当前学期 `status = enrolled` 且尚未完成的课程。
+- `include_dropped=true` 仅用于展示历史，不计入进度。
 - 进度按 `Course.course_type` 或 `CurriculumCourse.course_type` 聚合，字段冲突时以培养方案课程关系为准。
 - 学分进展应基于已确认培养方案；确认记录早于培养方案更新时间时应提示重新确认。
 - TODO-C-02（`FR-C-05`）：公共课最低学分要求在数据库设计中暂无独立字段，后续需与数据库负责人确认是否由 `Curriculum.elective_credits` 拆分、由课程分类派生，或修改数据库设计。
@@ -1080,6 +1099,49 @@ curl -X GET "https://stss.example.com/api/v1/course-selection/timetable/me?semes
 - 只展示 `Enrollment.status = enrolled` 的课程。
 - 课程暂无排课时仍应展示选课结果，并在 `missing_schedule_items` 中提示。
 - TODO-C-13（`FR-C-25`）：打印样式由前端实现，本接口只提供稳定的可打印课表数据。
+
+### 3.10.1 查询本人课表可选学期
+
+```plaintext
+GET /api/v1/course-selection/timetable/me/semesters
+Authorization: Bearer <access_token>
+```
+
+**权限说明**
+
+仅 `student` 可访问。后端只根据当前登录学生的选课记录和有效成绩关联学期，前端不得传 `student_id`。
+
+**响应示例**
+
+```json
+{
+  "code": 200,
+  "message": "success",
+  "data": {
+    "default_semester_id": "2b5741c4-40c4-4c7f-990e-cc880a9f0001",
+    "items": [
+      {
+        "id": "2b5741c4-40c4-4c7f-990e-cc880a9f0001",
+        "name": "2025-2026-1",
+        "status": "current",
+        "start_date": "2025-09-01T00:00:00.000Z",
+        "end_date": "2026-01-16T00:00:00.000Z",
+        "is_current": true,
+        "is_default": true,
+        "enrolled_count": 4,
+        "scheduled_item_count": 4,
+        "missing_schedule_count": 0
+      }
+    ]
+  }
+}
+```
+
+**校验与说明**
+
+- `items` 包含当前默认学期，以及学生有选课或 `SUBMITTED/CONFIRMED` 成绩记录的历史学期。
+- `scheduled_item_count` 和 `missing_schedule_count` 仅统计当前学生本人 `Enrollment.status = enrolled` 的课程。
+- 前端课表页应基于本接口展示学期下拉选择，不要求学生手工输入学期 ID。
 
 ### 3.11 AI 推荐课程
 

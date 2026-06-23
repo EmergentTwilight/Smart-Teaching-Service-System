@@ -28,7 +28,26 @@ const DEPARTMENT_ID = 'cmanual-department'
 const MAJOR_ID = 'cmanual-major'
 const CURRICULUM_ID = 'cmanual-curriculum-2026'
 const SEMESTER_ID = 'cmanual-semester-2026-spring'
-const HISTORY_SEMESTER_ID = 'cmanual-semester-2025-fall'
+const HISTORY_SEMESTERS = [
+  {
+    id: 'cmanual-semester-2024-fall',
+    name: '2024 Fall CS Manual History',
+    startDate: new Date('2024-09-02'),
+    endDate: new Date('2025-01-17'),
+  },
+  {
+    id: 'cmanual-semester-2025-spring',
+    name: '2025 Spring CS Manual History',
+    startDate: new Date('2025-02-24'),
+    endDate: new Date('2025-07-11'),
+  },
+  {
+    id: 'cmanual-semester-2025-fall',
+    name: '2025 Fall CS Manual History',
+    startDate: new Date('2025-09-01'),
+    endDate: new Date('2026-01-16'),
+  },
+]
 const PERIOD_ACTIVE_ID = 'cmanual-period-adjustment'
 const PERIOD_EXPIRED_ID = 'cmanual-period-expired'
 
@@ -47,12 +66,30 @@ const offeringIds = Array.from({ length: 48 }, (_, index) =>
 const historicalOfferingIds = Array.from({ length: 12 }, (_, index) =>
   `cmanual-history-offering-${String(index + 1).padStart(3, '0')}`
 )
+const historicalScheduleIds = Array.from({ length: 12 }, (_, index) =>
+  `cmanual-history-schedule-${String(index + 1).padStart(3, '0')}`
+)
 const classroomIds = Array.from({ length: 6 }, (_, index) =>
   `cmanual-classroom-${String(index + 1).padStart(2, '0')}`
 )
 const scheduleIds = Array.from({ length: 32 }, (_, index) =>
   `cmanual-schedule-${String(index + 1).padStart(3, '0')}`
 )
+
+const historicalOfferingSemesterIds = [
+  HISTORY_SEMESTERS[0].id,
+  HISTORY_SEMESTERS[1].id,
+  HISTORY_SEMESTERS[0].id,
+  HISTORY_SEMESTERS[1].id,
+  HISTORY_SEMESTERS[1].id,
+  HISTORY_SEMESTERS[2].id,
+  HISTORY_SEMESTERS[2].id,
+  HISTORY_SEMESTERS[2].id,
+  HISTORY_SEMESTERS[2].id,
+  HISTORY_SEMESTERS[2].id,
+  HISTORY_SEMESTERS[2].id,
+  HISTORY_SEMESTERS[2].id,
+]
 
 const courseCatalog = [
   {
@@ -669,6 +706,7 @@ async function ensureUsers() {
 
 async function cleanupManualData(studentIds: string[]) {
   const allOfferingIds = [...offeringIds, ...historicalOfferingIds]
+  const allScheduleIds = [...scheduleIds, ...historicalScheduleIds]
   await prisma.scoreModificationLog.deleteMany({
     where: { scoreId: { startsWith: 'cmanual-score-' } },
   })
@@ -701,7 +739,7 @@ async function cleanupManualData(studentIds: string[]) {
   await prisma.schedule.deleteMany({
     where: {
       OR: [
-        { id: { in: scheduleIds } },
+        { id: { in: allScheduleIds } },
         { courseOfferingId: { in: allOfferingIds } },
         { classroomId: { in: classroomIds } },
       ],
@@ -739,7 +777,7 @@ async function cleanupManualData(studentIds: string[]) {
     where: { id: { in: classroomIds } },
   })
   await prisma.semester.deleteMany({
-    where: { id: { in: [SEMESTER_ID, HISTORY_SEMESTER_ID] } },
+    where: { id: { in: [SEMESTER_ID, ...HISTORY_SEMESTERS.map((semester) => semester.id)] } },
   })
 }
 
@@ -830,20 +868,24 @@ async function seedBaseData(
     },
   })
 
-  await prisma.semester.upsert({
-    where: { id: HISTORY_SEMESTER_ID },
-    update: {
-      name: '2025 Fall CS Manual History',
-      status: SemesterStatus.ENDED,
-    },
-    create: {
-      id: HISTORY_SEMESTER_ID,
-      name: '2025 Fall CS Manual History',
-      startDate: new Date('2025-09-01'),
-      endDate: new Date('2026-01-16'),
-      status: SemesterStatus.ENDED,
-    },
-  })
+  for (const semester of HISTORY_SEMESTERS) {
+    await prisma.semester.upsert({
+      where: { id: semester.id },
+      update: {
+        name: semester.name,
+        startDate: semester.startDate,
+        endDate: semester.endDate,
+        status: SemesterStatus.ENDED,
+      },
+      create: {
+        id: semester.id,
+        name: semester.name,
+        startDate: semester.startDate,
+        endDate: semester.endDate,
+        status: SemesterStatus.ENDED,
+      },
+    })
+  }
 
   for (const [index, classroomId] of classroomIds.entries()) {
     await prisma.classroom.upsert({
@@ -1087,7 +1129,7 @@ async function seedEnrollmentsAndScores(
       where: { id: historicalOfferingIds[index - 1] },
       update: {
         courseId: courseIds[index - 1],
-        semesterId: HISTORY_SEMESTER_ID,
+        semesterId: historicalOfferingSemesterIds[index - 1],
         teacherId: teachers[(index - 1) % teachers.length].id,
         capacity: 40,
         enrolledCount: 1,
@@ -1096,11 +1138,41 @@ async function seedEnrollmentsAndScores(
       create: {
         id: historicalOfferingIds[index - 1],
         courseId: courseIds[index - 1],
-        semesterId: HISTORY_SEMESTER_ID,
+        semesterId: historicalOfferingSemesterIds[index - 1],
         teacherId: teachers[(index - 1) % teachers.length].id,
         capacity: 40,
         enrolledCount: 1,
         status: OfferingStatus.CLOSED,
+      },
+    })
+  }
+
+  for (let index = 1; index <= historicalScheduleIds.length; index += 1) {
+    const dayOfWeek = ((index - 1) % 5) + 1
+    const startPeriod = ((Math.floor((index - 1) / 5) % 4) * 2) + 1
+
+    await prisma.schedule.upsert({
+      where: { id: historicalScheduleIds[index - 1] },
+      update: {
+        courseOfferingId: historicalOfferingIds[index - 1],
+        classroomId: classroomIds[(index + 1) % classroomIds.length],
+        dayOfWeek,
+        startWeek: 1 + ((index - 1) % 2),
+        endWeek: 16,
+        startPeriod,
+        endPeriod: startPeriod + 1,
+        notes: 'Historical timetable slot for cstudent01 manual QA',
+      },
+      create: {
+        id: historicalScheduleIds[index - 1],
+        courseOfferingId: historicalOfferingIds[index - 1],
+        classroomId: classroomIds[(index + 1) % classroomIds.length],
+        dayOfWeek,
+        startWeek: 1 + ((index - 1) % 2),
+        endWeek: 16,
+        startPeriod,
+        endPeriod: startPeriod + 1,
+        notes: 'Historical timetable slot for cstudent01 manual QA',
       },
     })
   }
@@ -1139,6 +1211,8 @@ async function seedEnrollmentsAndScores(
   const historicalEnrollmentIdByKey = new Map<string, string>()
   for (let courseIndex = 1; courseIndex <= 8; courseIndex += 1) {
     const id = `cmanual-enrollment-history-${String(courseIndex).padStart(3, '0')}`
+    const semesterId = historicalOfferingSemesterIds[courseIndex - 1]
+    const semester = HISTORY_SEMESTERS.find((item) => item.id === semesterId)
     await prisma.enrollment.upsert({
       where: {
         studentId_courseOfferingId: {
@@ -1149,6 +1223,7 @@ async function seedEnrollmentsAndScores(
       update: {
         status: EnrollmentStatus.ENROLLED,
         droppedAt: null,
+        enrolledAt: semester?.startDate ?? new Date('2025-09-01'),
       },
       create: {
         id,
@@ -1156,6 +1231,7 @@ async function seedEnrollmentsAndScores(
         courseOfferingId: historicalOfferingIds[courseIndex - 1],
         status: EnrollmentStatus.ENROLLED,
         droppedAt: null,
+        enrolledAt: semester?.startDate ?? new Date('2025-09-01'),
       },
     })
     historicalEnrollmentIdByKey.set(`0:${courseIndex}`, id)
@@ -1288,7 +1364,7 @@ async function seedConfirmations(students: Awaited<ReturnType<typeof ensureUsers
 }
 
 async function refreshOfferingCounts() {
-  for (const offeringId of offeringIds) {
+  for (const offeringId of [...offeringIds, ...historicalOfferingIds]) {
     const count = await prisma.enrollment.count({
       where: { courseOfferingId: offeringId, status: EnrollmentStatus.ENROLLED },
     })

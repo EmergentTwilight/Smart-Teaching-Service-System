@@ -104,6 +104,24 @@ export interface TimetablePayload {
   missingScheduleItems: MissingScheduleItem[];
 }
 
+export interface TimetableSemesterItem {
+  id: string;
+  name: string;
+  status: 'upcoming' | 'current' | 'ended';
+  startDate: string;
+  endDate: string;
+  isCurrent: boolean;
+  isDefault: boolean;
+  enrolledCount: number;
+  scheduledItemCount: number;
+  missingScheduleCount: number;
+}
+
+export interface TimetableSemesterListPayload {
+  items: TimetableSemesterItem[];
+  defaultSemesterId?: string;
+}
+
 export interface RosterStudentItem {
   studentNumber: string;
   studentName: string;

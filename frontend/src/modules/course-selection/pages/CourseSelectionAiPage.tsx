@@ -37,6 +37,8 @@ const formatRiskText: Record<'low' | 'medium' | 'high', string> = {
   high: '进取',
 };
 
+const buildSavedAdviceTitle = (value: string): string => value.trim().slice(0, 120);
+
 /**
  * TODO(C6, FR-C-38, FR-C-39, FR-C-40, FR-C-41, FR-C-42, NFR-C-09, NFR-C-10):
  * - 页面仅请求推荐和解释；不触发任何 Enrollment 写入动作；
@@ -216,14 +218,14 @@ const CourseSelectionAiPage: React.FC = () => {
       turn.type === 'recommend'
         ? {
             recordType: 'recommendation' as const,
-            title: turn.advice.recommendationSummary || 'AI 推荐建议',
+            title: 'AI 推荐建议',
             question,
             requestPayload: question ? { question } : null,
             resultPayload: turn.advice as unknown as Record<string, unknown>,
           }
         : {
             recordType: 'explanation' as const,
-            title: `课程解释：${turn.courseName}`,
+            title: buildSavedAdviceTitle(`课程解释：${turn.courseName}`),
             question,
             courseOfferingId: turn.explanation.courseOfferingId,
             requestPayload: question ? { question } : null,

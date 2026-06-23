@@ -55,6 +55,9 @@ export interface AiConflictNote {
 
 export interface AiCreditProgressSummary {
   currentSelectedCredits: number
+  completedCredits?: number
+  inProgressCredits?: number
+  projectedCredits?: number
   targetCredits: number
   maxCredits: number
   remainingToTarget?: number
@@ -70,6 +73,9 @@ export interface AiScoreBreakdown {
 
 export interface AiProgressAudit {
   currentSelectedCredits: number
+  completedCredits?: number
+  inProgressCredits?: number
+  projectedCredits?: number
   targetCredits: number
   maxCredits: number | null
   requiredGap: number

@@ -36,6 +36,9 @@ const prismaMock = vi.hoisted(() => ({
     update: vi.fn(),
     updateMany: vi.fn(),
   },
+  score: {
+    findMany: vi.fn(),
+  },
   aiAdvisorSavedRecommendation: {
     create: vi.fn(),
     findMany: vi.fn(),
@@ -111,6 +114,21 @@ const buildEnrollment = (overrides: Record<string, unknown> = {}) => ({
   ...overrides,
 })
 
+const buildScore = (overrides: Record<string, unknown> = {}) => ({
+  id: 'score-1',
+  totalScore: 85,
+  enteredAt: new Date('2026-01-01T00:00:00.000Z'),
+  modifiedAt: null,
+  courseOffering: {
+    course: {
+      id: 'completed-course-1',
+      credits: 4,
+      courseType: CourseType.REQUIRED,
+    },
+  },
+  ...overrides,
+})
+
 const resetBaseMocks = () => {
   vi.useFakeTimers()
   vi.setSystemTime(now)
@@ -160,6 +178,7 @@ const resetBaseMocks = () => {
   prismaMock.enrollment.findMany.mockResolvedValue([buildEnrollment()])
   prismaMock.courseOffering.findMany.mockResolvedValue([buildOffering()])
   prismaMock.courseOffering.findUnique.mockResolvedValue({ semesterId: 'semester-1' })
+  prismaMock.score.findMany.mockResolvedValue([])
   prismaMock.aiAdvisorSavedRecommendation.create.mockImplementation(async ({ data }) => ({
     id: 'saved-1',
     studentId: data.studentId,
@@ -242,6 +261,65 @@ describe('aiAdvisorService.recommend', () => {
       'full-offering',
       'conflict-offering',
     ])
+  })
+
+  it('uses effective passed scores to satisfy prerequisites', async () => {
+    prismaMock.enrollment.findMany.mockResolvedValue([])
+    prismaMock.score.findMany.mockResolvedValue([
+      buildScore({
+        courseOffering: {
+          course: {
+            id: 'pre-course-1',
+            credits: 4,
+            courseType: CourseType.REQUIRED,
+          },
+        },
+      }),
+    ])
+    prismaMock.courseOffering.findMany.mockResolvedValue([
+      buildOffering({
+        course: buildCourse({
+          prerequisites: [{ prerequisiteId: 'pre-course-1' }],
+        }),
+      }),
+    ])
+
+    const result = await aiAdvisorService.recommend('student-1', {
+      maxRecommendations: 5,
+    })
+
+    expect(result.recommendations.map((item) => item.courseOfferingId)).toEqual(['offering-1'])
+    expect(result.progressAudit?.completedCredits).toBe(4)
+    expect(result.progressAudit?.projectedCredits).toBe(4)
+  })
+
+  it('does not recommend courses already passed by effective score', async () => {
+    prismaMock.enrollment.findMany.mockResolvedValue([])
+    prismaMock.score.findMany.mockResolvedValue([
+      buildScore({
+        courseOffering: {
+          course: {
+            id: 'course-1',
+            credits: 4,
+            courseType: CourseType.REQUIRED,
+          },
+        },
+      }),
+    ])
+
+    const result = await aiAdvisorService.recommend('student-1', {
+      maxRecommendations: 5,
+    })
+
+    expect(result.recommendations).toHaveLength(0)
+    expect(result.conflictNotes).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          courseOfferingId: 'offering-1',
+          message: '课程已通过',
+        }),
+      ])
+    )
   })
 
   it('falls back when the LLM recommends only ids outside the safe pool', async () => {

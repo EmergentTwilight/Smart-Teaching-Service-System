@@ -14,6 +14,12 @@ const prismaMock = vi.hoisted(() => ({
     findUnique: vi.fn(),
     upsert: vi.fn(),
   },
+  semester: {
+    findUnique: vi.fn(),
+  },
+  score: {
+    findMany: vi.fn(),
+  },
   enrollment: {
     findMany: vi.fn(),
   },
@@ -62,6 +68,12 @@ beforeEach(() => {
   prismaMock.studentCurriculumConfirmation.upsert.mockResolvedValue({
     confirmedAt: new Date('2026-03-01T00:00:00.000Z'),
   })
+  prismaMock.semester.findUnique.mockResolvedValue({
+    id: 'semester-1',
+    endDate: new Date('2026-07-10T00:00:00.000Z'),
+  })
+  prismaMock.score.findMany.mockResolvedValue([])
+  prismaMock.enrollment.findMany.mockResolvedValue([])
 })
 
 describe('curriculumService confirmation', () => {
@@ -131,5 +143,75 @@ describe('curriculumService confirmation', () => {
 
     expect(result).toBe('提交的培养方案与当前学生匹配培养方案不一致')
     expect(prismaMock.studentCurriculumConfirmation.upsert).not.toHaveBeenCalled()
+  })
+
+  it('counts effective passed scores before current in-progress enrollments for progress', async () => {
+    prismaMock.score.findMany.mockResolvedValueOnce([
+      {
+        id: 'score-required',
+        totalScore: 86,
+        enteredAt: new Date('2026-01-01T00:00:00.000Z'),
+        modifiedAt: null,
+        courseOffering: {
+          course: {
+            id: 'course-required',
+            credits: 4,
+            courseType: 'REQUIRED',
+          },
+        },
+      },
+      {
+        id: 'score-failed',
+        totalScore: 55,
+        enteredAt: new Date('2026-01-01T00:00:00.000Z'),
+        modifiedAt: null,
+        courseOffering: {
+          course: {
+            id: 'course-failed',
+            credits: 3,
+            courseType: 'ELECTIVE',
+          },
+        },
+      },
+    ])
+    prismaMock.enrollment.findMany.mockResolvedValueOnce([
+      {
+        courseOffering: {
+          course: {
+            id: 'course-elective',
+            credits: 3,
+            courseType: 'ELECTIVE',
+          },
+        },
+      },
+      {
+        courseOffering: {
+          course: {
+            id: 'course-required',
+            credits: 4,
+            courseType: 'REQUIRED',
+          },
+        },
+      },
+    ])
+
+    const result = await curriculumService.getMyCurriculumProgress('student-1', {})
+
+    expect(result).not.toBeTypeOf('string')
+    if (typeof result === 'string') {
+      throw new Error(result)
+    }
+
+    expect(result.selected).toMatchObject({
+      totalCredits: 7,
+      requiredCredits: 4,
+      electiveCredits: 3,
+    })
+    expect(result.byCourseType).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ courseType: 'required', selectedCredits: 4, courseCount: 1 }),
+        expect.objectContaining({ courseType: 'elective', selectedCredits: 3, courseCount: 1 }),
+      ])
+    )
   })
 })

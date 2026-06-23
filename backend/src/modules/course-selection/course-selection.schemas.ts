@@ -615,7 +615,7 @@ const aiSavedRecordPayloadSchema = z.record(z.unknown())
 const aiSaveRecordBodyInputSchema = z.object({
   recordType: aiSavedRecordTypeSchema.optional(),
   record_type: aiSavedRecordTypeSchema.optional(),
-  title: z.string().trim().min(1).max(120).optional(),
+  title: z.string().trim().min(1).max(1000).optional(),
   question: z.string().trim().max(1000).optional(),
   semesterId: databaseIdSchema.optional(),
   semester_id: databaseIdSchema.optional(),
@@ -670,7 +670,7 @@ const aiSaveRecordBodyInputSchema = z.object({
 export const aiSaveRecordBodySchema = aiSaveRecordBodyInputSchema
   .transform((value) => ({
     recordType: value.recordType ?? value.record_type,
-    title: value.title,
+    title: value.title?.trim().slice(0, 120),
     question: value.question,
     semesterId: value.semesterId ?? value.semester_id,
     courseOfferingId: value.courseOfferingId ?? value.course_offering_id,

@@ -396,8 +396,10 @@ const AdviceBubble = ({
         ) : null}
         {advice.recommendationSummary ? <Alert message={advice.recommendationSummary} type="success" showIcon /> : null}
         <Text type="secondary">
-          学分说明：当前 {advice.creditProgressSummary.currentSelectedCredits} / 目标 {advice.creditProgressSummary.targetCredits} /
-          上限 {advice.creditProgressSummary.maxCredits}
+          学分说明：已完成 {advice.creditProgressSummary.completedCredits ?? 0} · 在修{' '}
+          {advice.creditProgressSummary.inProgressCredits ?? advice.creditProgressSummary.currentSelectedCredits} · 预计{' '}
+          {advice.creditProgressSummary.projectedCredits ?? advice.creditProgressSummary.currentSelectedCredits} / 目标{' '}
+          {advice.creditProgressSummary.targetCredits} · 本阶段上限 {advice.creditProgressSummary.maxCredits}
         </Text>
 
         <Row gutter={[16, 16]} align="top">

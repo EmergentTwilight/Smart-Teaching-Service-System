@@ -178,8 +178,12 @@ describe('CourseSelectionAiPage', () => {
   });
 
   it('saves a generated recommendation snapshot', async () => {
+    const longSummaryAdvice = {
+      ...advice,
+      recommendationSummary: '这是一段很长的推荐摘要'.repeat(30),
+    };
     recommendMutate.mockImplementation((_payload, options) => {
-      options.onSuccess(advice);
+      options.onSuccess(longSummaryAdvice);
     });
 
     renderPage();
@@ -200,11 +204,14 @@ describe('CourseSelectionAiPage', () => {
     });
     expect(saveRecordMutate.mock.calls[0][0]).toMatchObject({
       recordType: 'recommendation',
+      title: 'AI 推荐建议',
       question: expect.stringContaining('保存这次推荐'),
       resultPayload: expect.objectContaining({
         recommendations: advice.recommendations,
+        recommendationSummary: longSummaryAdvice.recommendationSummary,
       }),
     });
+    expect(saveRecordMutate.mock.calls[0][0].title.length).toBeLessThanOrEqual(120);
   });
 
   it('renders saved records and can restore them into the conversation', async () => {

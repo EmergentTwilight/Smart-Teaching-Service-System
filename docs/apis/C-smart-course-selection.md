@@ -1127,9 +1127,13 @@ curl -X POST "https://stss.example.com/api/v1/course-selection/ai-advisor/recomm
   "data": {
     "disclaimer": "AI 建议仅供参考，最终选课必须通过系统选课入口并接受容量、冲突、阶段和培养方案校验。",
     "credit_progress_summary": {
-      "current_selected_credits": 18.0,
+      "current_selected_credits": 7.0,
+      "completed_credits": 24.0,
+      "in_progress_credits": 7.0,
+      "projected_credits": 31.0,
       "target_credits": 22.0,
-      "max_credits": 28.0
+      "max_credits": 28.0,
+      "remaining_to_target": 0.0
     },
     "recommendations": [
       {

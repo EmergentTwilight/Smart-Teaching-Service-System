@@ -34,6 +34,12 @@ import {
   resolveSemesterId,
   schedulesConflict,
 } from './course-selection.support.js'
+import {
+  PASS_LINE,
+  SUBMITTED_SCORE_STATUSES,
+  pickEffectiveScoresByCourse,
+  toNumber,
+} from '../score-management/score-statistics.js'
 import { llmClient } from './ai-advisor.llm-client.js'
 import {
   buildFallbackPlanTitle,
@@ -71,6 +77,7 @@ const WEEKDAY_NAMES: Record<number, string> = {
 
 type AdvisorCourseType = 'required' | 'elective' | 'general'
 type CapacityRiskLevel = 'low' | 'medium' | 'high'
+type CreditBuckets = Record<AdvisorCourseType, number>
 
 const toCourseTypeValue = (value: CourseType): AdvisorCourseType => {
   if (value === CourseType.REQUIRED) {
@@ -207,6 +214,12 @@ interface EnrolledCourse {
   }[]
 }
 
+interface CompletedCourse {
+  courseId: string
+  credits: number
+  courseType: AdvisorCourseType
+}
+
 interface OfferingSnapshot {
   offeringId: string
   courseId: string
@@ -252,6 +265,12 @@ interface AdvisorContext {
       general: number
     }
     items: EnrolledCourse[]
+    totalCredits: number
+  }
+  completed: {
+    byCourseId: Set<string>
+    byCourseType: CreditBuckets
+    items: CompletedCourse[]
     totalCredits: number
   }
   offerings: OfferingSnapshot[]
@@ -322,6 +341,46 @@ interface C6Blackboard {
   preferenceProfile: PreferenceProfile
   validationReport?: ValidationReport
   fallbackInfo?: AiFallbackInfo
+}
+
+const emptyCreditBuckets = (): CreditBuckets => ({
+  required: 0,
+  elective: 0,
+  general: 0,
+})
+
+const addCreditsToBucket = (bucket: CreditBuckets, courseType: AdvisorCourseType, credits: number) => {
+  bucket[courseType] += credits
+}
+
+const buildProgressCreditBuckets = (context: AdvisorContext) => {
+  const byCourseType = emptyCreditBuckets()
+  const countedCourseIds = new Set<string>()
+  let completedCredits = 0
+  let inProgressCredits = 0
+
+  for (const item of context.completed.items) {
+    countedCourseIds.add(item.courseId)
+    addCreditsToBucket(byCourseType, item.courseType, item.credits)
+    completedCredits += item.credits
+  }
+
+  for (const item of context.enrolled.items) {
+    if (countedCourseIds.has(item.courseId)) {
+      continue
+    }
+
+    countedCourseIds.add(item.courseId)
+    addCreditsToBucket(byCourseType, item.courseType, item.credits)
+    inProgressCredits += item.credits
+  }
+
+  return {
+    byCourseType,
+    completedCredits,
+    inProgressCredits,
+    projectedCredits: completedCredits + inProgressCredits,
+  }
 }
 
 const resolveStudent = async (studentId: string): Promise<StudentCtx> => {
@@ -509,6 +568,62 @@ const resolveEnrollmentState = async (studentId: string, semesterId: string) => 
   }
 }
 
+const resolveCompletedState = async (studentId: string) => {
+  const scores = await prisma.score.findMany({
+    where: {
+      studentId,
+      status: {
+        in: [...SUBMITTED_SCORE_STATUSES],
+      },
+    },
+    include: {
+      courseOffering: {
+        include: {
+          course: {
+            select: {
+              id: true,
+              credits: true,
+              courseType: true,
+            },
+          },
+        },
+      },
+    },
+  })
+
+  const byCourseId = new Set<string>()
+  const byCourseType = emptyCreditBuckets()
+  let totalCredits = 0
+  const items: CompletedCourse[] = []
+
+  for (const score of pickEffectiveScoresByCourse(scores)) {
+    const totalScore = toNumber(score.totalScore)
+    if (totalScore === null || totalScore < PASS_LINE) {
+      continue
+    }
+
+    const course = score.courseOffering.course
+    const courseType = toCourseTypeValue(course.courseType)
+    const credits = toNum(course.credits)
+
+    byCourseId.add(course.id)
+    addCreditsToBucket(byCourseType, courseType, credits)
+    totalCredits += credits
+    items.push({
+      courseId: course.id,
+      credits,
+      courseType,
+    })
+  }
+
+  return {
+    byCourseId,
+    byCourseType,
+    totalCredits,
+    items,
+  }
+}
+
 const resolveOfferings = async (semesterId: string): Promise<OfferingSnapshot[]> => {
   const offerings = await prisma.courseOffering.findMany({
     where: { semesterId },
@@ -583,6 +698,7 @@ const buildContext = async (studentId: string, semesterId?: string): Promise<Adv
   const period = await resolvePeriod(semester.id)
   const curriculum = await resolveCurriculum(student)
   const enrollmentState = await resolveEnrollmentState(studentId, semester.id)
+  const completedState = await resolveCompletedState(studentId)
   const offerings = await resolveOfferings(semester.id)
 
   return {
@@ -597,20 +713,27 @@ const buildContext = async (studentId: string, semesterId?: string): Promise<Adv
       items: enrollmentState.items,
       totalCredits: enrollmentState.totalCredits,
     },
+    completed: {
+      byCourseId: completedState.byCourseId,
+      byCourseType: completedState.byCourseType,
+      items: completedState.items,
+      totalCredits: completedState.totalCredits,
+    },
     offerings,
   }
 }
 
 const buildProgressAudit = (context: AdvisorContext): AiProgressAudit => {
+  const progress = buildProgressCreditBuckets(context)
   const requiredGap = context.curriculum.requiredCredits === null
     ? 0
-    : Math.max(0, context.curriculum.requiredCredits - context.enrolled.byCourseType.required)
+    : Math.max(0, context.curriculum.requiredCredits - progress.byCourseType.required)
   const electiveGap = context.curriculum.electiveCredits === null
     ? 0
-    : Math.max(0, context.curriculum.electiveCredits - context.enrolled.byCourseType.elective)
+    : Math.max(0, context.curriculum.electiveCredits - progress.byCourseType.elective)
   const generalGap = context.curriculum.generalCredits === null
     ? 0
-    : Math.max(0, context.curriculum.generalCredits - context.enrolled.byCourseType.general)
+    : Math.max(0, context.curriculum.generalCredits - progress.byCourseType.general)
 
   const priorityGaps = [
     {
@@ -638,6 +761,9 @@ const buildProgressAudit = (context: AdvisorContext): AiProgressAudit => {
 
   return {
     currentSelectedCredits: context.enrolled.totalCredits,
+    completedCredits: progress.completedCredits,
+    inProgressCredits: progress.inProgressCredits,
+    projectedCredits: progress.projectedCredits,
     targetCredits: context.curriculum.totalCredits,
     maxCredits: context.period.maxCredits,
     requiredGap,
@@ -722,15 +848,16 @@ const scoreCandidate = (
   },
   risks: string[]
 ): AiCourseScoreBreakdown => {
+  const progress = buildProgressCreditBuckets(context)
   const requiredGap = context.curriculum.requiredCredits === null
     ? 0
-    : Math.max(0, context.curriculum.requiredCredits - context.enrolled.byCourseType.required)
+    : Math.max(0, context.curriculum.requiredCredits - progress.byCourseType.required)
   const electiveGap = context.curriculum.electiveCredits === null
     ? 0
-    : Math.max(0, context.curriculum.electiveCredits - context.enrolled.byCourseType.elective)
+    : Math.max(0, context.curriculum.electiveCredits - progress.byCourseType.elective)
   const generalGap = context.curriculum.generalCredits === null
     ? 0
-    : Math.max(0, context.curriculum.generalCredits - context.enrolled.byCourseType.general)
+    : Math.max(0, context.curriculum.generalCredits - progress.byCourseType.general)
   const gapFitMap: Record<AdvisorCourseType, number> = {
     required: requiredGap > 0 ? 0.2 : 0.08,
     elective: electiveGap > 0 ? 0.18 : 0.08,
@@ -762,15 +889,17 @@ const sumScoreBreakdown = (breakdown: AiCourseScoreBreakdown): number =>
 
 const evaluateCandidates = (context: AdvisorContext): CandidatePools => {
   const enrolledSchedules = context.enrolled.items.flatMap((item) => item.schedules)
+  const progress = buildProgressCreditBuckets(context)
 
   const candidates = context.offerings.map<CandidateContext>((offering) => {
     const isEnrolled = context.enrolled.byOfferingId.has(offering.offeringId)
+    const isCompleted = context.completed.byCourseId.has(offering.courseId)
     const isFull = offering.remainingCapacity <= 0
     const hasTimeConflict = offering.schedules.some((offeringSchedule) =>
       enrolledSchedules.some((enrolledSchedule) => schedulesConflict(offeringSchedule, enrolledSchedule))
     )
 
-    const prerequisiteSatisfied = offering.prerequisites.every((id) => context.enrolled.byCourseId.has(id))
+    const prerequisiteSatisfied = offering.prerequisites.every((id) => context.completed.byCourseId.has(id))
     const withinCurriculum = context.curriculum.mandatoryCourses.has(offering.courseId)
 
     const reasons: string[] = []
@@ -789,6 +918,10 @@ const evaluateCandidates = (context: AdvisorContext): CandidatePools => {
 
     if (isEnrolled) {
       reasons.push('课程已选')
+    }
+
+    if (isCompleted) {
+      reasons.push('课程已通过')
     }
 
     if (isFull) {
@@ -846,17 +979,17 @@ const evaluateCandidates = (context: AdvisorContext): CandidatePools => {
     const requiredGap =
       context.curriculum.requiredCredits === null
         ? 0
-        : Math.max(0, context.curriculum.requiredCredits - context.enrolled.byCourseType.required)
+        : Math.max(0, context.curriculum.requiredCredits - progress.byCourseType.required)
 
     const electiveGap =
       context.curriculum.electiveCredits === null
         ? 0
-        : Math.max(0, context.curriculum.electiveCredits - context.enrolled.byCourseType.elective)
+        : Math.max(0, context.curriculum.electiveCredits - progress.byCourseType.elective)
 
     const generalGap =
       context.curriculum.generalCredits === null
         ? 0
-        : Math.max(0, context.curriculum.generalCredits - context.enrolled.byCourseType.general)
+        : Math.max(0, context.curriculum.generalCredits - progress.byCourseType.general)
 
     if (withinCurriculum && offering.courseType === 'required' && requiredGap > 0) {
       recommendationReasons.push('可帮助补齐必修课程缺口')
@@ -1550,8 +1683,9 @@ const buildAdvicePayload = (
     }))
 
   const targetCredits = context.curriculum.totalCredits
+  const progress = buildProgressCreditBuckets(context)
   const remainingToTarget =
-    targetCredits > 0 ? Math.max(0, targetCredits - context.enrolled.totalCredits) : 0
+    targetCredits > 0 ? Math.max(0, targetCredits - progress.projectedCredits) : 0
 
   return {
     disclaimer: AI_DISCLAIMER,
@@ -1562,6 +1696,9 @@ const buildAdvicePayload = (
     model,
     creditProgressSummary: {
       currentSelectedCredits: context.enrolled.totalCredits,
+      completedCredits: progress.completedCredits,
+      inProgressCredits: progress.inProgressCredits,
+      projectedCredits: progress.projectedCredits,
       targetCredits,
       maxCredits: context.period.maxCredits ?? 0,
       remainingToTarget,

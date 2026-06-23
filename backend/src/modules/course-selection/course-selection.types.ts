@@ -612,6 +612,9 @@ export interface AiScoreBreakdown {
 
 export interface AiProgressAudit {
   currentSelectedCredits: number
+  completedCredits?: number
+  inProgressCredits?: number
+  projectedCredits?: number
   targetCredits: number
   maxCredits: number | null
   requiredGap: number
@@ -657,6 +660,9 @@ export interface AiAdvicePayload {
   disclaimer: string
   creditProgressSummary: {
     currentSelectedCredits: number
+    completedCredits?: number
+    inProgressCredits?: number
+    projectedCredits?: number
     targetCredits: number
     maxCredits: number
     remainingToTarget?: number

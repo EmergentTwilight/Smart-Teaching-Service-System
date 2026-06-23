@@ -27,6 +27,12 @@ import {
 } from '@prisma/client'
 import type { Prisma } from '@prisma/client'
 import prisma from '../../shared/prisma/client.js'
+import {
+  PASS_LINE,
+  SUBMITTED_SCORE_STATUSES,
+  pickEffectiveScoresByCourse,
+  toNumber,
+} from '../score-management/score-statistics.js'
 
 const resolveCurrentCurriculumContext = async (studentId: string) => {
   const student = await prisma.student.findUnique({
@@ -253,14 +259,6 @@ export const curriculumService = {
     studentId: string,
     query: CurriculumProgressQuery
   ): Promise<CurriculumProgress | string> {
-    void query
-
-    // TODO(C1, FR-C-05, NFR-C-07): 由有效 Enrollment 汇总真实学分进度
-    // - 读取学生 ENROLLED/非 DROPPED 记录
-    // - 按课程类型聚合已选学分
-    // - 计算与 Curriculum 目标学分的比例
-    // TODO(C1, FR-C-05, NFR-C-12): 进度统计结果与后续选课/退课事务需保持一致
-    // 负责人 scaffold 不返回 200 全零进度，避免把未实现误判为真实统计结果。
     const context = await resolveCurrentCurriculumContext(studentId)
     if(typeof context === 'string') {
       return context
@@ -289,50 +287,89 @@ export const curriculumService = {
       date = semester.endDate
     }
 
-    const includeDropped =
-      query.includeDropped ?? query.include_dropped ?? false
     let a: number = 0, b: number = 0, c: number = 0, d: number = 0, x: number = 0, y: number = 0, z: number = 0
-    const enrollments = await prisma.enrollment.findMany({
-      where: {
-        studentId: studentId
+    const countedCourseIds = new Set<string>()
+    const addCourseProgress = (course: { id: string; credits: unknown; courseType: CourseType }) => {
+      if(countedCourseIds.has(course.id)) {
+        return
       }
-    })
-    for(const enrollment of enrollments) {
-      if(!includeDropped && enrollment.status !== EnrollmentStatus.ENROLLED) {
-        continue
-      }
-      const courseoffering = await prisma.courseOffering.findUnique({
-        where: {
-          id: enrollment.courseOfferingId
-        },
-        include: {
-          semester: true
-        }
-      })
-      if(!courseoffering || !courseoffering.semester || semesterId && courseoffering.semester.endDate > date) {
-        continue
-      }
-      const course = await prisma.course.findUnique({
-        where: {
-          id: courseoffering.courseId
-        }
-      })
-      if(!course) {
-        continue
-      }
-      if(enrollment.status === EnrollmentStatus.ENROLLED) a += Number(course.credits)
+
+      countedCourseIds.add(course.id)
+      const credits = Number(course.credits)
+      a += credits
+
       if(course.courseType == CourseType.REQUIRED) {
-        if(enrollment.status === EnrollmentStatus.ENROLLED) b += Number(course.credits)
+        b += credits
         ++x
       }
       if(course.courseType == CourseType.ELECTIVE) {
-        if(enrollment.status === EnrollmentStatus.ENROLLED) c += Number(course.credits)
+        c += credits
         ++y
       }
       if(course.courseType == CourseType.GENERAL) {
-        if(enrollment.status === EnrollmentStatus.ENROLLED) d += Number(course.credits)
+        d += credits
         ++z
       }
+    }
+
+    const scores = await prisma.score.findMany({
+      where: {
+        studentId,
+        status: {
+          in: [...SUBMITTED_SCORE_STATUSES],
+        },
+        courseOffering: semesterId
+          ? {
+              semester: {
+                endDate: {
+                  lte: date,
+                },
+              },
+            }
+          : undefined,
+      },
+      include: {
+        courseOffering: {
+          include: {
+            course: true,
+          },
+        },
+      },
+    })
+
+    for(const score of pickEffectiveScoresByCourse(scores)) {
+      const totalScore = toNumber(score.totalScore)
+      if(totalScore === null || totalScore < PASS_LINE) {
+        continue
+      }
+      addCourseProgress(score.courseOffering.course)
+    }
+
+    const enrollments = await prisma.enrollment.findMany({
+      where: {
+        studentId,
+        status: EnrollmentStatus.ENROLLED,
+        courseOffering: semesterId
+          ? {
+              semester: {
+                endDate: {
+                  lte: date,
+                },
+              },
+            }
+          : undefined,
+      },
+      include: {
+        courseOffering: {
+          include: {
+            course: true,
+          },
+        },
+      },
+    })
+
+    for(const enrollment of enrollments) {
+      addCourseProgress(enrollment.courseOffering.course)
     }
     const selected: CurriculumCreditSummary = {
       totalCredits: a,

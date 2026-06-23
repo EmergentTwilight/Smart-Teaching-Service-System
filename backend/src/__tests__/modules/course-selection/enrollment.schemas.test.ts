@@ -219,6 +219,17 @@ describe('course-selection request schemas', () => {
     })
   })
 
+  it('truncates long AI saved record titles before service validation', () => {
+    const longTitle = '推荐摘要'.repeat(40)
+    const result = aiSaveRecordBodySchema.parse({
+      record_type: 'recommendation',
+      title: longTitle,
+      result_payload: { recommendations: [] },
+    })
+
+    expect(result.title).toHaveLength(120)
+  })
+
   it('requires course offering id when saving AI explanations', () => {
     expect(() =>
       aiSaveRecordBodySchema.parse({

@@ -83,6 +83,7 @@ const availableOffering: AvailableOfferingItem = {
 const enrollment: EnrollmentItem = {
   enrollmentId: 'enrollment-1',
   status: 'enrolled',
+  studyStatus: 'in_progress',
   enrolledAt: '2026-06-01T08:00:00.000Z',
   droppedAt: null,
   courseOffering: {
@@ -358,6 +359,56 @@ describe('StudentCourseSelectionPage', () => {
         })
       );
     });
+  });
+
+  it('shows completed and in-progress states in my current enrollments', async () => {
+    const completedEnrollment: EnrollmentItem = {
+      ...enrollment,
+      enrollmentId: 'enrollment-completed',
+      studyStatus: 'completed',
+      courseOffering: {
+        ...enrollment.courseOffering,
+        id: 'offering-completed',
+        courseName: '程序设计基础',
+        courseCode: 'CS101',
+      },
+    };
+    const inProgressEnrollment: EnrollmentItem = {
+      ...enrollment,
+      enrollmentId: 'enrollment-progress',
+      studyStatus: 'in_progress',
+      courseOffering: {
+        ...enrollment.courseOffering,
+        id: 'offering-progress',
+        courseName: '数据结构',
+        courseCode: 'CS201',
+      },
+    };
+    const droppedEnrollment: EnrollmentItem = {
+      ...enrollment,
+      enrollmentId: 'enrollment-dropped',
+      status: 'dropped',
+      studyStatus: 'not_started',
+      droppedAt: '2026-06-01T09:00:00.000Z',
+      courseOffering: {
+        ...enrollment.courseOffering,
+        id: 'offering-dropped',
+        courseName: '离散数学',
+        courseCode: 'CS103',
+      },
+    };
+
+    renderPage({
+      enrollments: [completedEnrollment, inProgressEnrollment, droppedEnrollment],
+    });
+
+    expect(await screen.findByText('我的当前选课')).toBeInTheDocument();
+    expect(screen.getByText('程序设计基础（CS101）')).toBeInTheDocument();
+    expect(screen.getByText('数据结构（CS201）')).toBeInTheDocument();
+    expect(screen.getByText('离散数学（CS103）')).toBeInTheDocument();
+    expect(screen.getByText('已修读')).toBeInTheDocument();
+    expect(screen.getByText('正在修读')).toBeInTheDocument();
+    expect(screen.getByText('已退选')).toBeInTheDocument();
   });
 
   it('keeps a visible backend failure reason in the drop confirmation', async () => {

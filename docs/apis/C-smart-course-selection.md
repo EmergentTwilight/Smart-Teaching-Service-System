@@ -840,6 +840,7 @@ curl -X GET "https://stss.example.com/api/v1/course-selection/enrollments/me?sta
       {
         "enrollment_id": "c9e15b80-9277-4f63-8f3b-8017be620001",
         "status": "enrolled",
+        "study_status": "in_progress",
         "enrolled_at": "2026-05-13T09:10:30+08:00",
         "dropped_at": null,
         "course_offering": {
@@ -870,6 +871,7 @@ curl -X GET "https://stss.example.com/api/v1/course-selection/enrollments/me?sta
 **校验与说明**
 
 - 默认只查询当前学期或全部学期由实现配置决定，但必须在响应中清楚返回 `semester_name`。
+- `study_status` 用于展示该课程修读状态：有 `SUBMITTED/CONFIRMED` 且及格的有效成绩时为 `completed`；仍在有效选课中且尚无及格有效成绩时为 `in_progress`；退选/撤销等历史记录不应误标为正在修读。
 - 退选记录保留可查，便于追踪选课历史。
 - TODO-C-08（`FR-C-29`）：前端筛选条件需与本接口的 `semester_id`、`keyword`、`status` 对齐。
 

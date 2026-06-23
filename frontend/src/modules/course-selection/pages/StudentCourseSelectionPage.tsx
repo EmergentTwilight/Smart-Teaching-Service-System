@@ -34,6 +34,12 @@ import type { AdmissionLeasePayload } from '../types/admission';
 
 const { Text, Title } = Typography;
 
+const ENROLLMENT_STUDY_STATUS_META = {
+  completed: { label: '已修读', color: 'success' },
+  in_progress: { label: '正在修读', color: 'processing' },
+  not_started: { label: '未修读', color: 'default' },
+} as const;
+
 interface StudentCourseSelectionQuery extends OfferingsAvailableQuery {
   keyword?: string;
   teacher?: string;
@@ -242,6 +248,29 @@ const StudentCourseSelectionPage: React.FC = () => {
     }
     return map;
   }, [enrollments]);
+
+  const renderEnrollmentStatusTag = useCallback((item: typeof enrollments[number]) => {
+    if (item.status === 'enrolled') {
+      const studyStatus = item.studyStatus ?? 'in_progress';
+      const meta = ENROLLMENT_STUDY_STATUS_META[studyStatus];
+
+      return (
+        <Tag color={meta.color} style={{ marginLeft: 8 }}>
+          {meta.label}
+        </Tag>
+      );
+    }
+
+    return (
+      <Tag color="default" style={{ marginLeft: 8 }}>
+        {item.status === 'dropped'
+          ? '已退选'
+          : item.status === 'withdrawn'
+            ? '已撤销'
+            : item.status}
+      </Tag>
+    );
+  }, []);
 
   // ---- Invalidate related queries after mutation ----
   const invalidateSelectionData = useCallback(() => {
@@ -588,16 +617,7 @@ const StudentCourseSelectionPage: React.FC = () => {
                       <Text>
                         {item.courseOffering.courseName}（{item.courseOffering.courseCode}）
                       </Text>
-                      <Tag
-                        color={item.status === 'enrolled' ? 'green' : 'default'}
-                        style={{ marginLeft: 8 }}
-                      >
-                        {item.status === 'enrolled'
-                          ? '已选'
-                          : item.status === 'dropped'
-                            ? '已退选'
-                            : item.status}
-                      </Tag>
+                      {renderEnrollmentStatusTag(item)}
                       <Text type="secondary" style={{ marginLeft: 4 }}>
                         {item.courseOffering.credits} 学分
                       </Text>

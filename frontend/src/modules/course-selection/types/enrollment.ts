@@ -5,6 +5,7 @@ export type EnrollmentStatus = 'enrolled' | 'dropped' | 'withdrawn';
 export interface EnrollmentItem {
   enrollmentId: string;
   status: EnrollmentStatus;
+  studyStatus?: 'completed' | 'in_progress' | 'not_started';
   enrolledAt: string;
   droppedAt?: string | null;
   courseOffering: {

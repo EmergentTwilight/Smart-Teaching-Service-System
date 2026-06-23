@@ -445,6 +445,7 @@ export interface CourseOfferingDetail {
 export interface EnrollmentItem {
   enrollmentId: string
   status: EnrollmentStatusValue
+  studyStatus?: StudyStatusValue
   enrolledAt: string
   droppedAt?: string | null
   courseOffering: {

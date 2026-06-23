@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { AiAdvisorPanel, type AiAdvisorTurn } from './AiAdvisorPanel';
 import type { AiAdvicePayload } from '../types/ai';
@@ -131,6 +131,50 @@ const advice: AiAdvicePayload = {
 };
 
 describe('AiAdvisorPanel', () => {
+  it('groups a user question and AI answer in one conversation container', () => {
+    const turns: AiAdvisorTurn[] = [
+      { id: 'question-1', type: 'question', content: '我想要稳妥一点的课程推荐。' },
+      { id: 'answer-1', type: 'recommend', advice },
+    ];
+
+    render(<AiAdvisorPanel turns={turns} onExplain={vi.fn()} />);
+
+    const conversation = screen.getByRole('article', { name: 'AI 问答会话' });
+
+    expect(within(conversation).getByText('你')).toBeInTheDocument();
+    expect(within(conversation).getByText('我想要稳妥一点的课程推荐。')).toBeInTheDocument();
+    expect(within(conversation).getByText('AI 助理')).toBeInTheDocument();
+    expect(within(conversation).getByText('推荐建议')).toBeInTheDocument();
+  });
+
+  it('keeps multiple conversation groups in the provided order', () => {
+    const turns: AiAdvisorTurn[] = [
+      { id: 'question-2', type: 'question', content: '第二次问题' },
+      {
+        id: 'answer-2',
+        type: 'notice',
+        status: 'info',
+        content: '第二次回答',
+      },
+      { id: 'question-1', type: 'question', content: '第一次问题' },
+      {
+        id: 'answer-1',
+        type: 'notice',
+        status: 'info',
+        content: '第一次回答',
+      },
+    ];
+
+    render(<AiAdvisorPanel turns={turns} onExplain={vi.fn()} />);
+
+    const conversations = screen.getAllByRole('article', { name: 'AI 问答会话' });
+
+    expect(within(conversations[0]).getByText('第二次问题')).toBeInTheDocument();
+    expect(within(conversations[0]).getByText('第二次回答')).toBeInTheDocument();
+    expect(within(conversations[1]).getByText('第一次问题')).toBeInTheDocument();
+    expect(within(conversations[1]).getByText('第一次回答')).toBeInTheDocument();
+  });
+
   it('renders user-friendly fallback, scores, reasons and risks', () => {
     const turns: AiAdvisorTurn[] = [{ id: 'turn-1', type: 'recommend', advice }];
 

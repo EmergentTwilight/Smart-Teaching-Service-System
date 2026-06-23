@@ -73,6 +73,12 @@ interface RiskSection {
   color: string;
 }
 
+interface AiConversationGroup {
+  id: string;
+  question?: AiAdvisorQuestionTurn;
+  responses: AiAdvisorTurn[];
+}
+
 /**
  * TODO(C6, FR-C-38, FR-C-39, FR-C-41, NFR-C-09, NFR-C-10):
  * - 推荐与解释仅用于说明，禁止直接触发选课动作；
@@ -187,6 +193,35 @@ const collectRiskSections = (advice: AiAdvicePayload): RiskSection[] => {
   }
 
   return sections;
+};
+
+const groupTurns = (turns: AiAdvisorTurn[]): AiConversationGroup[] => {
+  const groups: AiConversationGroup[] = [];
+  let current: AiConversationGroup | null = null;
+
+  turns.forEach((turn) => {
+    if (turn.type === 'question') {
+      current = {
+        id: turn.id,
+        question: turn,
+        responses: [],
+      };
+      groups.push(current);
+      return;
+    }
+
+    if (!current) {
+      groups.push({
+        id: turn.id,
+        responses: [turn],
+      });
+      return;
+    }
+
+    current.responses.push(turn);
+  });
+
+  return groups;
 };
 
 const RecommendationListItem = ({
@@ -344,15 +379,13 @@ const AdviceBubble = ({
   );
 
   return (
-    <Card
-      title="AI 助理"
-      size="small"
-      extra={
+    <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+      <Space align="center" style={{ width: '100%', justifyContent: 'space-between' }}>
+        <Text strong>推荐建议</Text>
         <Text type="secondary" style={{ fontSize: 12 }}>
           仅供参考 · {modeText}
         </Text>
-      }
-    >
+      </Space>
       <Space direction="vertical" size="middle" style={{ width: '100%' }}>
         <Alert message={advice.disclaimer} type="info" showIcon />
         {fallbackNotice ? (
@@ -424,14 +457,15 @@ const AdviceBubble = ({
           ) : null}
         </Row>
       </Space>
-    </Card>
+    </Space>
   );
 };
 
 const ExplainBubble = ({ turn }: { turn: AiAdvisorExplainTurn }) => {
   return (
-    <Card title={`课程解释：${turn.courseName}`} size="small">
+    <div>
       <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+        <Text strong>课程解释：{turn.courseName}</Text>
         <Space wrap>
           <Tag color={turn.explanation.hardRuleResult.isSelectableNow ? 'green' : 'red'}>
             {turn.explanation.hardRuleResult.isSelectableNow ? '当前可选' : '当前不可选'}
@@ -450,7 +484,101 @@ const ExplainBubble = ({ turn }: { turn: AiAdvisorExplainTurn }) => {
         ) : null}
         <Alert message={turn.explanation.disclaimer} type="info" showIcon />
       </Space>
-    </Card>
+    </div>
+  );
+};
+
+const renderResponseTurn = (
+  turn: AiAdvisorTurn,
+  onExplain: (offeringId: string, courseName: string) => void,
+  onGoToSelection?: () => void
+) => {
+  if (turn.type === 'loading') {
+    return (
+      <Space>
+        <Spin size="small" />
+        <Text type="secondary">{turn.content}</Text>
+      </Space>
+    );
+  }
+
+  if (turn.type === 'notice') {
+    return <Alert message={turn.content} description={turn.description} type={turn.status} showIcon />;
+  }
+
+  if (turn.type === 'explain') {
+    return <ExplainBubble turn={turn} />;
+  }
+
+  if (turn.type === 'recommend') {
+    return <AdviceBubble advice={turn.advice} onExplain={onExplain} onGoToSelection={onGoToSelection} />;
+  }
+
+  return null;
+};
+
+const ConversationGroup = ({
+  group,
+  onExplain,
+  onGoToSelection,
+}: {
+  group: AiConversationGroup;
+  onExplain: (offeringId: string, courseName: string) => void;
+  onGoToSelection?: () => void;
+}) => {
+  return (
+    <section
+      role="article"
+      aria-label="AI 问答会话"
+      style={{
+        border: '1px solid #d9e2ec',
+        borderRadius: 8,
+        background: '#f8fafc',
+        padding: 16,
+      }}
+    >
+      <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+        {group.question ? (
+          <div
+            style={{
+              border: '1px solid #c7ddf7',
+              borderRadius: 8,
+              background: '#eef6ff',
+              padding: '10px 12px',
+            }}
+          >
+            <Space direction="vertical" size={4} style={{ width: '100%' }}>
+              <Text strong style={{ color: '#1f4f82' }}>
+                你
+              </Text>
+              <Text>{group.question.content}</Text>
+            </Space>
+          </div>
+        ) : null}
+
+        <div
+          style={{
+            borderTop: group.question ? '1px solid #d9e2ec' : undefined,
+            paddingTop: group.question ? 12 : 0,
+          }}
+        >
+          <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+            <Text strong style={{ color: '#344054' }}>
+              AI 助理
+            </Text>
+            {group.responses.length === 0 ? (
+              <Text type="secondary">暂无回复。</Text>
+            ) : (
+              group.responses.map((turn) => (
+                <div key={turn.id}>
+                  {renderResponseTurn(turn, onExplain, onGoToSelection)}
+                </div>
+              ))
+            )}
+          </Space>
+        </div>
+      </Space>
+    </section>
   );
 };
 
@@ -463,42 +591,18 @@ export const AiAdvisorPanel: FC<AiAdvisorPanelProps> = ({ turns, loading, onExpl
     );
   }
 
+  const groups = groupTurns(turns);
+
   return (
     <Space direction="vertical" size="middle" style={{ width: '100%' }}>
-      {turns.map((turn) => {
-        if (turn.type === 'question') {
-          return (
-            <Card key={turn.id} size="small" title="你" styles={{ body: { padding: '12px 16px' } }}>
-              <Text>{turn.content}</Text>
-            </Card>
-          );
-        }
-
-        if (turn.type === 'loading') {
-          return (
-            <Card key={turn.id} size="small" title="AI 助理" styles={{ body: { padding: '12px 16px' } }}>
-              <Space>
-                <Spin size="small" />
-                <Text type="secondary">{turn.content}</Text>
-              </Space>
-            </Card>
-          );
-        }
-
-        if (turn.type === 'notice') {
-          return (
-            <Card key={turn.id} size="small" title="AI 助理" styles={{ body: { padding: '12px 16px' } }}>
-              <Alert message={turn.content} description={turn.description} type={turn.status} showIcon />
-            </Card>
-          );
-        }
-
-        if (turn.type === 'explain') {
-          return <ExplainBubble key={turn.id} turn={turn} />;
-        }
-
-        return <AdviceBubble key={turn.id} advice={turn.advice} onExplain={onExplain} onGoToSelection={onGoToSelection} />;
-      })}
+      {groups.map((group) => (
+        <ConversationGroup
+          key={group.id}
+          group={group}
+          onExplain={onExplain}
+          onGoToSelection={onGoToSelection}
+        />
+      ))}
 
       {loading && turns.length === 0 ? (
         <Card size="small" title="AI 助理" styles={{ body: { padding: '12px 16px' } }}>

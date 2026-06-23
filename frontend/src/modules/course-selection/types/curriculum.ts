@@ -20,6 +20,7 @@ export interface CurriculumCourseItem {
   courseType: 'required' | 'elective' | 'general';
   semesterSuggestion?: number | null;
   status?: string;
+  studyStatus?: 'completed' | 'in_progress' | 'not_started';
 }
 
 export interface CurriculumQuery {
@@ -69,6 +70,8 @@ export interface CurriculumCreditSummary {
 export interface CurriculumCourseTypeProgress {
   courseType: 'required' | 'elective' | 'general';
   selectedCredits: number;
+  completedCredits?: number;
+  inProgressCredits?: number;
   requirementCredits?: number | null;
   courseCount: number;
 }
@@ -82,6 +85,8 @@ export interface CurriculumProgress {
   curriculumId: string;
   requirements: CurriculumCreditSummary;
   selected: CurriculumCreditSummary;
+  completed?: CurriculumCreditSummary;
+  inProgress?: CurriculumCreditSummary;
   remaining: Partial<CurriculumCreditSummary>;
   byCourseType: CurriculumCourseTypeProgress[];
   warnings: CurriculumProgressWarning[];

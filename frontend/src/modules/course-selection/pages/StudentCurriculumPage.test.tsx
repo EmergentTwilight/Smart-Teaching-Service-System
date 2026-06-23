@@ -13,6 +13,14 @@ vi.mock('antd', async () => {
     ({ children, title, extra, ...props }: { children?: ReactNode; title?: ReactNode; extra?: ReactNode }) =>
       React.createElement(tag, props, title, extra, children);
 
+  const List = Object.assign(
+    ({ dataSource = [], renderItem }: { dataSource?: unknown[]; renderItem?: (item: unknown) => React.ReactNode }) =>
+      React.createElement('div', null, dataSource.map((item, index) => React.createElement('div', { key: index }, renderItem?.(item)))),
+    {
+      Item: ({ children }: { children?: ReactNode }) => React.createElement('div', null, children),
+    }
+  );
+
   return {
     Alert: ({ message, description, action }: { message?: ReactNode; description?: ReactNode; action?: ReactNode }) =>
       React.createElement('div', { role: 'alert' }, message, description, action),
@@ -22,8 +30,7 @@ vi.mock('antd', async () => {
     Col: block(),
     Empty: ({ description, children }: { description?: ReactNode; children?: ReactNode }) =>
       React.createElement('div', null, description, children),
-    List: ({ dataSource = [], renderItem }: { dataSource?: unknown[]; renderItem?: (item: unknown) => React.ReactNode }) =>
-      React.createElement('div', null, dataSource.map((item, index) => React.createElement('div', { key: index }, renderItem?.(item)))),
+    List,
     Progress: () => React.createElement('div', null),
     Row: block(),
     Space: block('span'),
@@ -78,7 +85,44 @@ const curriculumPayload: CurriculumPayload = {
     requiredCredits: 100,
     electiveCredits: 40,
   },
-  courseGroups: [],
+  courseGroups: [
+    {
+      courseType: 'required',
+      courseTypeName: '专业必修课',
+      courses: [
+        {
+          courseId: 'course-1',
+          courseCode: 'CS101',
+          courseName: '程序设计基础',
+          credits: 4,
+          courseType: 'required',
+          semesterSuggestion: 1,
+          status: 'active',
+          studyStatus: 'completed',
+        },
+        {
+          courseId: 'course-2',
+          courseCode: 'CS201',
+          courseName: '数据结构',
+          credits: 4,
+          courseType: 'required',
+          semesterSuggestion: 3,
+          status: 'active',
+          studyStatus: 'in_progress',
+        },
+        {
+          courseId: 'course-3',
+          courseCode: 'CS301',
+          courseName: '算法设计',
+          credits: 4,
+          courseType: 'required',
+          semesterSuggestion: 4,
+          status: 'active',
+          studyStatus: 'not_started',
+        },
+      ],
+    },
+  ],
   confirmation: {
     requiredBeforeSelection: true,
     confirmed: false,
@@ -96,18 +140,39 @@ const progress: CurriculumProgress = {
     generalCredits: 20,
   },
   selected: {
-    totalCredits: 0,
-    requiredCredits: 0,
+    totalCredits: 8,
+    requiredCredits: 8,
+    electiveCredits: 0,
+    generalCredits: 0,
+  },
+  completed: {
+    totalCredits: 4,
+    requiredCredits: 4,
+    electiveCredits: 0,
+    generalCredits: 0,
+  },
+  inProgress: {
+    totalCredits: 4,
+    requiredCredits: 4,
     electiveCredits: 0,
     generalCredits: 0,
   },
   remaining: {
-    totalCredits: 160,
-    requiredCredits: 100,
+    totalCredits: 152,
+    requiredCredits: 92,
     electiveCredits: 40,
     generalCredits: 20,
   },
-  byCourseType: [],
+  byCourseType: [
+    {
+      courseType: 'required',
+      selectedCredits: 8,
+      completedCredits: 4,
+      inProgressCredits: 4,
+      requirementCredits: 100,
+      courseCount: 2,
+    },
+  ],
   warnings: [],
 };
 
@@ -150,5 +215,14 @@ describe('StudentCurriculumPage', () => {
     await waitFor(() => {
       expect(curriculumApi.confirmMyCurriculum).toHaveBeenCalledWith('curriculum-1');
     });
+  });
+
+  it('shows completed, in-progress, and not-started course states', async () => {
+    renderPage();
+
+    expect(await screen.findByText('已修读')).toBeInTheDocument();
+    expect(screen.getAllByText('正在修读').length).toBeGreaterThan(0);
+    expect(screen.getByText('未修读')).toBeInTheDocument();
+    expect(screen.getAllByLabelText('已修读 4 学分，正在修读 4 学分').length).toBeGreaterThan(0);
   });
 });

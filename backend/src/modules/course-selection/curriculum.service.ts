@@ -11,6 +11,7 @@ import type {
   CurriculumCreditSummary,
   CurriculumCourseTypeProgress,
   CurriculumProgressWarning,
+  StudyStatusValue,
 } from './course-selection.types.js'
 
 import {
@@ -18,12 +19,14 @@ import {
 } from './course-selection.types.js'
 import {
   buildCurriculumConfirmationPayload,
+  resolveSemesterId,
 } from './course-selection.support.js'
 
 import {
   CourseType,
   CourseStatus,
-  EnrollmentStatus
+  EnrollmentStatus,
+  SemesterStatus,
 } from '@prisma/client'
 import type { Prisma } from '@prisma/client'
 import prisma from '../../shared/prisma/client.js'
@@ -75,6 +78,113 @@ const resolveCurrentCurriculumContext = async (studentId: string) => {
   }
 }
 
+type ProgressSummary = CurriculumCreditSummary
+
+const emptyProgressSummary = (): ProgressSummary => ({
+  totalCredits: 0,
+  requiredCredits: 0,
+  electiveCredits: 0,
+  generalCredits: 0,
+})
+
+const addCourseToSummary = (
+  summary: ProgressSummary,
+  course: { credits: unknown; courseType: CourseType }
+) => {
+  const credits = Number(course.credits)
+  summary.totalCredits += credits
+
+  if(course.courseType == CourseType.REQUIRED) {
+    summary.requiredCredits += credits
+  }
+  if(course.courseType == CourseType.ELECTIVE) {
+    summary.electiveCredits += credits
+  }
+  if(course.courseType == CourseType.GENERAL) {
+    summary.generalCredits = (summary.generalCredits ?? 0) + credits
+  }
+}
+
+const loadCompletedCourseIds = async (studentId: string): Promise<Set<string>> => {
+  const scores = await prisma.score.findMany({
+    where: {
+      studentId,
+      status: {
+        in: [...SUBMITTED_SCORE_STATUSES],
+      },
+    },
+    include: {
+      courseOffering: {
+        include: {
+          course: true,
+        },
+      },
+    },
+  })
+
+  const completedCourseIds = new Set<string>()
+  for(const score of pickEffectiveScoresByCourse(scores)) {
+    const totalScore = toNumber(score.totalScore)
+    if(totalScore !== null && totalScore >= PASS_LINE) {
+      completedCourseIds.add(score.courseOffering.course.id)
+    }
+  }
+  return completedCourseIds
+}
+
+const loadCurrentInProgressCourseIds = async (
+  studentId: string,
+  completedCourseIds: Set<string>
+): Promise<Set<string>> => {
+  let semesterId: string | undefined
+  try {
+    semesterId = (await resolveSemesterId()).id
+  }
+  catch {
+    return new Set()
+  }
+
+  const enrollments = await prisma.enrollment.findMany({
+    where: {
+      studentId,
+      status: EnrollmentStatus.ENROLLED,
+      courseOffering: {
+        semesterId,
+      },
+    },
+    include: {
+      courseOffering: {
+        include: {
+          course: true,
+        },
+      },
+    },
+  })
+
+  const inProgressCourseIds = new Set<string>()
+  for(const enrollment of enrollments) {
+    const courseId = enrollment.courseOffering.course.id
+    if(!completedCourseIds.has(courseId)) {
+      inProgressCourseIds.add(courseId)
+    }
+  }
+  return inProgressCourseIds
+}
+
+const getStudyStatus = (
+  courseId: string,
+  completedCourseIds: Set<string>,
+  inProgressCourseIds: Set<string>
+): StudyStatusValue => {
+  if(completedCourseIds.has(courseId)) {
+    return 'completed'
+  }
+  if(inProgressCourseIds.has(courseId)) {
+    return 'in_progress'
+  }
+  return 'not_started'
+}
+
 /**
  * C1: 培养方案与学分进展服务
  */
@@ -121,6 +231,11 @@ export const curriculumService = {
       query.courseType ?? query.course_type ?? undefined
     const courseGroups: CurriculumCourseGroup[] = []
     if(includeCourses) {
+      const completedCourseIds = await loadCompletedCourseIds(studentId)
+      const inProgressCourseIds = await loadCurrentInProgressCourseIds(
+        studentId,
+        completedCourseIds
+      )
       const where: Prisma.CurriculumCourseWhereInput = { curriculumId: curriculum.id };
       if (courseType === 'required') {
         where.courseType = CourseType.REQUIRED
@@ -179,7 +294,12 @@ export const curriculumService = {
           credits: Number(course.course.credits),
           courseType: toCourseTypeValue(course.courseType),
           semesterSuggestion: course.semesterSuggestion ? Number(course.semesterSuggestion) : undefined,
-          status: course.course.status == CourseStatus.ACTIVE ? 'active' : 'archived'
+          status: course.course.status == CourseStatus.ACTIVE ? 'active' : 'archived',
+          studyStatus: getStudyStatus(
+            course.course.id,
+            completedCourseIds,
+            inProgressCourseIds
+          )
         })
       }
     }
@@ -275,42 +395,53 @@ export const curriculumService = {
     const semesterId =
       query.semesterId ?? undefined
     let date: Date = new Date()
+    let inProgressSemester: { id: string; status: SemesterStatus } | null = null
     if(semesterId) {
       const semester = await prisma.semester.findUnique({
         where: {
           id: semesterId
-        }
+        },
+        select: {
+          id: true,
+          endDate: true,
+          status: true,
+        },
       })
       if(!semester) {
         return '无法找到对应学期'
       }
       date = semester.endDate
-    }
-
-    let a: number = 0, b: number = 0, c: number = 0, d: number = 0, x: number = 0, y: number = 0, z: number = 0
-    const countedCourseIds = new Set<string>()
-    const addCourseProgress = (course: { id: string; credits: unknown; courseType: CourseType }) => {
-      if(countedCourseIds.has(course.id)) {
-        return
-      }
-
-      countedCourseIds.add(course.id)
-      const credits = Number(course.credits)
-      a += credits
-
-      if(course.courseType == CourseType.REQUIRED) {
-        b += credits
-        ++x
-      }
-      if(course.courseType == CourseType.ELECTIVE) {
-        c += credits
-        ++y
-      }
-      if(course.courseType == CourseType.GENERAL) {
-        d += credits
-        ++z
+      inProgressSemester = {
+        id: semester.id,
+        status: semester.status,
       }
     }
+    else {
+      try {
+        const resolvedSemester = await resolveSemesterId()
+        const semester = await prisma.semester.findUnique({
+          where: {
+            id: resolvedSemester.id,
+          },
+          select: {
+            id: true,
+            status: true,
+          },
+        })
+        if(semester) {
+          inProgressSemester = semester
+        }
+      }
+      catch {
+        inProgressSemester = null
+      }
+    }
+
+    const completed = emptyProgressSummary()
+    const inProgress = emptyProgressSummary()
+    const selected = emptyProgressSummary()
+    const completedCourseIds = new Set<string>()
+    const inProgressCourseIds = new Set<string>()
 
     const scores = await prisma.score.findMany({
       where: {
@@ -342,71 +473,117 @@ export const curriculumService = {
       if(totalScore === null || totalScore < PASS_LINE) {
         continue
       }
-      addCourseProgress(score.courseOffering.course)
+      const course = score.courseOffering.course
+      if(completedCourseIds.has(course.id)) {
+        continue
+      }
+      completedCourseIds.add(course.id)
+      addCourseToSummary(completed, course)
+      addCourseToSummary(selected, course)
     }
 
-    const enrollments = await prisma.enrollment.findMany({
-      where: {
-        studentId,
-        status: EnrollmentStatus.ENROLLED,
-        courseOffering: semesterId
-          ? {
-              semester: {
-                endDate: {
-                  lte: date,
-                },
-              },
-            }
-          : undefined,
-      },
-      include: {
-        courseOffering: {
-          include: {
-            course: true,
+    if(inProgressSemester && inProgressSemester.status !== SemesterStatus.ENDED) {
+      const enrollments = await prisma.enrollment.findMany({
+        where: {
+          studentId,
+          status: EnrollmentStatus.ENROLLED,
+          courseOffering: {
+            semesterId: inProgressSemester.id,
           },
         },
-      },
-    })
+        include: {
+          courseOffering: {
+            include: {
+              course: true,
+            },
+          },
+        },
+      })
 
-    for(const enrollment of enrollments) {
-      addCourseProgress(enrollment.courseOffering.course)
-    }
-    const selected: CurriculumCreditSummary = {
-      totalCredits: a,
-      requiredCredits: b,
-      electiveCredits: c,
-      generalCredits: d
+      for(const enrollment of enrollments) {
+        const course = enrollment.courseOffering.course
+        if(completedCourseIds.has(course.id) || inProgressCourseIds.has(course.id)) {
+          continue
+        }
+        inProgressCourseIds.add(course.id)
+        addCourseToSummary(inProgress, course)
+        addCourseToSummary(selected, course)
+      }
     }
 
     const remaining: Partial<CurriculumCreditSummary> = {}
-    if(a < requirements.totalCredits) {
-      remaining.totalCredits = requirements.totalCredits - a
+    if(selected.totalCredits < requirements.totalCredits) {
+      remaining.totalCredits = requirements.totalCredits - selected.totalCredits
     }
-    if(b < requirements.requiredCredits) {
-      remaining.requiredCredits = requirements.requiredCredits - b
+    if(selected.requiredCredits < requirements.requiredCredits) {
+      remaining.requiredCredits = requirements.requiredCredits - selected.requiredCredits
     }
-    if(c < requirements.electiveCredits) {
-      remaining.electiveCredits = requirements.electiveCredits - c
+    if(selected.electiveCredits < requirements.electiveCredits) {
+      remaining.electiveCredits = requirements.electiveCredits - selected.electiveCredits
+    }
+
+    const completedCounts = {
+      required: 0,
+      elective: 0,
+      general: 0,
+    }
+    const inProgressCounts = {
+      required: 0,
+      elective: 0,
+      general: 0,
+    }
+
+    const countedCourses = await prisma.course.findMany({
+      where: {
+        id: {
+          in: [...completedCourseIds, ...inProgressCourseIds],
+        },
+      },
+      select: {
+        id: true,
+        courseType: true,
+      },
+    })
+
+    for(const course of countedCourses) {
+      const key =
+        course.courseType == CourseType.REQUIRED
+          ? 'required'
+          : course.courseType == CourseType.ELECTIVE
+            ? 'elective'
+            : 'general'
+      if(completedCourseIds.has(course.id)) {
+        completedCounts[key] += 1
+      }
+      else if(inProgressCourseIds.has(course.id)) {
+        inProgressCounts[key] += 1
+      }
     }
 
     const byCourseType: CurriculumCourseTypeProgress[] = [
       {
         courseType: toCourseTypeValue('required'),
-        selectedCredits: b,
+        selectedCredits: selected.requiredCredits,
+        completedCredits: completed.requiredCredits,
+        inProgressCredits: inProgress.requiredCredits,
         requirementCredits: requirements.requiredCredits,
-        courseCount: x
+        courseCount: completedCounts.required + inProgressCounts.required
       },
       {
         courseType: toCourseTypeValue('elective'),
-        selectedCredits: c,
+        selectedCredits: selected.electiveCredits,
+        completedCredits: completed.electiveCredits,
+        inProgressCredits: inProgress.electiveCredits,
         requirementCredits: requirements.electiveCredits,
-        courseCount: y
+        courseCount: completedCounts.elective + inProgressCounts.elective
       },
       {
         courseType: toCourseTypeValue('general'),
-        selectedCredits: d,
+        selectedCredits: selected.generalCredits ?? 0,
+        completedCredits: completed.generalCredits ?? 0,
+        inProgressCredits: inProgress.generalCredits ?? 0,
         requirementCredits: requirements.generalCredits,
-        courseCount: z
+        courseCount: completedCounts.general + inProgressCounts.general
       }
     ]
 
@@ -419,6 +596,8 @@ export const curriculumService = {
       curriculumId: curriculum.id,
       requirements: requirements,
       selected: selected,
+      completed: completed,
+      inProgress: inProgress,
       remaining: remaining,
       byCourseType: byCourseType,
       warnings: warnings

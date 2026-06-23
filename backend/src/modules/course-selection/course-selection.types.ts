@@ -6,6 +6,8 @@ export type OfferingStatusValue = 'planned' | 'open' | 'closed' | 'cancelled'
 export type EnrollmentStatusValue = 'enrolled' | 'dropped' | 'withdrawn'
 export type SelectionPhaseValue = 'first_round' | 'second_round' | 'adjustment'
 export type SelectionPeriodServerStatusValue = 'not_started' | 'open' | 'ended'
+export type StudyStatusValue = 'completed' | 'in_progress' | 'not_started'
+export type SemesterStatusValue = 'upcoming' | 'current' | 'ended'
 
 const toLowercaseApiEnum = <T extends string>(value: T): Lowercase<T> =>
   value.toLowerCase() as Lowercase<T>
@@ -250,6 +252,7 @@ export interface CurriculumCourseItem {
   courseType: CourseTypeValue
   semesterSuggestion?: number | null
   status?: CourseStatusValue
+  studyStatus?: StudyStatusValue
 }
 
 export interface CurriculumInfo {
@@ -299,6 +302,8 @@ export interface CurriculumCreditSummary {
 export interface CurriculumCourseTypeProgress {
   courseType: CourseTypeValue
   selectedCredits: number
+  completedCredits?: number
+  inProgressCredits?: number
   requirementCredits?: number | null
   courseCount: number
 }
@@ -312,6 +317,8 @@ export interface CurriculumProgress {
   curriculumId: string
   requirements: CurriculumCreditSummary
   selected: CurriculumCreditSummary
+  completed?: CurriculumCreditSummary
+  inProgress?: CurriculumCreditSummary
   remaining: Partial<CurriculumCreditSummary>
   byCourseType: CurriculumCourseTypeProgress[]
   warnings: CurriculumProgressWarning[]
@@ -516,6 +523,24 @@ export interface TimetablePayload {
   printable: boolean
   items: TimetableSlot[]
   missingScheduleItems: MissingScheduleItem[]
+}
+
+export interface TimetableSemesterItem {
+  id: string
+  name: string
+  status: SemesterStatusValue
+  startDate: string
+  endDate: string
+  isCurrent: boolean
+  isDefault: boolean
+  enrolledCount: number
+  scheduledItemCount: number
+  missingScheduleCount: number
+}
+
+export interface TimetableSemesterListPayload {
+  items: TimetableSemesterItem[]
+  defaultSemesterId?: string
 }
 
 export interface SelectionPeriodItem {

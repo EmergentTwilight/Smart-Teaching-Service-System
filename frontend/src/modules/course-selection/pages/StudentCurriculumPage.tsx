@@ -1,6 +1,6 @@
 import { Alert, Button, Card, Col, Empty, List, Row, Space, Spin, Tag, Typography, message } from 'antd';
 import { curriculumApi } from '../api/curriculum';
-import type { CurriculumCourseGroup } from '../types/curriculum';
+import type { CurriculumCourseGroup, CurriculumCourseItem } from '../types/curriculum';
 import { CreditProgressCard } from '../components/CreditProgressCard';
 import { extractErrorMessage, getErrorStatus } from '@/shared/utils/error';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -13,6 +13,15 @@ const COURSE_TYPE_LABELS: Record<string, string> = {
   required: '专业必修课',
   elective: '专业选修课',
   general: '公共课',
+};
+
+const STUDY_STATUS_META: Record<
+  NonNullable<CurriculumCourseItem['studyStatus']>,
+  { label: string; color: string }
+> = {
+  completed: { label: '已修读', color: 'success' },
+  in_progress: { label: '正在修读', color: 'processing' },
+  not_started: { label: '未修读', color: 'default' },
 };
 
 /**
@@ -196,6 +205,14 @@ const StudentCurriculumPage: React.FC = () => {
                                       <Text>
                                         {course.courseCode} {course.courseName}
                                       </Text>
+                                      {course.studyStatus ? (
+                                        <Tag
+                                          color={STUDY_STATUS_META[course.studyStatus].color}
+                                          style={{ marginLeft: 8 }}
+                                        >
+                                          {STUDY_STATUS_META[course.studyStatus].label}
+                                        </Tag>
+                                      ) : null}
                                       {course.status === 'archived' ? (
                                         <Tag color="default" style={{ marginLeft: 8 }}>
                                           已归档

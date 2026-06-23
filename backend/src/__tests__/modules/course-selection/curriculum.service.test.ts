@@ -16,11 +16,18 @@ const prismaMock = vi.hoisted(() => ({
   },
   semester: {
     findUnique: vi.fn(),
+    findFirst: vi.fn(),
+  },
+  selectionPeriod: {
+    findFirst: vi.fn(),
   },
   score: {
     findMany: vi.fn(),
   },
   enrollment: {
+    findMany: vi.fn(),
+  },
+  course: {
     findMany: vi.fn(),
   },
   courseOffering: {
@@ -71,9 +78,17 @@ beforeEach(() => {
   prismaMock.semester.findUnique.mockResolvedValue({
     id: 'semester-1',
     endDate: new Date('2026-07-10T00:00:00.000Z'),
+    status: 'CURRENT',
   })
+  prismaMock.semester.findFirst.mockResolvedValue({
+    id: 'semester-1',
+    name: '2026 春季',
+    status: 'CURRENT',
+  })
+  prismaMock.selectionPeriod.findFirst.mockResolvedValue(null)
   prismaMock.score.findMany.mockResolvedValue([])
   prismaMock.enrollment.findMany.mockResolvedValue([])
+  prismaMock.course.findMany.mockResolvedValue([])
 })
 
 describe('curriculumService confirmation', () => {
@@ -194,6 +209,10 @@ describe('curriculumService confirmation', () => {
         },
       },
     ])
+    prismaMock.course.findMany.mockResolvedValueOnce([
+      { id: 'course-required', courseType: 'REQUIRED' },
+      { id: 'course-elective', courseType: 'ELECTIVE' },
+    ])
 
     const result = await curriculumService.getMyCurriculumProgress('student-1', {})
 
@@ -207,10 +226,114 @@ describe('curriculumService confirmation', () => {
       requiredCredits: 4,
       electiveCredits: 3,
     })
+    expect(result.completed).toMatchObject({
+      totalCredits: 4,
+      requiredCredits: 4,
+      electiveCredits: 0,
+    })
+    expect(result.inProgress).toMatchObject({
+      totalCredits: 3,
+      requiredCredits: 0,
+      electiveCredits: 3,
+    })
     expect(result.byCourseType).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ courseType: 'required', selectedCredits: 4, courseCount: 1 }),
-        expect.objectContaining({ courseType: 'elective', selectedCredits: 3, courseCount: 1 }),
+        expect.objectContaining({
+          courseType: 'required',
+          selectedCredits: 4,
+          completedCredits: 4,
+          inProgressCredits: 0,
+          courseCount: 1,
+        }),
+        expect.objectContaining({
+          courseType: 'elective',
+          selectedCredits: 3,
+          completedCredits: 0,
+          inProgressCredits: 3,
+          courseCount: 1,
+        }),
+      ])
+    )
+  })
+
+  it('marks curriculum courses by completed, in-progress, and not-started status', async () => {
+    prismaMock.curriculumCourse.findMany.mockResolvedValueOnce([
+      {
+        courseType: 'REQUIRED',
+        semesterSuggestion: 1,
+        course: {
+          id: 'course-completed',
+          code: 'CS101',
+          name: '程序设计基础',
+          credits: 4,
+          status: 'ACTIVE',
+        },
+      },
+      {
+        courseType: 'REQUIRED',
+        semesterSuggestion: 2,
+        course: {
+          id: 'course-current',
+          code: 'CS102',
+          name: '数据结构',
+          credits: 4,
+          status: 'ACTIVE',
+        },
+      },
+      {
+        courseType: 'ELECTIVE',
+        semesterSuggestion: 3,
+        course: {
+          id: 'course-future',
+          code: 'CS201',
+          name: '机器学习',
+          credits: 3,
+          status: 'ACTIVE',
+        },
+      },
+    ])
+    prismaMock.score.findMany.mockResolvedValueOnce([
+      {
+        id: 'score-completed',
+        totalScore: 86,
+        enteredAt: new Date('2026-01-01T00:00:00.000Z'),
+        modifiedAt: null,
+        courseOffering: {
+          course: {
+            id: 'course-completed',
+            credits: 4,
+            courseType: 'REQUIRED',
+          },
+        },
+      },
+    ])
+    prismaMock.enrollment.findMany.mockResolvedValueOnce([
+      {
+        courseOffering: {
+          course: {
+            id: 'course-current',
+            credits: 4,
+            courseType: 'REQUIRED',
+          },
+        },
+      },
+    ])
+
+    const result = await curriculumService.getMyCurriculum('student-1', {
+      includeCourses: true,
+    })
+
+    expect(result).not.toBeTypeOf('string')
+    if (typeof result === 'string') {
+      throw new Error(result)
+    }
+
+    const courses = result.courseGroups.flatMap((group) => group.courses)
+    expect(courses).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ courseCode: 'CS101', studyStatus: 'completed' }),
+        expect.objectContaining({ courseCode: 'CS102', studyStatus: 'in_progress' }),
+        expect.objectContaining({ courseCode: 'CS201', studyStatus: 'not_started' }),
       ])
     )
   })

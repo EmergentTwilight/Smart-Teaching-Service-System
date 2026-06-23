@@ -1,5 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { CourseStatus, CourseType, EnrollmentStatus, OfferingStatus, SemesterStatus } from '@prisma/client'
+import {
+  AiAdvisorSavedRecordType,
+  CourseStatus,
+  CourseType,
+  EnrollmentStatus,
+  OfferingStatus,
+  SemesterStatus,
+} from '@prisma/client'
 
 const prismaMock = vi.hoisted(() => ({
   student: {
@@ -28,6 +35,13 @@ const prismaMock = vi.hoisted(() => ({
     findUnique: vi.fn(),
     update: vi.fn(),
     updateMany: vi.fn(),
+  },
+  aiAdvisorSavedRecommendation: {
+    create: vi.fn(),
+    findMany: vi.fn(),
+    count: vi.fn(),
+    findFirst: vi.fn(),
+    deleteMany: vi.fn(),
   },
 }))
 
@@ -146,6 +160,23 @@ const resetBaseMocks = () => {
   prismaMock.enrollment.findMany.mockResolvedValue([buildEnrollment()])
   prismaMock.courseOffering.findMany.mockResolvedValue([buildOffering()])
   prismaMock.courseOffering.findUnique.mockResolvedValue({ semesterId: 'semester-1' })
+  prismaMock.aiAdvisorSavedRecommendation.create.mockImplementation(async ({ data }) => ({
+    id: 'saved-1',
+    studentId: data.studentId,
+    semesterId: data.semesterId ?? null,
+    courseOfferingId: data.courseOfferingId ?? null,
+    recordType: data.recordType,
+    title: data.title,
+    question: data.question ?? null,
+    requestPayload: data.requestPayload ?? null,
+    resultPayload: data.resultPayload,
+    createdAt: now,
+    updatedAt: now,
+  }))
+  prismaMock.aiAdvisorSavedRecommendation.findMany.mockResolvedValue([])
+  prismaMock.aiAdvisorSavedRecommendation.count.mockResolvedValue(0)
+  prismaMock.aiAdvisorSavedRecommendation.findFirst.mockResolvedValue(null)
+  prismaMock.aiAdvisorSavedRecommendation.deleteMany.mockResolvedValue({ count: 0 })
   llmClientMock.complete.mockResolvedValue({ ok: false, reason: 'missing_api_key' })
 }
 
@@ -254,5 +285,92 @@ describe('aiAdvisorService.explain', () => {
     expect(result.degradedMode).toBe('rule_only')
     expect(result.llmUsed).toBe(false)
     expect(prismaMock.enrollment.create).not.toHaveBeenCalled()
+  })
+})
+
+describe('aiAdvisorService saved records', () => {
+  it('saves recommendation snapshots for the current student without enrollment writes', async () => {
+    const result = await aiAdvisorService.saveRecord('student-1', {
+      recordType: 'recommendation',
+      title: '稳妥推荐',
+      question: '帮我推荐低风险课程',
+      semesterId: 'semester-1',
+      requestPayload: { question: '帮我推荐低风险课程' },
+      resultPayload: { recommendations: [], disclaimer: '仅供参考' },
+    })
+
+    expect(prismaMock.aiAdvisorSavedRecommendation.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        studentId: 'student-1',
+        semesterId: 'semester-1',
+        recordType: AiAdvisorSavedRecordType.RECOMMENDATION,
+        title: '稳妥推荐',
+      }),
+    })
+    expect(result).toMatchObject({
+      id: 'saved-1',
+      studentId: 'student-1',
+      recordType: 'recommendation',
+      title: '稳妥推荐',
+    })
+    expect(prismaMock.enrollment.create).not.toHaveBeenCalled()
+    expect(prismaMock.courseOffering.updateMany).not.toHaveBeenCalled()
+  })
+
+  it('requires saved explanations to reference an existing offering', async () => {
+    prismaMock.courseOffering.findUnique.mockResolvedValueOnce(null)
+
+    await expect(
+      aiAdvisorService.saveRecord('student-1', {
+        recordType: 'explanation',
+        title: '课程解释',
+        courseOfferingId: 'missing-offering',
+        resultPayload: { explanation: '说明' },
+      })
+    ).rejects.toMatchObject({
+      statusCode: 404,
+    })
+  })
+
+  it('lists only current student saved records', async () => {
+    prismaMock.aiAdvisorSavedRecommendation.findMany.mockResolvedValueOnce([
+      {
+        id: 'saved-1',
+        studentId: 'student-1',
+        semesterId: 'semester-1',
+        courseOfferingId: null,
+        recordType: AiAdvisorSavedRecordType.RECOMMENDATION,
+        title: '稳妥推荐',
+        question: null,
+        requestPayload: null,
+        resultPayload: { recommendations: [] },
+        createdAt: now,
+        updatedAt: now,
+      },
+    ])
+    prismaMock.aiAdvisorSavedRecommendation.count.mockResolvedValueOnce(1)
+
+    const result = await aiAdvisorService.listSavedRecords('student-1', {
+      page: 1,
+      pageSize: 20,
+    })
+
+    expect(prismaMock.aiAdvisorSavedRecommendation.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ studentId: 'student-1' }),
+      })
+    )
+    expect(result.items).toHaveLength(1)
+    expect(result.pagination.total).toBe(1)
+  })
+
+  it('does not delete another student saved record', async () => {
+    await expect(aiAdvisorService.deleteSavedRecord('student-1', 'saved-other')).rejects.toMatchObject({
+      statusCode: 404,
+    })
+
+    expect(prismaMock.aiAdvisorSavedRecommendation.deleteMany).toHaveBeenCalledWith({
+      where: { id: 'saved-other', studentId: 'student-1' },
+    })
   })
 })

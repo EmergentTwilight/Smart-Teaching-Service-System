@@ -11,6 +11,8 @@ vi.mock('../hooks/useAiAdvisor', () => ({
 
 const recommendMutate = vi.fn();
 const explainMutate = vi.fn();
+const saveRecordMutate = vi.fn();
+const deleteRecordMutate = vi.fn();
 
 const advice: AiAdvicePayload = {
   disclaimer: 'AI 建议仅供参考。',
@@ -54,6 +56,8 @@ describe('CourseSelectionAiPage', () => {
     vi.clearAllMocks();
     recommendMutate.mockReset();
     explainMutate.mockReset();
+    saveRecordMutate.mockReset();
+    deleteRecordMutate.mockReset();
     vi.mocked(useAiAdvisor).mockReturnValue({
       recommend: {
         mutate: recommendMutate,
@@ -64,6 +68,18 @@ describe('CourseSelectionAiPage', () => {
         mutate: explainMutate,
         isPending: false,
         data: null,
+      },
+      savedRecords: {
+        data: { items: [], pagination: { page: 1, pageSize: 20, total: 0, totalPages: 0 } },
+        isFetching: false,
+      },
+      saveRecord: {
+        mutate: saveRecordMutate,
+        isPending: false,
+      },
+      deleteRecord: {
+        mutate: deleteRecordMutate,
+        isPending: false,
       },
     } as unknown as ReturnType<typeof useAiAdvisor>);
   });
@@ -159,5 +175,111 @@ describe('CourseSelectionAiPage', () => {
     expect(pageText.indexOf('我想确认“程序设计基础”是否适合本学期选。')).toBeLessThan(
       pageText.indexOf('补充偏好：先生成推荐')
     );
+  });
+
+  it('saves a generated recommendation snapshot', async () => {
+    recommendMutate.mockImplementation((_payload, options) => {
+      options.onSuccess(advice);
+    });
+
+    renderPage();
+
+    fireEvent.change(screen.getByLabelText('偏好说明'), {
+      target: { value: '保存这次推荐' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: '发送提问' }));
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: '保存' })).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: '保存' }));
+
+    await waitFor(() => {
+      expect(saveRecordMutate).toHaveBeenCalledTimes(1);
+    });
+    expect(saveRecordMutate.mock.calls[0][0]).toMatchObject({
+      recordType: 'recommendation',
+      question: expect.stringContaining('保存这次推荐'),
+      resultPayload: expect.objectContaining({
+        recommendations: advice.recommendations,
+      }),
+    });
+  });
+
+  it('renders saved records and can restore them into the conversation', async () => {
+    vi.mocked(useAiAdvisor).mockReturnValue({
+      recommend: { mutate: recommendMutate, isPending: false, data: null },
+      explain: { mutate: explainMutate, isPending: false, data: null },
+      savedRecords: {
+        data: {
+          items: [
+            {
+              id: 'saved-1',
+              studentId: 'student-1',
+              semesterId: null,
+              courseOfferingId: null,
+              recordType: 'recommendation',
+              title: '已保存推荐',
+              question: '这是保存的问题',
+              requestPayload: null,
+              resultPayload: advice as unknown as Record<string, unknown>,
+              createdAt: '2026-06-23T00:00:00.000Z',
+              updatedAt: '2026-06-23T00:00:00.000Z',
+            },
+          ],
+          pagination: { page: 1, pageSize: 20, total: 1, totalPages: 1 },
+        },
+        isFetching: false,
+      },
+      saveRecord: { mutate: saveRecordMutate, isPending: false },
+      deleteRecord: { mutate: deleteRecordMutate, isPending: false },
+    } as unknown as ReturnType<typeof useAiAdvisor>);
+
+    renderPage();
+
+    expect(screen.getByText('已保存推荐')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '查看' }));
+
+    await waitFor(() => {
+      expect(screen.getByText('这是保存的问题')).toBeInTheDocument();
+    });
+    expect(screen.getByText(/程序设计基础/)).toBeInTheDocument();
+  });
+
+  it('deletes saved records through the AI advisor hook', () => {
+    vi.mocked(useAiAdvisor).mockReturnValue({
+      recommend: { mutate: recommendMutate, isPending: false, data: null },
+      explain: { mutate: explainMutate, isPending: false, data: null },
+      savedRecords: {
+        data: {
+          items: [
+            {
+              id: 'saved-1',
+              studentId: 'student-1',
+              semesterId: null,
+              courseOfferingId: null,
+              recordType: 'recommendation',
+              title: '已保存推荐',
+              question: null,
+              requestPayload: null,
+              resultPayload: advice as unknown as Record<string, unknown>,
+              createdAt: '2026-06-23T00:00:00.000Z',
+              updatedAt: '2026-06-23T00:00:00.000Z',
+            },
+          ],
+          pagination: { page: 1, pageSize: 20, total: 1, totalPages: 1 },
+        },
+        isFetching: false,
+      },
+      saveRecord: { mutate: saveRecordMutate, isPending: false },
+      deleteRecord: { mutate: deleteRecordMutate, isPending: false },
+    } as unknown as ReturnType<typeof useAiAdvisor>);
+
+    renderPage();
+
+    fireEvent.click(screen.getByRole('button', { name: '删除' }));
+
+    expect(deleteRecordMutate).toHaveBeenCalledWith('saved-1', expect.any(Object));
   });
 });

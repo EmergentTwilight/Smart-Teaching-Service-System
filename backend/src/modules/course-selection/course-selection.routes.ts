@@ -154,6 +154,10 @@ router.post(
 )
 
 // ===== AI 辅助 =====
+router.get('/ai-advisor/saved', requireRoles('student'), aiAdvisorController.listSavedRecords)
+router.post('/ai-advisor/saved', requireRoles('student'), aiAdvisorController.saveRecord)
+router.get('/ai-advisor/saved/:id', requireRoles('student'), aiAdvisorController.getSavedRecord)
+router.delete('/ai-advisor/saved/:id', requireRoles('student'), aiAdvisorController.deleteSavedRecord)
 router.post('/ai-advisor/recommend', requireRoles('student'), validate(aiRecommendBodySchema, 'body'), aiAdvisorController.recommend)
 router.post('/ai-advisor/explain', requireRoles('student'), validate(aiExplainBodySchema, 'body'), aiAdvisorController.explain)
 

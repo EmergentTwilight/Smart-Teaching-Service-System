@@ -609,5 +609,98 @@ export const aiExplainBodySchema = aiExplainBodyInputSchema
     question: z.string().max(500).optional(),
   }))
 
+const aiSavedRecordTypeSchema = z.enum(['recommendation', 'explanation'])
+const aiSavedRecordPayloadSchema = z.record(z.unknown())
+
+const aiSaveRecordBodyInputSchema = z.object({
+  recordType: aiSavedRecordTypeSchema.optional(),
+  record_type: aiSavedRecordTypeSchema.optional(),
+  title: z.string().trim().min(1).max(120).optional(),
+  question: z.string().trim().max(1000).optional(),
+  semesterId: databaseIdSchema.optional(),
+  semester_id: databaseIdSchema.optional(),
+  courseOfferingId: databaseIdSchema.optional(),
+  course_offering_id: databaseIdSchema.optional(),
+  requestPayload: aiSavedRecordPayloadSchema.nullable().optional(),
+  request_payload: aiSavedRecordPayloadSchema.nullable().optional(),
+  resultPayload: aiSavedRecordPayloadSchema.optional(),
+  result_payload: aiSavedRecordPayloadSchema.optional(),
+  studentId: z.unknown().optional(),
+  student_id: z.unknown().optional(),
+  user_id: z.unknown().optional(),
+})
+  .strict()
+  .superRefine((value, ctx) => {
+    if (value.studentId !== undefined || value.student_id !== undefined || value.user_id !== undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'AI 保存请求不得携带 studentId / student_id / user_id',
+        path: ['studentId'],
+      })
+    }
+
+    const recordType = value.recordType ?? value.record_type
+    if (!recordType) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'record_type 不能为空',
+        path: ['record_type'],
+      })
+    }
+
+    const resultPayload = value.resultPayload ?? value.result_payload
+    if (!resultPayload) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'result_payload 不能为空',
+        path: ['result_payload'],
+      })
+    }
+
+    const courseOfferingId = value.courseOfferingId ?? value.course_offering_id
+    if (recordType === 'explanation' && !courseOfferingId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: '解释保存记录必须携带 course_offering_id',
+        path: ['course_offering_id'],
+      })
+    }
+  })
+
+export const aiSaveRecordBodySchema = aiSaveRecordBodyInputSchema
+  .transform((value) => ({
+    recordType: value.recordType ?? value.record_type,
+    title: value.title,
+    question: value.question,
+    semesterId: value.semesterId ?? value.semester_id,
+    courseOfferingId: value.courseOfferingId ?? value.course_offering_id,
+    requestPayload: value.requestPayload ?? value.request_payload,
+    resultPayload: value.resultPayload ?? value.result_payload,
+  }))
+  .pipe(z.object({
+    recordType: aiSavedRecordTypeSchema,
+    title: z.string().trim().min(1).max(120).optional(),
+    question: z.string().trim().max(1000).optional(),
+    semesterId: databaseIdSchema.optional(),
+    courseOfferingId: databaseIdSchema.optional(),
+    requestPayload: aiSavedRecordPayloadSchema.nullable().optional(),
+    resultPayload: aiSavedRecordPayloadSchema,
+  }))
+
+export const aiSavedRecordQuerySchema = paginationSchema
+  .extend({
+    recordType: aiSavedRecordTypeSchema.optional(),
+    record_type: aiSavedRecordTypeSchema.optional(),
+    semesterId: databaseIdSchema.optional(),
+    semester_id: databaseIdSchema.optional(),
+  })
+  .transform(({ recordType, record_type, semesterId, semester_id, ...rest }) => ({
+    ...normalizePaginationFields(rest),
+    recordType: recordType ?? record_type,
+    semesterId: semesterId ?? semester_id,
+  }))
+
+export const aiSavedRecordParamsSchema = idSchema
+
 export type AiRecommendBody = z.infer<typeof aiRecommendBodySchema>
 export type AiExplainBody = z.infer<typeof aiExplainBodySchema>

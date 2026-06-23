@@ -11,11 +11,24 @@ import {
   type AiProgressAudit,
   type AiRecommendationItem,
   type AiRecommendationPlan,
+  type AiAdvisorSavedRecordItem,
+  type AiAdvisorSavedRecordListPayload,
+  type AiAdvisorSavedRecordQuery,
+  type AiAdvisorSavedRecordTypeValue,
   type AiScheduleLoad,
+  type SaveAiAdvisorRecordBody,
 } from './course-selection.types.js'
-import { CourseStatus, CourseType, EnrollmentStatus, OfferingStatus } from '@prisma/client'
+import {
+  AiAdvisorSavedRecordType,
+  CourseStatus,
+  CourseType,
+  EnrollmentStatus,
+  OfferingStatus,
+  Prisma,
+} from '@prisma/client'
 import prisma from '../../shared/prisma/client.js'
 import {
+  buildPaginationMeta,
   decimalToNumber,
   resolveMaxCreditsForSemester,
   resolveSemesterId,
@@ -1677,6 +1690,113 @@ const toExplainCandidate = (offeringId: string, context: AdvisorContext): Candid
   return found ? found.candidate : undefined
 }
 
+const toPrismaSavedRecordType = (value: AiAdvisorSavedRecordTypeValue): AiAdvisorSavedRecordType =>
+  value === 'recommendation'
+    ? AiAdvisorSavedRecordType.RECOMMENDATION
+    : AiAdvisorSavedRecordType.EXPLANATION
+
+const toSavedRecordTypeValue = (value: AiAdvisorSavedRecordType): AiAdvisorSavedRecordTypeValue =>
+  value === AiAdvisorSavedRecordType.RECOMMENDATION ? 'recommendation' : 'explanation'
+
+const toJsonInput = (
+  value: Record<string, unknown> | null | undefined
+): Prisma.InputJsonValue | Prisma.NullableJsonNullValueInput | undefined =>
+  value === undefined ? undefined : value === null ? Prisma.JsonNull : value as Prisma.InputJsonValue
+
+const buildSavedRecordTitle = (body: SaveAiAdvisorRecordBody): string => {
+  const explicit = body.title?.trim()
+  if (explicit) {
+    return explicit.slice(0, 120)
+  }
+
+  if (body.recordType === 'explanation') {
+    const courseName = typeof body.resultPayload.courseName === 'string'
+      ? body.resultPayload.courseName
+      : '课程解释'
+    return `课程解释：${courseName}`.slice(0, 120)
+  }
+
+  const summary = typeof body.resultPayload.recommendationSummary === 'string'
+    ? body.resultPayload.recommendationSummary
+    : ''
+  return (summary || 'AI 推荐建议').slice(0, 120)
+}
+
+const mapSavedRecord = (record: {
+  id: string
+  studentId: string
+  semesterId: string | null
+  courseOfferingId: string | null
+  recordType: AiAdvisorSavedRecordType
+  title: string
+  question: string | null
+  requestPayload: Prisma.JsonValue | null
+  resultPayload: Prisma.JsonValue
+  createdAt: Date
+  updatedAt: Date
+}): AiAdvisorSavedRecordItem => ({
+  id: record.id,
+  studentId: record.studentId,
+  semesterId: record.semesterId,
+  courseOfferingId: record.courseOfferingId,
+  recordType: toSavedRecordTypeValue(record.recordType),
+  title: record.title,
+  question: record.question,
+  requestPayload: record.requestPayload as Record<string, unknown> | null,
+  resultPayload: record.resultPayload as Record<string, unknown>,
+  createdAt: record.createdAt.toISOString(),
+  updatedAt: record.updatedAt.toISOString(),
+})
+
+const assertStudentExists = async (studentId: string) => {
+  const student = await prisma.student.findUnique({
+    where: { userId: studentId },
+    select: { userId: true },
+  })
+
+  if (!student) {
+    throw new AppError(COURSE_SELECTION_ERROR_CODES.NOT_FOUND, 404, '无法识别当前学生身份')
+  }
+}
+
+const resolveSavedRecordReferences = async (body: SaveAiAdvisorRecordBody) => {
+  let semesterId = body.semesterId
+
+  if (body.courseOfferingId) {
+    const offering = await prisma.courseOffering.findUnique({
+      where: { id: body.courseOfferingId },
+      select: { id: true, semesterId: true },
+    })
+
+    if (!offering) {
+      throw new AppError(COURSE_SELECTION_ERROR_CODES.OFFERING_NOT_FOUND, 404, '课程开设不存在')
+    }
+
+    if (semesterId && semesterId !== offering.semesterId) {
+      throw new AppError(
+        COURSE_SELECTION_ERROR_CODES.VALIDATION_FAILED,
+        400,
+        'semester_id 与 course_offering_id 所属学期不一致'
+      )
+    }
+
+    semesterId = offering.semesterId
+  }
+
+  if (semesterId) {
+    const semester = await prisma.semester.findUnique({
+      where: { id: semesterId },
+      select: { id: true },
+    })
+
+    if (!semester) {
+      throw new AppError(COURSE_SELECTION_ERROR_CODES.NOT_FOUND, 404, '学期不存在')
+    }
+  }
+
+  return { semesterId }
+}
+
 export const aiAdvisorService = {
   async recommend(studentId: string, body: AiRecommendBody): Promise<AiAdvicePayload> {
     const recommendationLimit = Math.min(
@@ -1815,5 +1935,80 @@ export const aiAdvisorService = {
     }
 
     return withLlmExplain(normalizedQuestion, candidate, context)
+  },
+
+  async saveRecord(studentId: string, body: SaveAiAdvisorRecordBody): Promise<AiAdvisorSavedRecordItem> {
+    await assertStudentExists(studentId)
+    const { semesterId } = await resolveSavedRecordReferences(body)
+
+    const record = await prisma.aiAdvisorSavedRecommendation.create({
+      data: {
+        studentId,
+        semesterId,
+        courseOfferingId: body.courseOfferingId,
+        recordType: toPrismaSavedRecordType(body.recordType),
+        title: buildSavedRecordTitle(body),
+        question: body.question?.trim() || null,
+        requestPayload: toJsonInput(body.requestPayload),
+        resultPayload: body.resultPayload as Prisma.InputJsonValue,
+      },
+    })
+
+    return mapSavedRecord(record)
+  },
+
+  async listSavedRecords(
+    studentId: string,
+    query: AiAdvisorSavedRecordQuery
+  ): Promise<AiAdvisorSavedRecordListPayload> {
+    await assertStudentExists(studentId)
+    const page = query.page ?? 1
+    const pageSize = Math.min(query.pageSize, 100)
+    const where: Prisma.AiAdvisorSavedRecommendationWhereInput = {
+      studentId,
+      recordType: query.recordType ? toPrismaSavedRecordType(query.recordType) : undefined,
+      semesterId: query.semesterId,
+    }
+
+    const [items, total] = await Promise.all([
+      prisma.aiAdvisorSavedRecommendation.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
+      prisma.aiAdvisorSavedRecommendation.count({ where }),
+    ])
+
+    return {
+      items: items.map(mapSavedRecord),
+      pagination: buildPaginationMeta(page, pageSize, total),
+    }
+  },
+
+  async getSavedRecord(studentId: string, id: string): Promise<AiAdvisorSavedRecordItem> {
+    await assertStudentExists(studentId)
+    const record = await prisma.aiAdvisorSavedRecommendation.findFirst({
+      where: { id, studentId },
+    })
+
+    if (!record) {
+      throw new AppError(COURSE_SELECTION_ERROR_CODES.NOT_FOUND, 404, '保存的 AI 建议不存在')
+    }
+
+    return mapSavedRecord(record)
+  },
+
+  async deleteSavedRecord(studentId: string, id: string): Promise<{ id: string; deleted: true }> {
+    await assertStudentExists(studentId)
+    const result = await prisma.aiAdvisorSavedRecommendation.deleteMany({
+      where: { id, studentId },
+    })
+
+    if (result.count === 0) {
+      throw new AppError(COURSE_SELECTION_ERROR_CODES.NOT_FOUND, 404, '保存的 AI 建议不存在')
+    }
+
+    return { id, deleted: true }
   },
 }

@@ -1,9 +1,15 @@
 import { useMemo, useState } from 'react';
-import { Button, Card, Checkbox, Form, Input, InputNumber, Select, Space, Typography } from 'antd';
+import { Button, Card, Checkbox, Empty, Form, Input, InputNumber, List, Select, Space, Tag, Typography, message } from 'antd';
 import { useNavigate } from 'react-router-dom';
 import { useAiAdvisor } from '../hooks/useAiAdvisor';
 import { AiAdvisorPanel, type AiAdvisorTurn } from '../components/AiAdvisorPanel';
-import type { AiRecommendPayload, AiRecommendationCourseType } from '../types/ai';
+import type {
+  AiAdvicePayload,
+  AiAdvisorSavedRecord,
+  AiExplainPayloadResult,
+  AiRecommendPayload,
+  AiRecommendationCourseType,
+} from '../types/ai';
 
 const { Text } = Typography;
 
@@ -40,6 +46,9 @@ const formatRiskText: Record<'low' | 'medium' | 'high', string> = {
 const CourseSelectionAiPage: React.FC = () => {
   const [recommendForm] = Form.useForm<RecommendFormValues>();
   const [conversation, setConversation] = useState<AiAdvisorTurn[]>([]);
+  const [savedTurnIds, setSavedTurnIds] = useState<string[]>([]);
+  const [savingTurnId, setSavingTurnId] = useState<string | null>(null);
+  const [messageApi, messageContextHolder] = message.useMessage();
 
   const navigate = useNavigate();
   const aiAdvisor = useAiAdvisor();
@@ -196,10 +205,89 @@ const CourseSelectionAiPage: React.FC = () => {
     );
   };
 
+  const handleSaveTurn = (turn: AiAdvisorTurn, question?: string) => {
+    if (turn.type !== 'recommend' && turn.type !== 'explain') {
+      return;
+    }
+
+    setSavingTurnId(turn.id);
+
+    const payload =
+      turn.type === 'recommend'
+        ? {
+            recordType: 'recommendation' as const,
+            title: turn.advice.recommendationSummary || 'AI 推荐建议',
+            question,
+            requestPayload: question ? { question } : null,
+            resultPayload: turn.advice as unknown as Record<string, unknown>,
+          }
+        : {
+            recordType: 'explanation' as const,
+            title: `课程解释：${turn.courseName}`,
+            question,
+            courseOfferingId: turn.explanation.courseOfferingId,
+            requestPayload: question ? { question } : null,
+            resultPayload: turn.explanation as unknown as Record<string, unknown>,
+          };
+
+    aiAdvisor.saveRecord.mutate(payload, {
+      onSuccess: () => {
+        setSavedTurnIds((prev) => Array.from(new Set([...prev, turn.id])));
+        messageApi.success('已保存到个人 AI 建议');
+      },
+      onError: () => {
+        messageApi.warning('保存失败，请稍后重试');
+      },
+      onSettled: () => {
+        setSavingTurnId(null);
+      },
+    });
+  };
+
+  const handleShowSavedRecord = (record: AiAdvisorSavedRecord) => {
+    const questionTurn: AiAdvisorTurn = {
+      id: buildUniqueId(),
+      type: 'question',
+      content: record.question || `查看已保存：${record.title}`,
+    };
+
+    const responseTurn: AiAdvisorTurn =
+      record.recordType === 'recommendation'
+        ? {
+            id: buildUniqueId(),
+            type: 'recommend',
+            advice: record.resultPayload as unknown as AiAdvicePayload,
+          }
+        : {
+            id: buildUniqueId(),
+            type: 'explain',
+            courseName:
+              typeof record.resultPayload.courseName === 'string'
+                ? record.resultPayload.courseName
+                : record.title.replace(/^课程解释：/, ''),
+            explanation: record.resultPayload as unknown as AiExplainPayloadResult,
+          };
+
+    prependTurns([questionTurn, responseTurn]);
+  };
+
+  const handleDeleteSavedRecord = (id: string) => {
+    aiAdvisor.deleteRecord.mutate(id, {
+      onSuccess: () => {
+        messageApi.success('已删除保存记录');
+      },
+      onError: () => {
+        messageApi.warning('删除失败，请稍后重试');
+      },
+    });
+  };
+
   const isBusy = aiAdvisor.recommend.isPending || aiAdvisor.explain.isPending;
+  const savedRecords = aiAdvisor.savedRecords.data?.items ?? [];
 
   return (
     <div className="fade-in">
+      {messageContextHolder}
       <div className="page-header" style={{ marginBottom: 16 }}>
         <Text strong style={{ fontSize: 24 }}>
           AI 课程推荐
@@ -283,11 +371,75 @@ const CourseSelectionAiPage: React.FC = () => {
         </Form>
       </Card>
 
+      <Card
+        title="已保存建议"
+        extra={
+          aiAdvisor.savedRecords.isFetching ? (
+            <Text type="secondary">刷新中...</Text>
+          ) : (
+            <Text type="secondary">{savedRecords.length} 条</Text>
+          )
+        }
+        style={{ marginBottom: 16 }}
+      >
+        {savedRecords.length === 0 ? (
+          <Empty description="暂无保存记录" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+        ) : (
+          <List
+            size="small"
+            dataSource={savedRecords}
+            renderItem={(record) => (
+              <List.Item
+                actions={[
+                  <Button
+                    key={`${record.id}-view`}
+                    size="small"
+                    aria-label="查看"
+                    onClick={() => handleShowSavedRecord(record)}
+                  >
+                    查看
+                  </Button>,
+                  <Button
+                    key={`${record.id}-delete`}
+                    size="small"
+                    danger
+                    aria-label="删除"
+                    loading={aiAdvisor.deleteRecord.isPending}
+                    onClick={() => handleDeleteSavedRecord(record.id)}
+                  >
+                    删除
+                  </Button>,
+                ]}
+              >
+                <List.Item.Meta
+                  title={
+                    <Space wrap>
+                      <Text strong>{record.title}</Text>
+                      <Tag color={record.recordType === 'recommendation' ? 'blue' : 'purple'}>
+                        {record.recordType === 'recommendation' ? '推荐' : '解释'}
+                      </Tag>
+                    </Space>
+                  }
+                  description={
+                    <Text type="secondary">
+                      {new Date(record.createdAt).toLocaleString()} · 保存内容仅供回看，正式选课会重新校验
+                    </Text>
+                  }
+                />
+              </List.Item>
+            )}
+          />
+        )}
+      </Card>
+
       <AiAdvisorPanel
         turns={conversation}
         loading={isBusy}
         onExplain={handleExplain}
         onGoToSelection={() => navigate('/selection/courses')}
+        onSaveTurn={handleSaveTurn}
+        savedTurnIds={savedTurnIds}
+        savingTurnId={savingTurnId}
       />
     </div>
   );

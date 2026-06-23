@@ -697,3 +697,41 @@ export interface AiExplainResult {
   model?: string | null
   fallbackInfo?: AiFallbackInfo
 }
+
+export type AiAdvisorSavedRecordTypeValue = 'recommendation' | 'explanation'
+
+export interface SaveAiAdvisorRecordBody {
+  recordType: AiAdvisorSavedRecordTypeValue
+  title?: string
+  question?: string
+  semesterId?: string
+  courseOfferingId?: string
+  requestPayload?: Record<string, unknown> | null
+  resultPayload: Record<string, unknown>
+}
+
+export interface AiAdvisorSavedRecordQuery {
+  page?: number
+  pageSize: number
+  recordType?: AiAdvisorSavedRecordTypeValue
+  semesterId?: string
+}
+
+export interface AiAdvisorSavedRecordItem {
+  id: string
+  studentId: string
+  semesterId: string | null
+  courseOfferingId: string | null
+  recordType: AiAdvisorSavedRecordTypeValue
+  title: string
+  question: string | null
+  requestPayload: Record<string, unknown> | null
+  resultPayload: Record<string, unknown>
+  createdAt: string
+  updatedAt: string
+}
+
+export interface AiAdvisorSavedRecordListPayload {
+  items: AiAdvisorSavedRecordItem[]
+  pagination: PaginationMeta
+}

@@ -530,6 +530,28 @@ v2.0 需求报告要求学生确认培养方案，并将确认结果作为进入
 | allow_drop  | BOOLEAN      | NOT NULL       | 是否允许该阶段退课                        |
 | is_active   | BOOLEAN      | NOT NULL       | 是否启用                                  |
 
+#### AiAdvisorSavedRecommendation - AI 建议保存快照表
+
+学生可以将 AI 推荐方案或单门课程解释保存为个人回看记录。保存内容只是生成当时的快照，不作为正式选课依据；学生后续提交选课时仍必须重新经过容量、冲突、阶段、先修、培养方案确认和最大学分校验。
+
+| 字段               | 类型         | 约束                           | 说明                       |
+| ------------------ | ------------ | ------------------------------ | -------------------------- |
+| id                 | UUID         | PK                             | 保存记录ID                 |
+| student_id         | UUID         | FK -> Student                  | 学生ID，只能保存本人记录   |
+| semester_id        | UUID         | FK -> Semester, nullable       | 生成建议时的学期           |
+| course_offering_id | UUID         | FK -> CourseOffering, nullable | 单门课程解释对应的开课     |
+| record_type        | ENUM         | NOT NULL                       | recommendation/explanation |
+| title              | VARCHAR(120) | NOT NULL                       | 学生可见标题               |
+| question           | TEXT         |                                | 学生提问或偏好摘要         |
+| request_payload    | JSONB        |                                | 请求快照                   |
+| result_payload     | JSONB        | NOT NULL                       | 推荐或解释结果快照         |
+| created_at         | TIMESTAMP    | NOT NULL                       | 创建时间                   |
+| updated_at         | TIMESTAMP    | NOT NULL                       | 更新时间                   |
+
+**权限规则**：仅学生本人可查询、保存和删除自己的 AI 建议快照，接口不得接收前端传入的 `student_id`。
+
+**边界规则**：保存快照不得写入 `Enrollment`，不得影响 `CourseOffering.enrolled_count`，不得绕过正式选课服务校验。
+
 ---
 
 ### 2.4 论坛交流 (Subsystem D)

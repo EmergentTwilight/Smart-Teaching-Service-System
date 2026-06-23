@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import {
   admissionLeaseBodySchema,
+  aiSaveRecordBodySchema,
   aiExplainBodySchema,
+  aiSavedRecordQuerySchema,
   courseOfferingParamsSchema,
   createEnrollmentBodySchema,
   curriculumConfirmationBodySchema,
@@ -193,6 +195,62 @@ describe('course-selection request schemas', () => {
     expect(result).toEqual({
       offeringId: 'cmanual-offering-009',
       question: '为什么推荐这门课？',
+    })
+  })
+
+  it('normalizes AI saved recommendation payloads without student identity', () => {
+    const result = aiSaveRecordBodySchema.parse({
+      record_type: 'recommendation',
+      title: '稳妥推荐',
+      question: '帮我推荐低风险课程',
+      semester_id: 'cmanual-semester-2026-spring',
+      request_payload: { question: '帮我推荐低风险课程' },
+      result_payload: { recommendations: [], disclaimer: '仅供参考' },
+    })
+
+    expect(result).toEqual({
+      recordType: 'recommendation',
+      title: '稳妥推荐',
+      question: '帮我推荐低风险课程',
+      semesterId: 'cmanual-semester-2026-spring',
+      courseOfferingId: undefined,
+      requestPayload: { question: '帮我推荐低风险课程' },
+      resultPayload: { recommendations: [], disclaimer: '仅供参考' },
+    })
+  })
+
+  it('requires course offering id when saving AI explanations', () => {
+    expect(() =>
+      aiSaveRecordBodySchema.parse({
+        record_type: 'explanation',
+        result_payload: { explanation: '这门课当前可选' },
+      })
+    ).toThrow()
+  })
+
+  it('does not accept student identity in AI saved record body', () => {
+    expect(() =>
+      aiSaveRecordBodySchema.parse({
+        record_type: 'recommendation',
+        student_id: 'student-other',
+        result_payload: { recommendations: [] },
+      })
+    ).toThrow()
+  })
+
+  it('normalizes AI saved record list query filters', () => {
+    const result = aiSavedRecordQuerySchema.parse({
+      page: '2',
+      page_size: '10',
+      record_type: 'explanation',
+      semester_id: 'cmanual-semester-2026-spring',
+    })
+
+    expect(result).toEqual({
+      page: 2,
+      pageSize: 10,
+      recordType: 'explanation',
+      semesterId: 'cmanual-semester-2026-spring',
     })
   })
 })

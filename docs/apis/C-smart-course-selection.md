@@ -139,6 +139,9 @@ link: https://tcncx9czflpz.feishu.cn/wiki/BgpmwKkYqifNkjk1Psdc0gitn2b
 | 查看本人课表 | GET | `/timetable/me` | `FR-C-25`、`FR-C-26` |
 | AI 推荐课程 | POST | `/ai-advisor/recommend` | `FR-C-38` 至 `FR-C-43` |
 | AI 解释课程 | POST | `/ai-advisor/explain` | `FR-C-38` 至 `FR-C-43` |
+| 保存 AI 建议快照 | POST | `/ai-advisor/saved` | `FR-C-38` 至 `FR-C-43` |
+| 查询 AI 建议快照 | GET | `/ai-advisor/saved`、`/ai-advisor/saved/:id` | `FR-C-38` 至 `FR-C-43` |
+| 删除 AI 建议快照 | DELETE | `/ai-advisor/saved/:id` | `FR-C-38` 至 `FR-C-43` |
 
 ### 2.2 教师端
 
@@ -1223,6 +1226,49 @@ curl -X POST "https://stss.example.com/api/v1/course-selection/ai-advisor/explai
 - `hard_rule_result` 由后端规则引擎生成，AI 只负责自然语言解释。
 - 若课程不可选，必须明确说明容量、冲突、先修或阶段等具体原因。
 - TODO-C-15（`FR-C-41`、`NFR-C-09`）：后续需为 AI 输出增加安全审查和兜底模板，避免输出与硬性规则结果矛盾。
+
+### 3.13 AI 建议保存快照
+
+```plaintext
+POST /api/v1/course-selection/ai-advisor/saved
+GET /api/v1/course-selection/ai-advisor/saved
+GET /api/v1/course-selection/ai-advisor/saved/:id
+DELETE /api/v1/course-selection/ai-advisor/saved/:id
+Authorization: Bearer <access_token>
+Content-Type: application/json
+```
+
+**权限说明**
+
+仅 `student` 可访问。保存记录只属于当前登录学生，后端不得接收或信任 `student_id`、`studentId` 或 `user_id`。
+
+**保存请求 Body**
+
+| 参数 | 类型 | 必填 | 说明 |
+| ---- | ---- | ---- | ---- |
+| `record_type` | string | 是 | `recommendation` 或 `explanation` |
+| `title` | string | 否 | 学生可见标题，不传时由后端根据结果生成 |
+| `question` | string | 否 | 学生提问或偏好摘要 |
+| `semester_id` | string | 否 | 关联学期 |
+| `course_offering_id` | string | 条件必填 | `explanation` 类型必须提供 |
+| `request_payload` | object | 否 | 请求快照 |
+| `result_payload` | object | 是 | AI 推荐或解释结果快照 |
+
+**查询参数**
+
+| 参数 | 类型 | 必填 | 说明 |
+| ---- | ---- | ---- | ---- |
+| `page` | number | 否 | 页码，默认 1 |
+| `page_size` | number | 否 | 每页数量，默认 20，最大 100 |
+| `record_type` | string | 否 | 按保存类型筛选 |
+| `semester_id` | string | 否 | 按学期筛选 |
+
+**校验与说明**
+
+- 保存的是生成当时的 AI 建议快照，仅用于学生本人回看。
+- 保存、查询或删除快照不得写入 `Enrollment`，不得修改 `CourseOffering.enrolled_count`。
+- 学生从保存记录继续选课时，仍必须通过正式选课接口重新校验容量、冲突、阶段、培养方案确认、先修课程和最大学分。
+- 删除接口只删除当前登录学生自己的保存记录；他人记录按不存在处理。
 
 ---
 

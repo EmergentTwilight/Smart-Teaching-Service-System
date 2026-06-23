@@ -269,6 +269,23 @@ describe('AiAdvisorPanel', () => {
     expect(screen.queryByRole('button', { name: /一键选课|AI 自动选课/ })).not.toBeInTheDocument();
   });
 
+  it('calls save handler for recommendation conversations', () => {
+    const onSaveTurn = vi.fn();
+    const turns: AiAdvisorTurn[] = [
+      { id: 'question-1', type: 'question', content: '想保存这次建议' },
+      { id: 'turn-1', type: 'recommend', advice },
+    ];
+
+    render(<AiAdvisorPanel turns={turns} onExplain={vi.fn()} onSaveTurn={onSaveTurn} />);
+
+    fireEvent.click(screen.getByRole('button', { name: '保存' }));
+
+    expect(onSaveTurn).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'turn-1', type: 'recommend' }),
+      '想保存这次建议'
+    );
+  });
+
   it('renders empty state without advice', () => {
     render(<AiAdvisorPanel turns={[]} onExplain={vi.fn()} />);
 

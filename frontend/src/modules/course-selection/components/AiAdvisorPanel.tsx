@@ -1,5 +1,5 @@
 import { Alert, Button, Card, Col, Collapse, Empty, List, Row, Space, Spin, Tag, Typography } from 'antd';
-import { EyeInvisibleOutlined, EyeOutlined, WarningOutlined } from '@ant-design/icons';
+import { EyeInvisibleOutlined, EyeOutlined, SaveOutlined, WarningOutlined } from '@ant-design/icons';
 import { type FC, useMemo, useState } from 'react';
 import type {
   AiAdvicePayload,
@@ -58,6 +58,9 @@ interface AiAdvisorPanelProps {
   loading?: boolean;
   onExplain: (offeringId: string, courseName: string) => void;
   onGoToSelection?: () => void;
+  onSaveTurn?: (turn: AiAdvisorTurn, question?: string) => void;
+  savedTurnIds?: string[];
+  savingTurnId?: string | null;
 }
 
 interface UserFallbackNotice {
@@ -517,14 +520,22 @@ const renderResponseTurn = (
   return null;
 };
 
+const isSavableTurn = (turn: AiAdvisorTurn) => turn.type === 'recommend' || turn.type === 'explain';
+
 const ConversationGroup = ({
   group,
   onExplain,
   onGoToSelection,
+  onSaveTurn,
+  savedTurnIds = [],
+  savingTurnId,
 }: {
   group: AiConversationGroup;
   onExplain: (offeringId: string, courseName: string) => void;
   onGoToSelection?: () => void;
+  onSaveTurn?: (turn: AiAdvisorTurn, question?: string) => void;
+  savedTurnIds?: string[];
+  savingTurnId?: string | null;
 }) => {
   return (
     <section
@@ -571,6 +582,20 @@ const ConversationGroup = ({
             ) : (
               group.responses.map((turn) => (
                 <div key={turn.id}>
+                  {onSaveTurn && isSavableTurn(turn) ? (
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
+                      <Button
+                        size="small"
+                        icon={<SaveOutlined />}
+                        aria-label={savedTurnIds.includes(turn.id) ? '已保存' : '保存'}
+                        loading={savingTurnId === turn.id}
+                        disabled={savedTurnIds.includes(turn.id)}
+                        onClick={() => onSaveTurn(turn, group.question?.content)}
+                      >
+                        {savedTurnIds.includes(turn.id) ? '已保存' : '保存'}
+                      </Button>
+                    </div>
+                  ) : null}
                   {renderResponseTurn(turn, onExplain, onGoToSelection)}
                 </div>
               ))
@@ -582,7 +607,15 @@ const ConversationGroup = ({
   );
 };
 
-export const AiAdvisorPanel: FC<AiAdvisorPanelProps> = ({ turns, loading, onExplain, onGoToSelection }) => {
+export const AiAdvisorPanel: FC<AiAdvisorPanelProps> = ({
+  turns,
+  loading,
+  onExplain,
+  onGoToSelection,
+  onSaveTurn,
+  savedTurnIds,
+  savingTurnId,
+}) => {
   if (turns.length === 0 && !loading) {
     return (
       <Card title="AI 助理">
@@ -601,6 +634,9 @@ export const AiAdvisorPanel: FC<AiAdvisorPanelProps> = ({ turns, loading, onExpl
           group={group}
           onExplain={onExplain}
           onGoToSelection={onGoToSelection}
+          onSaveTurn={onSaveTurn}
+          savedTurnIds={savedTurnIds}
+          savingTurnId={savingTurnId}
         />
       ))}
 

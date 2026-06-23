@@ -3,6 +3,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useAiAdvisor } from '../hooks/useAiAdvisor';
 import CourseSelectionAiPage from './CourseSelectionAiPage';
+import type { AiAdvicePayload } from '../types/ai';
 
 vi.mock('../hooks/useAiAdvisor', () => ({
   useAiAdvisor: vi.fn(),
@@ -10,6 +11,36 @@ vi.mock('../hooks/useAiAdvisor', () => ({
 
 const recommendMutate = vi.fn();
 const explainMutate = vi.fn();
+
+const advice: AiAdvicePayload = {
+  disclaimer: 'AI 建议仅供参考。',
+  creditProgressSummary: {
+    currentSelectedCredits: 6,
+    targetCredits: 160,
+    maxCredits: 28,
+  },
+  recommendations: [
+    {
+      courseOfferingId: 'offering-1',
+      courseCode: 'CS101',
+      courseName: '程序设计基础',
+      credits: 4,
+      teacherName: '王老师',
+      recommendationScore: 0.9,
+      reasons: ['属于当前培养方案范围'],
+      risks: [],
+      eligibilitySnapshot: {
+        isAvailable: true,
+      },
+    },
+  ],
+  conflictNotes: [],
+  mode: 'full',
+  suggestionMode: 'full',
+  degradedMode: 'full',
+  llmUsed: true,
+  model: 'test-model',
+};
 
 const renderPage = () =>
   render(
@@ -21,6 +52,8 @@ const renderPage = () =>
 describe('CourseSelectionAiPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    recommendMutate.mockReset();
+    explainMutate.mockReset();
     vi.mocked(useAiAdvisor).mockReturnValue({
       recommend: {
         mutate: recommendMutate,
@@ -69,5 +102,62 @@ describe('CourseSelectionAiPage', () => {
     renderPage();
 
     expect(screen.getByText('仅展示解释与建议，不会写入选课记录。')).toBeInTheDocument();
+  });
+
+  it('shows newer recommendation requests above previous conversations', async () => {
+    renderPage();
+
+    fireEvent.change(screen.getByLabelText('偏好说明'), {
+      target: { value: '第一次偏好' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: '发送提问' }));
+
+    await waitFor(() => {
+      expect(recommendMutate).toHaveBeenCalledTimes(1);
+    });
+
+    fireEvent.change(screen.getByLabelText('偏好说明'), {
+      target: { value: '第二次偏好' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: '发送提问' }));
+
+    await waitFor(() => {
+      expect(recommendMutate).toHaveBeenCalledTimes(2);
+    });
+
+    const pageText = document.body.textContent ?? '';
+
+    expect(pageText.indexOf('补充偏好：第二次偏好')).toBeLessThan(
+      pageText.indexOf('补充偏好：第一次偏好')
+    );
+  });
+
+  it('shows explain conversations above existing recommendation conversations', async () => {
+    recommendMutate.mockImplementation((_payload, options) => {
+      options.onSuccess(advice);
+    });
+
+    renderPage();
+
+    fireEvent.change(screen.getByLabelText('偏好说明'), {
+      target: { value: '先生成推荐' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: '发送提问' }));
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: '查看解释' })).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: '查看解释' }));
+
+    await waitFor(() => {
+      expect(explainMutate).toHaveBeenCalledTimes(1);
+    });
+
+    const pageText = document.body.textContent ?? '';
+
+    expect(pageText.indexOf('我想确认“程序设计基础”是否适合本学期选。')).toBeLessThan(
+      pageText.indexOf('补充偏好：先生成推荐')
+    );
   });
 });

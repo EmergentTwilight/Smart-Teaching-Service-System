@@ -83,8 +83,8 @@ const CourseSelectionAiPage: React.FC = () => {
     return chunks.join('\n');
   };
 
-  const appendTurn = (turn: AiAdvisorTurn) => {
-    setConversation((prev) => [...prev, turn]);
+  const prependTurns = (turns: AiAdvisorTurn[]) => {
+    setConversation((prev) => [...turns, ...prev]);
   };
 
   const replaceTurn = (turnId: string, next: AiAdvisorTurn) => {
@@ -120,17 +120,18 @@ const CourseSelectionAiPage: React.FC = () => {
     const questionTurnId = buildUniqueId();
     const loadingTurnId = buildUniqueId();
 
-    appendTurn({
-      id: questionTurnId,
-      type: 'question',
-      content: requestText,
-    });
-
-    appendTurn({
-      id: loadingTurnId,
-      type: 'loading',
-      content: '我正在根据你的偏好生成候选课程...',
-    });
+    prependTurns([
+      {
+        id: questionTurnId,
+        type: 'question',
+        content: requestText,
+      },
+      {
+        id: loadingTurnId,
+        type: 'loading',
+        content: '我正在根据你的偏好生成候选课程...',
+      },
+    ]);
 
     aiAdvisor.recommend.mutate(payload, {
       onSuccess: (result) => {
@@ -156,17 +157,18 @@ const CourseSelectionAiPage: React.FC = () => {
     const questionTurnId = buildUniqueId();
     const loadingTurnId = buildUniqueId();
 
-    appendTurn({
-      id: questionTurnId,
-      type: 'question',
-      content: `我想确认“${courseName}”是否适合本学期选。`,
-    });
-
-    appendTurn({
-      id: loadingTurnId,
-      type: 'loading',
-      content: `正在分析“${courseName}”...`,
-    });
+    prependTurns([
+      {
+        id: questionTurnId,
+        type: 'question',
+        content: `我想确认“${courseName}”是否适合本学期选。`,
+      },
+      {
+        id: loadingTurnId,
+        type: 'loading',
+        content: `正在分析“${courseName}”...`,
+      },
+    ]);
 
     aiAdvisor.explain.mutate(
       {
@@ -292,4 +294,3 @@ const CourseSelectionAiPage: React.FC = () => {
 };
 
 export default CourseSelectionAiPage;
-

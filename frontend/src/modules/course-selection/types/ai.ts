@@ -113,6 +113,12 @@ export interface AiProviderDiagnostics {
   statusCode?: number
   providerCode?: string
   providerMessage?: string
+  finishReason?: string
+  nativeFinishReason?: string
+  promptTokens?: number
+  completionTokens?: number
+  totalTokens?: number
+  reasoningTokens?: number
   retryAfter?: string | null
   durationMs?: number
   retriable?: boolean

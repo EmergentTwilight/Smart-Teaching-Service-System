@@ -27,6 +27,12 @@ export interface LlmFailureDiagnostics {
   statusCode?: number
   providerCode?: string
   providerMessage?: string
+  finishReason?: string
+  nativeFinishReason?: string
+  promptTokens?: number
+  completionTokens?: number
+  totalTokens?: number
+  reasoningTokens?: number
   retryAfter?: string | null
   durationMs: number
   retriable: boolean
@@ -151,6 +157,45 @@ const pickProviderError = (raw: unknown): { code?: string; message?: string } =>
   }
 }
 
+const pickProviderCompletionDiagnostics = (raw: unknown): Partial<LlmFailureDiagnostics> => {
+  if (!raw || typeof raw !== 'object') {
+    return {}
+  }
+
+  const root = raw as {
+    choices?: unknown[]
+    usage?: {
+      prompt_tokens?: unknown
+      completion_tokens?: unknown
+      total_tokens?: unknown
+      completion_tokens_details?: {
+        reasoning_tokens?: unknown
+      }
+    }
+  }
+  const choice = root.choices?.[0] as
+    | {
+        finish_reason?: unknown
+        native_finish_reason?: unknown
+      }
+    | undefined
+  const usage = root.usage
+  const completionDetails = usage?.completion_tokens_details
+
+  return {
+    finishReason: typeof choice?.finish_reason === 'string' ? choice.finish_reason : undefined,
+    nativeFinishReason:
+      typeof choice?.native_finish_reason === 'string' ? choice.native_finish_reason : undefined,
+    promptTokens: typeof usage?.prompt_tokens === 'number' ? usage.prompt_tokens : undefined,
+    completionTokens: typeof usage?.completion_tokens === 'number' ? usage.completion_tokens : undefined,
+    totalTokens: typeof usage?.total_tokens === 'number' ? usage.total_tokens : undefined,
+    reasoningTokens:
+      typeof completionDetails?.reasoning_tokens === 'number'
+        ? completionDetails.reasoning_tokens
+        : undefined,
+  }
+}
+
 const isRetriableFailure = (reason: string, statusCode?: number): boolean => {
   if (reason === 'timeout' || reason === 'network_error') {
     return true
@@ -173,6 +218,7 @@ const buildDiagnostics = (params: {
   retryAfter?: string | null
 }): LlmFailureDiagnostics => {
   const providerError = pickProviderError(params.raw)
+  const providerCompletion = pickProviderCompletionDiagnostics(params.raw)
   return {
     provider: 'openrouter',
     model: params.model ?? null,
@@ -180,6 +226,7 @@ const buildDiagnostics = (params: {
     statusCode: params.statusCode,
     providerCode: providerError.code,
     providerMessage: providerError.message,
+    ...providerCompletion,
     retryAfter: params.retryAfter ?? null,
     durationMs: Date.now() - params.startedAt,
     retriable: isRetriableFailure(params.reason, params.statusCode),

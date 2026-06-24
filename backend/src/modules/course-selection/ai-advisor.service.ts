@@ -95,6 +95,17 @@ const toNum = decimalToNumber
 
 const clampScore = (value: number): number => Math.max(0, Math.min(1, Number(value.toFixed(4))))
 const resolveLlmTimeoutMs = () => Math.max(Number(process.env.LLM_TIMEOUT_MS ?? 20000), 20000)
+const DEFAULT_LLM_STAGE_MAX_TOKENS = 16000
+const parseLlmMaxTokens = (value: string | undefined, fallback = DEFAULT_LLM_STAGE_MAX_TOKENS): number => {
+  const parsed = Number(value)
+  return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : fallback
+}
+const resolvePreferenceMaxTokens = () =>
+  parseLlmMaxTokens(process.env.LLM_PREFERENCE_MAX_TOKENS)
+const resolveRecommendationMaxTokens = () =>
+  parseLlmMaxTokens(process.env.LLM_RECOMMENDATION_MAX_TOKENS ?? process.env.LLM_MAX_TOKENS)
+const resolveExplanationMaxTokens = () =>
+  parseLlmMaxTokens(process.env.LLM_EXPLANATION_MAX_TOKENS)
 
 const isNonRetriableLlmReason = (reason: string): boolean =>
   reason === 'missing_api_key' ||
@@ -1172,7 +1183,7 @@ const withLlmPreference = async (
       }),
     },
     {
-      maxTokens: 900,
+      maxTokens: resolvePreferenceMaxTokens(),
       timeoutMs: resolveLlmTimeoutMs(),
       temperature: 0.1,
     }
@@ -1626,7 +1637,7 @@ const withLlmPlans = async (
       }),
     },
     {
-      maxTokens: Number(process.env.LLM_MAX_TOKENS ?? 1500),
+      maxTokens: resolveRecommendationMaxTokens(),
       timeoutMs: resolveLlmTimeoutMs(),
       temperature: 0.25,
     }
@@ -1915,7 +1926,7 @@ const withLlmExplain = async (
       }),
     },
     {
-      maxTokens: 800,
+      maxTokens: resolveExplanationMaxTokens(),
       temperature: 0.2,
       timeoutMs: resolveLlmTimeoutMs(),
     }

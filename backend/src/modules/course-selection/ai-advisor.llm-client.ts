@@ -39,7 +39,7 @@ export interface LlmFailureDiagnostics {
 }
 
 const defaultModel = () =>
-  process.env.OPENROUTER_MODEL ?? process.env.AI_MODEL ?? 'openrouter/free'
+  process.env.OPENROUTER_MODEL ?? process.env.AI_MODEL ?? 'nvidia/nemotron-3-ultra-550b-a55b:free'
 
 const apiEndpoint = () =>
   process.env.OPENROUTER_API_URL ?? 'https://openrouter.ai/api/v1/chat/completions'

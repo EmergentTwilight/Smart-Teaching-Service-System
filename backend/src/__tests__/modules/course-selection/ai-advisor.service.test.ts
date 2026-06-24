@@ -63,6 +63,7 @@ vi.mock('../../../modules/course-selection/ai-advisor.llm-client.js', () => ({
 import { aiAdvisorService } from '../../../modules/course-selection/ai-advisor.service.js'
 
 const now = new Date('2026-05-19T04:00:00.000Z')
+const DEFAULT_LLM_MODEL = 'nvidia/nemotron-3-ultra-550b-a55b:free'
 
 const buildSchedule = (overrides: Record<string, unknown> = {}) => ({
   dayOfWeek: 1,
@@ -133,6 +134,10 @@ const resetBaseMocks = () => {
   vi.useFakeTimers()
   vi.setSystemTime(now)
   vi.resetAllMocks()
+  delete process.env.LLM_MAX_TOKENS
+  delete process.env.LLM_PREFERENCE_MAX_TOKENS
+  delete process.env.LLM_RECOMMENDATION_MAX_TOKENS
+  delete process.env.LLM_EXPLANATION_MAX_TOKENS
 
   prismaMock.student.findUnique.mockResolvedValue({
     userId: 'student-1',
@@ -199,10 +204,10 @@ const resetBaseMocks = () => {
   llmClientMock.complete.mockResolvedValue({
     ok: false,
     reason: 'missing_api_key',
-    model: 'openrouter/free',
+    model: DEFAULT_LLM_MODEL,
     diagnostics: {
       provider: 'openrouter',
-      model: 'openrouter/free',
+      model: DEFAULT_LLM_MODEL,
       endpointHost: 'openrouter.ai',
       durationMs: 0,
       retriable: false,
@@ -376,10 +381,10 @@ describe('aiAdvisorService.recommend', () => {
     llmClientMock.complete.mockResolvedValueOnce({
       ok: false,
       reason: 'provider_error:429',
-      model: 'openrouter/free',
+      model: DEFAULT_LLM_MODEL,
       diagnostics: {
         provider: 'openrouter',
-        model: 'openrouter/free',
+        model: DEFAULT_LLM_MODEL,
         endpointHost: 'openrouter.ai',
         statusCode: 429,
         providerMessage: 'Rate limit exceeded',
@@ -405,6 +410,58 @@ describe('aiAdvisorService.recommend', () => {
       }),
     })
   })
+
+  it('uses 16000 max tokens for preference and recommendation LLM stages by default', async () => {
+    llmClientMock.complete
+      .mockResolvedValueOnce({
+        ok: true,
+        model: DEFAULT_LLM_MODEL,
+        content: JSON.stringify({
+          targetCredits: 18,
+          preferredCourseTypes: ['required', 'elective'],
+          avoidEarlyMorning: true,
+          preferLowLoad: false,
+          preferRequiredCourses: true,
+          preferGraduationProgress: true,
+          riskTolerance: 'medium',
+          naturalLanguagePreference: '优先核心课',
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        model: DEFAULT_LLM_MODEL,
+        content: JSON.stringify({
+          plans: [
+            {
+              id: 'balanced',
+              title: '稳妥推进',
+              rationale: '优先选择当前可选核心课',
+              recommendationIds: ['offering-1'],
+              riskLevel: 'low',
+            },
+          ],
+          recommendationSummary: '优先补齐核心课。',
+        }),
+      })
+
+    await aiAdvisorService.recommend('student-1', {
+      maxRecommendations: 5,
+      preferences: {
+        naturalLanguagePreference: '想优先核心课',
+      },
+    })
+
+    expect(llmClientMock.complete).toHaveBeenNthCalledWith(
+      1,
+      expect.any(Object),
+      expect.objectContaining({ maxTokens: 16000 })
+    )
+    expect(llmClientMock.complete).toHaveBeenNthCalledWith(
+      2,
+      expect.any(Object),
+      expect.objectContaining({ maxTokens: 16000 })
+    )
+  })
 })
 
 describe('aiAdvisorService.explain', () => {
@@ -425,6 +482,15 @@ describe('aiAdvisorService.explain', () => {
       retriable: false,
     })
     expect(prismaMock.enrollment.create).not.toHaveBeenCalled()
+  })
+
+  it('uses 16000 max tokens for explanation LLM stage by default', async () => {
+    await aiAdvisorService.explain('student-1', 'offering-1')
+
+    expect(llmClientMock.complete).toHaveBeenCalledWith(
+      expect.any(Object),
+      expect.objectContaining({ maxTokens: 16000 })
+    )
   })
 })
 

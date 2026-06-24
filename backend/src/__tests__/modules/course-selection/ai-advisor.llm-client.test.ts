@@ -6,7 +6,7 @@ describe('llmClient diagnostics', () => {
 
   beforeEach(() => {
     process.env.OPENROUTER_API_KEY = 'test-key'
-    process.env.OPENROUTER_MODEL = 'openrouter/free'
+    process.env.OPENROUTER_MODEL = 'nvidia/nemotron-3-ultra-550b-a55b:free'
     process.env.OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions'
     process.env.AI_ENABLED = 'true'
   })

@@ -180,12 +180,40 @@ const parseBoolean = (value: unknown): boolean => {
   return false
 }
 
+const parseOptionalBoolean = (value: unknown): boolean | undefined => {
+  if (typeof value === 'boolean') {
+    return value
+  }
+
+  if (typeof value === 'number') {
+    if (value === 1) {
+      return true
+    }
+    if (value === 0) {
+      return false
+    }
+  }
+
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase()
+    if (normalized === '1' || normalized === 'true' || normalized === 'yes' || normalized === 'y') {
+      return true
+    }
+    if (normalized === '0' || normalized === 'false' || normalized === 'no' || normalized === 'n') {
+      return false
+    }
+  }
+
+  return undefined
+}
+
 const parsePositiveNumber = (value: unknown): number | null => {
-  if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) {
+  const normalized = typeof value === 'string' && value.trim() !== '' ? Number(value.trim()) : value
+  if (typeof normalized !== 'number' || !Number.isFinite(normalized) || normalized < 0) {
     return null
   }
 
-  return Math.floor(value)
+  return Math.floor(normalized)
 }
 
 const normalizeCourseTypes = (value: unknown): ('required' | 'elective' | 'general')[] => {
@@ -1237,16 +1265,12 @@ const withLlmPreference = async (
           ? normalizeCourseTypes(parsed.preferredCourseTypes)
           : preference.preferredCourseTypes,
       avoidEarlyMorning:
-        typeof parsed.avoidEarlyMorning === 'boolean' ? parsed.avoidEarlyMorning : preference.avoidEarlyMorning,
-      preferLowLoad: typeof parsed.preferLowLoad === 'boolean' ? parsed.preferLowLoad : preference.preferLowLoad,
+        parseOptionalBoolean(parsed.avoidEarlyMorning) ?? preference.avoidEarlyMorning,
+      preferLowLoad: parseOptionalBoolean(parsed.preferLowLoad) ?? preference.preferLowLoad,
       preferRequiredCourses:
-        typeof parsed.preferRequiredCourses === 'boolean'
-          ? parsed.preferRequiredCourses
-          : preference.preferRequiredCourses,
+        parseOptionalBoolean(parsed.preferRequiredCourses) ?? preference.preferRequiredCourses,
       preferGraduationProgress:
-        typeof parsed.preferGraduationProgress === 'boolean'
-          ? parsed.preferGraduationProgress
-          : preference.preferGraduationProgress,
+        parseOptionalBoolean(parsed.preferGraduationProgress) ?? preference.preferGraduationProgress,
       riskTolerance: parseRiskTolerance(parsed.riskTolerance),
     },
   }

@@ -61,6 +61,7 @@ vi.mock('../../../modules/course-selection/ai-advisor.llm-client.js', () => ({
 }))
 
 import { aiAdvisorService } from '../../../modules/course-selection/ai-advisor.service.js'
+import { buildStrategyPrompt } from '../../../modules/course-selection/ai-advisor.prompts.js'
 
 const now = new Date('2026-05-19T04:00:00.000Z')
 const DEFAULT_LLM_MODEL = 'nvidia/nemotron-3-ultra-550b-a55b:free'
@@ -221,6 +222,41 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.useRealTimers()
+})
+
+describe('ai advisor prompts', () => {
+  it('does not include placeholder recommendation ids in the strategy prompt', () => {
+    const prompt = buildStrategyPrompt({
+      maxRecommendations: 3,
+      profile: {
+        preferredCourseTypes: ['required'],
+        avoidEarlyMorning: false,
+        preferLowLoad: false,
+        preferRequiredCourses: true,
+        preferGraduationProgress: true,
+        riskTolerance: 'medium',
+      },
+      candidates: [
+        {
+          id: 'offering-1',
+          courseCode: 'CS101',
+          courseName: '程序设计基础',
+          credits: 4,
+          courseType: 'required',
+          teacherName: '王老师',
+          remainingCapacity: 20,
+          riskHints: [],
+          score: 90,
+        },
+      ],
+    })
+
+    expect(prompt).toContain('allowed_course_offering_ids')
+    expect(prompt).toContain('offering-1')
+    expect(prompt).not.toContain('uuid1')
+    expect(prompt).not.toContain('uuid2')
+    expect(prompt).not.toContain('balanced|required_first|low_risk')
+  })
 })
 
 describe('aiAdvisorService.recommend', () => {
@@ -444,12 +480,17 @@ describe('aiAdvisorService.recommend', () => {
         }),
       })
 
-    await aiAdvisorService.recommend('student-1', {
+    const result = await aiAdvisorService.recommend('student-1', {
       maxRecommendations: 5,
       preferences: {
         naturalLanguagePreference: '想优先核心课',
       },
     })
+
+    expect(result.llmUsed).toBe(true)
+    expect(result.degradedMode).toBe('full')
+    expect(result.fallbackInfo).toBeUndefined()
+    expect(result.plans?.map((plan) => plan.id)).toContain('balanced')
 
     expect(llmClientMock.complete).toHaveBeenNthCalledWith(
       1,
@@ -461,6 +502,56 @@ describe('aiAdvisorService.recommend', () => {
       expect.any(Object),
       expect.objectContaining({ maxTokens: 16000 })
     )
+  })
+
+  it('coerces string-typed LLM preference fields before building strategy prompts', async () => {
+    llmClientMock.complete
+      .mockResolvedValueOnce({
+        ok: true,
+        model: DEFAULT_LLM_MODEL,
+        content: JSON.stringify({
+          targetCredits: '18',
+          preferredCourseTypes: ['required'],
+          avoidEarlyMorning: 'true',
+          preferLowLoad: 'false',
+          preferRequiredCourses: 'true',
+          preferGraduationProgress: 'true',
+          riskTolerance: 'medium',
+          naturalLanguagePreference: '优先核心课',
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        model: DEFAULT_LLM_MODEL,
+        content: JSON.stringify({
+          plans: [
+            {
+              id: 'balanced',
+              title: '核心课优先',
+              rationale: '按偏好优先推进核心课程。',
+              recommendationIds: ['offering-1'],
+              riskLevel: 'low',
+            },
+          ],
+          recommendationSummary: '优先补齐核心课。',
+        }),
+      })
+
+    const result = await aiAdvisorService.recommend('student-1', {
+      maxRecommendations: 5,
+      preferences: {
+        naturalLanguagePreference: '想优先核心课',
+      },
+    })
+
+    const strategyRequest = llmClientMock.complete.mock.calls[1][0] as { content: string }
+    expect(strategyRequest.content).toContain('"targetCredits":18')
+    expect(strategyRequest.content).toContain('"avoidEarlyMorning":true')
+    expect(strategyRequest.content).toContain('"preferLowLoad":false')
+    expect(strategyRequest.content).toContain('"preferRequiredCourses":true')
+    expect(strategyRequest.content).toContain('"preferGraduationProgress":true')
+    expect(result.llmUsed).toBe(true)
+    expect(result.fallbackInfo).toBeUndefined()
   })
 })
 

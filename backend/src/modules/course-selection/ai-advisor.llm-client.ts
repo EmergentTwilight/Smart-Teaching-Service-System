@@ -233,6 +233,25 @@ const buildDiagnostics = (params: {
   }
 }
 
+const buildTimeoutResult = (params: {
+  endpoint: string
+  model: string
+  startedAt: number
+}): LlmCompletionResult => {
+  const reason = 'timeout'
+  return {
+    ok: false,
+    reason,
+    model: params.model,
+    diagnostics: buildDiagnostics({
+      endpoint: params.endpoint,
+      model: params.model,
+      reason,
+      startedAt: params.startedAt,
+    }),
+  }
+}
+
 export const llmClient = {
   async complete(
     messages: string | LlmMessage | LlmMessage[],
@@ -271,11 +290,11 @@ export const llmClient = {
     const startedAt = Date.now()
 
     const controller = new AbortController()
-    const timer = setTimeout(() => {
-      controller.abort()
-    }, timeoutMs)
+    let didTimeout = false
+    let timer: ReturnType<typeof setTimeout> | undefined
 
-    try {
+    const request = (async (): Promise<LlmCompletionResult> => {
+      try {
       const response = await fetch(endpoint, {
         method: 'POST',
         signal: controller.signal,
@@ -294,7 +313,9 @@ export const llmClient = {
           stream: false,
         }),
       })
-      clearTimeout(timer)
+      if (timer) {
+        clearTimeout(timer)
+      }
 
       const raw = await extractTextContent(response)
       if (!response.ok) {
@@ -361,15 +382,11 @@ export const llmClient = {
         },
       }
     } catch (error) {
-      clearTimeout(timer)
-      if (error instanceof DOMException && error.name === 'AbortError') {
-        const reason = 'timeout'
-        return {
-          ok: false,
-          reason,
-          model,
-          diagnostics: buildDiagnostics({ endpoint, model, reason, startedAt }),
-        }
+      if (timer) {
+        clearTimeout(timer)
+      }
+      if (didTimeout || (error instanceof DOMException && error.name === 'AbortError')) {
+        return buildTimeoutResult({ endpoint, model, startedAt })
       }
 
       const reason = 'network_error'
@@ -381,5 +398,16 @@ export const llmClient = {
         raw: error,
       }
     }
+    })()
+
+    const deadline = new Promise<LlmCompletionResult>((resolve) => {
+      timer = setTimeout(() => {
+        didTimeout = true
+        controller.abort()
+        resolve(buildTimeoutResult({ endpoint, model, startedAt }))
+      }, timeoutMs)
+    })
+
+    return Promise.race([request, deadline])
   },
 }

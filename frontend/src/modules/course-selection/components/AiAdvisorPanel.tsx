@@ -122,13 +122,27 @@ const formatFallbackNotice = (fallbackInfo?: AiFallbackInfo, degradedMode?: stri
   const reason = fallbackInfo.reason || '';
   const lowerReason = reason.toLowerCase();
   const source = fallbackInfo.source;
+  const diagnostics = fallbackInfo.diagnostics;
+  const statusCode = diagnostics?.statusCode;
 
   let reasonText = '智能生成暂时没有返回可直接展示的完整方案。';
 
   if (source === 'rule') {
     reasonText = reason || '当前课程容量、阶段、冲突或培养方案条件限制了可推荐课程。';
+  } else if (statusCode === 429) {
+    reasonText = '智能生成服务当前触发免费模型限流或额度限制。';
+  } else if (statusCode === 401 || statusCode === 403) {
+    reasonText = '智能生成服务认证或模型访问权限异常。';
+  } else if (statusCode && statusCode >= 500) {
+    reasonText = '智能生成服务当前响应异常。';
   } else if (lowerReason.includes('timeout') || reason.includes('超时')) {
     reasonText = '智能生成响应超时。';
+  } else if (lowerReason.includes('missing_api_key')) {
+    reasonText = '智能生成服务尚未配置可用 API Key。';
+  } else if (lowerReason.includes('provider_disabled')) {
+    reasonText = '智能生成服务当前未启用。';
+  } else if (lowerReason.includes('provider_error')) {
+    reasonText = '智能生成服务返回错误。';
   } else if (reason.includes('不可用') || lowerReason.includes('unavailable')) {
     reasonText = '智能生成服务暂时不可用。';
   } else if (
@@ -142,6 +156,8 @@ const formatFallbackNotice = (fallbackInfo?: AiFallbackInfo, degradedMode?: stri
   const nextStep =
     fallbackInfo.retriable === false
       ? '这通常由当前课程数据或硬性规则决定，短时间重试通常不会改变结果；可以直接按规则推荐继续查看或手动选课。'
+      : statusCode === 401 || statusCode === 403 || lowerReason.includes('missing_api_key') || lowerReason.includes('provider_disabled')
+        ? '这通常需要维护人员检查配置或模型权限，单纯刷新页面通常不能恢复；普通选课不受影响。'
       : '当前已按系统规则给出可用建议，普通选课不受影响；如果想要更完整的智能解释，可以稍后重试。';
 
   return {

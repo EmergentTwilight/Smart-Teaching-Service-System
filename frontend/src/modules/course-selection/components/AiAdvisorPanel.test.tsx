@@ -196,6 +196,37 @@ describe('AiAdvisorPanel', () => {
     expect(screen.getByText(/程序设计基础：剩余 2 人，剩余名额较少/)).toBeInTheDocument();
   });
 
+  it('explains provider rate limiting without exposing raw fallback codes', () => {
+    const rateLimitedAdvice: AiAdvicePayload = {
+      ...advice,
+      fallbackInfo: {
+        code: 'policy_validation_failed',
+        reason: 'provider_error:429',
+        source: 'llm',
+        retriable: true,
+        stage: 'recommendation',
+        diagnostics: {
+          provider: 'openrouter',
+          model: 'openrouter/free',
+          endpointHost: 'openrouter.ai',
+          statusCode: 429,
+          retryAfter: '60',
+          durationMs: 1200,
+          retriable: true,
+        },
+      },
+    };
+    const turns: AiAdvisorTurn[] = [{ id: 'turn-rate-limited', type: 'recommend', advice: rateLimitedAdvice }];
+
+    render(<AiAdvisorPanel turns={turns} onExplain={vi.fn()} />);
+
+    expect(screen.getByText('已切换为规则推荐')).toBeInTheDocument();
+    expect(screen.getByText(/免费模型限流或额度限制/)).toBeInTheDocument();
+    expect(screen.getByText(/稍后重试/)).toBeInTheDocument();
+    expect(screen.queryByText(/provider_error:429/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/policy_validation_failed/)).not.toBeInTheDocument();
+  });
+
   it('renders risk details in a fixed-height scrollable region', () => {
     const turns: AiAdvisorTurn[] = [{ id: 'turn-1', type: 'recommend', advice }];
 

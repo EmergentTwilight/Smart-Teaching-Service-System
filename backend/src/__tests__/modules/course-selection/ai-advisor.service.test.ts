@@ -196,7 +196,18 @@ const resetBaseMocks = () => {
   prismaMock.aiAdvisorSavedRecommendation.count.mockResolvedValue(0)
   prismaMock.aiAdvisorSavedRecommendation.findFirst.mockResolvedValue(null)
   prismaMock.aiAdvisorSavedRecommendation.deleteMany.mockResolvedValue({ count: 0 })
-  llmClientMock.complete.mockResolvedValue({ ok: false, reason: 'missing_api_key' })
+  llmClientMock.complete.mockResolvedValue({
+    ok: false,
+    reason: 'missing_api_key',
+    model: 'openrouter/free',
+    diagnostics: {
+      provider: 'openrouter',
+      model: 'openrouter/free',
+      endpointHost: 'openrouter.ai',
+      durationMs: 0,
+      retriable: false,
+    },
+  })
 }
 
 beforeEach(() => {
@@ -215,7 +226,16 @@ describe('aiAdvisorService.recommend', () => {
 
     expect(result.degradedMode).toBe('rule_only')
     expect(result.llmUsed).toBe(false)
-    expect(result.fallbackInfo?.reason).toBe('LLM 生成失败，返回模板方案')
+    expect(result.fallbackInfo).toMatchObject({
+      reason: 'missing_api_key',
+      source: 'llm',
+      stage: 'recommendation',
+      retriable: false,
+      diagnostics: expect.objectContaining({
+        provider: 'openrouter',
+        retriable: false,
+      }),
+    })
     expect(result.recommendations).toHaveLength(1)
     expect(result.plans?.length).toBeGreaterThan(0)
     expect(result.recommendations[0].scoreBreakdown?.curriculumMatch).toBe(0.3)
@@ -346,8 +366,44 @@ describe('aiAdvisorService.recommend', () => {
 
     expect(result.llmUsed).toBe(false)
     expect(result.degradedMode).toBe('rule_only')
+    expect(result.fallbackInfo?.reason).toBe('llm_validation_failed')
+    expect(result.fallbackInfo?.stage).toBe('recommendation')
     expect(result.fallbackInfo?.missingComponents).toContain('llm_strategy')
     expect(result.recommendations.map((item) => item.courseOfferingId)).toEqual(['offering-1'])
+  })
+
+  it('exposes provider status diagnostics when the LLM provider is rate limited', async () => {
+    llmClientMock.complete.mockResolvedValueOnce({
+      ok: false,
+      reason: 'provider_error:429',
+      model: 'openrouter/free',
+      diagnostics: {
+        provider: 'openrouter',
+        model: 'openrouter/free',
+        endpointHost: 'openrouter.ai',
+        statusCode: 429,
+        providerMessage: 'Rate limit exceeded',
+        retryAfter: '60',
+        durationMs: 1200,
+        retriable: true,
+      },
+    })
+
+    const result = await aiAdvisorService.recommend('student-1', {
+      maxRecommendations: 5,
+    })
+
+    expect(result.degradedMode).toBe('rule_only')
+    expect(result.llmUsed).toBe(false)
+    expect(result.fallbackInfo).toMatchObject({
+      reason: 'provider_error:429',
+      stage: 'recommendation',
+      retriable: true,
+      diagnostics: expect.objectContaining({
+        statusCode: 429,
+        retryAfter: '60',
+      }),
+    })
   })
 })
 
@@ -362,6 +418,12 @@ describe('aiAdvisorService.explain', () => {
     })
     expect(result.degradedMode).toBe('rule_only')
     expect(result.llmUsed).toBe(false)
+    expect(result.fallbackInfo).toMatchObject({
+      reason: 'missing_api_key',
+      source: 'llm',
+      stage: 'explanation',
+      retriable: false,
+    })
     expect(prismaMock.enrollment.create).not.toHaveBeenCalled()
   })
 })

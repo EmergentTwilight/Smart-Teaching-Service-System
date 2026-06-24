@@ -16,7 +16,20 @@ export interface LlmCompletionResult {
     totalTokens?: number
   }
   reason?: string
+  diagnostics?: LlmFailureDiagnostics
   raw?: unknown
+}
+
+export interface LlmFailureDiagnostics {
+  provider: 'openrouter'
+  model?: string | null
+  endpointHost?: string | null
+  statusCode?: number
+  providerCode?: string
+  providerMessage?: string
+  retryAfter?: string | null
+  durationMs: number
+  retriable: boolean
 }
 
 const defaultModel = () =>
@@ -104,23 +117,102 @@ const pickContent = (choice: unknown): string | null => {
   return pickTextContent(message.content)
 }
 
+const endpointHost = (endpoint: string): string | null => {
+  try {
+    return new URL(endpoint).host
+  } catch {
+    return null
+  }
+}
+
+const pickProviderError = (raw: unknown): { code?: string; message?: string } => {
+  if (!raw || typeof raw !== 'object') {
+    return typeof raw === 'string' ? { message: raw.slice(0, 500) } : {}
+  }
+
+  const root = raw as {
+    error?: unknown
+    code?: unknown
+    message?: unknown
+  }
+  const error = root.error
+
+  if (error && typeof error === 'object') {
+    const nested = error as { code?: unknown; message?: unknown }
+    return {
+      code: typeof nested.code === 'string' ? nested.code : undefined,
+      message: typeof nested.message === 'string' ? nested.message.slice(0, 500) : undefined,
+    }
+  }
+
+  return {
+    code: typeof root.code === 'string' ? root.code : undefined,
+    message: typeof root.message === 'string' ? root.message.slice(0, 500) : undefined,
+  }
+}
+
+const isRetriableFailure = (reason: string, statusCode?: number): boolean => {
+  if (reason === 'timeout' || reason === 'network_error') {
+    return true
+  }
+
+  if (statusCode !== undefined) {
+    return statusCode === 408 || statusCode === 409 || statusCode === 425 || statusCode === 429 || statusCode >= 500
+  }
+
+  return reason === 'invalid_provider_response' || reason === 'empty_content'
+}
+
+const buildDiagnostics = (params: {
+  endpoint: string
+  model?: string | null
+  reason: string
+  startedAt: number
+  statusCode?: number
+  raw?: unknown
+  retryAfter?: string | null
+}): LlmFailureDiagnostics => {
+  const providerError = pickProviderError(params.raw)
+  return {
+    provider: 'openrouter',
+    model: params.model ?? null,
+    endpointHost: endpointHost(params.endpoint),
+    statusCode: params.statusCode,
+    providerCode: providerError.code,
+    providerMessage: providerError.message,
+    retryAfter: params.retryAfter ?? null,
+    durationMs: Date.now() - params.startedAt,
+    retriable: isRetriableFailure(params.reason, params.statusCode),
+  }
+}
+
 export const llmClient = {
   async complete(
     messages: string | LlmMessage | LlmMessage[],
     options: LlmCompletionOptions = {}
   ): Promise<LlmCompletionResult> {
     if (!isProviderEnabled()) {
+      const model = defaultModel()
+      const endpoint = apiEndpoint()
+      const startedAt = Date.now()
       return {
         ok: false,
         reason: 'provider_disabled',
+        model,
+        diagnostics: buildDiagnostics({ endpoint, model, reason: 'provider_disabled', startedAt }),
       }
     }
 
     const key = resolveApiKey()
     if (!key) {
+      const model = defaultModel()
+      const endpoint = apiEndpoint()
+      const startedAt = Date.now()
       return {
         ok: false,
         reason: 'missing_api_key',
+        model,
+        diagnostics: buildDiagnostics({ endpoint, model, reason: 'missing_api_key', startedAt }),
       }
     }
 
@@ -129,6 +221,7 @@ export const llmClient = {
     const temperature = options.temperature ?? 0.2
     const model = defaultModel()
     const endpoint = apiEndpoint()
+    const startedAt = Date.now()
 
     const controller = new AbortController()
     const timer = setTimeout(() => {
@@ -158,17 +251,31 @@ export const llmClient = {
 
       const raw = await extractTextContent(response)
       if (!response.ok) {
+        const reason = `provider_error:${response.status}`
         return {
           ok: false,
-          reason: `provider_error:${response.status}`,
+          reason,
+          model,
+          diagnostics: buildDiagnostics({
+            endpoint,
+            model,
+            reason,
+            startedAt,
+            statusCode: response.status,
+            raw,
+            retryAfter: response.headers.get('retry-after'),
+          }),
           raw,
         }
       }
 
       if (typeof raw !== 'object' || raw === null) {
+        const reason = 'invalid_provider_response'
         return {
           ok: false,
-          reason: 'invalid_provider_response',
+          reason,
+          model,
+          diagnostics: buildDiagnostics({ endpoint, model, reason, startedAt, raw }),
           raw,
         }
       }
@@ -186,10 +293,12 @@ export const llmClient = {
       const choice = root.choices?.[0]
       const content = choice ? pickContent(choice) : null
       if (!content) {
+        const reason = 'empty_content'
         return {
           ok: false,
-          reason: 'empty_content',
+          reason,
           model: root.model,
+          diagnostics: buildDiagnostics({ endpoint, model: root.model ?? model, reason, startedAt, raw }),
           raw,
         }
       }
@@ -207,15 +316,21 @@ export const llmClient = {
     } catch (error) {
       clearTimeout(timer)
       if (error instanceof DOMException && error.name === 'AbortError') {
+        const reason = 'timeout'
         return {
           ok: false,
-          reason: 'timeout',
+          reason,
+          model,
+          diagnostics: buildDiagnostics({ endpoint, model, reason, startedAt }),
         }
       }
 
+      const reason = 'network_error'
       return {
         ok: false,
-        reason: 'network_error',
+        reason,
+        model,
+        diagnostics: buildDiagnostics({ endpoint, model, reason, startedAt, raw: error }),
         raw: error,
       }
     }

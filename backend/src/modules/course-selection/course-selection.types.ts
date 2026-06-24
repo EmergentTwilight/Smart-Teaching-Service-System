@@ -707,6 +707,18 @@ export interface AiCapacityRisk {
   riskReason: string
 }
 
+export interface AiProviderDiagnostics {
+  provider: 'openrouter'
+  model?: string | null
+  endpointHost?: string | null
+  statusCode?: number
+  providerCode?: string
+  providerMessage?: string
+  retryAfter?: string | null
+  durationMs?: number
+  retriable?: boolean
+}
+
 export interface AiFallbackInfo {
   code: string
   reason: string
@@ -716,6 +728,8 @@ export interface AiFallbackInfo {
   missingComponents?: string[]
   llmUsed?: boolean
   model?: string | null
+  stage?: 'preference' | 'recommendation' | 'explanation' | 'rule'
+  diagnostics?: AiProviderDiagnostics
 }
 
 export interface AiAdvicePayload {

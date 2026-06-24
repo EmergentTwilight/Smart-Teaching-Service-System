@@ -227,6 +227,35 @@ describe('AiAdvisorPanel', () => {
     expect(screen.queryByText(/policy_validation_failed/)).not.toBeInTheDocument();
   });
 
+  it('explains non-retriable configuration failures as maintainer action', () => {
+    const missingKeyAdvice: AiAdvicePayload = {
+      ...advice,
+      fallbackInfo: {
+        code: 'policy_validation_failed',
+        reason: 'missing_api_key',
+        source: 'llm',
+        retriable: false,
+        stage: 'recommendation',
+        diagnostics: {
+          provider: 'openrouter',
+          model: 'openrouter/free',
+          endpointHost: 'openrouter.ai',
+          durationMs: 0,
+          retriable: false,
+        },
+      },
+    };
+    const turns: AiAdvisorTurn[] = [{ id: 'turn-missing-key', type: 'recommend', advice: missingKeyAdvice }];
+
+    render(<AiAdvisorPanel turns={turns} onExplain={vi.fn()} />);
+
+    expect(screen.getByText('已切换为规则推荐')).toBeInTheDocument();
+    expect(screen.getByText(/尚未配置可用 API Key/)).toBeInTheDocument();
+    expect(screen.getByText(/需要维护人员检查配置或模型权限/)).toBeInTheDocument();
+    expect(screen.queryByText(/短时间重试通常不会改变结果/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/missing_api_key/)).not.toBeInTheDocument();
+  });
+
   it('renders risk details in a fixed-height scrollable region', () => {
     const turns: AiAdvisorTurn[] = [{ id: 'turn-1', type: 'recommend', advice }];
 

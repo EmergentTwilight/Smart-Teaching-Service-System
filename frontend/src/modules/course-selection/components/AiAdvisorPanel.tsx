@@ -153,11 +153,15 @@ const formatFallbackNotice = (fallbackInfo?: AiFallbackInfo, degradedMode?: stri
     reasonText = '智能生成结果没有通过系统校验。';
   }
 
-  const nextStep =
-    fallbackInfo.retriable === false
+  const isConfigurationIssue =
+    statusCode === 401 ||
+    statusCode === 403 ||
+    lowerReason.includes('missing_api_key') ||
+    lowerReason.includes('provider_disabled');
+  const nextStep = isConfigurationIssue
+    ? '这通常需要维护人员检查配置或模型权限，单纯刷新页面通常不能恢复；普通选课不受影响。'
+    : fallbackInfo.retriable === false
       ? '这通常由当前课程数据或硬性规则决定，短时间重试通常不会改变结果；可以直接按规则推荐继续查看或手动选课。'
-      : statusCode === 401 || statusCode === 403 || lowerReason.includes('missing_api_key') || lowerReason.includes('provider_disabled')
-        ? '这通常需要维护人员检查配置或模型权限，单纯刷新页面通常不能恢复；普通选课不受影响。'
       : '当前已按系统规则给出可用建议，普通选课不受影响；如果想要更完整的智能解释，可以稍后重试。';
 
   return {

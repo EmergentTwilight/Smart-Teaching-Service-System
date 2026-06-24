@@ -41,6 +41,38 @@ describe('llmClient diagnostics', () => {
     })
   })
 
+  it('returns a timeout result when the provider response body does not settle', async () => {
+    vi.useFakeTimers()
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        headers: new Headers(),
+        text: () => new Promise(() => undefined),
+      })
+    )
+
+    const resultPromise = llmClient.complete('Reply with exactly: OK', {
+      maxTokens: 64,
+      temperature: 0,
+      timeoutMs: 25,
+    })
+
+    await vi.advanceTimersByTimeAsync(25)
+    const result = await resultPromise
+
+    expect(result.ok).toBe(false)
+    expect(result.reason).toBe('timeout')
+    expect(result.model).toBe('nvidia/nemotron-3-ultra-550b-a55b:free')
+    expect(result.diagnostics).toMatchObject({
+      provider: 'openrouter',
+      model: 'nvidia/nemotron-3-ultra-550b-a55b:free',
+      endpointHost: 'openrouter.ai',
+      retriable: true,
+    })
+  })
+
   it('captures finish reason and reasoning token diagnostics for empty provider content', async () => {
     vi.stubGlobal(
       'fetch',

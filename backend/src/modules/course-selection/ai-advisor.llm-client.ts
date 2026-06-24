@@ -313,9 +313,6 @@ export const llmClient = {
           stream: false,
         }),
       })
-      if (timer) {
-        clearTimeout(timer)
-      }
 
       const raw = await extractTextContent(response)
       if (!response.ok) {
@@ -382,9 +379,6 @@ export const llmClient = {
         },
       }
     } catch (error) {
-      if (timer) {
-        clearTimeout(timer)
-      }
       if (didTimeout || (error instanceof DOMException && error.name === 'AbortError')) {
         return buildTimeoutResult({ endpoint, model, startedAt })
       }
@@ -408,6 +402,12 @@ export const llmClient = {
       }, timeoutMs)
     })
 
-    return Promise.race([request, deadline])
+    try {
+      return await Promise.race([request, deadline])
+    } finally {
+      if (timer) {
+        clearTimeout(timer)
+      }
+    }
   },
 }

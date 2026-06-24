@@ -5,7 +5,7 @@
  * Run inside Docker:
  * pnpm --filter @stss/server exec tsx prisma/seed-c-load.ts
  */
-import { Gender, PrismaClient, UserStatus } from '@prisma/client'
+import { CourseStatus, CourseType, Gender, OfferingStatus, PrismaClient, UserStatus } from '@prisma/client'
 import IORedis from 'ioredis'
 
 const prisma = new PrismaClient()
@@ -13,6 +13,10 @@ const prisma = new PrismaClient()
 const STUDENT_HASH = '$2b$10$VmS5HSLRcNOoEtR3jZ.EwOMCJJ4R/V81UIqQJU3D06tGFjx1n4aiq'
 const DEFAULT_USER_COUNT = 200
 const DEFAULT_USER_PREFIX = 'cload'
+const LOAD_COURSE_50_ID = 'cload-course-capacity-050'
+const LOAD_COURSE_200_ID = 'cload-course-capacity-200'
+const LOAD_OFFERING_50_ID = 'cload-offering-capacity-050'
+const LOAD_OFFERING_200_ID = 'cload-offering-capacity-200'
 
 const readPositiveIntegerEnv = (name: string, fallback: number): number => {
   const raw = process.env[name]
@@ -78,8 +82,133 @@ async function findCourseSelectionContext() {
   }
 }
 
+async function ensureLoadTestOfferings(context: Awaited<ReturnType<typeof findCourseSelectionContext>>) {
+  const teacher = await prisma.teacher.findFirst({
+    orderBy: { userId: 'asc' },
+  })
+
+  if (!teacher) {
+    throw new Error('No teacher found. Run the base seed before load-test seed.')
+  }
+
+  const department = await prisma.major.findUnique({
+    where: { id: context.majorId },
+    select: { departmentId: true },
+  })
+
+  await prisma.course.upsert({
+    where: { id: LOAD_COURSE_50_ID },
+    update: {
+      code: 'CLOAD-CAP50',
+      name: 'C Load Test Capacity 50',
+      credits: 1,
+      courseType: CourseType.ELECTIVE,
+      departmentId: department?.departmentId,
+      status: CourseStatus.ACTIVE,
+    },
+    create: {
+      id: LOAD_COURSE_50_ID,
+      code: 'CLOAD-CAP50',
+      name: 'C Load Test Capacity 50',
+      credits: 1,
+      courseType: CourseType.ELECTIVE,
+      departmentId: department?.departmentId,
+      status: CourseStatus.ACTIVE,
+    },
+  })
+
+  await prisma.course.upsert({
+    where: { id: LOAD_COURSE_200_ID },
+    update: {
+      code: 'CLOAD-CAP200',
+      name: 'C Load Test Capacity 200',
+      credits: 1,
+      courseType: CourseType.ELECTIVE,
+      departmentId: department?.departmentId,
+      status: CourseStatus.ACTIVE,
+    },
+    create: {
+      id: LOAD_COURSE_200_ID,
+      code: 'CLOAD-CAP200',
+      name: 'C Load Test Capacity 200',
+      credits: 1,
+      courseType: CourseType.ELECTIVE,
+      departmentId: department?.departmentId,
+      status: CourseStatus.ACTIVE,
+    },
+  })
+
+  for (const courseId of [LOAD_COURSE_50_ID, LOAD_COURSE_200_ID]) {
+    await prisma.curriculumCourse.upsert({
+      where: {
+        curriculumId_courseId: {
+          curriculumId: context.curriculumId,
+          courseId,
+        },
+      },
+      update: { courseType: CourseType.ELECTIVE },
+      create: {
+        curriculumId: context.curriculumId,
+        courseId,
+        courseType: CourseType.ELECTIVE,
+      },
+    })
+  }
+
+  await prisma.enrollment.deleteMany({
+    where: {
+      courseOfferingId: {
+        in: [LOAD_OFFERING_50_ID, LOAD_OFFERING_200_ID],
+      },
+    },
+  })
+
+  await prisma.courseOffering.upsert({
+    where: { id: LOAD_OFFERING_50_ID },
+    update: {
+      courseId: LOAD_COURSE_50_ID,
+      semesterId: context.semesterId,
+      teacherId: teacher.userId,
+      capacity: 50,
+      enrolledCount: 0,
+      status: OfferingStatus.OPEN,
+    },
+    create: {
+      id: LOAD_OFFERING_50_ID,
+      courseId: LOAD_COURSE_50_ID,
+      semesterId: context.semesterId,
+      teacherId: teacher.userId,
+      capacity: 50,
+      enrolledCount: 0,
+      status: OfferingStatus.OPEN,
+    },
+  })
+
+  await prisma.courseOffering.upsert({
+    where: { id: LOAD_OFFERING_200_ID },
+    update: {
+      courseId: LOAD_COURSE_200_ID,
+      semesterId: context.semesterId,
+      teacherId: teacher.userId,
+      capacity: 200,
+      enrolledCount: 0,
+      status: OfferingStatus.OPEN,
+    },
+    create: {
+      id: LOAD_OFFERING_200_ID,
+      courseId: LOAD_COURSE_200_ID,
+      semesterId: context.semesterId,
+      teacherId: teacher.userId,
+      capacity: 200,
+      enrolledCount: 0,
+      status: OfferingStatus.OPEN,
+    },
+  })
+}
+
 async function main() {
   const context = await findCourseSelectionContext()
+  await ensureLoadTestOfferings(context)
   const studentRole = await prisma.role.upsert({
     where: { code: 'student' },
     update: {},
@@ -170,6 +299,8 @@ async function main() {
   console.log(`  users: ${loadUsername(1)}..${loadUsername(userCount)} / student123`)
   console.log(`  semester_id: ${context.semesterId}`)
   console.log(`  curriculum_id: ${context.curriculumId}`)
+  console.log(`  capacity_50_offering_id: ${LOAD_OFFERING_50_ID}`)
+  console.log(`  capacity_200_offering_id: ${LOAD_OFFERING_200_ID}`)
 }
 
 main()

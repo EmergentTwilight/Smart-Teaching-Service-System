@@ -162,9 +162,11 @@ vi.mock('antd', async () => {
           )
         )
       ),
+    Space: ({ children }: { children?: ReactNode }) => React.createElement('div', null, children),
     Tag: ({ children }: { children?: ReactNode }) => React.createElement('span', null, children),
     Typography: {
       Text: ({ children }: { children?: ReactNode }) => React.createElement('span', null, children),
+      Title: ({ children }: { children?: ReactNode }) => React.createElement('h5', null, children),
     },
   };
 });
@@ -260,6 +262,9 @@ describe('AdminManualEnrollmentPage', () => {
 
     fireEvent.click(await screen.findByText('CMAN202601 · C Manual Student 01（cstudent01）'));
     fireEvent.click(await screen.findByText('CMAN-CS302 Operating Systems · 2026 Spring · 剩余 40'));
+    expect(screen.getByText('已选择学生')).toBeInTheDocument();
+    expect(screen.getByText('已选择课程')).toBeInTheDocument();
+    expect(screen.getByText('Computer Science / 2026级 / CS-1')).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText('加课原因'), {
       target: { value: '人工验收补加课程' },
     });

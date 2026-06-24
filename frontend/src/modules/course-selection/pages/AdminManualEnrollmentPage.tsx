@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, type ReactNode, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Alert, Button, Card, Descriptions, Form, Input, Select, Tag, Typography } from 'antd';
+import { Alert, Button, Card, Descriptions, Form, Input, Select, Space, Tag, Typography } from 'antd';
+import { BookOutlined, UserOutlined } from '@ant-design/icons';
 import { periodsApi } from '../api/periods';
 import { useUpsertSelectionPeriod } from '../hooks/useSelectionPeriod';
 import type {
@@ -11,7 +12,7 @@ import type {
 import { extractErrorMessage } from '@/shared/utils/error';
 
 const { TextArea } = Input;
-const { Text } = Typography;
+const { Text, Title } = Typography;
 
 const LOOKUP_PAGE_SIZE = 10;
 
@@ -27,6 +28,23 @@ type SubmitFeedback =
       message: string;
     }
   | null;
+
+interface LastSubmissionSummary {
+  student: ManualEnrollmentStudentOption;
+  offering: ManualEnrollmentCourseOfferingOption;
+}
+
+interface StudentSelectOption {
+  value: string;
+  label: string;
+  student: ManualEnrollmentStudentOption;
+}
+
+interface OfferingSelectOption {
+  value: string;
+  label: string;
+  offering: ManualEnrollmentCourseOfferingOption;
+}
 
 const useDebouncedValue = (value: string, delayMs: number) => {
   const [debouncedValue, setDebouncedValue] = useState(value);
@@ -48,6 +66,19 @@ const formatStudentLabel = (student: ManualEnrollmentStudentOption) =>
 const formatOfferingLabel = (offering: ManualEnrollmentCourseOfferingOption) =>
   `${offering.courseCode} ${offering.courseName} · ${offering.semester.name} · 剩余 ${offering.remainingCapacity}`;
 
+const formatStudentMeta = (student: ManualEnrollmentStudentOption) =>
+  [student.majorName, `${student.grade}级`, student.className].filter(Boolean).join(' / ');
+
+const formatOfferingMeta = (offering: ManualEnrollmentCourseOfferingOption) =>
+  [
+    `${offering.credits} 学分`,
+    offering.teacher.realName,
+    offering.teacher.teacherNumber,
+    `容量 ${offering.enrolledCount}/${offering.capacity}`,
+  ]
+    .filter(Boolean)
+    .join(' / ');
+
 const mergeSelectedOption = <T, K extends keyof T>(
   items: T[],
   selected: T | null,
@@ -60,6 +91,51 @@ const mergeSelectedOption = <T, K extends keyof T>(
   return [selected, ...items];
 };
 
+const SelectionSummary = ({
+  icon,
+  title,
+  children,
+}: {
+  icon: ReactNode;
+  title: string;
+  children: ReactNode;
+}) => (
+  <div
+    style={{
+      border: '1px solid #d9e5ff',
+      borderRadius: 8,
+      background: '#f7fbff',
+      padding: 12,
+      marginTop: 8,
+    }}
+  >
+    <Space align="start">
+      <span style={{ color: '#1677ff', marginTop: 2 }}>{icon}</span>
+      <div>
+        <Text strong>{title}</Text>
+        <div>{children}</div>
+      </div>
+    </Space>
+  </div>
+);
+
+const renderStudentOption = (student: ManualEnrollmentStudentOption) => (
+  <Space direction="vertical" size={2}>
+    <Text strong>{formatStudentLabel(student)}</Text>
+    <Text type="secondary">{formatStudentMeta(student) || '暂无专业/班级信息'}</Text>
+  </Space>
+);
+
+const renderOfferingOption = (offering: ManualEnrollmentCourseOfferingOption) => (
+  <Space direction="vertical" size={2}>
+    <Text strong>{formatOfferingLabel(offering)}</Text>
+    <Text type="secondary">{formatOfferingMeta(offering)}</Text>
+    <Text type="secondary">
+      {offering.scheduleSummary.length > 0 ? offering.scheduleSummary.join('；') : '暂无排课'}
+    </Text>
+  </Space>
+);
+
 /**
  * TODO(C5, FR-C-33, FR-C-34, NFR-C-04, NFR-C-12):
  * - 页面仅提供教务手动加课入口；后端必须仍走统一事务链路，默认执行容量/重复/冲突/学分/阶段/先修检查；
@@ -70,6 +146,7 @@ const AdminManualEnrollmentPage: React.FC = () => {
   const { manualEnroll } = useUpsertSelectionPeriod();
   const [submitFeedback, setSubmitFeedback] = useState<SubmitFeedback>(null);
   const [lastResult, setLastResult] = useState<ManualEnrollmentResult | null>(null);
+  const [lastSubmissionSummary, setLastSubmissionSummary] = useState<LastSubmissionSummary | null>(null);
   const [studentKeyword, setStudentKeyword] = useState('');
   const [offeringKeyword, setOfferingKeyword] = useState('');
   const [selectedStudent, setSelectedStudent] = useState<ManualEnrollmentStudentOption | null>(null);
@@ -108,13 +185,15 @@ const AdminManualEnrollmentPage: React.FC = () => {
     selectedOffering,
     'courseOfferingId'
   );
-  const studentOptions = studentItems.map((student) => ({
+  const studentOptions: StudentSelectOption[] = studentItems.map((student) => ({
     value: student.studentId,
     label: formatStudentLabel(student),
+    student,
   }));
-  const offeringOptions = offeringItems.map((offering) => ({
+  const offeringOptions: OfferingSelectOption[] = offeringItems.map((offering) => ({
     value: offering.courseOfferingId,
     label: formatOfferingLabel(offering),
+    offering,
   }));
 
   const handleSubmitError = (error: unknown) => {
@@ -133,6 +212,11 @@ const AdminManualEnrollmentPage: React.FC = () => {
 
     setSubmitFeedback(null);
     setLastResult(null);
+    setLastSubmissionSummary(null);
+
+    const student = selectedStudent ?? studentItems.find((item) => item.studentId === values.studentId) ?? null;
+    const offering =
+      selectedOffering ?? offeringItems.find((item) => item.courseOfferingId === values.courseOfferingId) ?? null;
 
     manualEnroll.mutate(
       {
@@ -143,6 +227,7 @@ const AdminManualEnrollmentPage: React.FC = () => {
       {
         onSuccess: (result) => {
           setLastResult(result);
+          setLastSubmissionSummary(student && offering ? { student, offering } : null);
           setSubmitFeedback({
             type: 'success',
             message: '手动加课成功。',
@@ -195,6 +280,7 @@ const AdminManualEnrollmentPage: React.FC = () => {
               options={studentOptions}
               loading={studentsQuery.isFetching}
               notFoundContent={debouncedStudentKeyword ? '暂无匹配学生' : '请输入关键词搜索学生'}
+              optionRender={(option) => renderStudentOption((option.data as StudentSelectOption).student)}
               onSearch={setStudentKeyword}
               onClear={() => setSelectedStudent(null)}
               onChange={(value) => {
@@ -204,6 +290,14 @@ const AdminManualEnrollmentPage: React.FC = () => {
               disabled={submitButtonDisabled}
             />
           </Form.Item>
+          {selectedStudent ? (
+            <SelectionSummary icon={<UserOutlined />} title="已选择学生">
+              <Space direction="vertical" size={2}>
+                <Text>{formatStudentLabel(selectedStudent)}</Text>
+                <Text type="secondary">{formatStudentMeta(selectedStudent) || '暂无专业/班级信息'}</Text>
+              </Space>
+            </SelectionSummary>
+          ) : null}
 
           <Form.Item
             name="courseOfferingId"
@@ -218,6 +312,7 @@ const AdminManualEnrollmentPage: React.FC = () => {
               options={offeringOptions}
               loading={offeringsQuery.isFetching}
               notFoundContent={debouncedOfferingKeyword ? '暂无匹配课程开设' : '请输入关键词搜索课程'}
+              optionRender={(option) => renderOfferingOption((option.data as OfferingSelectOption).offering)}
               onSearch={setOfferingKeyword}
               onClear={() => setSelectedOffering(null)}
               onChange={(value) => {
@@ -227,6 +322,17 @@ const AdminManualEnrollmentPage: React.FC = () => {
               disabled={submitButtonDisabled}
             />
           </Form.Item>
+          {selectedOffering ? (
+            <SelectionSummary icon={<BookOutlined />} title="已选择课程">
+              <Space direction="vertical" size={2}>
+                <Text>{formatOfferingLabel(selectedOffering)}</Text>
+                <Text type="secondary">{formatOfferingMeta(selectedOffering)}</Text>
+                <Text type="secondary">
+                  {selectedOffering.scheduleSummary.length > 0 ? selectedOffering.scheduleSummary.join('；') : '暂无排课'}
+                </Text>
+              </Space>
+            </SelectionSummary>
+          ) : null}
 
           <Form.Item
             name="reason"
@@ -248,6 +354,22 @@ const AdminManualEnrollmentPage: React.FC = () => {
 
         {lastResult ? (
           <Card title="最近一次处理结果" size="small" style={{ marginTop: 16 }}>
+            {lastSubmissionSummary ? (
+              <div style={{ marginBottom: 12 }}>
+                <Title level={5} style={{ marginTop: 0, marginBottom: 8 }}>
+                  已加课程
+                </Title>
+                <Space direction="vertical" size={2}>
+                  <Text>{formatStudentLabel(lastSubmissionSummary.student)}</Text>
+                  <Text>
+                    {lastSubmissionSummary.offering.courseCode} {lastSubmissionSummary.offering.courseName}
+                  </Text>
+                  <Text type="secondary">
+                    {lastSubmissionSummary.offering.semester.name} / {formatOfferingMeta(lastSubmissionSummary.offering)}
+                  </Text>
+                </Space>
+              </div>
+            ) : null}
             <Descriptions size="small" column={1} colon={false}>
               <Descriptions.Item label="Enrollment ID">{lastResult.enrollment.id}</Descriptions.Item>
               <Descriptions.Item label="学生 ID">{lastResult.enrollment.studentId}</Descriptions.Item>

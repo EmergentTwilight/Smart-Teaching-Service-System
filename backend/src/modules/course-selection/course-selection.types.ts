@@ -172,6 +172,42 @@ export interface ManualEnrollmentBody {
   notifyStudent?: boolean
 }
 
+export interface ManualEnrollmentLookupQuery extends BaseQuery {
+  keyword?: string
+  semesterId?: string
+}
+
+export interface ManualEnrollmentStudentOption {
+  studentId: string
+  studentNumber: string
+  username: string
+  realName: string
+  majorName?: string | null
+  grade: number
+  className?: string | null
+}
+
+export interface ManualEnrollmentCourseOfferingOption {
+  courseOfferingId: string
+  courseCode: string
+  courseName: string
+  credits: number
+  semester: {
+    id: string
+    name: string
+  }
+  teacher: {
+    id: string
+    realName: string
+    teacherNumber?: string | null
+  }
+  capacity: number
+  enrolledCount: number
+  remainingCapacity: number
+  status: OfferingStatusValue
+  scheduleSummary: string[]
+}
+
 export interface ManualEnrollmentResult {
   enrollment: {
     id: string

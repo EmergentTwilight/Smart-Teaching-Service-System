@@ -5,6 +5,9 @@ import type {
   CreateSelectionPeriodPayload,
   UpdateSelectionPeriodPayload,
   ManualEnrollmentPayload,
+  ManualEnrollmentLookupQuery,
+  ManualEnrollmentStudentOption,
+  ManualEnrollmentCourseOfferingOption,
   ManualEnrollmentResult,
 } from '../types/period';
 import type { PaginatedResponse } from '../types/common';
@@ -18,6 +21,16 @@ export const periodsApi = {
     courseSelectionRequest.post<SelectionPeriodItem>('/course-selection/admin/periods', payload),
   updatePeriod: (periodId: string, payload: UpdateSelectionPeriodPayload) =>
     courseSelectionRequest.patch<SelectionPeriodItem>(`/course-selection/admin/periods/${periodId}`, payload),
+  listManualEnrollmentStudents: (params?: ManualEnrollmentLookupQuery) =>
+    courseSelectionRequest.get<PaginatedResponse<ManualEnrollmentStudentOption>>(
+      '/course-selection/admin/manual-enrollment/students',
+      { params }
+    ),
+  listManualEnrollmentCourseOfferings: (params?: ManualEnrollmentLookupQuery) =>
+    courseSelectionRequest.get<PaginatedResponse<ManualEnrollmentCourseOfferingOption>>(
+      '/course-selection/admin/manual-enrollment/course-offerings',
+      { params }
+    ),
   manualEnroll: (payload: ManualEnrollmentPayload) =>
     courseSelectionRequest.post<ManualEnrollmentResult>(
       '/course-selection/admin/enrollments',

@@ -1,11 +1,19 @@
-import { useState } from 'react';
-import { Alert, Button, Card, Descriptions, Form, Input, Tag, Typography } from 'antd';
+import { useEffect, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { Alert, Button, Card, Descriptions, Form, Input, Select, Tag, Typography } from 'antd';
+import { periodsApi } from '../api/periods';
 import { useUpsertSelectionPeriod } from '../hooks/useSelectionPeriod';
-import type { ManualEnrollmentResult } from '../types/period';
+import type {
+  ManualEnrollmentCourseOfferingOption,
+  ManualEnrollmentResult,
+  ManualEnrollmentStudentOption,
+} from '../types/period';
 import { extractErrorMessage } from '@/shared/utils/error';
 
 const { TextArea } = Input;
 const { Text } = Typography;
+
+const LOOKUP_PAGE_SIZE = 10;
 
 interface ManualEnrollmentFormValues {
   studentId: string;
@@ -20,6 +28,38 @@ type SubmitFeedback =
     }
   | null;
 
+const useDebouncedValue = (value: string, delayMs: number) => {
+  const [debouncedValue, setDebouncedValue] = useState(value);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setDebouncedValue(value);
+    }, delayMs);
+
+    return () => window.clearTimeout(timer);
+  }, [delayMs, value]);
+
+  return debouncedValue;
+};
+
+const formatStudentLabel = (student: ManualEnrollmentStudentOption) =>
+  `${student.studentNumber} · ${student.realName}（${student.username}）`;
+
+const formatOfferingLabel = (offering: ManualEnrollmentCourseOfferingOption) =>
+  `${offering.courseCode} ${offering.courseName} · ${offering.semester.name} · 剩余 ${offering.remainingCapacity}`;
+
+const mergeSelectedOption = <T, K extends keyof T>(
+  items: T[],
+  selected: T | null,
+  idKey: K
+): T[] => {
+  if (!selected || items.some((item) => item[idKey] === selected[idKey])) {
+    return items;
+  }
+
+  return [selected, ...items];
+};
+
 /**
  * TODO(C5, FR-C-33, FR-C-34, NFR-C-04, NFR-C-12):
  * - 页面仅提供教务手动加课入口；后端必须仍走统一事务链路，默认执行容量/重复/冲突/学分/阶段/先修检查；
@@ -30,8 +70,52 @@ const AdminManualEnrollmentPage: React.FC = () => {
   const { manualEnroll } = useUpsertSelectionPeriod();
   const [submitFeedback, setSubmitFeedback] = useState<SubmitFeedback>(null);
   const [lastResult, setLastResult] = useState<ManualEnrollmentResult | null>(null);
+  const [studentKeyword, setStudentKeyword] = useState('');
+  const [offeringKeyword, setOfferingKeyword] = useState('');
+  const [selectedStudent, setSelectedStudent] = useState<ManualEnrollmentStudentOption | null>(null);
+  const [selectedOffering, setSelectedOffering] = useState<ManualEnrollmentCourseOfferingOption | null>(null);
+  const debouncedStudentKeyword = useDebouncedValue(studentKeyword.trim(), 300);
+  const debouncedOfferingKeyword = useDebouncedValue(offeringKeyword.trim(), 300);
 
   const submitButtonDisabled = manualEnroll.isPending;
+  const studentsQuery = useQuery({
+    queryKey: ['course-selection', 'manual-enrollment', 'students', debouncedStudentKeyword],
+    queryFn: () =>
+      periodsApi.listManualEnrollmentStudents({
+        keyword: debouncedStudentKeyword,
+        pageSize: LOOKUP_PAGE_SIZE,
+      }),
+    enabled: debouncedStudentKeyword.length > 0,
+    staleTime: 30 * 1000,
+  });
+  const offeringsQuery = useQuery({
+    queryKey: ['course-selection', 'manual-enrollment', 'course-offerings', debouncedOfferingKeyword],
+    queryFn: () =>
+      periodsApi.listManualEnrollmentCourseOfferings({
+        keyword: debouncedOfferingKeyword,
+        pageSize: LOOKUP_PAGE_SIZE,
+      }),
+    enabled: debouncedOfferingKeyword.length > 0,
+    staleTime: 30 * 1000,
+  });
+  const studentItems = mergeSelectedOption(
+    studentsQuery.data?.items || [],
+    selectedStudent,
+    'studentId'
+  );
+  const offeringItems = mergeSelectedOption(
+    offeringsQuery.data?.items || [],
+    selectedOffering,
+    'courseOfferingId'
+  );
+  const studentOptions = studentItems.map((student) => ({
+    value: student.studentId,
+    label: formatStudentLabel(student),
+  }));
+  const offeringOptions = offeringItems.map((offering) => ({
+    value: offering.courseOfferingId,
+    label: formatOfferingLabel(offering),
+  }));
 
   const handleSubmitError = (error: unknown) => {
     setLastResult(null);
@@ -64,6 +148,10 @@ const AdminManualEnrollmentPage: React.FC = () => {
             message: '手动加课成功。',
           });
           form.resetFields();
+          setSelectedStudent(null);
+          setSelectedOffering(null);
+          setStudentKeyword('');
+          setOfferingKeyword('');
         },
         onError: (error) => {
           handleSubmitError(error);
@@ -96,18 +184,48 @@ const AdminManualEnrollmentPage: React.FC = () => {
         >
           <Form.Item
             name="studentId"
-            label="学生ID"
-            rules={[{ required: true, message: '请填写学生ID' }]}
+            label="学生"
+            rules={[{ required: true, message: '请选择学生' }]}
           >
-            <Input placeholder="学生 userId / 学号对应的主键UUID" />
+            <Select
+              showSearch
+              allowClear
+              filterOption={false}
+              placeholder="输入学生姓名、学号或用户名搜索"
+              options={studentOptions}
+              loading={studentsQuery.isFetching}
+              notFoundContent={debouncedStudentKeyword ? '暂无匹配学生' : '请输入关键词搜索学生'}
+              onSearch={setStudentKeyword}
+              onClear={() => setSelectedStudent(null)}
+              onChange={(value) => {
+                const student = studentItems.find((item) => item.studentId === value) || null;
+                setSelectedStudent(student);
+              }}
+              disabled={submitButtonDisabled}
+            />
           </Form.Item>
 
           <Form.Item
             name="courseOfferingId"
-            label="课程开设ID"
-            rules={[{ required: true, message: '请填写课程开设ID' }]}
+            label="课程开设"
+            rules={[{ required: true, message: '请选择课程开设' }]}
           >
-            <Input placeholder="目标课程开设 UUID" />
+            <Select
+              showSearch
+              allowClear
+              filterOption={false}
+              placeholder="输入课程名称、课程代码或教师姓名搜索"
+              options={offeringOptions}
+              loading={offeringsQuery.isFetching}
+              notFoundContent={debouncedOfferingKeyword ? '暂无匹配课程开设' : '请输入关键词搜索课程'}
+              onSearch={setOfferingKeyword}
+              onClear={() => setSelectedOffering(null)}
+              onChange={(value) => {
+                const offering = offeringItems.find((item) => item.courseOfferingId === value) || null;
+                setSelectedOffering(offering);
+              }}
+              disabled={submitButtonDisabled}
+            />
           </Form.Item>
 
           <Form.Item

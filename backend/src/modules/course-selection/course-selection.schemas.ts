@@ -3,6 +3,7 @@ import { z } from 'zod'
 const pageSchema = z.coerce.number().int().min(1).default(1)
 const pageSizeSchema = z.coerce.number().int().min(1).max(100).default(20)
 const rosterPageSizeSchema = z.coerce.number().int().min(1).max(100).default(50)
+const manualEnrollmentLookupPageSizeSchema = z.coerce.number().int().min(1).max(20).default(10)
 const booleanSchema = z.preprocess((v) => {
   if (typeof v === 'boolean') return v
   if (v === 'true' || v === '1') return true
@@ -412,6 +413,24 @@ export type SelectionPeriodQuery = z.infer<typeof selectionPeriodQuerySchema>
 export type CreateSelectionPeriodBody = z.infer<typeof createSelectionPeriodBodySchema>
 export type UpdateSelectionPeriodBody = z.infer<typeof updateSelectionPeriodBodySchema>
 export type SelectionPeriodParams = z.infer<typeof selectionPeriodParamsSchema>
+
+export const manualEnrollmentLookupQuerySchema = z
+  .object({
+    keyword: z.string().trim().max(128).optional(),
+    semesterId: databaseIdSchema.optional(),
+    semester_id: databaseIdSchema.optional(),
+    page: pageSchema.optional(),
+    pageSize: manualEnrollmentLookupPageSizeSchema.optional(),
+    page_size: manualEnrollmentLookupPageSizeSchema.optional(),
+  })
+  .transform(({ semesterId, semester_id, page, pageSize, page_size, ...rest }) => ({
+    ...rest,
+    page: page ?? 1,
+    pageSize: pageSize ?? page_size ?? 10,
+    semesterId: semesterId ?? semester_id,
+  }))
+
+export type ManualEnrollmentLookupQuery = z.infer<typeof manualEnrollmentLookupQuerySchema>
 
 // TODO(C5, FR-C-33, FR-C-34, NFR-C-04): 手动加课输入需包括理由并默认执行完整校验
 const manualEnrollmentBodyInputSchema = z.object({

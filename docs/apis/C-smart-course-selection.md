@@ -158,6 +158,8 @@ link: https://tcncx9czflpz.feishu.cn/wiki/BgpmwKkYqifNkjk1Psdc0gitn2b
 | 查询选课时间段 | GET | `/admin/periods` | `FR-C-30` 至 `FR-C-32` |
 | 创建选课时间段 | POST | `/admin/periods` | `FR-C-30`、`FR-C-31`、`FR-C-37` |
 | 修改选课时间段 | PATCH | `/admin/periods/:id` | `FR-C-30` 至 `FR-C-32`、`FR-C-37` |
+| 搜索手动加课学生候选 | GET | `/admin/manual-enrollment/students` | `FR-C-33`、`NFR-C-13` |
+| 搜索手动加课课程候选 | GET | `/admin/manual-enrollment/course-offerings` | `FR-C-33`、`NFR-C-13` |
 | 教务手动加课 | POST | `/admin/enrollments` | `FR-C-33`、`FR-C-34`、`FR-C-37` |
 
 > 路由注册时应将 `/offerings/available` 放在 `/offerings/:id` 之前，避免静态路由被动态参数吞掉。
@@ -1694,6 +1696,64 @@ curl -X PATCH "https://stss.example.com/api/v1/course-selection/admin/periods/5f
 - TODO-C-20（`FR-C-32`、`FR-C-37`）：后续需定义“正在开放阶段被停用”时前端提示和在途请求处理策略。
 
 ### 5.4 教务手动加课
+
+#### 5.4.1 搜索学生候选
+
+```plaintext
+GET /api/v1/course-selection/admin/manual-enrollment/students
+Authorization: Bearer <access_token>
+```
+
+仅 `academic_admin` 可访问。用于教务手动加课前按学生姓名、学号、用户名、专业或班级搜索候选，便于页面选择真实 `Student.user_id`。该接口只做只读候选查询，不创建选课记录。
+
+| query | 类型 | 必填 | 说明 |
+| ---- | ---- | ---- | ---- |
+| `keyword` | string | 否 | 学号、姓名、用户名、专业或班级关键词 |
+| `page` | number | 否 | 默认 `1` |
+| `page_size` | number | 否 | 默认 `10`，最大 `20` |
+
+响应 `items[]` 字段：
+
+| 字段 | 类型 | 说明 |
+| ---- | ---- | ---- |
+| `student_id` | string | `Student.user_id`，正式手动加课提交使用该值 |
+| `student_number` | string | 学号 |
+| `username` | string | 登录用户名 |
+| `real_name` | string | 学生姓名 |
+| `major_name` | string/null | 专业名称 |
+| `grade` | number | 年级 |
+| `class_name` | string/null | 班级 |
+
+#### 5.4.2 搜索课程开设候选
+
+```plaintext
+GET /api/v1/course-selection/admin/manual-enrollment/course-offerings
+Authorization: Bearer <access_token>
+```
+
+仅 `academic_admin` 可访问。用于教务手动加课前按课程代码、课程名称或教师信息搜索候选，便于页面选择真实 `CourseOffering.id`。候选接口默认只返回课程主数据启用、开课状态为 `open/planned` 且容量未满的开课；正式加课仍必须调用 `POST /admin/enrollments` 并重新执行后端事务校验。
+
+| query | 类型 | 必填 | 说明 |
+| ---- | ---- | ---- | ---- |
+| `keyword` | string | 否 | 课程代码、课程名称、教师姓名或教师工号 |
+| `semester_id` | string | 否 | 学期 ID |
+| `page` | number | 否 | 默认 `1` |
+| `page_size` | number | 否 | 默认 `10`，最大 `20` |
+
+响应 `items[]` 字段：
+
+| 字段 | 类型 | 说明 |
+| ---- | ---- | ---- |
+| `course_offering_id` | string | `CourseOffering.id`，正式手动加课提交使用该值 |
+| `course_code` / `course_name` | string | 课程代码与名称 |
+| `credits` | number | 学分 |
+| `semester` | object | 学期 ID 与名称 |
+| `teacher` | object | 教师 ID、姓名与工号 |
+| `capacity` / `enrolled_count` / `remaining_capacity` | number | 容量信息 |
+| `status` | string | 开课状态 |
+| `schedule_summary` | string[] | 排课摘要 |
+
+#### 5.4.3 提交手动加课
 
 ```plaintext
 POST /api/v1/course-selection/admin/enrollments

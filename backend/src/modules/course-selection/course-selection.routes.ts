@@ -31,6 +31,7 @@ import {
   rosterQuerySchema,
   rosterExportQuerySchema,
   rosterOfferingParamsSchema,
+  manualEnrollmentLookupQuerySchema,
   manualEnrollmentBodySchema,
   timetableQuerySchema,
   aiRecommendBodySchema,
@@ -137,6 +138,18 @@ router.get(
 )
 
 // ===== 教务管理端：阶段与手动加课 =====
+router.get(
+  '/admin/manual-enrollment/students',
+  requireRoles('admin', 'super_admin'),
+  validate(manualEnrollmentLookupQuerySchema, 'query'),
+  selectionPeriodController.listManualEnrollmentStudents
+)
+router.get(
+  '/admin/manual-enrollment/course-offerings',
+  requireRoles('admin', 'super_admin'),
+  validate(manualEnrollmentLookupQuerySchema, 'query'),
+  selectionPeriodController.listManualEnrollmentCourseOfferings
+)
 router.get('/admin/periods', requireRoles('admin', 'super_admin'), validate(selectionPeriodQuerySchema, 'query'), selectionPeriodController.listPeriods)
 router.post(
   '/admin/periods',

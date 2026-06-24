@@ -9,6 +9,8 @@ import {
   curriculumConfirmationBodySchema,
   dropEnrollmentBodySchema,
   dropEnrollmentParamsSchema,
+  manualEnrollmentBodySchema,
+  manualEnrollmentLookupQuerySchema,
 } from '../../../modules/course-selection/course-selection.schemas.js'
 
 describe('course-selection request schemas', () => {
@@ -77,6 +79,46 @@ describe('course-selection request schemas', () => {
         reason: '课表调整',
       })
     ).toThrow()
+  })
+
+  it('normalizes manual enrollment lookup query fields', () => {
+    const result = manualEnrollmentLookupQuerySchema.parse({
+      keyword: '  CMAN-CS302  ',
+      semester_id: 'cmanual-semester-2026-spring',
+      page: '2',
+      page_size: '20',
+    })
+
+    expect(result).toEqual({
+      keyword: 'CMAN-CS302',
+      semesterId: 'cmanual-semester-2026-spring',
+      page: 2,
+      pageSize: 20,
+    })
+  })
+
+  it('caps manual enrollment lookup page size', () => {
+    expect(() =>
+      manualEnrollmentLookupQuerySchema.parse({
+        keyword: 'CS',
+        page_size: '21',
+      })
+    ).toThrow()
+  })
+
+  it('normalizes manual enrollment body while keeping primary key fields', () => {
+    const result = manualEnrollmentBodySchema.parse({
+      student_id: 'student-user-1',
+      course_offering_id: 'offering-1',
+      reason: '人工验收补加课程',
+    })
+
+    expect(result).toEqual({
+      studentId: 'student-user-1',
+      courseOfferingId: 'offering-1',
+      reason: '人工验收补加课程',
+      notifyStudent: false,
+    })
   })
 
   it('accepts an empty drop body', () => {

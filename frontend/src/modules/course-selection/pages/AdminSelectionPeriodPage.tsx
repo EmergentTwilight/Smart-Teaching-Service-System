@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { Alert, Button, Card, DatePicker, Form, Input, InputNumber, Select, Space, Table, Typography } from 'antd';
+import { Alert, Button, Card, DatePicker, Form, Input, InputNumber, Modal, Select, Space, Table, Typography } from 'antd';
 import dayjs, { Dayjs } from 'dayjs';
+import { extractErrorMessage } from '@/shared/utils/error';
 import { useSelectionPeriods, useUpsertSelectionPeriod } from '../hooks/useSelectionPeriod';
 import { SelectionPeriodStatusTag } from '../components/SelectionPeriodStatusTag';
 import type { SelectionPeriodItem, SelectionPhase } from '../types/period';
@@ -39,10 +40,13 @@ type SubmitFeedback =
 const AdminSelectionPeriodPage: React.FC = () => {
   const periodsQuery = useSelectionPeriods();
   const { create, update } = useUpsertSelectionPeriod();
-  const [editingPeriodId, setEditingPeriodId] = useState<string | null>(null);
-  const [submitFeedback, setSubmitFeedback] = useState<SubmitFeedback>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [form] = Form.useForm<PeriodFormValues>();
+  const [editingPeriod, setEditingPeriod] = useState<SelectionPeriodItem | null>(null);
+  const [createFeedback, setCreateFeedback] = useState<SubmitFeedback>(null);
+  const [editFeedback, setEditFeedback] = useState<SubmitFeedback>(null);
+  const [isCreating, setIsCreating] = useState(false);
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [createForm] = Form.useForm<PeriodFormValues>();
+  const [editForm] = Form.useForm<PeriodFormValues>();
 
   const items = periodsQuery.data?.items || [];
   const tableData = items.map((item) => ({
@@ -99,8 +103,9 @@ const AdminSelectionPeriodPage: React.FC = () => {
   ];
 
   const loadPeriodForEdit = (record: SelectionPeriodItem) => {
-    setEditingPeriodId(record.id);
-    form.setFieldsValue({
+    setEditingPeriod(record);
+    setEditFeedback(null);
+    editForm.setFieldsValue({
       semesterId: record.semester.id,
       phase: record.phase,
       startTime: dayjs(record.startTime),
@@ -111,54 +116,81 @@ const AdminSelectionPeriodPage: React.FC = () => {
     });
   };
 
-  const resetForm = () => {
-    setEditingPeriodId(null);
-    setSubmitFeedback(null);
-    form.resetFields();
+  const buildPeriodPayload = (values: PeriodFormValues) => ({
+    phase: values.phase,
+    startTime: values.startTime.toISOString(),
+    endTime: values.endTime.toISOString(),
+    maxCredits: values.maxCredits,
+    allowDrop: Boolean(values.allowDrop),
+    isActive: Boolean(values.isActive),
+  });
+
+  const resetCreateForm = () => {
+    setCreateFeedback(null);
+    createForm.resetFields();
   };
 
-  const handleSubmitError = (fallbackMessage: string) => {
-    setSubmitFeedback({
-      type: 'error',
-      message: fallbackMessage,
-    });
+  const closeEditModal = () => {
+    if (isUpdating) {
+      return;
+    }
+
+    setEditingPeriod(null);
+    setEditFeedback(null);
+    editForm.resetFields();
   };
 
-  const handleSubmit = async (values: PeriodFormValues) => {
-    setSubmitFeedback(null);
-
-    const payload = {
-      phase: values.phase,
-      startTime: values.startTime.toISOString(),
-      endTime: values.endTime.toISOString(),
-      maxCredits: values.maxCredits,
-      allowDrop: Boolean(values.allowDrop),
-      isActive: Boolean(values.isActive),
-    };
-
-    setIsSubmitting(true);
+  const handleCreate = async (values: PeriodFormValues) => {
+    setCreateFeedback(null);
+    setIsCreating(true);
 
     try {
-      if (editingPeriodId) {
-        await update.mutateAsync({ periodId: editingPeriodId, payload });
-      } else {
-        await create.mutateAsync({
-          ...payload,
-          semesterId: values.semesterId,
-        });
-      }
-
-      setSubmitFeedback({
-        type: 'success',
-        message: editingPeriodId ? '阶段配置已更新' : '阶段配置已创建',
+      await create.mutateAsync({
+        ...buildPeriodPayload(values),
+        semesterId: values.semesterId,
       });
 
-      form.resetFields();
-      setEditingPeriodId(null);
-    } catch {
-      handleSubmitError(editingPeriodId ? '更新阶段配置失败，请重试' : '创建阶段配置失败，请重试');
+      setCreateFeedback({
+        type: 'success',
+        message: '阶段配置已创建',
+      });
+
+      createForm.resetFields();
+    } catch (error) {
+      setCreateFeedback({
+        type: 'error',
+        message: extractErrorMessage(error, '创建阶段配置失败，请重试'),
+      });
     } finally {
-      setIsSubmitting(false);
+      setIsCreating(false);
+    }
+  };
+
+  const handleUpdate = async (values: PeriodFormValues) => {
+    if (!editingPeriod) {
+      return;
+    }
+
+    setEditFeedback(null);
+    setIsUpdating(true);
+
+    try {
+      await update.mutateAsync({ periodId: editingPeriod.id, payload: buildPeriodPayload(values) });
+
+      setCreateFeedback({
+        type: 'success',
+        message: '阶段配置已更新',
+      });
+
+      setEditingPeriod(null);
+      editForm.resetFields();
+    } catch (error) {
+      setEditFeedback({
+        type: 'error',
+        message: extractErrorMessage(error, '更新阶段配置失败，请重试'),
+      });
+    } finally {
+      setIsUpdating(false);
     }
   };
 
@@ -171,20 +203,20 @@ const AdminSelectionPeriodPage: React.FC = () => {
         <Text type="secondary">教务仅配置阶段与并发控制范围，选课核心校验仍由服务端事务执行。</Text>
       </div>
 
-      <Card title={editingPeriodId ? '更新阶段配置' : '新建阶段配置'} style={{ marginBottom: 16 }}>
-        {submitFeedback ? (
+      <Card title="新建阶段配置" style={{ marginBottom: 16 }}>
+        {createFeedback ? (
           <Alert
-            message={submitFeedback.message}
-            type={submitFeedback.type}
+            message={createFeedback.message}
+            type={createFeedback.type}
             showIcon
             style={{ marginBottom: 16 }}
           />
         ) : null}
         <Form
-          form={form}
+          form={createForm}
           layout="vertical"
           initialValues={{ allowDrop: false, isActive: true }}
-          onFinish={handleSubmit}
+          onFinish={handleCreate}
         >
           <Form.Item
             name="semesterId"
@@ -243,10 +275,10 @@ const AdminSelectionPeriodPage: React.FC = () => {
           </Form.Item>
           <Form.Item>
             <Space>
-              <Button type="primary" htmlType="submit" loading={isSubmitting}>
-                {editingPeriodId ? '更新阶段' : '创建阶段'}
+              <Button type="primary" htmlType="submit" loading={isCreating}>
+                创建阶段
               </Button>
-              <Button onClick={resetForm} disabled={isSubmitting}>重置表单</Button>
+              <Button onClick={resetCreateForm} disabled={isCreating}>重置表单</Button>
             </Space>
           </Form.Item>
         </Form>
@@ -264,6 +296,105 @@ const AdminSelectionPeriodPage: React.FC = () => {
           pagination={false}
         />
       </Card>
+
+      <Modal
+        title="编辑阶段配置"
+        open={Boolean(editingPeriod)}
+        onCancel={closeEditModal}
+        footer={null}
+        destroyOnClose
+        forceRender
+        width="100vw"
+        style={{ top: 0, maxWidth: '100vw', paddingBottom: 0 }}
+        styles={{
+          body: { height: 'calc(100vh - 120px)', overflowY: 'auto', paddingTop: 16 },
+          content: { minHeight: '100vh', borderRadius: 0 },
+        }}
+      >
+        {editFeedback ? (
+          <Alert
+            message={editFeedback.message}
+            type={editFeedback.type}
+            showIcon
+            style={{ marginBottom: 16 }}
+          />
+        ) : null}
+        <Form
+          form={editForm}
+          layout="vertical"
+          initialValues={{ allowDrop: false, isActive: true }}
+          onFinish={handleUpdate}
+        >
+          <Form.Item
+            name="semesterId"
+            label="学期ID"
+            rules={[{ required: true, message: '请填写学期ID' }]}
+          >
+            <Input disabled />
+          </Form.Item>
+          <Form.Item
+            name="phase"
+            label="阶段类型"
+            rules={[{ required: true, message: '请选择阶段' }]}
+          >
+            <Select options={PHASE_OPTIONS} />
+          </Form.Item>
+          <Form.Item
+            name="startTime"
+            label="开始时间"
+            rules={[{ required: true, message: '请选择开始时间' }]}
+          >
+            <DatePicker showTime />
+          </Form.Item>
+          <Form.Item
+            name="endTime"
+            label="结束时间"
+            rules={[{ required: true, message: '请选择结束时间' }]}
+          >
+            <DatePicker showTime />
+          </Form.Item>
+          <Form.Item name="maxCredits" label="该阶段最大学分">
+            <InputNumber min={0} precision={1} style={{ width: '100%' }} />
+          </Form.Item>
+          <Form.Item
+            name="allowDrop"
+            label="是否允许退课"
+            rules={[{ required: true, message: '请选择是否允许退课' }]}
+          >
+            <Select
+              options={[
+                { value: true, label: '允许' },
+                { value: false, label: '不允许' },
+              ]}
+            />
+          </Form.Item>
+          <Form.Item
+            name="isActive"
+            label="是否启用"
+            rules={[{ required: true, message: '请选择是否启用' }]}
+          >
+            <Select
+              options={[
+                { value: true, label: '启用' },
+                { value: false, label: '停用' },
+              ]}
+            />
+          </Form.Item>
+          <Form.Item>
+            <Space>
+              <Button type="primary" htmlType="submit" loading={isUpdating}>
+                更新阶段
+              </Button>
+              <Button onClick={closeEditModal} disabled={isUpdating}>
+                取消
+              </Button>
+            </Space>
+          </Form.Item>
+        </Form>
+        <Text type="secondary">
+          编辑提交后仍以后端校验权限、阶段时序和业务规则。
+        </Text>
+      </Modal>
     </div>
   );
 };

@@ -10,7 +10,7 @@ import type {
   SaveAiAdvisorRecordPayload,
 } from '../types/ai';
 
-const AI_ADVISOR_REQUEST_TIMEOUT_MS = 70000;
+const AI_ADVISOR_REQUEST_TIMEOUT_MS = 130000;
 
 export const aiAdvisorApi = {
   recommend: (payload: AiRecommendPayload) =>

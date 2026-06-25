@@ -15,6 +15,8 @@ type JwtUser = {
 const isAdmin = (roles: string[]) =>
   roles.some((role) => role === 'admin' || role === 'super_admin')
 
+const isSuperAdmin = (roles: string[]) => roles.includes('super_admin')
+
 const resolveStudentTarget = (user: JwtUser, studentId: string) => {
   if (isAdmin(user.roles)) {
     return
@@ -50,6 +52,7 @@ export const scoreAnalyticsService = {
         course: {
           select: {
             name: true,
+            departmentId: true,
           },
         },
         teacher: {
@@ -75,6 +78,24 @@ export const scoreAnalyticsService = {
       throw new ForbiddenError('教师仅可查看自己任课课程分析')
     }
 
+    if (isAdmin(user.roles) && !isSuperAdmin(user.roles)) {
+      const admin = await prisma.admin.findUnique({
+        where: { userId: user.userId },
+        select: { adminType: true, departmentId: true },
+      })
+
+      if (!admin) {
+        throw new ForbiddenError('管理员身份不存在')
+      }
+
+      if (
+        admin.adminType !== 'SUPER' &&
+        (!admin.departmentId || admin.departmentId !== offering.course.departmentId)
+      ) {
+        throw new ForbiddenError('无权查看其他院系课程成绩分析')
+      }
+    }
+
     const [totalStudents, submittedScores] = await Promise.all([
       prisma.enrollment.count({
         where: {
@@ -85,6 +106,9 @@ export const scoreAnalyticsService = {
       prisma.score.findMany({
         where: {
           courseOfferingId,
+          enrollment: {
+            status: 'ENROLLED',
+          },
           status: {
             in: [...SUBMITTED_SCORE_STATUSES],
           },

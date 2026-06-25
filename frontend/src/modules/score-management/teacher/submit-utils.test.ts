@@ -69,7 +69,7 @@ describe('submit-utils', () => {
     expect(result).toEqual([expect.objectContaining({ enrollmentId: 'enrollment-1' })])
   })
 
-  it('should merge local draft values into the editable scores', () => {
+  it('should merge local draft values into the editable scores and keep explicit nulls', () => {
     const row = createRow()
 
     expect(
@@ -80,7 +80,7 @@ describe('submit-utils', () => {
     ).toEqual({
       usualScore: 92,
       midtermScore: 85,
-      finalScore: 90,
+      finalScore: null,
     })
   })
 

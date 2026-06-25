@@ -45,6 +45,18 @@ const C_SELECTION_MENU_ROLE_RULES: Record<string, readonly string[]> = {
   '/selection/teacher/roster': ['teacher'],
 };
 
+const F_GRADE_MENU_ROLE_RULES: Record<string, readonly string[]> = {
+  '/grade/entry': ['teacher'],
+  '/grade/statistics': ['student', 'teacher', 'admin', 'super_admin'],
+  '/grade/gpa': ['student'],
+  '/grade/approval': ['admin', 'super_admin'],
+};
+
+const MENU_ROLE_RULES: Record<string, readonly string[]> = {
+  ...C_SELECTION_MENU_ROLE_RULES,
+  ...F_GRADE_MENU_ROLE_RULES,
+};
+
 function hasAnyRole(roles: string[], allowed: readonly string[]) {
   return allowed.some((r) => roles.includes(r));
 }
@@ -91,13 +103,13 @@ function filterMenuItemsByRole(
     }
 
     const key = 'key' in item && item.key !== undefined ? String(item.key) : undefined;
-    if (!hasMenuRole(roles, key ? C_SELECTION_MENU_ROLE_RULES[key] : undefined)) {
+    if (!hasMenuRole(roles, key ? MENU_ROLE_RULES[key] : undefined)) {
       return filtered;
     }
 
     if ('children' in item && item.children) {
       const children = filterMenuItemsByRole(item.children as MenuProps['items'], roles);
-      if (key === 'selection' && children.length === 0) {
+      if ((key === 'selection' || key === 'grade') && children.length === 0) {
         return filtered;
       }
       filtered.push({ ...item, children } as MenuItem);

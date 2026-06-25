@@ -66,8 +66,17 @@ export const scoreModificationController = {
   async getPendingRequests(req: Request, res: Response) {
     try {
       const query = req.query as unknown as GetPendingModificationRequestsQuery
+      const userId = req.user?.userId
       const roles = req.user?.roles ?? []
-      const result = await scoreModificationService.getPendingModificationRequests(query, roles)
+      if (!userId) {
+        return error(res, '未认证', 401)
+      }
+
+      const result = await scoreModificationService.getPendingModificationRequests(
+        query,
+        userId,
+        roles
+      )
       return paginated(res, result.items, toPaginationMeta(result.pagination))
     } catch (err) {
       return handleControllerError(res, err, '获取待处理申请失败')

@@ -1,6 +1,9 @@
 import { Alert, Space, message } from 'antd';
+import { useQuery } from '@tanstack/react-query';
 import type { Key } from 'react';
 import { useEffect, useState } from 'react';
+import { coursesApi } from '@/modules/course-selection/api/courses';
+import { useAuthStore } from '@/shared/stores/authStore';
 import { CourseOfferingSelector } from '../components/CourseOfferingSelector';
 import { ModificationRequestModal } from '../components/ModificationRequestModal';
 import { ScoreBatchToolbar } from '../components/ScoreBatchToolbar';
@@ -24,6 +27,7 @@ import {
 } from '../teacher/submit-utils';
 
 export default function TeacherScoreEntryPage() {
+  const currentUser = useAuthStore((state) => state.user);
   const [draftCourseOfferingId, setDraftCourseOfferingId] = useState('');
   const [courseOfferingId, setCourseOfferingId] = useState('');
   const [selectedRowKeys, setSelectedRowKeys] = useState<Key[]>([]);
@@ -35,6 +39,17 @@ export default function TeacherScoreEntryPage() {
     page: 1,
     pageSize: 20,
     total: 0,
+  });
+
+  const courseOfferingsQuery = useQuery({
+    queryKey: ['score-management', 'teacher', 'course-offerings', currentUser?.id],
+    enabled: Boolean(currentUser?.id),
+    queryFn: () =>
+      coursesApi.listOfferings({
+        teacherId: currentUser!.id,
+        page: 1,
+        pageSize: 100,
+      }),
   });
 
   const {
@@ -81,7 +96,7 @@ export default function TeacherScoreEntryPage() {
     const value = draftCourseOfferingId.trim();
 
     if (!value) {
-      message.warning('请先输入开设课程ID');
+      message.warning('请先选择任课课程');
       return;
     }
 
@@ -201,10 +216,25 @@ export default function TeacherScoreEntryPage() {
     <Space direction="vertical" size={16} style={{ width: '100%' }}>
       <CourseOfferingSelector
         value={draftCourseOfferingId}
+        offerings={courseOfferingsQuery.data?.items ?? []}
         loading={isLoading || isFetching}
+        optionsLoading={courseOfferingsQuery.isLoading}
         onChange={setDraftCourseOfferingId}
         onSubmit={handleLoadCourseScores}
       />
+
+      {courseOfferingsQuery.error ? (
+        <Alert
+          type="error"
+          showIcon
+          message="任课课程加载失败"
+          description={
+            courseOfferingsQuery.error instanceof Error
+              ? courseOfferingsQuery.error.message
+              : '请检查课程开设接口或登录状态'
+          }
+        />
+      ) : null}
 
       {error ? (
         <Alert

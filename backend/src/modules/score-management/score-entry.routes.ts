@@ -75,7 +75,7 @@ router.post(
   '/draft',
   validate(courseOfferingParamsSchema, 'params'),
   validate(saveDraftBodySchema, 'body'),
-  requireRoles('teacher', 'admin', 'super_admin'),
+  requireRoles('teacher'),
   scoreEntryController.saveDraft
 )
 
@@ -92,7 +92,7 @@ router.post(
   '/submit',
   validate(courseOfferingParamsSchema, 'params'),
   validate(submitScoresBodySchema, 'body'),
-  requireRoles('teacher', 'admin', 'super_admin'),
+  requireRoles('teacher'),
   scoreEntryController.submitScores
 )
 

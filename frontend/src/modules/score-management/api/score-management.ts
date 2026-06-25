@@ -79,6 +79,34 @@ export interface PaginatedApiResult<T> {
   pagination: CourseScoresPagination
 }
 
+export interface CourseScoreDistributionItem {
+  range: string
+  count: number
+}
+
+export interface CourseScoreRankingItem {
+  studentId: string
+  studentNumber: string
+  studentName: string
+  totalScore: number
+  rank: number
+}
+
+export interface CourseScoreAnalytics {
+  courseOfferingId: string
+  courseName: string
+  teacherName: string
+  totalStudents: number
+  submittedCount: number
+  averageScore: number | null
+  maxScore: number | null
+  minScore: number | null
+  passCount: number
+  failCount: number
+  distribution: CourseScoreDistributionItem[]
+  rankingTop10: CourseScoreRankingItem[]
+}
+
 function isRecord(value: unknown): value is UnknownRecord {
   return typeof value === 'object' && value !== null
 }
@@ -182,6 +210,12 @@ export function normalizeCourseScoresResult(
 export const scoreManagementApi = {
   getCourseScores(courseOfferingId: string, params?: CourseScoresQueryParams) {
     return request.get<unknown, unknown>(`/course-offerings/${courseOfferingId}/scores`, { params })
+  },
+
+  getCourseScoreAnalytics(courseOfferingId: string) {
+    return request.get<unknown, CourseScoreAnalytics>(
+      `/course-offerings/${courseOfferingId}/score-analytics`
+    )
   },
 
   saveDraftScores(courseOfferingId: string, payload: SaveDraftScoresPayload) {

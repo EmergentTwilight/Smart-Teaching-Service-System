@@ -4,7 +4,7 @@
  */
 import prisma from '../../shared/prisma/client.js'
 import { Prisma } from '@prisma/client'
-import { ForbiddenError, NotFoundError } from '@stss/shared'
+import { ForbiddenError, NotFoundError, ValidationError } from '@stss/shared'
 import type { GetScoreListQuery, SaveDraftBody, SubmitScoresBody } from './score-entry.types.js'
 
 function calcTotalScore(
@@ -59,6 +59,37 @@ async function checkTeacherPermission(
   })
   if (!offering) throw new NotFoundError('课程开设记录不存在')
   if (offering.teacherId !== teacher.userId) throw new ForbiddenError('无权操作此课程')
+}
+
+async function resolveEnteringTeacher(courseOfferingId: string, userId: string): Promise<string> {
+  const teacher = await prisma.teacher.findUnique({ where: { userId } })
+  if (!teacher) throw new ForbiddenError('仅任课教师可录入或提交成绩')
+
+  const offering = await prisma.courseOffering.findUnique({
+    where: { id: courseOfferingId },
+  })
+  if (!offering) throw new NotFoundError('课程开设记录不存在')
+  if (offering.teacherId !== teacher.userId) throw new ForbiddenError('无权操作此课程')
+
+  return teacher.userId
+}
+
+function isCompleteScore(score: {
+  usualScore: unknown
+  midtermScore: unknown
+  finalScore: unknown
+  totalScore: unknown
+  gradePoint: unknown
+  gradeLetter: unknown
+}) {
+  return (
+    score.usualScore != null &&
+    score.midtermScore != null &&
+    score.finalScore != null &&
+    score.totalScore != null &&
+    score.gradePoint != null &&
+    score.gradeLetter != null
+  )
 }
 
 export const scoreEntryService = {
@@ -138,9 +169,10 @@ export const scoreEntryService = {
    * 已提交/已确认的记录跳过，分数校验失败的报错
    */
   async saveDraft(courseOfferingId: string, body: SaveDraftBody, userId: string, roles: string[]) {
-    await checkTeacherPermission(courseOfferingId, userId, roles)
-
-    const teacher = await prisma.teacher.findUnique({ where: { userId } })
+    if (!roles.includes('teacher')) {
+      throw new ForbiddenError('仅任课教师可录入成绩')
+    }
+    const teacherId = await resolveEnteringTeacher(courseOfferingId, userId)
 
     let savedCount = 0
     let skippedCount = 0
@@ -184,33 +216,54 @@ export const scoreEntryService = {
       const gradePoint = calcGradePoint(totalScore)
       const gradeLetter = calcGradeLetter(totalScore)
 
-      await prisma.score.upsert({
-        where: { enrollmentId: item.enrollmentId },
-        create: {
-          enrollmentId: item.enrollmentId,
-          studentId: enrollment.studentId,
-          courseOfferingId,
-          usualScore: usualScore != null ? usualScore : undefined,
-          midtermScore: midtermScore != null ? midtermScore : undefined,
-          finalScore: finalScore != null ? finalScore : undefined,
-          totalScore: totalScore ?? undefined,
-          gradePoint: gradePoint ?? undefined,
-          gradeLetter: gradeLetter ?? undefined,
-          status: 'DRAFT',
-          enteredBy: teacher?.userId ?? userId,
-          enteredAt: new Date(),
-        },
-        update: {
-          usualScore: 'usualScore' in item ? (item.usualScore ?? null) : undefined,
-          midtermScore: 'midtermScore' in item ? (item.midtermScore ?? null) : undefined,
-          finalScore: 'finalScore' in item ? (item.finalScore ?? null) : undefined,
-          totalScore: totalScore ?? undefined,
-          gradePoint: gradePoint ?? undefined,
-          gradeLetter: gradeLetter ?? undefined,
-          enteredBy: teacher?.userId ?? userId,
-          enteredAt: new Date(),
-        },
-      })
+      const scoreData = {
+        usualScore: usualScore ?? null,
+        midtermScore: midtermScore ?? null,
+        finalScore: finalScore ?? null,
+        totalScore,
+        gradePoint,
+        gradeLetter,
+        enteredBy: teacherId,
+        enteredAt: new Date(),
+      }
+
+      if (enrollment.score) {
+        const updated = await prisma.score.updateMany({
+          where: {
+            id: enrollment.score.id,
+            status: 'DRAFT',
+          },
+          data: {
+            ...scoreData,
+            usualScore: 'usualScore' in item ? (item.usualScore ?? null) : undefined,
+            midtermScore: 'midtermScore' in item ? (item.midtermScore ?? null) : undefined,
+            finalScore: 'finalScore' in item ? (item.finalScore ?? null) : undefined,
+          },
+        })
+
+        if (updated.count === 0) {
+          skippedCount++
+          continue
+        }
+      } else {
+        try {
+          await prisma.score.create({
+            data: {
+              enrollmentId: item.enrollmentId,
+              studentId: enrollment.studentId,
+              courseOfferingId,
+              ...scoreData,
+              status: 'DRAFT',
+            },
+          })
+        } catch (err) {
+          if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+            skippedCount++
+            continue
+          }
+          throw err
+        }
+      }
 
       savedCount++
     }
@@ -229,9 +282,10 @@ export const scoreEntryService = {
     userId: string,
     roles: string[]
   ) {
-    await checkTeacherPermission(courseOfferingId, userId, roles)
-
-    const teacher = await prisma.teacher.findUnique({ where: { userId } })
+    if (!roles.includes('teacher')) {
+      throw new ForbiddenError('仅任课教师可提交成绩')
+    }
+    const teacherId = await resolveEnteringTeacher(courseOfferingId, userId)
 
     let submittedCount = 0
     let skippedCount = 0
@@ -251,15 +305,33 @@ export const scoreEntryService = {
         continue
       }
 
-      await prisma.score.update({
-        where: { id: scoreId },
+      if (!isCompleteScore(score)) {
+        errors.push({ scoreId, message: '成绩尚未完整，需录入平时、期中、期末成绩后才能提交' })
+        continue
+      }
+
+      const updated = await prisma.score.updateMany({
+        where: {
+          id: scoreId,
+          status: 'DRAFT',
+        },
         data: {
           status: 'SUBMITTED',
-          enteredBy: teacher?.userId ?? userId,
+          enteredBy: teacherId,
           enteredAt: new Date(),
         },
       })
+
+      if (updated.count === 0) {
+        skippedCount++
+        continue
+      }
+
       submittedCount++
+    }
+
+    if (submittedCount === 0 && errors.length > 0 && skippedCount === 0) {
+      throw new ValidationError(errors[0].message)
     }
 
     return { submittedCount, skippedCount, errors }

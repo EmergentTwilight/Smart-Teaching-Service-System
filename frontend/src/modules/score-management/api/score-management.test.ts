@@ -1,5 +1,13 @@
-import { describe, expect, it } from 'vitest'
-import { normalizeCourseScoresResult } from './score-management'
+import { describe, expect, it, vi } from 'vitest'
+import request from '@/shared/utils/request'
+import { normalizeCourseScoresResult, scoreManagementApi } from './score-management'
+
+vi.mock('@/shared/utils/request', () => ({
+  default: {
+    get: vi.fn(),
+    post: vi.fn(),
+  },
+}))
 
 describe('normalizeCourseScoresResult', () => {
   it('should normalize paginated F1-style score rows', () => {
@@ -141,5 +149,28 @@ describe('normalizeCourseScoresResult', () => {
         status: 'EMPTY',
       })
     )
+  })
+})
+
+describe('scoreManagementApi', () => {
+  it('should call course score analytics endpoint', async () => {
+    vi.mocked(request.get).mockResolvedValueOnce({
+      courseOfferingId: 'course-offering-1',
+      courseName: 'Data Structure',
+      teacherName: 'Teacher A',
+      totalStudents: 2,
+      submittedCount: 1,
+      averageScore: 88,
+      maxScore: 88,
+      minScore: 88,
+      passCount: 1,
+      failCount: 0,
+      distribution: [],
+      rankingTop10: [],
+    })
+
+    await scoreManagementApi.getCourseScoreAnalytics('course-offering-1')
+
+    expect(request.get).toHaveBeenCalledWith('/course-offerings/course-offering-1/score-analytics')
   })
 })

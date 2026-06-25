@@ -6,6 +6,9 @@ const APPLICANT_ID = '11111111-1111-4111-8111-111111111111'
 const APPROVER_ID = '22222222-2222-4222-8222-222222222222'
 
 const txMock = vi.hoisted(() => ({
+  admin: {
+    findUnique: vi.fn(),
+  },
   score: {
     findUnique: vi.fn(),
     updateMany: vi.fn(),
@@ -19,6 +22,9 @@ const txMock = vi.hoisted(() => ({
 }))
 
 const prismaMock = vi.hoisted(() => ({
+  admin: {
+    findUnique: vi.fn(),
+  },
   score: {
     findUnique: vi.fn(),
     findMany: vi.fn(),
@@ -54,6 +60,8 @@ describe('scoreModificationService', () => {
   beforeEach(() => {
     vi.resetAllMocks()
     prismaMock.$transaction.mockImplementation(async (callback) => callback(txMock))
+    prismaMock.admin.findUnique.mockResolvedValue({ adminType: 'SUPER', departmentId: null })
+    txMock.admin.findUnique.mockResolvedValue({ adminType: 'SUPER', departmentId: null })
     txMock.score.updateMany.mockResolvedValue({ count: 1 })
     txMock.scoreModificationLog.create.mockResolvedValue({})
     txMock.systemLog.create.mockResolvedValue({})
@@ -204,9 +212,11 @@ describe('scoreModificationService', () => {
 
   it('enforces admin permission inside approval services', async () => {
     await expect(
-      scoreModificationService.getPendingModificationRequests({ page: 1, pageSize: 20 }, [
-        'teacher',
-      ])
+      scoreModificationService.getPendingModificationRequests(
+        { page: 1, pageSize: 20 },
+        APPROVER_ID,
+        ['teacher']
+      )
     ).rejects.toBeInstanceOf(ForbiddenError)
 
     await expect(
@@ -242,6 +252,7 @@ describe('scoreModificationService', () => {
         courseOfferingId: 'off-1',
         teacherId: APPLICANT_ID,
       },
+      APPROVER_ID,
       ['admin']
     )
 
@@ -256,6 +267,35 @@ describe('scoreModificationService', () => {
       })
     )
     expect(result.pagination).toEqual({ page: 2, pageSize: 10, total: 1, totalPages: 1 })
+  })
+
+  it('restricts academic admins to their course department', async () => {
+    txMock.admin.findUnique.mockResolvedValue({
+      adminType: 'ACADEMIC',
+      departmentId: 'dept-1',
+    })
+    txMock.score.findUnique.mockResolvedValue({
+      id: 'score-1',
+      status: 'SUBMITTED',
+      modificationRequest: requestPayload({ finalScore: 90 }),
+      usualScore: 80,
+      midtermScore: 80,
+      finalScore: 80,
+      totalScore: 80,
+      gradePoint: 3,
+      gradeLetter: 'B',
+      courseOffering: {
+        course: {
+          departmentId: 'dept-2',
+        },
+      },
+    })
+
+    await expect(
+      scoreModificationService.approveModificationRequest('score-1', APPROVER_ID, ['admin'], {})
+    ).rejects.toBeInstanceOf(ForbiddenError)
+
+    expect(txMock.score.updateMany).not.toHaveBeenCalled()
   })
 
   it('does not write approval logs when optimistic update loses the race', async () => {
@@ -442,7 +482,7 @@ describe('scoreModificationController', () => {
 
     const req = {
       query: {},
-      user: { roles: ['admin'] },
+      user: { userId: APPROVER_ID, roles: ['admin'] },
     } as unknown as Request
     const status = vi.fn()
     const json = vi.fn()

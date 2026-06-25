@@ -13,9 +13,10 @@ export function hasAnyScore(values: EditableScoreValues): boolean {
 
 export function mergeRowValues(row: TeacherScoreRow, patch?: DraftScorePatch): EditableScoreValues {
   return {
-    usualScore: patch?.usualScore ?? row.usualScore,
-    midtermScore: patch?.midtermScore ?? row.midtermScore,
-    finalScore: patch?.finalScore ?? row.finalScore,
+    usualScore: patch && 'usualScore' in patch ? (patch.usualScore ?? null) : row.usualScore,
+    midtermScore:
+      patch && 'midtermScore' in patch ? (patch.midtermScore ?? null) : row.midtermScore,
+    finalScore: patch && 'finalScore' in patch ? (patch.finalScore ?? null) : row.finalScore,
   }
 }
 

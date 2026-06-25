@@ -33,6 +33,77 @@ const assertAdmin = (roles: string[]) => {
   }
 }
 
+type AdminScope = {
+  isSuper: boolean
+  departmentId: string | null
+}
+
+async function resolveAdminScope(
+  client: Pick<Prisma.TransactionClient, 'admin'>,
+  requesterId: string,
+  roles: string[]
+): Promise<AdminScope> {
+  assertAdmin(roles)
+
+  if (roles.includes('super_admin')) {
+    return { isSuper: true, departmentId: null }
+  }
+
+  const admin = await client.admin.findUnique({
+    where: { userId: requesterId },
+    select: { adminType: true, departmentId: true },
+  })
+
+  if (!admin) {
+    throw new ForbiddenError('管理员身份不存在')
+  }
+
+  if (admin.adminType === 'SUPER') {
+    return { isSuper: true, departmentId: null }
+  }
+
+  if (!admin.departmentId) {
+    throw new ForbiddenError('普通管理员未绑定院系，无法处理成绩修改申请')
+  }
+
+  return { isSuper: false, departmentId: admin.departmentId }
+}
+
+function applyAdminScope(where: Prisma.ScoreWhereInput, scope: AdminScope) {
+  if (scope.isSuper) {
+    return
+  }
+
+  const scopeFilter: Prisma.ScoreWhereInput = {
+    courseOffering: {
+      course: {
+        departmentId: scope.departmentId,
+      },
+    },
+  }
+  where.AND = Array.isArray(where.AND) ? [...where.AND, scopeFilter] : [scopeFilter]
+}
+
+function assertCourseInAdminScope(
+  scope: AdminScope,
+  courseDepartmentId: string | null | undefined
+) {
+  if (scope.isSuper) {
+    return
+  }
+
+  if (!courseDepartmentId || courseDepartmentId !== scope.departmentId) {
+    throw new ForbiddenError('无权处理其他院系课程的成绩修改申请')
+  }
+}
+
+function normalizePagination(query: { page: number; pageSize: number }) {
+  return {
+    page: Number(query.page),
+    pageSize: Number(query.pageSize),
+  }
+}
+
 const round2 = (value: number): number => Math.round((value + Number.EPSILON) * 100) / 100
 
 const calcTotalScore = (
@@ -281,11 +352,13 @@ export const scoreModificationService = {
   // 管理员获取待审批申请列表
   async getPendingModificationRequests(
     query: GetPendingModificationRequestsQuery,
+    requesterId: string,
     requesterRoles: string[]
   ): Promise<PendingModificationRequestsResult> {
-    assertAdmin(requesterRoles)
+    const adminScope = await resolveAdminScope(prisma, requesterId, requesterRoles)
 
-    const { page, pageSize, courseOfferingId, teacherId } = query
+    const { courseOfferingId, teacherId } = query
+    const { page, pageSize } = normalizePagination(query)
     const skip = (page - 1) * pageSize
 
     const where: Prisma.ScoreWhereInput = {
@@ -301,6 +374,8 @@ export const scoreModificationService = {
       // teacherId 支持录入教师与任课教师双语义，任一命中即返回。
       where.OR = [{ enteredBy: teacherId }, { courseOffering: { teacherId } }]
     }
+
+    applyAdminScope(where, adminScope)
 
     // 数据库查询满足条件的成绩记录
     const [rows, total] = await Promise.all([
@@ -388,9 +463,8 @@ export const scoreModificationService = {
     approverRoles: string[],
     input: ApproveModificationRequestInput
   ) {
-    assertAdmin(approverRoles)
-
     return prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+      const adminScope = await resolveAdminScope(tx, approverId, approverRoles)
       // 读取原成绩和申请，并申请新旧快照
       const score = await tx.score.findUnique({
         where: { id: scoreId },
@@ -404,6 +478,15 @@ export const scoreModificationService = {
           totalScore: true,
           gradePoint: true,
           gradeLetter: true,
+          courseOffering: {
+            select: {
+              course: {
+                select: {
+                  departmentId: true,
+                },
+              },
+            },
+          },
         },
       })
 
@@ -414,6 +497,8 @@ export const scoreModificationService = {
       if (!APPROVAL_REQUIRED_STATUSES.includes(score.status)) {
         throw new ValidationError('当前成绩状态不允许审批修改')
       }
+
+      assertCourseInAdminScope(adminScope, score.courseOffering?.course?.departmentId)
 
       const request = parseStoredModificationRequest(score.modificationRequest, score.id)
       const oldSnapshot = toScoreSnapshot(score)
@@ -492,9 +577,8 @@ export const scoreModificationService = {
     approverRoles: string[],
     input: RejectModificationRequestInput
   ) {
-    assertAdmin(approverRoles)
-
     return prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+      const adminScope = await resolveAdminScope(tx, approverId, approverRoles)
       // 读取原成绩和申请，检查状态，并解析申请内容
       const score = await tx.score.findUnique({
         where: { id: scoreId },
@@ -502,6 +586,15 @@ export const scoreModificationService = {
           id: true,
           status: true,
           modificationRequest: true,
+          courseOffering: {
+            select: {
+              course: {
+                select: {
+                  departmentId: true,
+                },
+              },
+            },
+          },
         },
       })
 
@@ -513,6 +606,8 @@ export const scoreModificationService = {
       if (!APPROVAL_REQUIRED_STATUSES.includes(score.status)) {
         throw new ValidationError('当前成绩状态不允许审批修改')
       }
+
+      assertCourseInAdminScope(adminScope, score.courseOffering?.course?.departmentId)
 
       // 审批同样需要乐观并发锁，避免重复审批导致数据不一致
       // 虽然没有修改数据，但仍然需要在条件中校验 modificationRequest，确保同一申请只能被审批一次
@@ -593,7 +688,7 @@ export const scoreModificationService = {
       throw new ForbiddenError('仅管理员、该成绩录入教师或成绩所属学生可查看修改日志')
     }
 
-    const { page, pageSize } = query
+    const { page, pageSize } = normalizePagination(query)
     const skip = (page - 1) * pageSize
 
     const [rows, total] = await Promise.all([

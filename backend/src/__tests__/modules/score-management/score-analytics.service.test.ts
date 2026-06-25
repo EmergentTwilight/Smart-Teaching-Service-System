@@ -2,6 +2,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ForbiddenError, NotFoundError } from '@stss/shared'
 
 const prismaMock = vi.hoisted(() => ({
+  admin: {
+    findUnique: vi.fn(),
+  },
   courseOffering: {
     findUnique: vi.fn(),
   },
@@ -25,6 +28,7 @@ import { scoreAnalyticsService } from '../../../modules/score-management/score-a
 describe('scoreAnalyticsService', () => {
   beforeEach(() => {
     vi.resetAllMocks()
+    prismaMock.admin.findUnique.mockResolvedValue({ adminType: 'SUPER', departmentId: null })
   })
 
   describe('getCourseScoreAnalytics', () => {
@@ -32,7 +36,7 @@ describe('scoreAnalyticsService', () => {
       prismaMock.courseOffering.findUnique.mockResolvedValue({
         id: 'off-1',
         teacherId: 'tea-1',
-        course: { name: 'Data Structure' },
+        course: { name: 'Data Structure', departmentId: 'dept-1' },
         teacher: { user: { realName: 'Teacher A' } },
       })
       prismaMock.enrollment.count.mockResolvedValue(3)
@@ -67,13 +71,33 @@ describe('scoreAnalyticsService', () => {
       prismaMock.courseOffering.findUnique.mockResolvedValue({
         id: 'off-1',
         teacherId: 'tea-2',
-        course: { name: 'Data Structure' },
+        course: { name: 'Data Structure', departmentId: 'dept-1' },
         teacher: { user: { realName: 'Teacher B' } },
       })
 
       await expect(
         scoreAnalyticsService.getCourseScoreAnalytics(
           { userId: 'tea-1', roles: ['teacher'] },
+          'off-1'
+        )
+      ).rejects.toBeInstanceOf(ForbiddenError)
+    })
+
+    it('academic admin should be forbidden for other department course analytics', async () => {
+      prismaMock.courseOffering.findUnique.mockResolvedValue({
+        id: 'off-1',
+        teacherId: 'tea-1',
+        course: { name: 'Data Structure', departmentId: 'dept-2' },
+        teacher: { user: { realName: 'Teacher A' } },
+      })
+      prismaMock.admin.findUnique.mockResolvedValue({
+        adminType: 'ACADEMIC',
+        departmentId: 'dept-1',
+      })
+
+      await expect(
+        scoreAnalyticsService.getCourseScoreAnalytics(
+          { userId: 'admin-1', roles: ['admin'] },
           'off-1'
         )
       ).rejects.toBeInstanceOf(ForbiddenError)

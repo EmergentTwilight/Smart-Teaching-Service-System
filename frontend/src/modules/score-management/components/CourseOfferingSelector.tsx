@@ -1,18 +1,29 @@
-import { Button, Card, Input, Space, Typography } from 'antd';
+import { Button, Card, Select, Space, Typography } from 'antd';
+import type { CourseOfferingListItem } from '@/modules/course-selection/types/course';
 
 interface CourseOfferingSelectorProps {
   value: string;
+  offerings: CourseOfferingListItem[];
   loading?: boolean;
+  optionsLoading?: boolean;
   onChange: (value: string) => void;
   onSubmit: () => void;
 }
 
 export function CourseOfferingSelector({
   value,
+  offerings,
   loading = false,
+  optionsLoading = false,
   onChange,
   onSubmit,
 }: CourseOfferingSelectorProps) {
+  const options = offerings.map((offering) => ({
+    value: offering.courseOfferingId,
+    label: `${offering.course.code} ${offering.course.name} · ${offering.semester.name}`,
+    searchText: `${offering.course.code} ${offering.course.name} ${offering.semester.name}`,
+  }));
+
   return (
     <Card>
       <Space direction="vertical" size={12} style={{ width: '100%' }}>
@@ -22,16 +33,21 @@ export function CourseOfferingSelector({
           </Typography.Title>
         </div>
 
-        <Input
-          addonBefore="开设课程ID"
-          placeholder="请输入开设课程ID"
+        <Select
+          showSearch
+          allowClear
+          placeholder="请选择任课课程"
           value={value}
-          onChange={(event) => onChange(event.target.value)}
-          onPressEnter={onSubmit}
+          options={options}
+          loading={optionsLoading}
+          optionFilterProp="searchText"
+          style={{ width: '100%' }}
+          onChange={(nextValue) => onChange(nextValue ?? '')}
+          notFoundContent={optionsLoading ? '加载中' : '暂无任课课程'}
         />
 
         <Space>
-          <Button type="primary" onClick={onSubmit} loading={loading} disabled={!value.trim()}>
+          <Button type="primary" onClick={onSubmit} loading={loading} disabled={!value}>
             加载成绩
           </Button>
         </Space>

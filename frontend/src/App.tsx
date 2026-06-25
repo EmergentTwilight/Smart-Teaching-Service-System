@@ -26,6 +26,7 @@ const CourseList = lazy(() => import('@/modules/info-management/pages/courses/Co
 const CurriculumList = lazy(() => import('@/modules/info-management/pages/curriculums/CurriculumList'));
 const TeacherScoreEntryPage = lazy(() => import('@/modules/score-management/pages/TeacherScoreEntryPage'));
 const AdminScoreApprovalPage = lazy(() => import('@/modules/score-management/admin/pages/AdminScoreApprovalPage'));
+const CourseScoreAnalyticsPage = lazy(() => import('@/modules/score-management/pages/CourseScoreAnalyticsPage'));
 const StudentScoreQueryPage = lazy(() => import('@/modules/score-management/student/pages/student-score-query-page'));
 const StudentScoreAnalyticsPage = lazy(() => import('@/modules/score-management/student/pages/student-score-analytics-page'));
 const Profile = lazy(() => import('@/modules/info-management/pages/Profile'));
@@ -112,6 +113,15 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requiredRoles
   }
 
   return <>{children}</>;
+};
+
+const ScoreStatisticsRoute: React.FC = () => {
+  const roles = useAuthStore((state) => state.user?.roles ?? []);
+  const canViewCourseAnalytics = roles.some((role) =>
+    ['teacher', 'admin', 'super_admin'].includes(role)
+  );
+
+  return canViewCourseAnalytics ? <CourseScoreAnalyticsPage /> : <StudentScoreAnalyticsPage />;
 };
 
 const App: React.FC = () => {
@@ -277,9 +287,32 @@ const App: React.FC = () => {
                   <Route path="exam/results" element={<OnlineTestingResultsPage />} />
 
                   {/* 成绩管理 */}
-                  <Route path="grade/entry" element={<TeacherScoreEntryPage />} />
-                  <Route path="grade/statistics" element={<StudentScoreAnalyticsPage />} />
-                  <Route path="grade/gpa" element={<StudentScoreQueryPage />} />
+                  <Route
+                    path="grade/entry"
+                    element={
+                      <ProtectedRoute requiredRoles={['teacher']}>
+                        <TeacherScoreEntryPage />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="grade/statistics"
+                    element={
+                      <ProtectedRoute
+                        requiredRoles={['student', 'teacher', 'admin', 'super_admin']}
+                      >
+                        <ScoreStatisticsRoute />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="grade/gpa"
+                    element={
+                      <ProtectedRoute requiredRoles={['student']}>
+                        <StudentScoreQueryPage />
+                      </ProtectedRoute>
+                    }
+                  />
                   <Route
                     path="grade/approval"
                     element={

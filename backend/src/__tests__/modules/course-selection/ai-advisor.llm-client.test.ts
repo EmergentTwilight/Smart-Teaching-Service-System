@@ -120,6 +120,7 @@ describe('llmClient diagnostics', () => {
       provider: 'openrouter',
       model: 'liquid/lfm-2.5-1.2b-thinking-20260120:free',
       endpointHost: 'openrouter.ai',
+      statusCode: 200,
       finishReason: 'length',
       nativeFinishReason: 'length',
       promptTokens: 14,
@@ -128,5 +129,59 @@ describe('llmClient diagnostics', () => {
       reasoningTokens: 66,
       retriable: true,
     })
+    expect(result.diagnostics?.providerRawErrorSummary).toContain('"choicesCount":1')
+    expect(result.diagnostics?.providerRawErrorSummary).toContain('"finishReason":"length"')
+    expect(result.diagnostics?.providerRawErrorSummary).toContain('"contentType":"null"')
+    expect(result.diagnostics?.providerRawErrorSummary).not.toContain('Reply with exactly')
+  })
+
+  it('captures provider errors nested inside an empty choice', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            model: 'nvidia/nemotron-3-ultra-550b-a55b:free',
+            choices: [
+              {
+                error: {
+                  code: 529,
+                  message: 'Provider overloaded while generating completion',
+                },
+                message: {
+                  role: 'assistant',
+                  content: null,
+                },
+              },
+            ],
+          }),
+          {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+          }
+        )
+      )
+    )
+
+    const result = await llmClient.complete('Reply with exactly: OK', {
+      maxTokens: 64,
+      temperature: 0,
+      timeoutMs: 20000,
+    })
+
+    expect(result.ok).toBe(false)
+    expect(result.reason).toBe('empty_content')
+    expect(result.diagnostics).toMatchObject({
+      provider: 'openrouter',
+      model: 'nvidia/nemotron-3-ultra-550b-a55b:free',
+      endpointHost: 'openrouter.ai',
+      statusCode: 200,
+      providerCode: '529',
+      providerMessage: 'Provider overloaded while generating completion',
+      retriable: true,
+    })
+    expect(result.diagnostics?.providerRawErrorSummary).toContain('"code":529')
+    expect(result.diagnostics?.providerRawErrorSummary).toContain('Provider overloaded')
+    expect(result.diagnostics?.providerRawErrorSummary).not.toContain('Reply with exactly')
   })
 })

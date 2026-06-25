@@ -1239,6 +1239,7 @@ curl -X POST "https://stss.example.com/api/v1/course-selection/ai-advisor/recomm
 - AI 结果不得写入 `Enrollment`，学生必须再调用 `POST /enrollments` 主动提交。
 - AI 推荐必须使用后端计算的可选性快照，不能让模型自行决定硬性规则是否通过。
 - AI 服务超时或不可用时返回可解释错误，普通课程搜索、查看和选课功能不受影响。
+- 调试模式下响应可包含可选 `debugInfo.stages[].providerRawErrorSummary`，仅用于展示脱敏后的上游模型错误摘要、HTTP 状态、token 和 finish reason；不得包含 API key、完整 prompt、学生上下文或选课候选明细。
 - TODO-C-14（`FR-C-38` 至 `FR-C-43`）：后续需确定 AI 服务提供方、超时时间、脱敏策略和提示词版本管理。
 
 ### 3.12 AI 解释课程
@@ -1295,6 +1296,7 @@ curl -X POST "https://stss.example.com/api/v1/course-selection/ai-advisor/explai
 
 - `hard_rule_result` 由后端规则引擎生成，AI 只负责自然语言解释。
 - 若课程不可选，必须明确说明容量、冲突、先修或阶段等具体原因。
+- 调试模式下响应可包含可选 `debugInfo.stages[].providerRawErrorSummary`，字段语义同 AI 推荐接口。
 - TODO-C-15（`FR-C-41`、`NFR-C-09`）：后续需为 AI 输出增加安全审查和兜底模板，避免输出与硬性规则结果矛盾。
 
 ### 3.13 AI 建议保存快照

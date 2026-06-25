@@ -714,6 +714,7 @@ export interface AiProviderDiagnostics {
   statusCode?: number
   providerCode?: string
   providerMessage?: string
+  providerRawErrorSummary?: string
   finishReason?: string
   nativeFinishReason?: string
   promptTokens?: number

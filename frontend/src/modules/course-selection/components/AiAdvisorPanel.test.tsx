@@ -245,6 +245,7 @@ describe('AiAdvisorPanel', () => {
             endpointHost: 'openrouter.ai',
             statusCode: 429,
             providerMessage: 'Rate limit exceeded',
+            providerRawErrorSummary: '{"error":{"message":"Rate limit exceeded"},"choicesCount":0}',
             retryAfter: '60',
             durationMs: 1200,
             promptTokens: 300,
@@ -260,6 +261,7 @@ describe('AiAdvisorPanel', () => {
     const { rerender } = render(<AiAdvisorPanel turns={turns} onExplain={vi.fn()} />);
 
     expect(screen.queryByText('AI 调试状态')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('provider raw error summary')).not.toBeInTheDocument();
 
     rerender(<AiAdvisorPanel turns={turns} onExplain={vi.fn()} debugMode />);
     fireEvent.click(screen.getByText('AI 调试状态'));
@@ -270,6 +272,7 @@ describe('AiAdvisorPanel', () => {
     expect(screen.getByText(/duration 1s/)).toBeInTheDocument();
     expect(screen.getByText(/tokens 320/)).toBeInTheDocument();
     expect(screen.getByText(/providerMessage Rate limit exceeded/)).toBeInTheDocument();
+    expect(screen.getByLabelText('provider raw error summary')).toHaveTextContent('choicesCount');
   });
 
   it('explains non-retriable configuration failures as maintainer action', () => {

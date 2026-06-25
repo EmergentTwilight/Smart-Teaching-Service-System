@@ -192,6 +192,28 @@ const DebugInfoPanel = ({ debugInfo }: { debugInfo?: AiDebugInfo }) => {
                         {stage.providerMessage ? (
                           <Text type="secondary">providerMessage {stage.providerMessage}</Text>
                         ) : null}
+                        {stage.providerRawErrorSummary ? (
+                          <pre
+                            aria-label="provider raw error summary"
+                            style={{
+                              width: '100%',
+                              maxHeight: 140,
+                              overflow: 'auto',
+                              margin: 0,
+                              padding: 8,
+                              border: '1px solid #d9d9d9',
+                              borderRadius: 6,
+                              background: '#fafafa',
+                              color: '#595959',
+                              fontSize: 12,
+                              lineHeight: 1.5,
+                              whiteSpace: 'pre-wrap',
+                              wordBreak: 'break-word',
+                            }}
+                          >
+                            {stage.providerRawErrorSummary}
+                          </pre>
+                        ) : null}
                       </Space>
                     </List.Item>
                   );

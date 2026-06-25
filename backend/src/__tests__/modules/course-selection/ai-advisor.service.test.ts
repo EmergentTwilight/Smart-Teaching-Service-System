@@ -424,6 +424,7 @@ describe('aiAdvisorService.recommend', () => {
         endpointHost: 'openrouter.ai',
         statusCode: 429,
         providerMessage: 'Rate limit exceeded',
+        providerRawErrorSummary: '{"error":{"message":"Rate limit exceeded"},"choicesCount":0}',
         retryAfter: '60',
         durationMs: 1200,
         retriable: true,
@@ -459,6 +460,7 @@ describe('aiAdvisorService.recommend', () => {
           status: 'failed',
           reason: 'provider_error:429',
           statusCode: 429,
+          providerRawErrorSummary: '{"error":{"message":"Rate limit exceeded"},"choicesCount":0}',
           retryAfter: '60',
         }),
       ],
@@ -467,7 +469,7 @@ describe('aiAdvisorService.recommend', () => {
     expect(JSON.stringify(result.debugInfo)).not.toContain('student-1')
   })
 
-  it('uses 16000 max tokens for preference and recommendation LLM stages by default', async () => {
+  it('uses reduced max tokens for preference and recommendation LLM stages by default', async () => {
     llmClientMock.complete
       .mockResolvedValueOnce({
         ok: true,
@@ -523,12 +525,12 @@ describe('aiAdvisorService.recommend', () => {
     expect(llmClientMock.complete).toHaveBeenNthCalledWith(
       1,
       expect.any(Object),
-      expect.objectContaining({ maxTokens: 16000 })
+      expect.objectContaining({ maxTokens: 1024 })
     )
     expect(llmClientMock.complete).toHaveBeenNthCalledWith(
       2,
       expect.any(Object),
-      expect.objectContaining({ maxTokens: 16000 })
+      expect.objectContaining({ maxTokens: 4096 })
     )
   })
 
@@ -603,12 +605,12 @@ describe('aiAdvisorService.explain', () => {
     expect(prismaMock.enrollment.create).not.toHaveBeenCalled()
   })
 
-  it('uses 16000 max tokens for explanation LLM stage by default', async () => {
+  it('uses reduced max tokens for explanation LLM stage by default', async () => {
     await aiAdvisorService.explain('student-1', 'offering-1')
 
     expect(llmClientMock.complete).toHaveBeenCalledWith(
       expect.any(Object),
-      expect.objectContaining({ maxTokens: 16000 })
+      expect.objectContaining({ maxTokens: 2048 })
     )
   })
 })

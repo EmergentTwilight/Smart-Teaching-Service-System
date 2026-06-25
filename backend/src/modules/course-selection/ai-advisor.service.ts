@@ -97,17 +97,22 @@ const toNum = decimalToNumber
 
 const clampScore = (value: number): number => Math.max(0, Math.min(1, Number(value.toFixed(4))))
 const resolveLlmTimeoutMs = () => Math.max(Number(process.env.LLM_TIMEOUT_MS ?? 600000), 600000)
-const DEFAULT_LLM_STAGE_MAX_TOKENS = 16000
-const parseLlmMaxTokens = (value: string | undefined, fallback = DEFAULT_LLM_STAGE_MAX_TOKENS): number => {
+const DEFAULT_LLM_PREFERENCE_MAX_TOKENS = 1024
+const DEFAULT_LLM_RECOMMENDATION_MAX_TOKENS = 4096
+const DEFAULT_LLM_EXPLANATION_MAX_TOKENS = 2048
+const parseLlmMaxTokens = (value: string | undefined, fallback: number): number => {
   const parsed = Number(value)
   return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : fallback
 }
 const resolvePreferenceMaxTokens = () =>
-  parseLlmMaxTokens(process.env.LLM_PREFERENCE_MAX_TOKENS)
+  parseLlmMaxTokens(process.env.LLM_PREFERENCE_MAX_TOKENS, DEFAULT_LLM_PREFERENCE_MAX_TOKENS)
 const resolveRecommendationMaxTokens = () =>
-  parseLlmMaxTokens(process.env.LLM_RECOMMENDATION_MAX_TOKENS ?? process.env.LLM_MAX_TOKENS)
+  parseLlmMaxTokens(
+    process.env.LLM_RECOMMENDATION_MAX_TOKENS ?? process.env.LLM_MAX_TOKENS,
+    DEFAULT_LLM_RECOMMENDATION_MAX_TOKENS
+  )
 const resolveExplanationMaxTokens = () =>
-  parseLlmMaxTokens(process.env.LLM_EXPLANATION_MAX_TOKENS)
+  parseLlmMaxTokens(process.env.LLM_EXPLANATION_MAX_TOKENS, DEFAULT_LLM_EXPLANATION_MAX_TOKENS)
 
 const isNonRetriableLlmReason = (reason: string): boolean =>
   reason === 'missing_api_key' ||
@@ -174,6 +179,7 @@ const toDebugStage = (
     statusCode: diagnostics?.statusCode,
     providerCode: diagnostics?.providerCode,
     providerMessage: diagnostics?.providerMessage,
+    providerRawErrorSummary: diagnostics?.providerRawErrorSummary,
     finishReason: diagnostics?.finishReason,
     nativeFinishReason: diagnostics?.nativeFinishReason,
     promptTokens: diagnostics?.promptTokens ?? result.usage?.promptTokens,

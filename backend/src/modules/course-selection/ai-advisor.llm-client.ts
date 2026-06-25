@@ -27,6 +27,7 @@ export interface LlmFailureDiagnostics {
   statusCode?: number
   providerCode?: string
   providerMessage?: string
+  providerRawErrorSummary?: string
   finishReason?: string
   nativeFinishReason?: string
   promptTokens?: number
@@ -131,6 +132,30 @@ const endpointHost = (endpoint: string): string | null => {
   }
 }
 
+const textValue = (value: unknown): string | undefined => {
+  if (typeof value === 'string' && value.trim()) {
+    return value.slice(0, 500)
+  }
+
+  if (typeof value === 'number') {
+    return String(value)
+  }
+
+  return undefined
+}
+
+const contentType = (value: unknown): string => {
+  if (value === null) {
+    return 'null'
+  }
+
+  if (Array.isArray(value)) {
+    return 'array'
+  }
+
+  return typeof value
+}
+
 const pickProviderError = (raw: unknown): { code?: string; message?: string } => {
   if (!raw || typeof raw !== 'object') {
     return typeof raw === 'string' ? { message: raw.slice(0, 500) } : {}
@@ -140,20 +165,37 @@ const pickProviderError = (raw: unknown): { code?: string; message?: string } =>
     error?: unknown
     code?: unknown
     message?: unknown
+    choices?: unknown[]
   }
   const error = root.error
 
   if (error && typeof error === 'object') {
     const nested = error as { code?: unknown; message?: unknown }
     return {
-      code: typeof nested.code === 'string' ? nested.code : undefined,
-      message: typeof nested.message === 'string' ? nested.message.slice(0, 500) : undefined,
+      code: textValue(nested.code),
+      message: textValue(nested.message),
+    }
+  }
+
+  const choice = root.choices?.[0] as
+    | {
+        error?: unknown
+        message?: {
+          refusal?: unknown
+        }
+      }
+    | undefined
+  if (choice?.error && typeof choice.error === 'object') {
+    const nested = choice.error as { code?: unknown; message?: unknown }
+    return {
+      code: textValue(nested.code),
+      message: textValue(nested.message),
     }
   }
 
   return {
-    code: typeof root.code === 'string' ? root.code : undefined,
-    message: typeof root.message === 'string' ? root.message.slice(0, 500) : undefined,
+    code: textValue(root.code),
+    message: textValue(root.message) ?? textValue(choice?.message?.refusal),
   }
 }
 
@@ -196,8 +238,88 @@ const pickProviderCompletionDiagnostics = (raw: unknown): Partial<LlmFailureDiag
   }
 }
 
+const buildProviderRawErrorSummary = (raw: unknown): string | undefined => {
+  if (raw === null || raw === undefined) {
+    return undefined
+  }
+
+  if (typeof raw === 'string') {
+    return raw.slice(0, 1000)
+  }
+
+  if (raw instanceof Error) {
+    return JSON.stringify({
+      name: raw.name,
+      message: raw.message.slice(0, 500),
+    })
+  }
+
+  if (typeof raw !== 'object') {
+    return String(raw).slice(0, 1000)
+  }
+
+  const root = raw as {
+    id?: unknown
+    model?: unknown
+    object?: unknown
+    created?: unknown
+    error?: unknown
+    code?: unknown
+    message?: unknown
+    choices?: unknown[]
+    usage?: unknown
+  }
+  const choice = root.choices?.[0] as
+    | {
+        finish_reason?: unknown
+        native_finish_reason?: unknown
+        error?: unknown
+        message?: {
+          role?: unknown
+          content?: unknown
+          refusal?: unknown
+          reasoning?: unknown
+        }
+      }
+    | undefined
+  const message = choice?.message
+  const summary = {
+    id: textValue(root.id),
+    object: textValue(root.object),
+    model: textValue(root.model),
+    created: typeof root.created === 'number' ? root.created : undefined,
+    error: root.error,
+    code: textValue(root.code),
+    message: textValue(root.message),
+    choicesCount: Array.isArray(root.choices) ? root.choices.length : undefined,
+    firstChoice: choice
+      ? {
+          finishReason: textValue(choice.finish_reason),
+          nativeFinishReason: textValue(choice.native_finish_reason),
+          error: choice.error,
+          messageRole: textValue(message?.role),
+          contentType: contentType(message?.content),
+          contentLength: typeof message?.content === 'string' ? message.content.length : undefined,
+          refusal: textValue(message?.refusal),
+          hasReasoning: Boolean(message?.reasoning),
+        }
+      : undefined,
+    usage: root.usage,
+  }
+
+  try {
+    return JSON.stringify(summary).slice(0, 1200)
+  } catch {
+    return '[unserializable provider response]'
+  }
+}
+
 const isRetriableFailure = (reason: string, statusCode?: number): boolean => {
   if (reason === 'timeout' || reason === 'network_error') {
+    return true
+  }
+
+  if (reason === 'invalid_provider_response' || reason === 'empty_content') {
     return true
   }
 
@@ -205,7 +327,7 @@ const isRetriableFailure = (reason: string, statusCode?: number): boolean => {
     return statusCode === 408 || statusCode === 409 || statusCode === 425 || statusCode === 429 || statusCode >= 500
   }
 
-  return reason === 'invalid_provider_response' || reason === 'empty_content'
+  return false
 }
 
 const buildDiagnostics = (params: {
@@ -226,6 +348,7 @@ const buildDiagnostics = (params: {
     statusCode: params.statusCode,
     providerCode: providerError.code,
     providerMessage: providerError.message,
+    providerRawErrorSummary: params.reason === 'success' ? undefined : buildProviderRawErrorSummary(params.raw),
     ...providerCompletion,
     retryAfter: params.retryAfter ?? null,
     durationMs: Date.now() - params.startedAt,
@@ -340,7 +463,15 @@ export const llmClient = {
           ok: false,
           reason,
           model,
-          diagnostics: buildDiagnostics({ endpoint, model, reason, startedAt, raw }),
+          diagnostics: buildDiagnostics({
+            endpoint,
+            model,
+            reason,
+            startedAt,
+            statusCode: response.status,
+            raw,
+            retryAfter: response.headers.get('retry-after'),
+          }),
           raw,
         }
       }
@@ -363,7 +494,15 @@ export const llmClient = {
           ok: false,
           reason,
           model: root.model,
-          diagnostics: buildDiagnostics({ endpoint, model: root.model ?? model, reason, startedAt, raw }),
+          diagnostics: buildDiagnostics({
+            endpoint,
+            model: root.model ?? model,
+            reason,
+            startedAt,
+            statusCode: response.status,
+            raw,
+            retryAfter: response.headers.get('retry-after'),
+          }),
           raw,
         }
       }

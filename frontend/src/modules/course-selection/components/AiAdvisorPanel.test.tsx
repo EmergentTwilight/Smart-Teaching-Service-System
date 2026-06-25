@@ -227,6 +227,51 @@ describe('AiAdvisorPanel', () => {
     expect(screen.queryByText(/policy_validation_failed/)).not.toBeInTheDocument();
   });
 
+  it('shows raw provider diagnostics in debug mode only', () => {
+    const debugAdvice: AiAdvicePayload = {
+      ...advice,
+      debugInfo: {
+        requestId: 'request-debug-1',
+        endpoint: 'recommend',
+        llmTimeoutMs: 600000,
+        generatedAt: '2026-06-25T00:00:00.000Z',
+        stages: [
+          {
+            provider: 'openrouter',
+            stage: 'recommendation',
+            status: 'failed',
+            reason: 'provider_error:429',
+            model: 'openrouter/free',
+            endpointHost: 'openrouter.ai',
+            statusCode: 429,
+            providerMessage: 'Rate limit exceeded',
+            retryAfter: '60',
+            durationMs: 1200,
+            promptTokens: 300,
+            completionTokens: 20,
+            totalTokens: 320,
+            retriable: true,
+          },
+        ],
+      },
+    };
+    const turns: AiAdvisorTurn[] = [{ id: 'turn-debug', type: 'recommend', advice: debugAdvice }];
+
+    const { rerender } = render(<AiAdvisorPanel turns={turns} onExplain={vi.fn()} />);
+
+    expect(screen.queryByText('AI 调试状态')).not.toBeInTheDocument();
+
+    rerender(<AiAdvisorPanel turns={turns} onExplain={vi.fn()} debugMode />);
+    fireEvent.click(screen.getByText('AI 调试状态'));
+
+    expect(screen.getByText(/request-debug-1/)).toBeInTheDocument();
+    expect(screen.getByText('限流/排队')).toBeInTheDocument();
+    expect(screen.getByText('HTTP 429')).toBeInTheDocument();
+    expect(screen.getByText(/duration 1s/)).toBeInTheDocument();
+    expect(screen.getByText(/tokens 320/)).toBeInTheDocument();
+    expect(screen.getByText(/providerMessage Rate limit exceeded/)).toBeInTheDocument();
+  });
+
   it('explains non-retriable configuration failures as maintainer action', () => {
     const missingKeyAdvice: AiAdvicePayload = {
       ...advice,

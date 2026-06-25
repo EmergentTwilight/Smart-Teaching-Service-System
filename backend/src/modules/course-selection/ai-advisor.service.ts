@@ -8,6 +8,8 @@ import {
   type AiCourseScoreBreakdown,
   type AiExplainResult,
   type AiFallbackInfo,
+  type AiDebugInfo,
+  type AiDebugStage,
   type AiProgressAudit,
   type AiRecommendationItem,
   type AiRecommendationPlan,
@@ -94,7 +96,7 @@ const toCourseTypeValue = (value: CourseType): AdvisorCourseType => {
 const toNum = decimalToNumber
 
 const clampScore = (value: number): number => Math.max(0, Math.min(1, Number(value.toFixed(4))))
-const resolveLlmTimeoutMs = () => Math.max(Number(process.env.LLM_TIMEOUT_MS ?? 300000), 300000)
+const resolveLlmTimeoutMs = () => Math.max(Number(process.env.LLM_TIMEOUT_MS ?? 600000), 600000)
 const DEFAULT_LLM_STAGE_MAX_TOKENS = 16000
 const parseLlmMaxTokens = (value: string | undefined, fallback = DEFAULT_LLM_STAGE_MAX_TOKENS): number => {
   const parsed = Number(value)
@@ -154,6 +156,65 @@ const logAiFallback = (params: {
     diagnostics: params.fallbackInfo.diagnostics,
   })
 }
+
+const toDebugStage = (
+  stage: AiDebugStage['stage'],
+  result: LlmCompletionResult,
+  status: AiDebugStage['status'],
+  reason?: string
+): AiDebugStage => {
+  const diagnostics = result.diagnostics
+  return {
+    provider: diagnostics?.provider ?? 'openrouter',
+    stage,
+    status,
+    reason,
+    model: result.model ?? diagnostics?.model ?? null,
+    endpointHost: diagnostics?.endpointHost,
+    statusCode: diagnostics?.statusCode,
+    providerCode: diagnostics?.providerCode,
+    providerMessage: diagnostics?.providerMessage,
+    finishReason: diagnostics?.finishReason,
+    nativeFinishReason: diagnostics?.nativeFinishReason,
+    promptTokens: diagnostics?.promptTokens ?? result.usage?.promptTokens,
+    completionTokens: diagnostics?.completionTokens ?? result.usage?.completionTokens,
+    totalTokens: diagnostics?.totalTokens ?? result.usage?.totalTokens,
+    reasoningTokens: diagnostics?.reasoningTokens,
+    retryAfter: diagnostics?.retryAfter,
+    durationMs: diagnostics?.durationMs,
+    retriable: diagnostics?.retriable,
+  }
+}
+
+const skippedDebugStage = (stage: AiDebugStage['stage'], reason: string): AiDebugStage => ({
+  provider: 'openrouter',
+  stage,
+  status: 'skipped',
+  reason,
+  model: null,
+  retriable: false,
+})
+
+const ruleDebugStage = (reason: string): AiDebugStage => ({
+  provider: 'openrouter',
+  stage: 'rule',
+  status: 'fallback',
+  reason,
+  model: null,
+  retriable: false,
+})
+
+const buildDebugInfo = (
+  requestId: string,
+  endpoint: AiDebugInfo['endpoint'],
+  stages: AiDebugStage[]
+): AiDebugInfo => ({
+  requestId,
+  endpoint,
+  llmTimeoutMs: resolveLlmTimeoutMs(),
+  generatedAt: new Date().toISOString(),
+  stages,
+})
 
 const parseText = (value: unknown): string => {
   if (typeof value !== 'string') {
@@ -1191,9 +1252,9 @@ const parsePreferenceFromRequest = (preferences?: Record<string, unknown>): Pref
 
 const withLlmPreference = async (
   preference: PreferenceProfileInput
-): Promise<{ preference: PreferenceProfileInput; fallbackInfo?: AiFallbackInfo }> => {
+): Promise<{ preference: PreferenceProfileInput; fallbackInfo?: AiFallbackInfo; debugStage: AiDebugStage }> => {
   if (!preference.naturalLanguagePreference) {
-    return { preference }
+    return { preference, debugStage: skippedDebugStage('preference', 'no_natural_language_preference') }
   }
 
   const llmResult = await llmClient.complete(
@@ -1218,41 +1279,47 @@ const withLlmPreference = async (
   )
 
   if (!llmResult.ok) {
+    const reason = llmResult.reason ?? 'llm_preference_failed'
     return {
       preference,
       fallbackInfo: buildLlmFallbackInfo({
         stage: 'preference',
-        reason: llmResult.reason ?? 'llm_preference_failed',
+        reason,
         mode: 'rule_only',
         result: llmResult,
         missingComponents: ['llm_preference'],
       }),
+      debugStage: toDebugStage('preference', llmResult, 'failed', reason),
     }
   }
   if (!llmResult.content) {
+    const reason = 'llm_preference_empty_content'
     return {
       preference,
       fallbackInfo: buildLlmFallbackInfo({
         stage: 'preference',
-        reason: 'llm_preference_empty_content',
+        reason,
         mode: 'rule_only',
         result: llmResult,
         missingComponents: ['llm_preference'],
       }),
+      debugStage: toDebugStage('preference', llmResult, 'failed', reason),
     }
   }
 
   const parsed = parseLlmPreference(llmResult.content)
   if (!parsed) {
+    const reason = 'llm_preference_invalid_format'
     return {
       preference,
       fallbackInfo: buildLlmFallbackInfo({
         stage: 'preference',
-        reason: 'llm_preference_invalid_format',
+        reason,
         mode: 'rule_only',
         result: llmResult,
         missingComponents: ['llm_preference'],
       }),
+      debugStage: toDebugStage('preference', llmResult, 'failed', reason),
     }
   }
 
@@ -1273,6 +1340,7 @@ const withLlmPreference = async (
         parseOptionalBoolean(parsed.preferGraduationProgress) ?? preference.preferGraduationProgress,
       riskTolerance: parseRiskTolerance(parsed.riskTolerance),
     },
+    debugStage: toDebugStage('preference', llmResult, 'success', 'preference_parsed'),
   }
 }
 
@@ -1616,12 +1684,14 @@ const withLlmPlans = async (
   model: string | null
   fallbackReason?: string
   fallbackInfo?: AiFallbackInfo
+  debugStage: AiDebugStage
 }> => {
   if (candidates.length === 0) {
     return {
       plans: [],
       model: null,
       fallbackReason: 'no_safe_candidates',
+      debugStage: skippedDebugStage('recommendation', 'no_safe_candidates'),
     }
   }
 
@@ -1680,6 +1750,7 @@ const withLlmPlans = async (
         result,
         missingComponents: ['llm_strategy'],
       }),
+      debugStage: toDebugStage('recommendation', result, 'failed', fallbackReason),
     }
   }
 
@@ -1698,6 +1769,7 @@ const withLlmPlans = async (
         result,
         missingComponents: ['llm_strategy'],
       }),
+      debugStage: toDebugStage('recommendation', result, 'failed', fallbackReason),
     }
   }
 
@@ -1718,6 +1790,7 @@ const withLlmPlans = async (
         result,
         missingComponents: ['llm_strategy'],
       }),
+      debugStage: toDebugStage('recommendation', result, 'failed', fallbackReason),
     }
   }
 
@@ -1769,6 +1842,7 @@ const withLlmPlans = async (
         result,
         missingComponents: ['llm_strategy'],
       }),
+      debugStage: toDebugStage('recommendation', result, 'failed', fallbackReason),
     }
   }
 
@@ -1796,6 +1870,7 @@ const withLlmPlans = async (
         missingComponents: ['llm_strategy'],
         retriable: false,
       }),
+      debugStage: toDebugStage('recommendation', result, 'failed', fallbackReason),
     }
   }
 
@@ -1803,6 +1878,7 @@ const withLlmPlans = async (
     plans,
     model: result.model ?? null,
     recommendationSummary: parsed.recommendationSummary ?? getFallbackSummary(),
+    debugStage: toDebugStage('recommendation', result, 'success', 'llm_strategy_accepted'),
   }
 }
 
@@ -1816,7 +1892,8 @@ const buildAdvicePayload = (
   recommendationSummary: string,
   llmUsed: boolean,
   model: string | null,
-  fallbackInfo?: AiFallbackInfo
+  fallbackInfo?: AiFallbackInfo,
+  debugInfo?: AiDebugInfo
 ): AiAdvicePayload => {
   const context = blackboard.context
   const sorted = recommendations.slice(0, recommendationLimit)
@@ -1878,6 +1955,7 @@ const buildAdvicePayload = (
     scheduleLoad: blackboard.scheduleLoad,
     capacityRisks: blackboard.capacityRisks,
     requestId: blackboard.requestMeta.requestId,
+    debugInfo,
   }
 }
 
@@ -1975,6 +2053,9 @@ const withLlmExplain = async (
       ...base,
       fallbackInfo,
       model: result.model ?? null,
+      debugInfo: buildDebugInfo(requestMeta.requestId, 'explain', [
+        toDebugStage('explanation', result, 'failed', fallbackInfo.reason),
+      ]),
     }
   }
 
@@ -1998,6 +2079,9 @@ const withLlmExplain = async (
       ...base,
       fallbackInfo,
       model: result.model ?? null,
+      debugInfo: buildDebugInfo(requestMeta.requestId, 'explain', [
+        toDebugStage('explanation', result, 'failed', fallbackInfo.reason),
+      ]),
     }
   }
 
@@ -2022,6 +2106,9 @@ const withLlmExplain = async (
       ...base,
       fallbackInfo,
       model: result.model ?? null,
+      debugInfo: buildDebugInfo(requestMeta.requestId, 'explain', [
+        toDebugStage('explanation', result, 'failed', fallbackInfo.reason),
+      ]),
     }
   }
 
@@ -2034,6 +2121,9 @@ const withLlmExplain = async (
     llmUsed: true,
     model: result.model ?? null,
     fallbackInfo: undefined,
+    debugInfo: buildDebugInfo(requestMeta.requestId, 'explain', [
+      toDebugStage('explanation', result, 'success', 'llm_explanation_accepted'),
+    ]),
   }
 }
 
@@ -2218,7 +2308,11 @@ export const aiAdvisorService = {
         '当前无满足硬性规则的候选课程，返回规则说明。',
         false,
         null,
-        blackboard.fallbackInfo
+        blackboard.fallbackInfo,
+        buildDebugInfo(requestId, 'recommend', [
+          preferenceResult.debugStage,
+          ruleDebugStage('no_safe_candidates'),
+        ])
       )
     }
 
@@ -2277,7 +2371,11 @@ export const aiAdvisorService = {
       recommendationSummary,
       useLlm,
       llmResult.model,
-      fallbackInfo
+      fallbackInfo,
+      buildDebugInfo(requestId, 'recommend', [
+        preferenceResult.debugStage,
+        llmResult.debugStage,
+      ])
     )
   },
 

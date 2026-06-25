@@ -1,9 +1,11 @@
 import { Alert, Button, Card, Col, Collapse, Empty, List, Row, Space, Spin, Tag, Typography } from 'antd';
 import { EyeInvisibleOutlined, EyeOutlined, SaveOutlined, WarningOutlined } from '@ant-design/icons';
-import { type FC, useMemo, useState } from 'react';
+import { type FC, useEffect, useMemo, useState } from 'react';
 import type {
   AiAdvicePayload,
   AiCourseScoreBreakdown,
+  AiDebugInfo,
+  AiDebugStage,
   AiExplainPayloadResult,
   AiFallbackInfo,
   AiRecommendation,
@@ -26,6 +28,7 @@ interface AiAdvisorQuestionTurn extends AiAdvisorTurnBase {
 interface AiAdvisorLoadingTurn extends AiAdvisorTurnBase {
   type: 'loading';
   content: string;
+  startedAt?: number;
 }
 
 interface AiAdvisorNoticeTurn extends AiAdvisorTurnBase {
@@ -62,6 +65,7 @@ interface AiAdvisorPanelProps {
   savedTurnIds?: string[];
   savingTurnId?: string | null;
   readOnly?: boolean;
+  debugMode?: boolean;
 }
 
 interface UserFallbackNotice {
@@ -82,6 +86,160 @@ interface AiConversationGroup {
   question?: AiAdvisorQuestionTurn;
   responses: AiAdvisorTurn[];
 }
+
+const DEBUG_FRONTEND_TIMEOUT_MS = 1_210_000;
+const DEBUG_LLM_STAGE_TIMEOUT_MS = 600_000;
+
+const formatDuration = (value?: number) => {
+  if (value === undefined || !Number.isFinite(value)) {
+    return '-';
+  }
+
+  if (value < 1000) {
+    return `${value}ms`;
+  }
+
+  const seconds = Math.round(value / 1000);
+  if (seconds < 60) {
+    return `${seconds}s`;
+  }
+
+  const minutes = Math.floor(seconds / 60);
+  const restSeconds = seconds % 60;
+  return restSeconds > 0 ? `${minutes}min ${restSeconds}s` : `${minutes}min`;
+};
+
+const classifyDebugStage = (stage: AiDebugStage): { label: string; color: string } => {
+  const reason = stage.reason?.toLowerCase() ?? '';
+  const message = stage.providerMessage?.toLowerCase() ?? '';
+
+  if (stage.status === 'success') {
+    return { label: '正常返回', color: 'green' };
+  }
+  if (stage.status === 'skipped') {
+    return { label: '未触发', color: 'default' };
+  }
+  if (reason.includes('timeout') || message.includes('timeout')) {
+    return { label: '超时', color: 'red' };
+  }
+  if (stage.statusCode === 429 || stage.retryAfter) {
+    return { label: '限流/排队', color: 'orange' };
+  }
+  if (stage.statusCode === 401 || stage.statusCode === 403 || reason.includes('missing_api_key')) {
+    return { label: '配置/权限', color: 'purple' };
+  }
+  if (stage.statusCode && stage.statusCode >= 500) {
+    return { label: '服务异常', color: 'red' };
+  }
+  if (reason.includes('network')) {
+    return { label: '网络异常', color: 'red' };
+  }
+  if (reason.includes('validation') || reason.includes('invalid') || reason.includes('empty')) {
+    return { label: '输出不可用', color: 'gold' };
+  }
+
+  return { label: '规则回退', color: 'blue' };
+};
+
+const DebugInfoPanel = ({ debugInfo }: { debugInfo?: AiDebugInfo }) => {
+  if (!debugInfo) {
+    return null;
+  }
+
+  return (
+    <Collapse
+      size="small"
+      items={[
+        {
+          key: 'debug',
+          label: (
+            <Space size="small" wrap>
+              <Text strong>AI 调试状态</Text>
+              <Tag color={debugInfo.endpoint === 'recommend' ? 'blue' : 'purple'}>{debugInfo.endpoint}</Tag>
+              <Text type="secondary">阶段 {debugInfo.stages.length}</Text>
+            </Space>
+          ),
+          children: (
+            <Space direction="vertical" size="small" style={{ width: '100%' }}>
+              <Text type="secondary">
+                requestId {debugInfo.requestId} · 单阶段上限 {formatDuration(debugInfo.llmTimeoutMs)} ·{' '}
+                {new Date(debugInfo.generatedAt).toLocaleString()}
+              </Text>
+              <List
+                size="small"
+                dataSource={debugInfo.stages}
+                renderItem={(stage) => {
+                  const classified = classifyDebugStage(stage);
+                  return (
+                    <List.Item>
+                      <Space direction="vertical" size={4} style={{ width: '100%' }}>
+                        <Space wrap size="small">
+                          <Tag color={classified.color}>{classified.label}</Tag>
+                          <Tag>{stage.stage}</Tag>
+                          <Text type="secondary">{stage.status}</Text>
+                          {stage.statusCode ? <Tag color={stage.statusCode >= 400 ? 'red' : 'green'}>HTTP {stage.statusCode}</Tag> : null}
+                          {stage.retryAfter ? <Tag color="orange">retry-after {stage.retryAfter}s</Tag> : null}
+                        </Space>
+                        <Text type="secondary">
+                          model {stage.model ?? '-'} · duration {formatDuration(stage.durationMs)} · tokens{' '}
+                          {stage.totalTokens ?? '-'} · prompt {stage.promptTokens ?? '-'} · completion{' '}
+                          {stage.completionTokens ?? '-'} · reasoning {stage.reasoningTokens ?? '-'}
+                        </Text>
+                        <Text type="secondary">
+                          reason {stage.reason ?? '-'} · providerCode {stage.providerCode ?? '-'} · finish{' '}
+                          {stage.finishReason ?? '-'} / {stage.nativeFinishReason ?? '-'}
+                        </Text>
+                        {stage.providerMessage ? (
+                          <Text type="secondary">providerMessage {stage.providerMessage}</Text>
+                        ) : null}
+                      </Space>
+                    </List.Item>
+                  );
+                }}
+              />
+            </Space>
+          ),
+        },
+      ]}
+    />
+  );
+};
+
+const LoadingBubble = ({ turn, debugMode }: { turn: AiAdvisorLoadingTurn; debugMode?: boolean }) => {
+  const [now, setNow] = useState(Date.now());
+
+  useEffect(() => {
+    if (!debugMode) {
+      return undefined;
+    }
+
+    const timer = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, [debugMode]);
+
+  const elapsed = turn.startedAt ? now - turn.startedAt : undefined;
+
+  return (
+    <Space direction="vertical" size="small" style={{ width: '100%' }}>
+      <Space>
+        <Spin size="small" />
+        <Text type="secondary">{turn.content}</Text>
+      </Space>
+      {debugMode ? (
+        <Alert
+          message="AI 调试状态"
+          description={`前端已等待 ${formatDuration(elapsed)}；前端请求上限 ${formatDuration(
+            DEBUG_FRONTEND_TIMEOUT_MS
+          )}；后端单阶段上限 ${formatDuration(
+            DEBUG_LLM_STAGE_TIMEOUT_MS
+          )}。后端返回前只能确认仍在等待，返回后会显示是否超时、限流、权限异常或输出校验失败。`}
+          type="info"
+          showIcon
+        />
+      ) : null}
+    </Space>
+  );
+};
 
 /**
  * TODO(C6, FR-C-38, FR-C-39, FR-C-41, NFR-C-09, NFR-C-10):
@@ -312,11 +470,13 @@ const AdviceBubble = ({
   onExplain,
   onGoToSelection,
   readOnly,
+  debugMode,
 }: {
   advice: AiAdvicePayload;
   onExplain: (offeringId: string, courseName: string) => void;
   onGoToSelection?: () => void;
   readOnly?: boolean;
+  debugMode?: boolean;
 }) => {
   const [riskPanelOpen, setRiskPanelOpen] = useState(true);
   const riskSections = useMemo(() => collectRiskSections(advice), [advice]);
@@ -430,6 +590,7 @@ const AdviceBubble = ({
         {fallbackNotice ? (
           <Alert message={fallbackNotice.message} description={fallbackNotice.description} type={fallbackNotice.type} showIcon />
         ) : null}
+        {debugMode ? <DebugInfoPanel debugInfo={advice.debugInfo} /> : null}
         {advice.recommendationSummary ? <Alert message={advice.recommendationSummary} type="success" showIcon /> : null}
         <Text type="secondary">
           学分说明：已完成 {advice.creditProgressSummary.completedCredits ?? 0} · 在修{' '}
@@ -507,7 +668,7 @@ const AdviceBubble = ({
   );
 };
 
-const ExplainBubble = ({ turn }: { turn: AiAdvisorExplainTurn }) => {
+const ExplainBubble = ({ turn, debugMode }: { turn: AiAdvisorExplainTurn; debugMode?: boolean }) => {
   return (
     <div>
       <Space direction="vertical" size="middle" style={{ width: '100%' }}>
@@ -521,6 +682,7 @@ const ExplainBubble = ({ turn }: { turn: AiAdvisorExplainTurn }) => {
           </Tag>
         </Space>
         <Text>{turn.explanation.explanation}</Text>
+        {debugMode ? <DebugInfoPanel debugInfo={turn.explanation.debugInfo} /> : null}
         {turn.explanation.hardRuleResult.reasons.length > 0 ? (
           <List
             size="small"
@@ -538,15 +700,11 @@ const renderResponseTurn = (
   turn: AiAdvisorTurn,
   onExplain: (offeringId: string, courseName: string) => void,
   onGoToSelection?: () => void,
-  readOnly?: boolean
+  readOnly?: boolean,
+  debugMode?: boolean
 ) => {
   if (turn.type === 'loading') {
-    return (
-      <Space>
-        <Spin size="small" />
-        <Text type="secondary">{turn.content}</Text>
-      </Space>
-    );
+    return <LoadingBubble turn={turn} debugMode={debugMode} />;
   }
 
   if (turn.type === 'notice') {
@@ -554,7 +712,7 @@ const renderResponseTurn = (
   }
 
   if (turn.type === 'explain') {
-    return <ExplainBubble turn={turn} />;
+    return <ExplainBubble turn={turn} debugMode={debugMode} />;
   }
 
   if (turn.type === 'recommend') {
@@ -564,6 +722,7 @@ const renderResponseTurn = (
         onExplain={onExplain}
         onGoToSelection={onGoToSelection}
         readOnly={readOnly}
+        debugMode={debugMode}
       />
     );
   }
@@ -581,6 +740,7 @@ const ConversationGroup = ({
   savedTurnIds = [],
   savingTurnId,
   readOnly,
+  debugMode,
 }: {
   group: AiConversationGroup;
   onExplain: (offeringId: string, courseName: string) => void;
@@ -589,6 +749,7 @@ const ConversationGroup = ({
   savedTurnIds?: string[];
   savingTurnId?: string | null;
   readOnly?: boolean;
+  debugMode?: boolean;
 }) => {
   return (
     <section
@@ -649,7 +810,7 @@ const ConversationGroup = ({
                       </Button>
                     </div>
                   ) : null}
-                  {renderResponseTurn(turn, onExplain, onGoToSelection, readOnly)}
+                  {renderResponseTurn(turn, onExplain, onGoToSelection, readOnly, debugMode)}
                 </div>
               ))
             )}
@@ -669,6 +830,7 @@ export const AiAdvisorPanel: FC<AiAdvisorPanelProps> = ({
   savedTurnIds,
   savingTurnId,
   readOnly,
+  debugMode,
 }) => {
   if (turns.length === 0 && !loading) {
     return (
@@ -692,6 +854,7 @@ export const AiAdvisorPanel: FC<AiAdvisorPanelProps> = ({
           savedTurnIds={savedTurnIds}
           savingTurnId={savingTurnId}
           readOnly={readOnly}
+          debugMode={debugMode}
         />
       ))}
 

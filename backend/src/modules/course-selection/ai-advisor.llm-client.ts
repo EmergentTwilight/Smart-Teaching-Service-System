@@ -56,7 +56,7 @@ const isProviderEnabled = () => {
   return enabled !== '0' && enabled.toLowerCase() !== 'false'
 }
 
-const resolveTimeoutMs = () => Math.max(Number(process.env.LLM_TIMEOUT_MS ?? 300000), 300000)
+const resolveTimeoutMs = () => Math.max(Number(process.env.LLM_TIMEOUT_MS ?? 600000), 600000)
 
 const normalizeMessages = (messages: string | LlmMessage | LlmMessage[]): LlmMessage[] => {
   if (Array.isArray(messages)) {
@@ -377,6 +377,14 @@ export const llmClient = {
           completionTokens: root.usage?.completion_tokens,
           totalTokens: root.usage?.total_tokens,
         },
+        diagnostics: buildDiagnostics({
+          endpoint,
+          model: root.model ?? model,
+          reason: 'success',
+          startedAt,
+          statusCode: response.status,
+          raw,
+        }),
       }
     } catch (error) {
       if (didTimeout || (error instanceof DOMException && error.name === 'AbortError')) {

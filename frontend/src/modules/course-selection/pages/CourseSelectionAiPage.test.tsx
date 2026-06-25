@@ -1,6 +1,7 @@
 import { MemoryRouter } from 'react-router-dom';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { useAuthStore } from '@/shared/stores/authStore';
 import { useAiAdvisor } from '../hooks/useAiAdvisor';
 import CourseSelectionAiPage from './CourseSelectionAiPage';
 import type { AiAdvicePayload } from '../types/ai';
@@ -42,6 +43,24 @@ const advice: AiAdvicePayload = {
   degradedMode: 'full',
   llmUsed: true,
   model: 'test-model',
+  debugInfo: {
+    requestId: 'request-debug-1',
+    endpoint: 'recommend',
+    llmTimeoutMs: 600000,
+    generatedAt: '2026-06-25T00:00:00.000Z',
+    stages: [
+      {
+        provider: 'openrouter',
+        stage: 'recommendation',
+        status: 'success',
+        reason: 'llm_strategy_accepted',
+        model: 'test-model',
+        durationMs: 1200,
+        totalTokens: 320,
+        retriable: false,
+      },
+    ],
+  },
 };
 
 const renderPage = () =>
@@ -58,6 +77,24 @@ describe('CourseSelectionAiPage', () => {
     explainMutate.mockReset();
     saveRecordMutate.mockReset();
     deleteRecordMutate.mockReset();
+    useAuthStore.setState({
+      token: 'test-token',
+      refreshToken: 'test-refresh',
+      isAuthenticated: true,
+      user: {
+        id: 'student-1',
+        username: 'student01',
+        email: null,
+        phone: null,
+        realName: 'Student 01',
+        avatarUrl: null,
+        gender: null,
+        status: 'ACTIVE',
+        lastLoginAt: null,
+        roles: ['student'],
+        permissions: [],
+      },
+    });
     vi.mocked(useAiAdvisor).mockReturnValue({
       recommend: {
         mutate: recommendMutate,
@@ -175,6 +212,46 @@ describe('CourseSelectionAiPage', () => {
     expect(pageText.indexOf('我想确认“程序设计基础”是否适合本学期选。')).toBeLessThan(
       pageText.indexOf('补充偏好：先生成推荐')
     );
+  });
+
+  it('shows AI debug diagnostics only for cstudent01', async () => {
+    recommendMutate.mockImplementation((_payload, options) => {
+      options.onSuccess(advice);
+    });
+
+    const { unmount } = renderPage();
+
+    fireEvent.click(screen.getByRole('button', { name: '发送提问' }));
+
+    await waitFor(() => {
+      expect(screen.queryByText('AI 调试状态')).not.toBeInTheDocument();
+    });
+
+    unmount();
+
+    useAuthStore.setState({
+      user: {
+        id: 'student-1',
+        username: 'cstudent01',
+        email: null,
+        phone: null,
+        realName: 'C Student 01',
+        avatarUrl: null,
+        gender: null,
+        status: 'ACTIVE',
+        lastLoginAt: null,
+        roles: ['student'],
+        permissions: [],
+      },
+    });
+
+    renderPage();
+
+    fireEvent.click(screen.getByRole('button', { name: '发送提问' }));
+
+    await waitFor(() => {
+      expect(screen.getByText('AI 调试状态')).toBeInTheDocument();
+    });
   });
 
   it('saves a generated recommendation snapshot', async () => {

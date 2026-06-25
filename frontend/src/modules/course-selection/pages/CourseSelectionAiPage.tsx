@@ -18,6 +18,7 @@ import {
 } from 'antd';
 import { BookOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
+import { useAuthStore } from '@/shared/stores/authStore';
 import { useAiAdvisor } from '../hooks/useAiAdvisor';
 import { AiAdvisorPanel, type AiAdvisorTurn } from '../components/AiAdvisorPanel';
 import type {
@@ -103,6 +104,8 @@ const CourseSelectionAiPage: React.FC = () => {
 
   const navigate = useNavigate();
   const aiAdvisor = useAiAdvisor();
+  const user = useAuthStore((state) => state.user);
+  const debugMode = user?.username === 'cstudent01';
 
   const preferenceSummary = (payload: AiRecommendPayload): string => {
     const preferences = payload.preferences ?? {};
@@ -190,6 +193,7 @@ const CourseSelectionAiPage: React.FC = () => {
         id: loadingTurnId,
         type: 'loading',
         content: '我正在根据你的偏好生成候选课程...',
+        startedAt: Date.now(),
       },
     ]);
 
@@ -227,6 +231,7 @@ const CourseSelectionAiPage: React.FC = () => {
         id: loadingTurnId,
         type: 'loading',
         content: `正在分析“${courseName}”...`,
+        startedAt: Date.now(),
       },
     ]);
 
@@ -512,6 +517,7 @@ const CourseSelectionAiPage: React.FC = () => {
         onSaveTurn={handleSaveTurn}
         savedTurnIds={savedTurnIds}
         savingTurnId={savingTurnId}
+        debugMode={debugMode}
       />
     </div>
   );

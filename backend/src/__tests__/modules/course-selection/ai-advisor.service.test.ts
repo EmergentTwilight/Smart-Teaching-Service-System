@@ -445,6 +445,26 @@ describe('aiAdvisorService.recommend', () => {
         retryAfter: '60',
       }),
     })
+    expect(result.debugInfo).toMatchObject({
+      endpoint: 'recommend',
+      llmTimeoutMs: 600000,
+      stages: [
+        expect.objectContaining({
+          stage: 'preference',
+          status: 'skipped',
+          reason: 'no_natural_language_preference',
+        }),
+        expect.objectContaining({
+          stage: 'recommendation',
+          status: 'failed',
+          reason: 'provider_error:429',
+          statusCode: 429,
+          retryAfter: '60',
+        }),
+      ],
+    })
+    expect(JSON.stringify(result.debugInfo)).not.toContain('allowed_course_offering_ids')
+    expect(JSON.stringify(result.debugInfo)).not.toContain('student-1')
   })
 
   it('uses 16000 max tokens for preference and recommendation LLM stages by default', async () => {
@@ -491,6 +511,14 @@ describe('aiAdvisorService.recommend', () => {
     expect(result.degradedMode).toBe('full')
     expect(result.fallbackInfo).toBeUndefined()
     expect(result.plans?.map((plan) => plan.id)).toContain('balanced')
+    expect(result.debugInfo).toMatchObject({
+      endpoint: 'recommend',
+      llmTimeoutMs: 600000,
+      stages: [
+        expect.objectContaining({ stage: 'preference', status: 'success' }),
+        expect.objectContaining({ stage: 'recommendation', status: 'success' }),
+      ],
+    })
 
     expect(llmClientMock.complete).toHaveBeenNthCalledWith(
       1,

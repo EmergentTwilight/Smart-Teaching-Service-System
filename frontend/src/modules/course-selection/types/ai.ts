@@ -137,6 +137,23 @@ export interface AiFallbackInfo {
   diagnostics?: AiProviderDiagnostics
 }
 
+export type AiDebugStageName = 'preference' | 'recommendation' | 'explanation' | 'rule'
+export type AiDebugStageStatus = 'skipped' | 'success' | 'failed' | 'fallback'
+
+export interface AiDebugStage extends AiProviderDiagnostics {
+  stage: AiDebugStageName
+  status: AiDebugStageStatus
+  reason?: string
+}
+
+export interface AiDebugInfo {
+  requestId: string
+  endpoint: 'recommend' | 'explain'
+  llmTimeoutMs: number
+  generatedAt: string
+  stages: AiDebugStage[]
+}
+
 export interface AiAdvicePayload {
   disclaimer: string
   creditProgressSummary: AiCreditProgressSummary
@@ -155,6 +172,7 @@ export interface AiAdvicePayload {
   scheduleLoad?: AiScheduleLoad
   capacityRisks?: AiCapacityRisk[]
   requestId?: string
+  debugInfo?: AiDebugInfo
 }
 
 export interface AiRecommendPreferenceInput {
@@ -193,6 +211,7 @@ export interface AiExplainPayloadResult {
   llmUsed?: boolean
   model?: string | null
   fallbackInfo?: AiFallbackInfo
+  debugInfo?: AiDebugInfo
 }
 
 export type AiAdvisorSavedRecordType = 'recommendation' | 'explanation'

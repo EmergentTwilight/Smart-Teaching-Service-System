@@ -56,7 +56,7 @@ const isProviderEnabled = () => {
   return enabled !== '0' && enabled.toLowerCase() !== 'false'
 }
 
-const resolveTimeoutMs = () => Math.max(Number(process.env.LLM_TIMEOUT_MS ?? 60000), 60000)
+const resolveTimeoutMs = () => Math.max(Number(process.env.LLM_TIMEOUT_MS ?? 300000), 300000)
 
 const normalizeMessages = (messages: string | LlmMessage | LlmMessage[]): LlmMessage[] => {
   if (Array.isArray(messages)) {

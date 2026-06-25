@@ -35,7 +35,7 @@ describe('aiAdvisorApi', () => {
       1,
       '/course-selection/ai-advisor/recommend',
       recommendPayload,
-      { timeout: 130000 }
+      { timeout: 610000 }
     );
     expect(courseSelectionRequest.post).toHaveBeenNthCalledWith(
       2,
@@ -44,7 +44,7 @@ describe('aiAdvisorApi', () => {
         question: '为什么推荐这门课？',
         courseOfferingId: 'offering-1',
       },
-      { timeout: 130000 }
+      { timeout: 610000 }
     );
   });
 

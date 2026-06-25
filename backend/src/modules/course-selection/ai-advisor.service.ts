@@ -94,7 +94,7 @@ const toCourseTypeValue = (value: CourseType): AdvisorCourseType => {
 const toNum = decimalToNumber
 
 const clampScore = (value: number): number => Math.max(0, Math.min(1, Number(value.toFixed(4))))
-const resolveLlmTimeoutMs = () => Math.max(Number(process.env.LLM_TIMEOUT_MS ?? 60000), 60000)
+const resolveLlmTimeoutMs = () => Math.max(Number(process.env.LLM_TIMEOUT_MS ?? 300000), 300000)
 const DEFAULT_LLM_STAGE_MAX_TOKENS = 16000
 const parseLlmMaxTokens = (value: string | undefined, fallback = DEFAULT_LLM_STAGE_MAX_TOKENS): number => {
   const parsed = Number(value)

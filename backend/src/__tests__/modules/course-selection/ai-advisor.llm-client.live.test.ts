@@ -16,7 +16,7 @@ describeLive('llmClient OpenRouter live smoke test', () => {
         {
           maxTokens: 80,
           temperature: 0,
-          timeoutMs: Math.max(Number(process.env.LLM_TIMEOUT_MS ?? 60000), 60000),
+          timeoutMs: Math.max(Number(process.env.LLM_TIMEOUT_MS ?? 300000), 300000),
         }
       )
 
@@ -31,5 +31,5 @@ describeLive('llmClient OpenRouter live smoke test', () => {
       attempts.some((result) => result.ok && result.content?.trim()),
       attempts.map((result) => result.reason ?? 'empty_content').join(', ')
     ).toBe(true)
-  }, 200000)
+  }, 950000)
 })

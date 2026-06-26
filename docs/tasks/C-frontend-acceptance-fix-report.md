@@ -21,7 +21,7 @@
 
 - 后端在当前没有确认记录持久化能力时返回 `required_before_selection=false`、`confirmed=true`。
 - 前端只在 `requiredBeforeSelection && !confirmed` 时展示“培养方案待确认”提示。
-- API 文档同步说明：TODO-C-01 未落库前不得用无法完成的确认流程阻断选课。
+- API 文档同步说明：培养方案确认已落库，前端不得用本地状态替代后端确认事实。
 
 ### 2. 退选按钮和已选状态
 

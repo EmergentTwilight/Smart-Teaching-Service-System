@@ -6,6 +6,8 @@ export type OfferingStatusValue = 'planned' | 'open' | 'closed' | 'cancelled'
 export type EnrollmentStatusValue = 'enrolled' | 'dropped' | 'withdrawn'
 export type SelectionPhaseValue = 'first_round' | 'second_round' | 'adjustment'
 export type SelectionPeriodServerStatusValue = 'not_started' | 'open' | 'ended'
+export type StudyStatusValue = 'completed' | 'in_progress' | 'not_started'
+export type SemesterStatusValue = 'upcoming' | 'current' | 'ended'
 
 const toLowercaseApiEnum = <T extends string>(value: T): Lowercase<T> =>
   value.toLowerCase() as Lowercase<T>
@@ -103,9 +105,38 @@ export interface CreateEnrollmentBody {
   clientRequestId?: string
 }
 
+export interface CurriculumConfirmationBody {
+  curriculumId: string
+}
+
 export interface DropEnrollmentBody {
   reason?: string
   clientRequestId?: string
+}
+
+export interface AdmissionEnterBody {
+  semesterId?: string
+}
+
+export interface AdmissionLeaseBody {
+  semesterId: string
+  leaseId: string
+}
+
+export interface AdmissionLeasePayload {
+  admitted: boolean
+  semesterId: string
+  leaseId: string
+  activeSessions: number
+  maxActiveSessions: number
+  idleTimeoutSeconds: number
+  heartbeatIntervalSeconds: number
+  expiresAt: string
+}
+
+export interface AdmissionLeavePayload {
+  released: boolean
+  semesterId: string
 }
 
 export interface SelectionPeriodQuery extends BaseQuery {
@@ -120,6 +151,7 @@ export interface CreateSelectionPeriodBody {
   startTime: string
   endTime: string
   maxCredits?: number
+  allowDrop: boolean
   isActive: boolean
 }
 
@@ -129,6 +161,7 @@ export interface UpdateSelectionPeriodBody {
   startTime?: string
   endTime?: string
   maxCredits?: number
+  allowDrop?: boolean
   isActive?: boolean
 }
 
@@ -137,6 +170,42 @@ export interface ManualEnrollmentBody {
   courseOfferingId: string
   reason: string
   notifyStudent?: boolean
+}
+
+export interface ManualEnrollmentLookupQuery extends BaseQuery {
+  keyword?: string
+  semesterId?: string
+}
+
+export interface ManualEnrollmentStudentOption {
+  studentId: string
+  studentNumber: string
+  username: string
+  realName: string
+  majorName?: string | null
+  grade: number
+  className?: string | null
+}
+
+export interface ManualEnrollmentCourseOfferingOption {
+  courseOfferingId: string
+  courseCode: string
+  courseName: string
+  credits: number
+  semester: {
+    id: string
+    name: string
+  }
+  teacher: {
+    id: string
+    realName: string
+    teacherNumber?: string | null
+  }
+  capacity: number
+  enrolledCount: number
+  remainingCapacity: number
+  status: OfferingStatusValue
+  scheduleSummary: string[]
 }
 
 export interface ManualEnrollmentResult {
@@ -200,6 +269,7 @@ export const COURSE_SELECTION_ERROR_CODES = {
   DUPLICATE_ENROLLMENT: 'CS_DUPLICATE_ENROLLMENT',
   SCHEDULE_CONFLICT: 'CS_SCHEDULE_CONFLICT',
   MAX_CREDITS_EXCEEDED: 'CS_MAX_CREDITS_EXCEEDED',
+  CURRICULUM_NOT_CONFIRMED: 'CS_CURRICULUM_NOT_CONFIRMED',
   PREREQUISITE_NOT_MET: 'CS_PREREQUISITE_NOT_MET',
   ENROLLMENT_NOT_FOUND: 'CS_ENROLLMENT_NOT_FOUND',
   FORBIDDEN: 'CS_FORBIDDEN',
@@ -218,6 +288,7 @@ export interface CurriculumCourseItem {
   courseType: CourseTypeValue
   semesterSuggestion?: number | null
   status?: CourseStatusValue
+  studyStatus?: StudyStatusValue
 }
 
 export interface CurriculumInfo {
@@ -243,12 +314,17 @@ export interface CurriculumCourseGroup {
 export interface CurriculumConfirmation {
   requiredBeforeSelection: boolean
   confirmed: boolean
+  confirmedAt?: string | null
   message?: string
 }
 
 export interface CurriculumPayload {
   curriculum: CurriculumInfo
   courseGroups: CurriculumCourseGroup[]
+  confirmation: CurriculumConfirmation
+}
+
+export interface CurriculumConfirmationPayload {
   confirmation: CurriculumConfirmation
 }
 
@@ -262,6 +338,8 @@ export interface CurriculumCreditSummary {
 export interface CurriculumCourseTypeProgress {
   courseType: CourseTypeValue
   selectedCredits: number
+  completedCredits?: number
+  inProgressCredits?: number
   requirementCredits?: number | null
   courseCount: number
 }
@@ -275,6 +353,8 @@ export interface CurriculumProgress {
   curriculumId: string
   requirements: CurriculumCreditSummary
   selected: CurriculumCreditSummary
+  completed?: CurriculumCreditSummary
+  inProgress?: CurriculumCreditSummary
   remaining: Partial<CurriculumCreditSummary>
   byCourseType: CurriculumCourseTypeProgress[]
   warnings: CurriculumProgressWarning[]
@@ -342,6 +422,7 @@ export interface CourseEligibilitySnapshot {
   isEnrolled?: boolean
   isFull?: boolean
   hasTimeConflict?: boolean
+  curriculumConfirmed?: boolean
   prerequisiteSatisfied?: boolean
   withinCurriculum?: boolean
   reasons: string[]
@@ -400,6 +481,7 @@ export interface CourseOfferingDetail {
 export interface EnrollmentItem {
   enrollmentId: string
   status: EnrollmentStatusValue
+  studyStatus?: StudyStatusValue
   enrolledAt: string
   droppedAt?: string | null
   courseOffering: {
@@ -480,6 +562,24 @@ export interface TimetablePayload {
   missingScheduleItems: MissingScheduleItem[]
 }
 
+export interface TimetableSemesterItem {
+  id: string
+  name: string
+  status: SemesterStatusValue
+  startDate: string
+  endDate: string
+  isCurrent: boolean
+  isDefault: boolean
+  enrolledCount: number
+  scheduledItemCount: number
+  missingScheduleCount: number
+}
+
+export interface TimetableSemesterListPayload {
+  items: TimetableSemesterItem[]
+  defaultSemesterId?: string
+}
+
 export interface SelectionPeriodItem {
   id: string
   semester: {
@@ -490,6 +590,7 @@ export interface SelectionPeriodItem {
   startTime: string
   endTime: string
   maxCredits?: number
+  allowDrop: boolean
   isActive: boolean
   serverStatus: SelectionPeriodServerStatusValue
 }
@@ -573,6 +674,9 @@ export interface AiScoreBreakdown {
 
 export interface AiProgressAudit {
   currentSelectedCredits: number
+  completedCredits?: number
+  inProgressCredits?: number
+  projectedCredits?: number
   targetCredits: number
   maxCredits: number | null
   requiredGap: number
@@ -603,6 +707,25 @@ export interface AiCapacityRisk {
   riskReason: string
 }
 
+export interface AiProviderDiagnostics {
+  provider: 'openrouter'
+  model?: string | null
+  endpointHost?: string | null
+  statusCode?: number
+  providerCode?: string
+  providerMessage?: string
+  providerRawErrorSummary?: string
+  finishReason?: string
+  nativeFinishReason?: string
+  promptTokens?: number
+  completionTokens?: number
+  totalTokens?: number
+  reasoningTokens?: number
+  retryAfter?: string | null
+  durationMs?: number
+  retriable?: boolean
+}
+
 export interface AiFallbackInfo {
   code: string
   reason: string
@@ -612,12 +735,34 @@ export interface AiFallbackInfo {
   missingComponents?: string[]
   llmUsed?: boolean
   model?: string | null
+  stage?: 'preference' | 'recommendation' | 'explanation' | 'rule'
+  diagnostics?: AiProviderDiagnostics
+}
+
+export type AiDebugStageName = 'preference' | 'recommendation' | 'explanation' | 'rule'
+export type AiDebugStageStatus = 'skipped' | 'success' | 'failed' | 'fallback'
+
+export interface AiDebugStage extends AiProviderDiagnostics {
+  stage: AiDebugStageName
+  status: AiDebugStageStatus
+  reason?: string
+}
+
+export interface AiDebugInfo {
+  requestId: string
+  endpoint: 'recommend' | 'explain'
+  llmTimeoutMs: number
+  generatedAt: string
+  stages: AiDebugStage[]
 }
 
 export interface AiAdvicePayload {
   disclaimer: string
   creditProgressSummary: {
     currentSelectedCredits: number
+    completedCredits?: number
+    inProgressCredits?: number
+    projectedCredits?: number
     targetCredits: number
     maxCredits: number
     remainingToTarget?: number
@@ -641,6 +786,7 @@ export interface AiAdvicePayload {
   scheduleLoad?: AiScheduleLoad
   capacityRisks?: AiCapacityRisk[]
   requestId?: string
+  debugInfo?: AiDebugInfo
 }
 
 export interface AiExplainResult {
@@ -657,4 +803,43 @@ export interface AiExplainResult {
   llmUsed?: boolean
   model?: string | null
   fallbackInfo?: AiFallbackInfo
+  debugInfo?: AiDebugInfo
+}
+
+export type AiAdvisorSavedRecordTypeValue = 'recommendation' | 'explanation'
+
+export interface SaveAiAdvisorRecordBody {
+  recordType: AiAdvisorSavedRecordTypeValue
+  title?: string
+  question?: string
+  semesterId?: string
+  courseOfferingId?: string
+  requestPayload?: Record<string, unknown> | null
+  resultPayload: Record<string, unknown>
+}
+
+export interface AiAdvisorSavedRecordQuery {
+  page?: number
+  pageSize: number
+  recordType?: AiAdvisorSavedRecordTypeValue
+  semesterId?: string
+}
+
+export interface AiAdvisorSavedRecordItem {
+  id: string
+  studentId: string
+  semesterId: string | null
+  courseOfferingId: string | null
+  recordType: AiAdvisorSavedRecordTypeValue
+  title: string
+  question: string | null
+  requestPayload: Record<string, unknown> | null
+  resultPayload: Record<string, unknown>
+  createdAt: string
+  updatedAt: string
+}
+
+export interface AiAdvisorSavedRecordListPayload {
+  items: AiAdvisorSavedRecordItem[]
+  pagination: PaginationMeta
 }

@@ -71,6 +71,7 @@ export interface CourseEligibilitySnapshot {
   isEnrolled?: boolean;
   isFull?: boolean;
   hasTimeConflict?: boolean;
+  curriculumConfirmed?: boolean;
   prerequisiteSatisfied?: boolean;
   withinCurriculum?: boolean;
   reasons: string[];

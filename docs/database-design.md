@@ -470,6 +470,23 @@ model PasswordResetToken {
 | course_type         | ENUM | NOT NULL | 类型: required/elective/general |
 | semester_suggestion | INT  |          | 建议修读学期                    |
 
+#### StudentCurriculumConfirmation - 学生培养方案确认记录表
+
+v2.0 需求报告要求学生确认培养方案，并将确认结果作为进入选课流程的前置条件。确认记录只保存当前登录学生对匹配培养方案的确认事实，不由前端传入学生身份决定。
+
+| 字段          | 类型      | 约束                          | 说明         |
+| ------------- | --------- | ----------------------------- | ------------ |
+| id            | UUID      | PK                            | 确认记录ID   |
+| student_id    | UUID      | FK -> Student, UNIQUE 组合项  | 学生ID       |
+| curriculum_id | UUID      | FK -> Curriculum, UNIQUE 组合项 | 培养方案ID   |
+| confirmed_at  | TIMESTAMP | NOT NULL                      | 确认时间     |
+| created_at    | TIMESTAMP | NOT NULL                      | 创建时间     |
+| updated_at    | TIMESTAMP | NOT NULL                      | 更新时间     |
+
+**唯一约束**：`(student_id, curriculum_id)`，同一学生对同一培养方案只保留一条确认记录，重复确认刷新 `confirmed_at`。
+
+**有效性规则**：确认记录的 `confirmed_at` 必须不早于对应 `Curriculum.updated_at`，才视为当前有效确认。培养方案被更新后无需 A 组额外写失效字段，C 组选课流程在读取时按该规则要求学生重新确认。
+
 #### Semester - 学期表
 
 | 字段       | 类型        | 约束     | 说明                         |
@@ -510,7 +527,30 @@ model PasswordResetToken {
 | start_time  | TIMESTAMP    | NOT NULL       | 开始时间                                  |
 | end_time    | TIMESTAMP    | NOT NULL       | 结束时间                                  |
 | max_credits | DECIMAL(3,1) |                | 最大选课学分                              |
+| allow_drop  | BOOLEAN      | NOT NULL       | 是否允许该阶段退课                        |
 | is_active   | BOOLEAN      | NOT NULL       | 是否启用                                  |
+
+#### AiAdvisorSavedRecommendation - AI 建议保存快照表
+
+学生可以将 AI 推荐方案或单门课程解释保存为个人回看记录。保存内容只是生成当时的快照，不作为正式选课依据；学生后续提交选课时仍必须重新经过容量、冲突、阶段、先修、培养方案确认和最大学分校验。
+
+| 字段               | 类型         | 约束                           | 说明                       |
+| ------------------ | ------------ | ------------------------------ | -------------------------- |
+| id                 | UUID         | PK                             | 保存记录ID                 |
+| student_id         | UUID         | FK -> Student                  | 学生ID，只能保存本人记录   |
+| semester_id        | UUID         | FK -> Semester, nullable       | 生成建议时的学期           |
+| course_offering_id | UUID         | FK -> CourseOffering, nullable | 单门课程解释对应的开课     |
+| record_type        | ENUM         | NOT NULL                       | recommendation/explanation |
+| title              | VARCHAR(120) | NOT NULL                       | 学生可见标题               |
+| question           | TEXT         |                                | 学生提问或偏好摘要         |
+| request_payload    | JSONB        |                                | 请求快照                   |
+| result_payload     | JSONB        | NOT NULL                       | 推荐或解释结果快照         |
+| created_at         | TIMESTAMP    | NOT NULL                       | 创建时间                   |
+| updated_at         | TIMESTAMP    | NOT NULL                       | 更新时间                   |
+
+**权限规则**：仅学生本人可查询、保存和删除自己的 AI 建议快照，接口不得接收前端传入的 `student_id`。
+
+**边界规则**：保存快照不得写入 `Enrollment`，不得影响 `CourseOffering.enrolled_count`，不得绕过正式选课服务校验。
 
 ---
 

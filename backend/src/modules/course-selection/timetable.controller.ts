@@ -7,6 +7,17 @@ import { timetableService } from './timetable.service.js'
 import { timetableQuerySchema } from './course-selection.schemas.js'
 
 export const timetableController = {
+  async listMyTimetableSemesters(req: Request, res: Response) {
+    const studentId = req.user?.userId
+
+    if (!studentId) {
+      return error(res, '未认证', 401)
+    }
+
+    const result = await timetableService.listMyTimetableSemesters(studentId)
+    return success(res, result)
+  },
+
   async getMyTimetable(req: Request, res: Response) {
     const studentId = req.user?.userId
     const query = timetableQuerySchema.parse(req.query)

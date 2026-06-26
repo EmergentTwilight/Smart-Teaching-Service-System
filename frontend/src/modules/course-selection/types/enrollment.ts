@@ -5,6 +5,7 @@ export type EnrollmentStatus = 'enrolled' | 'dropped' | 'withdrawn';
 export interface EnrollmentItem {
   enrollmentId: string;
   status: EnrollmentStatus;
+  studyStatus?: 'completed' | 'in_progress' | 'not_started';
   enrolledAt: string;
   droppedAt?: string | null;
   courseOffering: {
@@ -102,6 +103,24 @@ export interface TimetablePayload {
   printable: boolean;
   items: TimetableSlot[];
   missingScheduleItems: MissingScheduleItem[];
+}
+
+export interface TimetableSemesterItem {
+  id: string;
+  name: string;
+  status: 'upcoming' | 'current' | 'ended';
+  startDate: string;
+  endDate: string;
+  isCurrent: boolean;
+  isDefault: boolean;
+  enrolledCount: number;
+  scheduledItemCount: number;
+  missingScheduleCount: number;
+}
+
+export interface TimetableSemesterListPayload {
+  items: TimetableSemesterItem[];
+  defaultSemesterId?: string;
 }
 
 export interface RosterStudentItem {

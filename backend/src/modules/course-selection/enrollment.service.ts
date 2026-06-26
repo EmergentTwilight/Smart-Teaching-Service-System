@@ -3,10 +3,16 @@ import {
   EnrollmentStatus,
   OfferingStatus,
   Prisma,
-  SelectionPhase,
 } from '@prisma/client'
 import { AppError } from '@stss/shared'
 import prisma from '../../shared/prisma/client.js'
+import {
+  PASS_LINE,
+  SUBMITTED_SCORE_STATUSES,
+  pickEffectiveScoresByCourse,
+} from '../score-management/score-statistics.js'
+import { admissionService } from './admission.service.js'
+import { assertCurriculumConfirmedForSelection } from './course-selection.support.js'
 import type {
   CreateEnrollmentBody,
   DropEnrollmentBody,
@@ -138,12 +144,8 @@ const ensurePeriodHasMaxCredits = (period: { maxCredits: Prisma.Decimal | null }
   return maxCredits
 }
 
-const ensureDropAllowedInPeriod = (period: { phase: SelectionPhase }) => {
-  // TODO-C-12: first_round 是否允许退选仍需教务确认；当前默认仅补退选与调整阶段允许退选。
-  if (
-    period.phase !== SelectionPhase.SECOND_ROUND &&
-    period.phase !== SelectionPhase.ADJUSTMENT
-  ) {
+const ensureDropAllowedInPeriod = (period: { allowDrop: boolean }) => {
+  if (!period.allowDrop) {
     throwCourseSelectionError('PERIOD_CLOSED', 422, '当前选课阶段不允许退选')
   }
 }
@@ -162,21 +164,30 @@ const ensureWithinCurriculum = async (
     '学生未绑定专业，无法匹配培养方案'
   )
 
-  const curriculum = await tx.curriculum.findFirst({
+  const curriculums = await tx.curriculum.findMany({
     where: {
       majorId,
       year: student.grade,
     },
-    select: { id: true },
+    select: { id: true, updatedAt: true },
   })
 
   assertCourseSelectionExists(
-    curriculum,
+    curriculums[0],
     'PREREQUISITE_NOT_MET',
     422,
     '未找到当前学生匹配的培养方案'
   )
 
+  if (curriculums.length !== 1) {
+    throwCourseSelectionError(
+      'PREREQUISITE_NOT_MET',
+      422,
+      '当前学生匹配的培养方案不唯一'
+    )
+  }
+
+  const curriculum = curriculums[0]
   const curriculumCourse = await tx.curriculumCourse.findUnique({
     where: {
       curriculumId_courseId: {
@@ -190,10 +201,31 @@ const ensureWithinCurriculum = async (
   if (!curriculumCourse) {
     throwCourseSelectionError('PREREQUISITE_NOT_MET', 422, '目标课程不在当前学生培养方案内')
   }
+
+  return curriculum
+}
+
+const ensureCurriculumConfirmed = async (
+  tx: CourseSelectionTx,
+  studentId: string,
+  curriculum: { id: string; updatedAt: Date }
+) => {
+  const confirmation = await tx.studentCurriculumConfirmation.findUnique({
+    where: {
+      studentId_curriculumId: {
+        studentId,
+        curriculumId: curriculum.id,
+      },
+    },
+    select: { confirmedAt: true },
+  })
+
+  assertCurriculumConfirmedForSelection(confirmation, curriculum)
 }
 
 const ensurePrerequisitesMet = async (
   tx: CourseSelectionTx,
+  studentId: string,
   courseId: string
 ) => {
   const prerequisites = await tx.coursePrerequisite.findMany({
@@ -211,15 +243,53 @@ const ensurePrerequisitesMet = async (
 
   if (prerequisites.length === 0) return
 
-  // TODO-C-10: 先修课程通过情况的数据源需由负责人和 F 子系统确认。
-  // 在通过情况不可验证前，写事务选择阻止选课，避免绕过 FR-C-19。
-  throwCourseSelectionError(
-    'PREREQUISITE_NOT_MET',
-    422,
-    `目标课程存在先修要求，当前无法验证通过情况：${prerequisites
-      .map((item) => `${item.prerequisite.code} ${item.prerequisite.name}`)
-      .join('、')}`
+  const prerequisiteCourseIds = prerequisites.map((item) => item.prerequisiteId)
+  const scores = await tx.score.findMany({
+    where: {
+      studentId,
+      status: {
+        in: [...SUBMITTED_SCORE_STATUSES],
+      },
+      courseOffering: {
+        courseId: {
+          in: prerequisiteCourseIds,
+        },
+      },
+    },
+    include: {
+      courseOffering: {
+        select: {
+          courseId: true,
+          course: {
+            select: {
+              id: true,
+            },
+          },
+        },
+      },
+    },
+  })
+
+  // TODO(C3, FR-C-19): 等价课程通过规则需等数据库设计补充等价课程模型后接入。
+  const passedCourseIds = new Set(
+    pickEffectiveScoresByCourse(scores)
+      .filter((score) => toRequiredNumber(score.totalScore) >= PASS_LINE)
+      .map((score) => score.courseOffering.courseId ?? score.courseOffering.course.id)
   )
+
+  const unmetPrerequisites = prerequisites.filter(
+    (item) => !passedCourseIds.has(item.prerequisiteId)
+  )
+
+  if (unmetPrerequisites.length > 0) {
+    throwCourseSelectionError(
+      'PREREQUISITE_NOT_MET',
+      422,
+      `未满足先修课程：${unmetPrerequisites
+        .map((item) => `${item.prerequisite.code} ${item.prerequisite.name}`)
+        .join('、')}`
+    )
+  }
 }
 
 const getCurrentEnrollments = async (
@@ -533,6 +603,7 @@ export const enrollmentService = {
         assertCourseSelectionExists(offering, 'OFFERING_NOT_FOUND', 404, '课程开设不存在')
 
         const period = await getActiveSelectionPeriod(tx, offering.semesterId, now)
+        await admissionService.assertActiveLease(studentId, offering.semesterId)
         const maxCredits = ensurePeriodHasMaxCredits(period)
 
         if (offering.status !== OfferingStatus.OPEN) {
@@ -587,8 +658,9 @@ export const enrollmentService = {
           currentEnrollments
         )
         ensureMaxCreditsNotExceeded(currentSelectedCredits, targetCredits, maxCredits)
-        await ensureWithinCurriculum(tx, student, offering.courseId)
-        await ensurePrerequisitesMet(tx, offering.courseId)
+        const curriculum = await ensureWithinCurriculum(tx, student, offering.courseId)
+        await ensureCurriculumConfirmed(tx, studentId, curriculum)
+        await ensurePrerequisitesMet(tx, studentId, offering.courseId)
 
         let enrollment: EnrollmentRecord | null
 

@@ -2,6 +2,7 @@ import { courseSelectionRequest } from './client';
 import type {
   CurriculumPayload,
   CurriculumQuery,
+  CurriculumConfirmationPayload,
   CurriculumProgress,
   CurriculumProgressQuery,
 } from '../types/curriculum';
@@ -11,6 +12,11 @@ export const curriculumApi = {
     courseSelectionRequest.get<CurriculumPayload>(
       '/course-selection/curriculum/me',
       { params }
+    ),
+  confirmMyCurriculum: (curriculumId: string) =>
+    courseSelectionRequest.post<CurriculumConfirmationPayload>(
+      '/course-selection/curriculum/me/confirmation',
+      { curriculumId }
     ),
   getMyCurriculumProgress: (params?: CurriculumProgressQuery) =>
     courseSelectionRequest.get<CurriculumProgress>(

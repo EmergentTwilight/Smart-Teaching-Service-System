@@ -1,7 +1,16 @@
 import { courseSelectionRequest } from './client';
-import type { AiAdvicePayload, AiExplainPayload, AiExplainPayloadResult, AiRecommendPayload } from '../types/ai';
+import type {
+  AiAdvicePayload,
+  AiAdvisorSavedRecord,
+  AiAdvisorSavedRecordListPayload,
+  AiAdvisorSavedRecordQuery,
+  AiExplainPayload,
+  AiExplainPayloadResult,
+  AiRecommendPayload,
+  SaveAiAdvisorRecordPayload,
+} from '../types/ai';
 
-const AI_ADVISOR_REQUEST_TIMEOUT_MS = 70000;
+const AI_ADVISOR_REQUEST_TIMEOUT_MS = 1210000;
 
 export const aiAdvisorApi = {
   recommend: (payload: AiRecommendPayload) =>
@@ -19,4 +28,14 @@ export const aiAdvisorApi = {
         timeout: AI_ADVISOR_REQUEST_TIMEOUT_MS,
       }
     ),
+  listSavedRecords: (query?: AiAdvisorSavedRecordQuery) =>
+    courseSelectionRequest.get<AiAdvisorSavedRecordListPayload>('/course-selection/ai-advisor/saved', {
+      params: query,
+    }),
+  saveRecord: (payload: SaveAiAdvisorRecordPayload) =>
+    courseSelectionRequest.post<AiAdvisorSavedRecord>('/course-selection/ai-advisor/saved', payload),
+  getSavedRecord: (id: string) =>
+    courseSelectionRequest.get<AiAdvisorSavedRecord>(`/course-selection/ai-advisor/saved/${id}`),
+  deleteSavedRecord: (id: string) =>
+    courseSelectionRequest.delete<{ id: string; deleted: true }>(`/course-selection/ai-advisor/saved/${id}`),
 };

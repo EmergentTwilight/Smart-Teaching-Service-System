@@ -2,7 +2,7 @@
 
 > 适用成员：成员 2
 > 对应 skill：`$stss-c-member2-backend-enrollment-core`
-> 负责范围：C3 选课/退选核心后端事务
+> 负责范围：C3 选课/退选核心后端事务；v2.0 `FR-C-15` 选课准入与空闲释放主责
 > 工作原则：选课成功只能由后端事务决定；不实现 C1/C2 查询、C4 结果导出、C5 管理、C6 AI 或前端页面。
 
 ## 1. 工作前必须阅读
@@ -81,7 +81,7 @@ PR 描述必须包含：
 ```text
 1. 对应子模块：C3。
 2. 覆盖需求：FR-C-14~FR-C-23。
-3. 事务规则说明：阶段、容量、重复、冲突、学分、先修、并发策略。
+3. 事务规则说明：培养方案确认、阶段、容量、重复、冲突、学分、先修、并发策略、选课准入与空闲释放。
 4. 修改文件清单。
 5. Docker wrapper 校验命令和结果。
 6. 手动测试和并发测试步骤。
@@ -97,7 +97,7 @@ PR 合并前先同步 `dev/C`，重点检查 `enrollment.service.ts`、schema/ty
 
 | 子模块 | 需求编号 | 主要能力 |
 |---|---|---|
-| C3 | `FR-C-14` 至 `FR-C-23` | 选课、退选、容量控制、重复选课、课表冲突、最大学分、先修课、事务一致性。 |
+| C3 | `FR-C-14` 至 `FR-C-23`、`FR-C-35`、`FR-C-36` | 选课、退选、培养方案确认校验、容量控制、重复选课、课表冲突、最大学分、先修课、事务一致性、选课准入与空闲释放。 |
 
 主要接口：
 
@@ -150,7 +150,7 @@ backend/src/modules/course-selection/ai-advisor.service.ts
 | `backend/src/modules/course-selection/enrollment.service.ts`：退选函数 | `TODO(C3, FR-C-21, FR-C-22, NFR-C-04)`、`TODO(C3, FR-C-23)` | 实现退选事务：只能退选当前学生本人 `Enrollment`，阶段必须允许退选，目标状态必须为 `enrolled`；只更新 `status=dropped` 和 `dropped_at`，不得删除记录，不写不存在的退选原因字段；同事务减少 `enrolled_count` 且不小于 0。 |
 | `backend/src/modules/course-selection/course-selection.schemas.ts`：选课/退选 schema | `TODO(C3, FR-C-14, FR-C-16, NFR-C-04)`、`TODO(C3, FR-C-16, FR-C-14, NFR-C-04)`、`TODO(C3, FR-C-21, NFR-C-04)` | 保持请求体只使用 `course_offering_id`、`client_request_id` 等文档字段；学生身份不得来自请求体；退选 schema 透传 `client_request_id`，不推动新增 `Enrollment.reason`。 |
 
-依赖其他成员的内容不要在 C3 中直接实现：可选课程 eligibility 属于 C1/C2，`GET /enrollments/me` 和课表属于 C4，手动加课属于 C5。先修通过情况、准入控制和退选阶段规则应分别引用 `TODO-C-10`、`TODO-C-11`、`TODO-C-12` 并写清负责人确认项。
+依赖其他成员的内容不要在 C3 中直接实现：可选课程 eligibility 属于 C1/C2，`GET /enrollments/me` 和课表属于 C4，手动加课属于 C5。培养方案确认状态必须读取 `student_curriculum_confirmations`；先修通过情况和退选阶段规则应分别引用 `TODO-C-10`、`TODO-C-12` 并写清负责人确认项。v2.0 `FR-C-15` 准入控制和空闲释放由 C3 主责，C5 仅协作阶段和配置口径。
 
 ## 6. 选课事务必须完成的校验
 
@@ -158,19 +158,21 @@ backend/src/modules/course-selection/ai-advisor.service.ts
 
 1. 当前用户必须是 `student`。
 2. 学生身份来自认证上下文，不得信任请求体中的 `student_id` 或 `studentId`。
-3. 当前存在启用的 `SelectionPeriod`。
-4. 服务端当前时间位于 `start_time` 和 `end_time` 范围内。
-5. `CourseOffering.status = open`。
-6. `Course.status = active`。
-7. `enrolled_count < capacity`。
-8. 同一学生对同一 `CourseOffering` 不存在多个有效 `enrolled` 记录。
-9. 新选课程与学生已选课程 `Schedule` 不冲突。
-10. 当前阶段总学分不超过 `SelectionPeriod.max_credits`。
-11. 课程符合学生培养方案适配性。
-12. 如存在 `CoursePrerequisite`，检查先修要求；F 子系统未完成时按 `TODO-C-10` 明确阻止或风险提示策略。
-13. 创建或恢复 `Enrollment` 与更新 `CourseOffering.enrolled_count` 必须在同一事务内完成。
-14. 并发选课必须使用行锁、条件更新或等价策略，避免容量超卖。
-15. 幂等字段使用 `client_request_id`。
+3. 当前学生已确认当前匹配培养方案；确认状态必须来自后端持久化记录，且 `confirmed_at` 不早于 `Curriculum.updated_at`。
+4. 当前存在启用的 `SelectionPeriod`。
+5. 服务端当前时间位于 `start_time` 和 `end_time` 范围内。
+6. `CourseOffering.status = open`。
+7. `Course.status = active`。
+8. `enrolled_count < capacity`。
+9. 同一学生对同一 `CourseOffering` 不存在多个有效 `enrolled` 记录。
+10. 新选课程与学生已选课程 `Schedule` 不冲突。
+11. 当前阶段总学分不超过 `SelectionPeriod.max_credits`。
+12. 课程符合学生培养方案适配性。
+13. 如存在 `CoursePrerequisite`，必须依据有效成绩或等价课程完成记录检查先修要求；缺少可判定数据时按 `TODO-C-10` 阻止选课并提示。
+14. 创建或恢复 `Enrollment` 与更新 `CourseOffering.enrolled_count` 必须在同一事务内完成。
+15. 并发选课必须使用行锁、条件更新或等价策略，避免容量超卖。
+16. 选课核心流程按 `TODO-C-11` 接入或预留准入控制、心跳和空闲释放机制。
+17. 幂等字段使用 `client_request_id`。
 
 禁止：
 

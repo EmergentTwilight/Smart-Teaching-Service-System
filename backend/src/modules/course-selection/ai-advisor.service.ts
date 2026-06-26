@@ -8,20 +8,41 @@ import {
   type AiCourseScoreBreakdown,
   type AiExplainResult,
   type AiFallbackInfo,
+  type AiDebugInfo,
+  type AiDebugStage,
   type AiProgressAudit,
   type AiRecommendationItem,
   type AiRecommendationPlan,
+  type AiAdvisorSavedRecordItem,
+  type AiAdvisorSavedRecordListPayload,
+  type AiAdvisorSavedRecordQuery,
+  type AiAdvisorSavedRecordTypeValue,
   type AiScheduleLoad,
+  type SaveAiAdvisorRecordBody,
 } from './course-selection.types.js'
-import { CourseStatus, CourseType, EnrollmentStatus, OfferingStatus } from '@prisma/client'
+import {
+  AiAdvisorSavedRecordType,
+  CourseStatus,
+  CourseType,
+  EnrollmentStatus,
+  OfferingStatus,
+  Prisma,
+} from '@prisma/client'
 import prisma from '../../shared/prisma/client.js'
 import {
+  buildPaginationMeta,
   decimalToNumber,
   resolveMaxCreditsForSemester,
   resolveSemesterId,
   schedulesConflict,
 } from './course-selection.support.js'
-import { llmClient } from './ai-advisor.llm-client.js'
+import {
+  PASS_LINE,
+  SUBMITTED_SCORE_STATUSES,
+  pickEffectiveScoresByCourse,
+  toNumber,
+} from '../score-management/score-statistics.js'
+import { llmClient, type LlmCompletionResult } from './ai-advisor.llm-client.js'
 import {
   buildFallbackPlanTitle,
   getFallbackPlanRationale,
@@ -58,6 +79,7 @@ const WEEKDAY_NAMES: Record<number, string> = {
 
 type AdvisorCourseType = 'required' | 'elective' | 'general'
 type CapacityRiskLevel = 'low' | 'medium' | 'high'
+type CreditBuckets = Record<AdvisorCourseType, number>
 
 const toCourseTypeValue = (value: CourseType): AdvisorCourseType => {
   if (value === CourseType.REQUIRED) {
@@ -74,7 +96,131 @@ const toCourseTypeValue = (value: CourseType): AdvisorCourseType => {
 const toNum = decimalToNumber
 
 const clampScore = (value: number): number => Math.max(0, Math.min(1, Number(value.toFixed(4))))
-const resolveLlmTimeoutMs = () => Math.max(Number(process.env.LLM_TIMEOUT_MS ?? 20000), 20000)
+const resolveLlmTimeoutMs = () => Math.max(Number(process.env.LLM_TIMEOUT_MS ?? 600000), 600000)
+const DEFAULT_LLM_PREFERENCE_MAX_TOKENS = 1024
+const DEFAULT_LLM_RECOMMENDATION_MAX_TOKENS = 4096
+const DEFAULT_LLM_EXPLANATION_MAX_TOKENS = 2048
+const parseLlmMaxTokens = (value: string | undefined, fallback: number): number => {
+  const parsed = Number(value)
+  return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : fallback
+}
+const resolvePreferenceMaxTokens = () =>
+  parseLlmMaxTokens(process.env.LLM_PREFERENCE_MAX_TOKENS, DEFAULT_LLM_PREFERENCE_MAX_TOKENS)
+const resolveRecommendationMaxTokens = () =>
+  parseLlmMaxTokens(
+    process.env.LLM_RECOMMENDATION_MAX_TOKENS ?? process.env.LLM_MAX_TOKENS,
+    DEFAULT_LLM_RECOMMENDATION_MAX_TOKENS
+  )
+const resolveExplanationMaxTokens = () =>
+  parseLlmMaxTokens(process.env.LLM_EXPLANATION_MAX_TOKENS, DEFAULT_LLM_EXPLANATION_MAX_TOKENS)
+
+const isNonRetriableLlmReason = (reason: string): boolean =>
+  reason === 'missing_api_key' ||
+  reason === 'provider_disabled' ||
+  reason === 'llm_contains_forbidden_phrase' ||
+  reason === 'llm_explain_contains_forbidden_phrase'
+
+const buildLlmFallbackInfo = (params: {
+  stage: 'preference' | 'recommendation' | 'explanation'
+  reason: string
+  mode: AiAdvisorMode
+  result?: LlmCompletionResult
+  model?: string | null
+  missingComponents?: string[]
+  retriable?: boolean
+}): AiFallbackInfo => ({
+  code: 'policy_validation_failed',
+  reason: params.reason,
+  source: 'llm',
+  retriable: params.retriable ?? params.result?.diagnostics?.retriable ?? !isNonRetriableLlmReason(params.reason),
+  mode: params.mode,
+  missingComponents: params.missingComponents,
+  llmUsed: false,
+  model: params.result?.model ?? params.model ?? null,
+  stage: params.stage,
+  diagnostics: params.result?.diagnostics,
+})
+
+const logAiFallback = (params: {
+  requestId?: string
+  studentId?: string
+  semesterId?: string
+  endpoint: 'recommend' | 'explain'
+  fallbackInfo: AiFallbackInfo
+}) => {
+  console.warn('[course-selection.ai-advisor.fallback]', {
+    requestId: params.requestId,
+    studentId: params.studentId,
+    semesterId: params.semesterId,
+    endpoint: params.endpoint,
+    stage: params.fallbackInfo.stage,
+    reason: params.fallbackInfo.reason,
+    mode: params.fallbackInfo.mode,
+    retriable: params.fallbackInfo.retriable,
+    model: params.fallbackInfo.model,
+    diagnostics: params.fallbackInfo.diagnostics,
+  })
+}
+
+const toDebugStage = (
+  stage: AiDebugStage['stage'],
+  result: LlmCompletionResult,
+  status: AiDebugStage['status'],
+  reason?: string
+): AiDebugStage => {
+  const diagnostics = result.diagnostics
+  return {
+    provider: diagnostics?.provider ?? 'openrouter',
+    stage,
+    status,
+    reason,
+    model: result.model ?? diagnostics?.model ?? null,
+    endpointHost: diagnostics?.endpointHost,
+    statusCode: diagnostics?.statusCode,
+    providerCode: diagnostics?.providerCode,
+    providerMessage: diagnostics?.providerMessage,
+    providerRawErrorSummary: diagnostics?.providerRawErrorSummary,
+    finishReason: diagnostics?.finishReason,
+    nativeFinishReason: diagnostics?.nativeFinishReason,
+    promptTokens: diagnostics?.promptTokens ?? result.usage?.promptTokens,
+    completionTokens: diagnostics?.completionTokens ?? result.usage?.completionTokens,
+    totalTokens: diagnostics?.totalTokens ?? result.usage?.totalTokens,
+    reasoningTokens: diagnostics?.reasoningTokens,
+    retryAfter: diagnostics?.retryAfter,
+    durationMs: diagnostics?.durationMs,
+    retriable: diagnostics?.retriable,
+  }
+}
+
+const skippedDebugStage = (stage: AiDebugStage['stage'], reason: string): AiDebugStage => ({
+  provider: 'openrouter',
+  stage,
+  status: 'skipped',
+  reason,
+  model: null,
+  retriable: false,
+})
+
+const ruleDebugStage = (reason: string): AiDebugStage => ({
+  provider: 'openrouter',
+  stage: 'rule',
+  status: 'fallback',
+  reason,
+  model: null,
+  retriable: false,
+})
+
+const buildDebugInfo = (
+  requestId: string,
+  endpoint: AiDebugInfo['endpoint'],
+  stages: AiDebugStage[]
+): AiDebugInfo => ({
+  requestId,
+  endpoint,
+  llmTimeoutMs: resolveLlmTimeoutMs(),
+  generatedAt: new Date().toISOString(),
+  stages,
+})
 
 const parseText = (value: unknown): string => {
   if (typeof value !== 'string') {
@@ -101,12 +247,40 @@ const parseBoolean = (value: unknown): boolean => {
   return false
 }
 
+const parseOptionalBoolean = (value: unknown): boolean | undefined => {
+  if (typeof value === 'boolean') {
+    return value
+  }
+
+  if (typeof value === 'number') {
+    if (value === 1) {
+      return true
+    }
+    if (value === 0) {
+      return false
+    }
+  }
+
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase()
+    if (normalized === '1' || normalized === 'true' || normalized === 'yes' || normalized === 'y') {
+      return true
+    }
+    if (normalized === '0' || normalized === 'false' || normalized === 'no' || normalized === 'n') {
+      return false
+    }
+  }
+
+  return undefined
+}
+
 const parsePositiveNumber = (value: unknown): number | null => {
-  if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) {
+  const normalized = typeof value === 'string' && value.trim() !== '' ? Number(value.trim()) : value
+  if (typeof normalized !== 'number' || !Number.isFinite(normalized) || normalized < 0) {
     return null
   }
 
-  return Math.floor(value)
+  return Math.floor(normalized)
 }
 
 const normalizeCourseTypes = (value: unknown): ('required' | 'elective' | 'general')[] => {
@@ -194,6 +368,12 @@ interface EnrolledCourse {
   }[]
 }
 
+interface CompletedCourse {
+  courseId: string
+  credits: number
+  courseType: AdvisorCourseType
+}
+
 interface OfferingSnapshot {
   offeringId: string
   courseId: string
@@ -239,6 +419,12 @@ interface AdvisorContext {
       general: number
     }
     items: EnrolledCourse[]
+    totalCredits: number
+  }
+  completed: {
+    byCourseId: Set<string>
+    byCourseType: CreditBuckets
+    items: CompletedCourse[]
     totalCredits: number
   }
   offerings: OfferingSnapshot[]
@@ -309,6 +495,46 @@ interface C6Blackboard {
   preferenceProfile: PreferenceProfile
   validationReport?: ValidationReport
   fallbackInfo?: AiFallbackInfo
+}
+
+const emptyCreditBuckets = (): CreditBuckets => ({
+  required: 0,
+  elective: 0,
+  general: 0,
+})
+
+const addCreditsToBucket = (bucket: CreditBuckets, courseType: AdvisorCourseType, credits: number) => {
+  bucket[courseType] += credits
+}
+
+const buildProgressCreditBuckets = (context: AdvisorContext) => {
+  const byCourseType = emptyCreditBuckets()
+  const countedCourseIds = new Set<string>()
+  let completedCredits = 0
+  let inProgressCredits = 0
+
+  for (const item of context.completed.items) {
+    countedCourseIds.add(item.courseId)
+    addCreditsToBucket(byCourseType, item.courseType, item.credits)
+    completedCredits += item.credits
+  }
+
+  for (const item of context.enrolled.items) {
+    if (countedCourseIds.has(item.courseId)) {
+      continue
+    }
+
+    countedCourseIds.add(item.courseId)
+    addCreditsToBucket(byCourseType, item.courseType, item.credits)
+    inProgressCredits += item.credits
+  }
+
+  return {
+    byCourseType,
+    completedCredits,
+    inProgressCredits,
+    projectedCredits: completedCredits + inProgressCredits,
+  }
 }
 
 const resolveStudent = async (studentId: string): Promise<StudentCtx> => {
@@ -496,6 +722,62 @@ const resolveEnrollmentState = async (studentId: string, semesterId: string) => 
   }
 }
 
+const resolveCompletedState = async (studentId: string) => {
+  const scores = await prisma.score.findMany({
+    where: {
+      studentId,
+      status: {
+        in: [...SUBMITTED_SCORE_STATUSES],
+      },
+    },
+    include: {
+      courseOffering: {
+        include: {
+          course: {
+            select: {
+              id: true,
+              credits: true,
+              courseType: true,
+            },
+          },
+        },
+      },
+    },
+  })
+
+  const byCourseId = new Set<string>()
+  const byCourseType = emptyCreditBuckets()
+  let totalCredits = 0
+  const items: CompletedCourse[] = []
+
+  for (const score of pickEffectiveScoresByCourse(scores)) {
+    const totalScore = toNumber(score.totalScore)
+    if (totalScore === null || totalScore < PASS_LINE) {
+      continue
+    }
+
+    const course = score.courseOffering.course
+    const courseType = toCourseTypeValue(course.courseType)
+    const credits = toNum(course.credits)
+
+    byCourseId.add(course.id)
+    addCreditsToBucket(byCourseType, courseType, credits)
+    totalCredits += credits
+    items.push({
+      courseId: course.id,
+      credits,
+      courseType,
+    })
+  }
+
+  return {
+    byCourseId,
+    byCourseType,
+    totalCredits,
+    items,
+  }
+}
+
 const resolveOfferings = async (semesterId: string): Promise<OfferingSnapshot[]> => {
   const offerings = await prisma.courseOffering.findMany({
     where: { semesterId },
@@ -570,6 +852,7 @@ const buildContext = async (studentId: string, semesterId?: string): Promise<Adv
   const period = await resolvePeriod(semester.id)
   const curriculum = await resolveCurriculum(student)
   const enrollmentState = await resolveEnrollmentState(studentId, semester.id)
+  const completedState = await resolveCompletedState(studentId)
   const offerings = await resolveOfferings(semester.id)
 
   return {
@@ -584,20 +867,27 @@ const buildContext = async (studentId: string, semesterId?: string): Promise<Adv
       items: enrollmentState.items,
       totalCredits: enrollmentState.totalCredits,
     },
+    completed: {
+      byCourseId: completedState.byCourseId,
+      byCourseType: completedState.byCourseType,
+      items: completedState.items,
+      totalCredits: completedState.totalCredits,
+    },
     offerings,
   }
 }
 
 const buildProgressAudit = (context: AdvisorContext): AiProgressAudit => {
+  const progress = buildProgressCreditBuckets(context)
   const requiredGap = context.curriculum.requiredCredits === null
     ? 0
-    : Math.max(0, context.curriculum.requiredCredits - context.enrolled.byCourseType.required)
+    : Math.max(0, context.curriculum.requiredCredits - progress.byCourseType.required)
   const electiveGap = context.curriculum.electiveCredits === null
     ? 0
-    : Math.max(0, context.curriculum.electiveCredits - context.enrolled.byCourseType.elective)
+    : Math.max(0, context.curriculum.electiveCredits - progress.byCourseType.elective)
   const generalGap = context.curriculum.generalCredits === null
     ? 0
-    : Math.max(0, context.curriculum.generalCredits - context.enrolled.byCourseType.general)
+    : Math.max(0, context.curriculum.generalCredits - progress.byCourseType.general)
 
   const priorityGaps = [
     {
@@ -625,6 +915,9 @@ const buildProgressAudit = (context: AdvisorContext): AiProgressAudit => {
 
   return {
     currentSelectedCredits: context.enrolled.totalCredits,
+    completedCredits: progress.completedCredits,
+    inProgressCredits: progress.inProgressCredits,
+    projectedCredits: progress.projectedCredits,
     targetCredits: context.curriculum.totalCredits,
     maxCredits: context.period.maxCredits,
     requiredGap,
@@ -709,15 +1002,16 @@ const scoreCandidate = (
   },
   risks: string[]
 ): AiCourseScoreBreakdown => {
+  const progress = buildProgressCreditBuckets(context)
   const requiredGap = context.curriculum.requiredCredits === null
     ? 0
-    : Math.max(0, context.curriculum.requiredCredits - context.enrolled.byCourseType.required)
+    : Math.max(0, context.curriculum.requiredCredits - progress.byCourseType.required)
   const electiveGap = context.curriculum.electiveCredits === null
     ? 0
-    : Math.max(0, context.curriculum.electiveCredits - context.enrolled.byCourseType.elective)
+    : Math.max(0, context.curriculum.electiveCredits - progress.byCourseType.elective)
   const generalGap = context.curriculum.generalCredits === null
     ? 0
-    : Math.max(0, context.curriculum.generalCredits - context.enrolled.byCourseType.general)
+    : Math.max(0, context.curriculum.generalCredits - progress.byCourseType.general)
   const gapFitMap: Record<AdvisorCourseType, number> = {
     required: requiredGap > 0 ? 0.2 : 0.08,
     elective: electiveGap > 0 ? 0.18 : 0.08,
@@ -749,15 +1043,17 @@ const sumScoreBreakdown = (breakdown: AiCourseScoreBreakdown): number =>
 
 const evaluateCandidates = (context: AdvisorContext): CandidatePools => {
   const enrolledSchedules = context.enrolled.items.flatMap((item) => item.schedules)
+  const progress = buildProgressCreditBuckets(context)
 
   const candidates = context.offerings.map<CandidateContext>((offering) => {
     const isEnrolled = context.enrolled.byOfferingId.has(offering.offeringId)
+    const isCompleted = context.completed.byCourseId.has(offering.courseId)
     const isFull = offering.remainingCapacity <= 0
     const hasTimeConflict = offering.schedules.some((offeringSchedule) =>
       enrolledSchedules.some((enrolledSchedule) => schedulesConflict(offeringSchedule, enrolledSchedule))
     )
 
-    const prerequisiteSatisfied = offering.prerequisites.every((id) => context.enrolled.byCourseId.has(id))
+    const prerequisiteSatisfied = offering.prerequisites.every((id) => context.completed.byCourseId.has(id))
     const withinCurriculum = context.curriculum.mandatoryCourses.has(offering.courseId)
 
     const reasons: string[] = []
@@ -776,6 +1072,10 @@ const evaluateCandidates = (context: AdvisorContext): CandidatePools => {
 
     if (isEnrolled) {
       reasons.push('课程已选')
+    }
+
+    if (isCompleted) {
+      reasons.push('课程已通过')
     }
 
     if (isFull) {
@@ -833,17 +1133,17 @@ const evaluateCandidates = (context: AdvisorContext): CandidatePools => {
     const requiredGap =
       context.curriculum.requiredCredits === null
         ? 0
-        : Math.max(0, context.curriculum.requiredCredits - context.enrolled.byCourseType.required)
+        : Math.max(0, context.curriculum.requiredCredits - progress.byCourseType.required)
 
     const electiveGap =
       context.curriculum.electiveCredits === null
         ? 0
-        : Math.max(0, context.curriculum.electiveCredits - context.enrolled.byCourseType.elective)
+        : Math.max(0, context.curriculum.electiveCredits - progress.byCourseType.elective)
 
     const generalGap =
       context.curriculum.generalCredits === null
         ? 0
-        : Math.max(0, context.curriculum.generalCredits - context.enrolled.byCourseType.general)
+        : Math.max(0, context.curriculum.generalCredits - progress.byCourseType.general)
 
     if (withinCurriculum && offering.courseType === 'required' && requiredGap > 0) {
       recommendationReasons.push('可帮助补齐必修课程缺口')
@@ -958,9 +1258,9 @@ const parsePreferenceFromRequest = (preferences?: Record<string, unknown>): Pref
 
 const withLlmPreference = async (
   preference: PreferenceProfileInput
-): Promise<PreferenceProfileInput> => {
+): Promise<{ preference: PreferenceProfileInput; fallbackInfo?: AiFallbackInfo; debugStage: AiDebugStage }> => {
   if (!preference.naturalLanguagePreference) {
-    return preference
+    return { preference, debugStage: skippedDebugStage('preference', 'no_natural_language_preference') }
   }
 
   const llmResult = await llmClient.complete(
@@ -978,43 +1278,75 @@ const withLlmPreference = async (
       }),
     },
     {
-      maxTokens: 900,
+      maxTokens: resolvePreferenceMaxTokens(),
       timeoutMs: resolveLlmTimeoutMs(),
       temperature: 0.1,
     }
   )
 
   if (!llmResult.ok) {
-    return preference
+    const reason = llmResult.reason ?? 'llm_preference_failed'
+    return {
+      preference,
+      fallbackInfo: buildLlmFallbackInfo({
+        stage: 'preference',
+        reason,
+        mode: 'rule_only',
+        result: llmResult,
+        missingComponents: ['llm_preference'],
+      }),
+      debugStage: toDebugStage('preference', llmResult, 'failed', reason),
+    }
   }
   if (!llmResult.content) {
-    return preference
+    const reason = 'llm_preference_empty_content'
+    return {
+      preference,
+      fallbackInfo: buildLlmFallbackInfo({
+        stage: 'preference',
+        reason,
+        mode: 'rule_only',
+        result: llmResult,
+        missingComponents: ['llm_preference'],
+      }),
+      debugStage: toDebugStage('preference', llmResult, 'failed', reason),
+    }
   }
 
   const parsed = parseLlmPreference(llmResult.content)
   if (!parsed) {
-    return preference
+    const reason = 'llm_preference_invalid_format'
+    return {
+      preference,
+      fallbackInfo: buildLlmFallbackInfo({
+        stage: 'preference',
+        reason,
+        mode: 'rule_only',
+        result: llmResult,
+        missingComponents: ['llm_preference'],
+      }),
+      debugStage: toDebugStage('preference', llmResult, 'failed', reason),
+    }
   }
 
   return {
-    ...preference,
-    targetCredits: parsePositiveNumber(parsed.targetCredits) ?? preference.targetCredits,
-    preferredCourseTypes:
-      normalizeCourseTypes(parsed.preferredCourseTypes).length > 0
-        ? normalizeCourseTypes(parsed.preferredCourseTypes)
-        : preference.preferredCourseTypes,
-    avoidEarlyMorning:
-      typeof parsed.avoidEarlyMorning === 'boolean' ? parsed.avoidEarlyMorning : preference.avoidEarlyMorning,
-    preferLowLoad: typeof parsed.preferLowLoad === 'boolean' ? parsed.preferLowLoad : preference.preferLowLoad,
-    preferRequiredCourses:
-      typeof parsed.preferRequiredCourses === 'boolean'
-        ? parsed.preferRequiredCourses
-        : preference.preferRequiredCourses,
-    preferGraduationProgress:
-      typeof parsed.preferGraduationProgress === 'boolean'
-        ? parsed.preferGraduationProgress
-        : preference.preferGraduationProgress,
-    riskTolerance: parseRiskTolerance(parsed.riskTolerance),
+    preference: {
+      ...preference,
+      targetCredits: parsePositiveNumber(parsed.targetCredits) ?? preference.targetCredits,
+      preferredCourseTypes:
+        normalizeCourseTypes(parsed.preferredCourseTypes).length > 0
+          ? normalizeCourseTypes(parsed.preferredCourseTypes)
+          : preference.preferredCourseTypes,
+      avoidEarlyMorning:
+        parseOptionalBoolean(parsed.avoidEarlyMorning) ?? preference.avoidEarlyMorning,
+      preferLowLoad: parseOptionalBoolean(parsed.preferLowLoad) ?? preference.preferLowLoad,
+      preferRequiredCourses:
+        parseOptionalBoolean(parsed.preferRequiredCourses) ?? preference.preferRequiredCourses,
+      preferGraduationProgress:
+        parseOptionalBoolean(parsed.preferGraduationProgress) ?? preference.preferGraduationProgress,
+      riskTolerance: parseRiskTolerance(parsed.riskTolerance),
+    },
+    debugStage: toDebugStage('preference', llmResult, 'success', 'preference_parsed'),
   }
 }
 
@@ -1224,6 +1556,7 @@ const resolvePreferenceSource = (
 }
 
 const buildBlackboard = ({
+  requestId,
   studentId,
   body,
   recommendationLimit,
@@ -1232,6 +1565,7 @@ const buildBlackboard = ({
   rawPreference,
   preference,
 }: {
+  requestId: string
   studentId: string
   body: AiRecommendBody
   recommendationLimit: number
@@ -1241,7 +1575,7 @@ const buildBlackboard = ({
   preference: PreferenceProfileInput
 }): C6Blackboard => ({
   requestMeta: {
-    requestId: randomUUID(),
+    requestId,
     semesterId: body.semesterId,
     maxRecommendations: recommendationLimit,
     startedAt: new Date().toISOString(),
@@ -1350,12 +1684,20 @@ const withLlmPlans = async (
   preference: PreferenceProfileInput,
   candidates: CandidateContext[],
   recommendationLimit: number
-): Promise<{ plans: AiRecommendationPlan[]; recommendationSummary?: string; model: string | null; fallbackReason?: string }> => {
+): Promise<{
+  plans: AiRecommendationPlan[]
+  recommendationSummary?: string
+  model: string | null
+  fallbackReason?: string
+  fallbackInfo?: AiFallbackInfo
+  debugStage: AiDebugStage
+}> => {
   if (candidates.length === 0) {
     return {
       plans: [],
       model: null,
       fallbackReason: 'no_safe_candidates',
+      debugStage: skippedDebugStage('recommendation', 'no_safe_candidates'),
     }
   }
 
@@ -1395,27 +1737,45 @@ const withLlmPlans = async (
       }),
     },
     {
-      maxTokens: Number(process.env.LLM_MAX_TOKENS ?? 1500),
+      maxTokens: resolveRecommendationMaxTokens(),
       timeoutMs: resolveLlmTimeoutMs(),
       temperature: 0.25,
     }
   )
 
   if (!result.ok) {
+    const fallbackReason = result.reason ?? 'llm_strategy_failed'
     return {
       plans: [],
       model: result.model ?? null,
-      fallbackReason: result.reason,
+      fallbackReason,
+      fallbackInfo: buildLlmFallbackInfo({
+        stage: 'recommendation',
+        reason: fallbackReason,
+        mode: 'rule_only',
+        result,
+        missingComponents: ['llm_strategy'],
+      }),
+      debugStage: toDebugStage('recommendation', result, 'failed', fallbackReason),
     }
   }
 
   const parsed = parsePlansFromLlm(result)
   if (!parsed?.plans || parsed.plans.length === 0) {
+    const fallbackReason = 'llm_invalid_format'
     return {
       plans: [],
       model: result.model ?? null,
       recommendationSummary: getFallbackSummary(),
-      fallbackReason: 'llm_invalid_format',
+      fallbackReason,
+      fallbackInfo: buildLlmFallbackInfo({
+        stage: 'recommendation',
+        reason: fallbackReason,
+        mode: 'rule_only',
+        result,
+        missingComponents: ['llm_strategy'],
+      }),
+      debugStage: toDebugStage('recommendation', result, 'failed', fallbackReason),
     }
   }
 
@@ -1423,11 +1783,20 @@ const withLlmPlans = async (
   const parsedIds = parseLlmPlanIds(parsed.plans, allowedIds)
 
   if (!parsedIds.valid) {
+    const fallbackReason = 'llm_validation_failed'
     return {
       plans: [],
       model: result.model ?? null,
       recommendationSummary: parsed.recommendationSummary,
-      fallbackReason: 'llm_validation_failed',
+      fallbackReason,
+      fallbackInfo: buildLlmFallbackInfo({
+        stage: 'recommendation',
+        reason: fallbackReason,
+        mode: 'rule_only',
+        result,
+        missingComponents: ['llm_strategy'],
+      }),
+      debugStage: toDebugStage('recommendation', result, 'failed', fallbackReason),
     }
   }
 
@@ -1466,11 +1835,20 @@ const withLlmPlans = async (
   ].filter(isPlan)
 
   if (plans.length === 0) {
+    const fallbackReason = 'llm_validation_failed'
     return {
       plans: [],
       model: result.model ?? null,
       recommendationSummary: parsed.recommendationSummary,
-      fallbackReason: 'llm_validation_failed',
+      fallbackReason,
+      fallbackInfo: buildLlmFallbackInfo({
+        stage: 'recommendation',
+        reason: fallbackReason,
+        mode: 'rule_only',
+        result,
+        missingComponents: ['llm_strategy'],
+      }),
+      debugStage: toDebugStage('recommendation', result, 'failed', fallbackReason),
     }
   }
 
@@ -1484,11 +1862,21 @@ const withLlmPlans = async (
   })
 
   if (hasForbidden) {
+    const fallbackReason = 'llm_contains_forbidden_phrase'
     return {
       plans: [],
       model: result.model ?? null,
       recommendationSummary: getFallbackSummary(),
-      fallbackReason: 'llm_contains_forbidden_phrase',
+      fallbackReason,
+      fallbackInfo: buildLlmFallbackInfo({
+        stage: 'recommendation',
+        reason: fallbackReason,
+        mode: 'rule_only',
+        result,
+        missingComponents: ['llm_strategy'],
+        retriable: false,
+      }),
+      debugStage: toDebugStage('recommendation', result, 'failed', fallbackReason),
     }
   }
 
@@ -1496,6 +1884,7 @@ const withLlmPlans = async (
     plans,
     model: result.model ?? null,
     recommendationSummary: parsed.recommendationSummary ?? getFallbackSummary(),
+    debugStage: toDebugStage('recommendation', result, 'success', 'llm_strategy_accepted'),
   }
 }
 
@@ -1509,7 +1898,8 @@ const buildAdvicePayload = (
   recommendationSummary: string,
   llmUsed: boolean,
   model: string | null,
-  fallbackInfo?: AiFallbackInfo
+  fallbackInfo?: AiFallbackInfo,
+  debugInfo?: AiDebugInfo
 ): AiAdvicePayload => {
   const context = blackboard.context
   const sorted = recommendations.slice(0, recommendationLimit)
@@ -1537,8 +1927,9 @@ const buildAdvicePayload = (
     }))
 
   const targetCredits = context.curriculum.totalCredits
+  const progress = buildProgressCreditBuckets(context)
   const remainingToTarget =
-    targetCredits > 0 ? Math.max(0, targetCredits - context.enrolled.totalCredits) : 0
+    targetCredits > 0 ? Math.max(0, targetCredits - progress.projectedCredits) : 0
 
   return {
     disclaimer: AI_DISCLAIMER,
@@ -1549,6 +1940,9 @@ const buildAdvicePayload = (
     model,
     creditProgressSummary: {
       currentSelectedCredits: context.enrolled.totalCredits,
+      completedCredits: progress.completedCredits,
+      inProgressCredits: progress.inProgressCredits,
+      projectedCredits: progress.projectedCredits,
       targetCredits,
       maxCredits: context.period.maxCredits ?? 0,
       remainingToTarget,
@@ -1567,6 +1961,7 @@ const buildAdvicePayload = (
     scheduleLoad: blackboard.scheduleLoad,
     capacityRisks: blackboard.capacityRisks,
     requestId: blackboard.requestMeta.requestId,
+    debugInfo,
   }
 }
 
@@ -1612,7 +2007,8 @@ const buildExplainFallback = (
 const withLlmExplain = async (
   question: string,
   offering: CandidateSnapshot,
-  context: AdvisorContext
+  context: AdvisorContext,
+  requestMeta: { requestId: string; studentId: string }
 ): Promise<AiExplainResult> => {
   const base = buildExplainFallback(offering.courseOfferingId, offering, context)
 
@@ -1638,24 +2034,88 @@ const withLlmExplain = async (
       }),
     },
     {
-      maxTokens: 800,
+      maxTokens: resolveExplanationMaxTokens(),
       temperature: 0.2,
       timeoutMs: resolveLlmTimeoutMs(),
     }
   )
 
   if (!result.ok) {
-    return base
+    const fallbackInfo = buildLlmFallbackInfo({
+      stage: 'explanation',
+      reason: result.reason ?? 'llm_explain_failed',
+      mode: 'rule_only',
+      result,
+      missingComponents: ['llm_explanation'],
+    })
+    logAiFallback({
+      requestId: requestMeta.requestId,
+      studentId: requestMeta.studentId,
+      semesterId: context.semester.id,
+      endpoint: 'explain',
+      fallbackInfo,
+    })
+    return {
+      ...base,
+      fallbackInfo,
+      model: result.model ?? null,
+      debugInfo: buildDebugInfo(requestMeta.requestId, 'explain', [
+        toDebugStage('explanation', result, 'failed', fallbackInfo.reason),
+      ]),
+    }
   }
 
   const parsed = parseExplainFromLlm(result)
   if (!parsed || !parsed.explanation || parsed.explanation.length < 8) {
-    return base
+    const fallbackInfo = buildLlmFallbackInfo({
+      stage: 'explanation',
+      reason: 'llm_explain_invalid_format',
+      mode: 'rule_only',
+      result,
+      missingComponents: ['llm_explanation'],
+    })
+    logAiFallback({
+      requestId: requestMeta.requestId,
+      studentId: requestMeta.studentId,
+      semesterId: context.semester.id,
+      endpoint: 'explain',
+      fallbackInfo,
+    })
+    return {
+      ...base,
+      fallbackInfo,
+      model: result.model ?? null,
+      debugInfo: buildDebugInfo(requestMeta.requestId, 'explain', [
+        toDebugStage('explanation', result, 'failed', fallbackInfo.reason),
+      ]),
+    }
   }
 
   const explanation = parseText(parsed.explanation)
   if (!explanation || containsForbiddenPhrase(explanation)) {
-    return base
+    const fallbackInfo = buildLlmFallbackInfo({
+      stage: 'explanation',
+      reason: 'llm_explain_contains_forbidden_phrase',
+      mode: 'rule_only',
+      result,
+      missingComponents: ['llm_explanation'],
+      retriable: false,
+    })
+    logAiFallback({
+      requestId: requestMeta.requestId,
+      studentId: requestMeta.studentId,
+      semesterId: context.semester.id,
+      endpoint: 'explain',
+      fallbackInfo,
+    })
+    return {
+      ...base,
+      fallbackInfo,
+      model: result.model ?? null,
+      debugInfo: buildDebugInfo(requestMeta.requestId, 'explain', [
+        toDebugStage('explanation', result, 'failed', fallbackInfo.reason),
+      ]),
+    }
   }
 
   return {
@@ -1667,6 +2127,9 @@ const withLlmExplain = async (
     llmUsed: true,
     model: result.model ?? null,
     fallbackInfo: undefined,
+    debugInfo: buildDebugInfo(requestMeta.requestId, 'explain', [
+      toDebugStage('explanation', result, 'success', 'llm_explanation_accepted'),
+    ]),
   }
 }
 
@@ -1677,8 +2140,116 @@ const toExplainCandidate = (offeringId: string, context: AdvisorContext): Candid
   return found ? found.candidate : undefined
 }
 
+const toPrismaSavedRecordType = (value: AiAdvisorSavedRecordTypeValue): AiAdvisorSavedRecordType =>
+  value === 'recommendation'
+    ? AiAdvisorSavedRecordType.RECOMMENDATION
+    : AiAdvisorSavedRecordType.EXPLANATION
+
+const toSavedRecordTypeValue = (value: AiAdvisorSavedRecordType): AiAdvisorSavedRecordTypeValue =>
+  value === AiAdvisorSavedRecordType.RECOMMENDATION ? 'recommendation' : 'explanation'
+
+const toJsonInput = (
+  value: Record<string, unknown> | null | undefined
+): Prisma.InputJsonValue | Prisma.NullableJsonNullValueInput | undefined =>
+  value === undefined ? undefined : value === null ? Prisma.JsonNull : value as Prisma.InputJsonValue
+
+const buildSavedRecordTitle = (body: SaveAiAdvisorRecordBody): string => {
+  const explicit = body.title?.trim()
+  if (explicit) {
+    return explicit.slice(0, 120)
+  }
+
+  if (body.recordType === 'explanation') {
+    const courseName = typeof body.resultPayload.courseName === 'string'
+      ? body.resultPayload.courseName
+      : '课程解释'
+    return `课程解释：${courseName}`.slice(0, 120)
+  }
+
+  const summary = typeof body.resultPayload.recommendationSummary === 'string'
+    ? body.resultPayload.recommendationSummary
+    : ''
+  return (summary || 'AI 推荐建议').slice(0, 120)
+}
+
+const mapSavedRecord = (record: {
+  id: string
+  studentId: string
+  semesterId: string | null
+  courseOfferingId: string | null
+  recordType: AiAdvisorSavedRecordType
+  title: string
+  question: string | null
+  requestPayload: Prisma.JsonValue | null
+  resultPayload: Prisma.JsonValue
+  createdAt: Date
+  updatedAt: Date
+}): AiAdvisorSavedRecordItem => ({
+  id: record.id,
+  studentId: record.studentId,
+  semesterId: record.semesterId,
+  courseOfferingId: record.courseOfferingId,
+  recordType: toSavedRecordTypeValue(record.recordType),
+  title: record.title,
+  question: record.question,
+  requestPayload: record.requestPayload as Record<string, unknown> | null,
+  resultPayload: record.resultPayload as Record<string, unknown>,
+  createdAt: record.createdAt.toISOString(),
+  updatedAt: record.updatedAt.toISOString(),
+})
+
+const assertStudentExists = async (studentId: string) => {
+  const student = await prisma.student.findUnique({
+    where: { userId: studentId },
+    select: { userId: true },
+  })
+
+  if (!student) {
+    throw new AppError(COURSE_SELECTION_ERROR_CODES.NOT_FOUND, 404, '无法识别当前学生身份')
+  }
+}
+
+const resolveSavedRecordReferences = async (body: SaveAiAdvisorRecordBody) => {
+  let semesterId = body.semesterId
+
+  if (body.courseOfferingId) {
+    const offering = await prisma.courseOffering.findUnique({
+      where: { id: body.courseOfferingId },
+      select: { id: true, semesterId: true },
+    })
+
+    if (!offering) {
+      throw new AppError(COURSE_SELECTION_ERROR_CODES.OFFERING_NOT_FOUND, 404, '课程开设不存在')
+    }
+
+    if (semesterId && semesterId !== offering.semesterId) {
+      throw new AppError(
+        COURSE_SELECTION_ERROR_CODES.VALIDATION_FAILED,
+        400,
+        'semester_id 与 course_offering_id 所属学期不一致'
+      )
+    }
+
+    semesterId = offering.semesterId
+  }
+
+  if (semesterId) {
+    const semester = await prisma.semester.findUnique({
+      where: { id: semesterId },
+      select: { id: true },
+    })
+
+    if (!semester) {
+      throw new AppError(COURSE_SELECTION_ERROR_CODES.NOT_FOUND, 404, '学期不存在')
+    }
+  }
+
+  return { semesterId }
+}
+
 export const aiAdvisorService = {
   async recommend(studentId: string, body: AiRecommendBody): Promise<AiAdvicePayload> {
+    const requestId = randomUUID()
     const recommendationLimit = Math.min(
       Math.max(body.maxRecommendations, 1),
       MAX_RECOMMENDATION_LIMIT
@@ -1687,11 +2258,13 @@ export const aiAdvisorService = {
     const context = await buildContext(studentId, body.semesterId)
 
     const parsedPreference = parsePreferenceFromRequest(body.preferences)
-    const preference = await withLlmPreference(parsedPreference)
+    const preferenceResult = await withLlmPreference(parsedPreference)
+    const preference = preferenceResult.preference
 
     const candidatePools = evaluateCandidates(context)
     const { safe, blocked } = candidatePools
     const blackboard = buildBlackboard({
+      requestId,
       studentId,
       body,
       recommendationLimit,
@@ -1700,6 +2273,15 @@ export const aiAdvisorService = {
       rawPreference: parsedPreference,
       preference,
     })
+    if (preferenceResult.fallbackInfo) {
+      logAiFallback({
+        requestId: blackboard.requestMeta.requestId,
+        studentId,
+        semesterId: context.semester.id,
+        endpoint: 'recommend',
+        fallbackInfo: preferenceResult.fallbackInfo,
+      })
+    }
 
     const safeSorted = sortByPreference(safe, preference)
 
@@ -1710,10 +2292,18 @@ export const aiAdvisorService = {
         source: 'rule',
         retriable: false,
         mode: 'template_only',
+        stage: 'rule',
         missingComponents: [],
         llmUsed: false,
         model: null,
       }
+      logAiFallback({
+        requestId: blackboard.requestMeta.requestId,
+        studentId,
+        semesterId: context.semester.id,
+        endpoint: 'recommend',
+        fallbackInfo: blackboard.fallbackInfo,
+      })
       return buildAdvicePayload(
         blackboard,
         [],
@@ -1724,7 +2314,11 @@ export const aiAdvisorService = {
         '当前无满足硬性规则的候选课程，返回规则说明。',
         false,
         null,
-        blackboard.fallbackInfo
+        blackboard.fallbackInfo,
+        buildDebugInfo(requestId, 'recommend', [
+          preferenceResult.debugStage,
+          ruleDebugStage('no_safe_candidates'),
+        ])
       )
     }
 
@@ -1745,28 +2339,15 @@ export const aiAdvisorService = {
         )
 
     const fallbackInfo: AiFallbackInfo | undefined = useLlm
-      ? llmResult.fallbackReason
-        ? {
-          code: 'policy_validation_failed',
-          reason: llmResult.fallbackReason,
-          source: 'llm',
-          retriable: true,
+      ? undefined
+      : llmResult.fallbackInfo ??
+        buildLlmFallbackInfo({
+          stage: 'recommendation',
+          reason: llmResult.fallbackReason ?? 'llm_strategy_failed',
           mode: 'rule_only',
-          missingComponents: ['llm_strategy'],
-          llmUsed: false,
           model: llmResult.model,
-        }
-        : undefined
-      : {
-          code: 'policy_validation_failed',
-          reason: 'LLM 生成失败，返回模板方案',
-          source: 'llm',
-          retriable: true,
-          mode: 'rule_only',
           missingComponents: ['llm_strategy'],
-          llmUsed: false,
-          model: llmResult.model,
-        }
+        })
 
     const mode: AiAdvisorMode = useLlm ? 'full' : 'rule_only'
     blackboard.validationReport = {
@@ -1776,6 +2357,15 @@ export const aiAdvisorService = {
       action: llmResult.fallbackReason ? 'fallback_template' : 'accept',
     }
     blackboard.fallbackInfo = fallbackInfo
+    if (fallbackInfo) {
+      logAiFallback({
+        requestId: blackboard.requestMeta.requestId,
+        studentId,
+        semesterId: context.semester.id,
+        endpoint: 'recommend',
+        fallbackInfo,
+      })
+    }
 
     return buildAdvicePayload(
       blackboard,
@@ -1787,11 +2377,16 @@ export const aiAdvisorService = {
       recommendationSummary,
       useLlm,
       llmResult.model,
-      fallbackInfo
+      fallbackInfo,
+      buildDebugInfo(requestId, 'recommend', [
+        preferenceResult.debugStage,
+        llmResult.debugStage,
+      ])
     )
   },
 
   async explain(studentId: string, offeringId: string, question?: string): Promise<AiExplainResult> {
+    const requestId = randomUUID()
     const normalizedQuestion = parseText(question) || '课程当前是否可选、是否有风险？'
 
     const offering = await prisma.courseOffering.findUnique({
@@ -1814,6 +2409,81 @@ export const aiAdvisorService = {
       )
     }
 
-    return withLlmExplain(normalizedQuestion, candidate, context)
+    return withLlmExplain(normalizedQuestion, candidate, context, { requestId, studentId })
+  },
+
+  async saveRecord(studentId: string, body: SaveAiAdvisorRecordBody): Promise<AiAdvisorSavedRecordItem> {
+    await assertStudentExists(studentId)
+    const { semesterId } = await resolveSavedRecordReferences(body)
+
+    const record = await prisma.aiAdvisorSavedRecommendation.create({
+      data: {
+        studentId,
+        semesterId,
+        courseOfferingId: body.courseOfferingId,
+        recordType: toPrismaSavedRecordType(body.recordType),
+        title: buildSavedRecordTitle(body),
+        question: body.question?.trim() || null,
+        requestPayload: toJsonInput(body.requestPayload),
+        resultPayload: body.resultPayload as Prisma.InputJsonValue,
+      },
+    })
+
+    return mapSavedRecord(record)
+  },
+
+  async listSavedRecords(
+    studentId: string,
+    query: AiAdvisorSavedRecordQuery
+  ): Promise<AiAdvisorSavedRecordListPayload> {
+    await assertStudentExists(studentId)
+    const page = query.page ?? 1
+    const pageSize = Math.min(query.pageSize, 100)
+    const where: Prisma.AiAdvisorSavedRecommendationWhereInput = {
+      studentId,
+      recordType: query.recordType ? toPrismaSavedRecordType(query.recordType) : undefined,
+      semesterId: query.semesterId,
+    }
+
+    const [items, total] = await Promise.all([
+      prisma.aiAdvisorSavedRecommendation.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
+      prisma.aiAdvisorSavedRecommendation.count({ where }),
+    ])
+
+    return {
+      items: items.map(mapSavedRecord),
+      pagination: buildPaginationMeta(page, pageSize, total),
+    }
+  },
+
+  async getSavedRecord(studentId: string, id: string): Promise<AiAdvisorSavedRecordItem> {
+    await assertStudentExists(studentId)
+    const record = await prisma.aiAdvisorSavedRecommendation.findFirst({
+      where: { id, studentId },
+    })
+
+    if (!record) {
+      throw new AppError(COURSE_SELECTION_ERROR_CODES.NOT_FOUND, 404, '保存的 AI 建议不存在')
+    }
+
+    return mapSavedRecord(record)
+  },
+
+  async deleteSavedRecord(studentId: string, id: string): Promise<{ id: string; deleted: true }> {
+    await assertStudentExists(studentId)
+    const result = await prisma.aiAdvisorSavedRecommendation.deleteMany({
+      where: { id, studentId },
+    })
+
+    if (result.count === 0) {
+      throw new AppError(COURSE_SELECTION_ERROR_CODES.NOT_FOUND, 404, '保存的 AI 建议不存在')
+    }
+
+    return { id, deleted: true }
   },
 }

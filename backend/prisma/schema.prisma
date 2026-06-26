@@ -152,10 +152,10 @@ model Student {
   /// 班级名称
   className     String? @map("class_name") @db.VarChar(20)
 
-  enrollments Enrollment[]
-  testResults TestResult[]
-  scores      Score[]
-  curriculumConfirmations StudentCurriculumConfirmation[]
+  enrollments                   Enrollment[]
+  testResults                   TestResult[]
+  scores                        Score[]
+  curriculumConfirmations       StudentCurriculumConfirmation[]
   savedAiAdvisorRecommendations AiAdvisorSavedRecommendation[]
 
   // 索引优化：常用查询字段
@@ -469,8 +469,8 @@ model Semester {
   /// 状态
   status    SemesterStatus @default(UPCOMING)
 
-  courseOfferings  CourseOffering[]
-  selectionPeriods SelectionPeriod[]
+  courseOfferings               CourseOffering[]
+  selectionPeriods              SelectionPeriod[]
   savedAiAdvisorRecommendations AiAdvisorSavedRecommendation[]
 
   @@map("semesters")
@@ -535,14 +535,14 @@ model CourseOffering {
   /// 状态
   status        OfferingStatus @default(PLANNED)
 
-  course      Course       @relation(fields: [courseId], references: [id])
-  semester    Semester     @relation(fields: [semesterId], references: [id])
-  teacher     Teacher      @relation(fields: [teacherId], references: [userId])
-  schedules   Schedule[]
-  enrollments Enrollment[]
-  posts       ForumPost[]
-  testPapers  TestPaper[]
-  scores      Score[]
+  course                        Course                         @relation(fields: [courseId], references: [id])
+  semester                      Semester                       @relation(fields: [semesterId], references: [id])
+  teacher                       Teacher                        @relation(fields: [teacherId], references: [userId])
+  schedules                     Schedule[]
+  enrollments                   Enrollment[]
+  posts                         ForumPost[]
+  testPapers                    TestPaper[]
+  scores                        Score[]
   savedAiAdvisorRecommendations AiAdvisorSavedRecommendation[]
 
   @@map("course_offerings")
@@ -583,8 +583,8 @@ model Curriculum {
   /// 更新时间
   updatedAt       DateTime @default(now()) @updatedAt @map("updated_at")
 
-  major   Major              @relation(fields: [majorId], references: [id])
-  courses        CurriculumCourse[]
+  major         Major                           @relation(fields: [majorId], references: [id])
+  courses       CurriculumCourse[]
   confirmations StudentCurriculumConfirmation[]
 
   @@map("curriculums")

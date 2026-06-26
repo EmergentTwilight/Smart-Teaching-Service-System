@@ -64,7 +64,7 @@ import { aiAdvisorService } from '../../../modules/course-selection/ai-advisor.s
 import { buildStrategyPrompt } from '../../../modules/course-selection/ai-advisor.prompts.js'
 
 const now = new Date('2026-05-19T04:00:00.000Z')
-const DEFAULT_LLM_MODEL = 'nvidia/nemotron-3-ultra-550b-a55b:free'
+const DEFAULT_LLM_MODEL = 'deepseek/deepseek-v4-flash'
 
 const buildSchedule = (overrides: Record<string, unknown> = {}) => ({
   dayOfWeek: 1,

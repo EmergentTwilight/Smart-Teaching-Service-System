@@ -6,7 +6,7 @@ describe('llmClient diagnostics', () => {
 
   beforeEach(() => {
     process.env.OPENROUTER_API_KEY = 'test-key'
-    process.env.OPENROUTER_MODEL = 'nvidia/nemotron-3-ultra-550b-a55b:free'
+    process.env.OPENROUTER_MODEL = 'deepseek/deepseek-v4-flash'
     process.env.OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions'
     process.env.AI_ENABLED = 'true'
   })
@@ -32,10 +32,10 @@ describe('llmClient diagnostics', () => {
 
     expect(result.ok).toBe(false)
     expect(result.reason).toBe('timeout')
-    expect(result.model).toBe('nvidia/nemotron-3-ultra-550b-a55b:free')
+    expect(result.model).toBe('deepseek/deepseek-v4-flash')
     expect(result.diagnostics).toMatchObject({
       provider: 'openrouter',
-      model: 'nvidia/nemotron-3-ultra-550b-a55b:free',
+      model: 'deepseek/deepseek-v4-flash',
       endpointHost: 'openrouter.ai',
       retriable: true,
     })
@@ -64,10 +64,10 @@ describe('llmClient diagnostics', () => {
 
     expect(result.ok).toBe(false)
     expect(result.reason).toBe('timeout')
-    expect(result.model).toBe('nvidia/nemotron-3-ultra-550b-a55b:free')
+    expect(result.model).toBe('deepseek/deepseek-v4-flash')
     expect(result.diagnostics).toMatchObject({
       provider: 'openrouter',
-      model: 'nvidia/nemotron-3-ultra-550b-a55b:free',
+      model: 'deepseek/deepseek-v4-flash',
       endpointHost: 'openrouter.ai',
       retriable: true,
     })
@@ -141,7 +141,7 @@ describe('llmClient diagnostics', () => {
       vi.fn().mockResolvedValue(
         new Response(
           JSON.stringify({
-            model: 'nvidia/nemotron-3-ultra-550b-a55b:free',
+            model: 'deepseek/deepseek-v4-flash',
             choices: [
               {
                 error: {
@@ -173,7 +173,7 @@ describe('llmClient diagnostics', () => {
     expect(result.reason).toBe('empty_content')
     expect(result.diagnostics).toMatchObject({
       provider: 'openrouter',
-      model: 'nvidia/nemotron-3-ultra-550b-a55b:free',
+      model: 'deepseek/deepseek-v4-flash',
       endpointHost: 'openrouter.ai',
       statusCode: 200,
       providerCode: '529',

@@ -4,9 +4,9 @@ import { llmClient } from '../../../modules/course-selection/ai-advisor.llm-clie
 const describeLive = process.env.RUN_LIVE_LLM_TEST === '1' ? describe : describe.skip
 
 describeLive('llmClient OpenRouter live smoke test', () => {
-  it('uses the configured Nemotron free model and receives a non-empty response', async () => {
+  it('uses the configured DeepSeek model and receives a non-empty response', async () => {
     expect(process.env.OPENROUTER_API_KEY ? 'present' : 'missing').toBe('present')
-    expect(process.env.OPENROUTER_MODEL).toBe('nvidia/nemotron-3-ultra-550b-a55b:free')
+    expect(process.env.OPENROUTER_MODEL).toBe('deepseek/deepseek-v4-flash')
     expect(process.env.OPENROUTER_API_URL).toBe('https://openrouter.ai/api/v1/chat/completions')
 
     const attempts = []

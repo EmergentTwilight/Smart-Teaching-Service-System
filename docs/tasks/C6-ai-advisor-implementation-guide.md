@@ -1157,7 +1157,7 @@ frontend/src/modules/course-selection/
 
 ```text
 Provider: OpenRouter
-Model: openrouter/free
+Model: nvidia/nemotron-3-ultra-550b-a55b:free
 ```
 
 ### 10.2 环境变量
@@ -1168,9 +1168,13 @@ Model: openrouter/free
 LLM_ENABLED=true
 LLM_PROVIDER=openrouter
 LLM_BASE_URL=https://openrouter.ai/api/v1
-LLM_MODEL=openrouter/free
-LLM_TIMEOUT_MS=8000
-LLM_MAX_TOKENS=900
+OPENROUTER_MODEL=nvidia/nemotron-3-ultra-550b-a55b:free
+LLM_TIMEOUT_MS=20000
+LLM_MAX_TOKENS=16000
+LLM_PREFERENCE_MAX_TOKENS=16000
+LLM_RECOMMENDATION_MAX_TOKENS=16000
+LLM_EXPLANATION_MAX_TOKENS=16000
+LLM_TOTAL_MAX_TOKENS=48000
 LLM_TEMPERATURE=0.2
 LLM_FALLBACK_MODE=template
 OPENROUTER_API_KEY=
@@ -1465,7 +1469,7 @@ Response：
     "mode": "full",
     "degraded_mode": false,
     "llm_used": true,
-    "model": "openrouter/free",
+    "model": "nvidia/nemotron-3-ultra-550b-a55b:free",
     "credit_progress_summary": {
       "current_selected_credits": 18.0,
       "target_credits": 22.0,
@@ -1533,7 +1537,7 @@ Response：
       "mode": "full",
       "missing_components": [],
       "llm_used": true,
-      "model": "openrouter/free"
+      "model": "nvidia/nemotron-3-ultra-550b-a55b:free"
     }
   }
 }
@@ -1580,7 +1584,7 @@ Response：
       "reasons": []
     },
     "llm_used": true,
-    "model": "openrouter/free",
+    "model": "nvidia/nemotron-3-ultra-550b-a55b:free",
     "degraded_mode": false,
     "disclaimer": "该解释仅辅助理解，最终是否选课以提交选课时的服务端校验结果为准。"
   }
@@ -2021,7 +2025,7 @@ C6 通过标准：
 7. LLM 只参与偏好理解、方案组合、取舍推理和解释表达。
 8. Strategy Agent 只能从 safe_candidate_pool 中选择课程。
 9. Policy Validator 必须拦截所有不在 safe_candidate_pool 中的 AI 推荐。
-10. 默认接入 OpenRouter，模型使用 openrouter/free。
+10. 默认接入 OpenRouter，模型使用 nvidia/nemotron-3-ultra-550b-a55b:free。
 11. OPENROUTER_API_KEY 只能从后端环境变量读取，不能进前端，不能提交。
 12. 无 key、超时、429、402、5xx、输出异常时必须降级模板解释，接口不能因此整体失败。
 13. 不新增 Prisma 表，不改 A/B/D/E/F 组业务代码。

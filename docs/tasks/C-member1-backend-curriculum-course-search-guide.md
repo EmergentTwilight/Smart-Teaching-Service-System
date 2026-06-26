@@ -83,7 +83,7 @@ PR 描述必须包含：
 2. 覆盖需求：例如 FR-C-01~FR-C-13、FR-C-15、FR-C-18、FR-C-19。
 3. 修改文件清单。
 4. 已完成内容。
-5. 未完成 TODO 和依赖项，例如 TODO-C-01、TODO-C-02、TODO-C-05。
+5. 未完成 TODO 和依赖项，例如 TODO-C-02、TODO-C-05。
 6. Docker wrapper 校验命令和结果。
 7. 手动测试步骤。
 8. 是否修改 API 契约、数据库/Prisma schema、非 C 组文件。
@@ -117,7 +117,7 @@ GET /api/v1/course-selection/offerings/:id
 
 - `/offerings/available` 的可选性原因使用文档中的 `eligibility.reasons`。
 - 可选课程接口只做只读 eligibility 计算；最终选课成功仍由 C3 后端事务决定。
-- 培养方案“确认入口”如需持久化，属于 `TODO-C-01`，不得在 C 模块擅自新增表。
+- 培养方案确认入口应使用 `student_curriculum_confirmations`，学生身份只能来自登录态。
 - 公共课最低学分来源属于 `TODO-C-02`，实现时只能按现有字段派生或写清 TODO。
 
 ## 4. 允许修改的文件
@@ -173,7 +173,7 @@ backend/src/modules/score-management/**
 | `backend/src/modules/course-selection/course-search.service.ts`：课程详情 | `TODO(C2, C3, FR-C-18, FR-C-19, NFR-C-07)`、`TODO(C2, FR-C-11, FR-C-18, FR-C-19, NFR-C-07)` | 返回 nested `course/semester/teacher/schedules/prerequisites/eligibility`；排课缺失按 `TODO-C-07` 给出提示；先修通过情况按 `TODO-C-05` 与 F 子系统确认；不返回 roster 或学生名单。 |
 | `backend/src/modules/course-selection/course-selection.schemas.ts`：C1/C2 query schema | `TODO(C1, FR-C-01, FR-C-03, NFR-C-13)`、`TODO(C1, FR-C-05, NFR-C-13)`、`TODO(C2, FR-C-08, FR-C-12, NFR-C-13)`、`TODO(C2, FR-C-13, FR-C-15, NFR-C-13)`、`TODO(C2, FR-C-11, FR-C-19, NFR-C-07)` | 规范 C1/C2 请求参数、分页和筛选字段；外部字段保持 `snake_case`；`/offerings/available` 使用 `include_unavailable`，不要新增未评审过滤字段。 |
 
-如果实现中发现数据库无法支持 `FR-C-04` 培养方案确认、`FR-C-05` 公共课最低学分或 `FR-C-19` 先修通过情况，应把相关代码 TODO 指向 `TODO-C-01`、`TODO-C-02`、`TODO-C-05`，不要直接改 Prisma schema。
+如果实现中发现数据库无法支持 `FR-C-05` 公共课最低学分或 `FR-C-19` 先修通过情况，应把相关代码 TODO 指向 `TODO-C-02`、`TODO-C-05`，不要直接改 Prisma schema。
 
 ## 6. 具体要完成的工作
 
@@ -254,7 +254,7 @@ Semester
 - 是否出现危险假实现，如 `return { success: true }`。
 - 是否使用了文档未定义字段。
 - 是否让学生端通过请求参数传 `student_id` 查询他人培养方案。
-- 是否保留了必要 TODO-C-01、TODO-C-02、TODO-C-05、TODO-C-07。
+- 是否保留了必要 TODO-C-02、TODO-C-05、TODO-C-07。
 
 ## 9. 验证要求
 

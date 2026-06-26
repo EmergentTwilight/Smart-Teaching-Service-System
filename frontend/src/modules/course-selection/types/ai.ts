@@ -55,6 +55,9 @@ export interface AiConflictNote {
 
 export interface AiCreditProgressSummary {
   currentSelectedCredits: number
+  completedCredits?: number
+  inProgressCredits?: number
+  projectedCredits?: number
   targetCredits: number
   maxCredits: number
   remainingToTarget?: number
@@ -70,6 +73,9 @@ export interface AiScoreBreakdown {
 
 export interface AiProgressAudit {
   currentSelectedCredits: number
+  completedCredits?: number
+  inProgressCredits?: number
+  projectedCredits?: number
   targetCredits: number
   maxCredits: number | null
   requiredGap: number
@@ -100,6 +106,25 @@ export interface AiCapacityRisk {
   riskReason: string
 }
 
+export interface AiProviderDiagnostics {
+  provider: 'openrouter'
+  model?: string | null
+  endpointHost?: string | null
+  statusCode?: number
+  providerCode?: string
+  providerMessage?: string
+  providerRawErrorSummary?: string
+  finishReason?: string
+  nativeFinishReason?: string
+  promptTokens?: number
+  completionTokens?: number
+  totalTokens?: number
+  reasoningTokens?: number
+  retryAfter?: string | null
+  durationMs?: number
+  retriable?: boolean
+}
+
 export interface AiFallbackInfo {
   code: string
   reason: string
@@ -109,6 +134,25 @@ export interface AiFallbackInfo {
   missingComponents?: string[]
   llmUsed?: boolean
   model?: string | null
+  stage?: 'preference' | 'recommendation' | 'explanation' | 'rule'
+  diagnostics?: AiProviderDiagnostics
+}
+
+export type AiDebugStageName = 'preference' | 'recommendation' | 'explanation' | 'rule'
+export type AiDebugStageStatus = 'skipped' | 'success' | 'failed' | 'fallback'
+
+export interface AiDebugStage extends AiProviderDiagnostics {
+  stage: AiDebugStageName
+  status: AiDebugStageStatus
+  reason?: string
+}
+
+export interface AiDebugInfo {
+  requestId: string
+  endpoint: 'recommend' | 'explain'
+  llmTimeoutMs: number
+  generatedAt: string
+  stages: AiDebugStage[]
 }
 
 export interface AiAdvicePayload {
@@ -129,6 +173,7 @@ export interface AiAdvicePayload {
   scheduleLoad?: AiScheduleLoad
   capacityRisks?: AiCapacityRisk[]
   requestId?: string
+  debugInfo?: AiDebugInfo
 }
 
 export interface AiRecommendPreferenceInput {
@@ -167,4 +212,48 @@ export interface AiExplainPayloadResult {
   llmUsed?: boolean
   model?: string | null
   fallbackInfo?: AiFallbackInfo
+  debugInfo?: AiDebugInfo
+}
+
+export type AiAdvisorSavedRecordType = 'recommendation' | 'explanation'
+
+export interface SaveAiAdvisorRecordPayload {
+  recordType: AiAdvisorSavedRecordType
+  title?: string
+  question?: string
+  semesterId?: string
+  courseOfferingId?: string
+  requestPayload?: Record<string, unknown> | null
+  resultPayload: Record<string, unknown>
+}
+
+export interface AiAdvisorSavedRecord {
+  id: string
+  studentId: string
+  semesterId: string | null
+  courseOfferingId: string | null
+  recordType: AiAdvisorSavedRecordType
+  title: string
+  question: string | null
+  requestPayload: Record<string, unknown> | null
+  resultPayload: Record<string, unknown>
+  createdAt: string
+  updatedAt: string
+}
+
+export interface AiAdvisorSavedRecordQuery {
+  page?: number
+  pageSize?: number
+  recordType?: AiAdvisorSavedRecordType
+  semesterId?: string
+}
+
+export interface AiAdvisorSavedRecordListPayload {
+  items: AiAdvisorSavedRecord[]
+  pagination: {
+    page: number
+    pageSize: number
+    total: number
+    totalPages: number
+  }
 }

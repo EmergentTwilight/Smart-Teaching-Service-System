@@ -2,13 +2,17 @@
  * C5：SelectionPeriod 管理与手动加课事务（容量、冲突、学分、SystemLog）。
  * 手动加课与 C3 共用 Enrollment 表，但不实现学生自助选课流程。
  */
-import { CourseStatus, EnrollmentStatus, OfferingStatus } from '@prisma/client'
+import { CourseStatus, EnrollmentStatus, OfferingStatus, UserStatus } from '@prisma/client'
+import type { Prisma } from '@prisma/client'
 import { AppError, NotFoundError } from '@stss/shared'
 import prisma from '../../shared/prisma/client.js'
 import type {
   CreateSelectionPeriodBody,
   ManualEnrollmentBody,
+  ManualEnrollmentCourseOfferingOption,
+  ManualEnrollmentLookupQuery,
   ManualEnrollmentResult,
+  ManualEnrollmentStudentOption,
   PaginatedItems,
   SelectionPeriodItem,
   SelectionPeriodQuery,
@@ -17,6 +21,7 @@ import type {
 import {
   COURSE_SELECTION_ERROR_CODES,
   toEnrollmentStatusValue,
+  toOfferingStatusValue,
   toSelectionPhaseValue,
 } from './course-selection.types.js'
 import {
@@ -36,6 +41,27 @@ import {
 const includePeriodRelations = {
   semester: { select: { id: true, name: true } },
 } as const
+
+const formatScheduleSummary = (schedule: {
+  dayOfWeek: number
+  startWeek: number
+  endWeek: number
+  startPeriod: number
+  endPeriod: number
+  classroom?: {
+    building?: string | null
+    roomNumber?: string | null
+    campus?: string | null
+  } | null
+}) => {
+  const classroom = schedule.classroom
+    ? ` ${[schedule.classroom.campus, schedule.classroom.building, schedule.classroom.roomNumber]
+        .filter(Boolean)
+        .join(' ')}`
+    : ''
+
+  return `周${schedule.dayOfWeek} 第${schedule.startPeriod}-${schedule.endPeriod}节 第${schedule.startWeek}-${schedule.endWeek}周${classroom}`
+}
 
 export const selectionPeriodService = {
   async listPeriods(query: SelectionPeriodQuery): Promise<PaginatedItems<SelectionPeriodItem>> {
@@ -60,6 +86,137 @@ export const selectionPeriodService = {
 
     return {
       items: rows.map(mapSelectionPeriodItem),
+      pagination: buildPaginationMeta(page, pageSize, total),
+    }
+  },
+
+  async listManualEnrollmentStudents(
+    operatorUserId: string,
+    query: ManualEnrollmentLookupQuery
+  ): Promise<PaginatedItems<ManualEnrollmentStudentOption>> {
+    await assertAcademicAdmin(operatorUserId)
+
+    const page = query.page ?? 1
+    const pageSize = query.pageSize ?? 10
+    const keyword = query.keyword?.trim()
+    const where: Prisma.StudentWhereInput = {
+      user: {
+        deletedAt: null,
+        status: UserStatus.ACTIVE,
+      },
+      ...(keyword
+        ? {
+            OR: [
+              { studentNumber: { contains: keyword, mode: 'insensitive' } },
+              { className: { contains: keyword, mode: 'insensitive' } },
+              { user: { username: { contains: keyword, mode: 'insensitive' } } },
+              { user: { realName: { contains: keyword, mode: 'insensitive' } } },
+              { major: { name: { contains: keyword, mode: 'insensitive' } } },
+            ],
+          }
+        : {}),
+    }
+
+    const [total, rows] = await Promise.all([
+      prisma.student.count({ where }),
+      prisma.student.findMany({
+        where,
+        include: {
+          user: { select: { username: true, realName: true } },
+          major: { select: { name: true } },
+        },
+        orderBy: [{ studentNumber: 'asc' }],
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
+    ])
+
+    return {
+      items: rows.map((student) => ({
+        studentId: student.userId,
+        studentNumber: student.studentNumber,
+        username: student.user.username,
+        realName: student.user.realName,
+        majorName: student.major?.name ?? null,
+        grade: student.grade,
+        className: student.className ?? null,
+      })),
+      pagination: buildPaginationMeta(page, pageSize, total),
+    }
+  },
+
+  async listManualEnrollmentCourseOfferings(
+    operatorUserId: string,
+    query: ManualEnrollmentLookupQuery
+  ): Promise<PaginatedItems<ManualEnrollmentCourseOfferingOption>> {
+    await assertAcademicAdmin(operatorUserId)
+
+    const page = query.page ?? 1
+    const pageSize = query.pageSize ?? 10
+    const keyword = query.keyword?.trim()
+    const where: Prisma.CourseOfferingWhereInput = {
+      ...(query.semesterId ? { semesterId: query.semesterId } : {}),
+      status: { in: [OfferingStatus.OPEN, OfferingStatus.PLANNED] },
+      course: {
+        status: CourseStatus.ACTIVE,
+      },
+      ...(keyword
+        ? {
+            OR: [
+              { course: { code: { contains: keyword, mode: 'insensitive' } } },
+              { course: { name: { contains: keyword, mode: 'insensitive' } } },
+              { teacher: { teacherNumber: { contains: keyword, mode: 'insensitive' } } },
+              { teacher: { user: { realName: { contains: keyword, mode: 'insensitive' } } } },
+            ],
+          }
+        : {}),
+    }
+
+    const rows = await prisma.courseOffering.findMany({
+      where,
+      include: {
+        course: true,
+        semester: true,
+        teacher: {
+          include: {
+            user: true,
+          },
+        },
+        schedules: {
+          include: {
+            classroom: true,
+          },
+          orderBy: [{ dayOfWeek: 'asc' }, { startPeriod: 'asc' }],
+        },
+      },
+      orderBy: [{ semesterId: 'asc' }, { id: 'asc' }],
+    })
+
+    const availableRows = rows.filter((row) => row.enrolledCount < row.capacity)
+    const total = availableRows.length
+    const pagedRows = availableRows.slice((page - 1) * pageSize, page * pageSize)
+
+    return {
+      items: pagedRows.map((offering) => ({
+        courseOfferingId: offering.id,
+        courseCode: offering.course.code,
+        courseName: offering.course.name,
+        credits: decimalToNumber(offering.course.credits),
+        semester: {
+          id: offering.semester.id,
+          name: offering.semester.name,
+        },
+        teacher: {
+          id: offering.teacherId,
+          realName: offering.teacher.user.realName,
+          teacherNumber: offering.teacher.teacherNumber ?? null,
+        },
+        capacity: offering.capacity,
+        enrolledCount: offering.enrolledCount,
+        remainingCapacity: offering.capacity - offering.enrolledCount,
+        status: toOfferingStatusValue(offering.status),
+        scheduleSummary: offering.schedules.map(formatScheduleSummary),
+      })),
       pagination: buildPaginationMeta(page, pageSize, total),
     }
   },
@@ -97,6 +254,7 @@ export const selectionPeriodService = {
           startTime,
           endTime,
           maxCredits: body.maxCredits,
+          allowDrop: body.allowDrop,
           isActive: body.isActive,
         },
         include: includePeriodRelations,
@@ -114,6 +272,7 @@ export const selectionPeriodService = {
             start_time: body.startTime,
             end_time: body.endTime,
             max_credits: body.maxCredits ?? null,
+            allow_drop: body.allowDrop,
             is_active: body.isActive,
           },
         },
@@ -174,6 +333,7 @@ export const selectionPeriodService = {
           startTime: body.startTime ? startTime : undefined,
           endTime: body.endTime ? endTime : undefined,
           maxCredits: body.maxCredits,
+          allowDrop: body.allowDrop,
           isActive: body.isActive,
         },
         include: includePeriodRelations,
@@ -192,6 +352,7 @@ export const selectionPeriodService = {
               start_time: existing.startTime.toISOString(),
               end_time: existing.endTime.toISOString(),
               max_credits: existing.maxCredits ? decimalToNumber(existing.maxCredits) : null,
+              allow_drop: existing.allowDrop,
               is_active: existing.isActive,
             },
             after: {
@@ -200,6 +361,7 @@ export const selectionPeriodService = {
               start_time: updated.startTime.toISOString(),
               end_time: updated.endTime.toISOString(),
               max_credits: updated.maxCredits ? decimalToNumber(updated.maxCredits) : null,
+              allow_drop: updated.allowDrop,
               is_active: updated.isActive,
             },
           },
@@ -212,7 +374,6 @@ export const selectionPeriodService = {
     return mapSelectionPeriodItem(period)
   },
 
-  // TODO(C5, FR-C-35, FR-C-36, NFR-C-01~NFR-C-03): 接入 Redis 连接数控制、心跳与无操作强制退出
   async manualEnroll(
     operatorUserId: string,
     body: ManualEnrollmentBody

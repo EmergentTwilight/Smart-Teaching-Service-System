@@ -3,12 +3,18 @@ import { z } from 'zod'
 const pageSchema = z.coerce.number().int().min(1).default(1)
 const pageSizeSchema = z.coerce.number().int().min(1).max(100).default(20)
 const rosterPageSizeSchema = z.coerce.number().int().min(1).max(100).default(50)
+const manualEnrollmentLookupPageSizeSchema = z.coerce.number().int().min(1).max(20).default(10)
 const booleanSchema = z.preprocess((v) => {
   if (typeof v === 'boolean') return v
   if (v === 'true' || v === '1') return true
   if (v === 'false' || v === '0') return false
   return v
 }, z.boolean().optional())
+const databaseIdSchema = z
+  .string()
+  .trim()
+  .min(1, 'ID 不能为空')
+  .max(128, 'ID 长度不能超过 128 个字符')
 
 type PaginationInput = {
   page?: number
@@ -36,7 +42,7 @@ const normalizePaginationFields = <T extends PaginationInput>(
 }
 
 const idSchema = z.object({
-  id: z.string().uuid('参数应为 UUID'),
+  id: databaseIdSchema,
 })
 
 const paginationSchema = z.object({
@@ -64,8 +70,8 @@ export type CurriculumQuery = z.infer<typeof curriculumQuerySchema>
 // TODO(C1, FR-C-05, NFR-C-13): 统一培养方案进度查询参数并支持按学期过滤
 export const curriculumProgressQuerySchema = z
   .object({
-    semesterId: z.string().uuid().optional(),
-    semester_id: z.string().uuid().optional(),
+    semesterId: databaseIdSchema.optional(),
+    semester_id: databaseIdSchema.optional(),
     includeDropped: booleanSchema,
     include_dropped: booleanSchema,
   })
@@ -78,14 +84,25 @@ export const curriculumProgressQuerySchema = z
 
 export type CurriculumProgressQuery = z.infer<typeof curriculumProgressQuerySchema>
 
+export const curriculumConfirmationBodySchema = z
+  .object({
+    curriculum_id: databaseIdSchema,
+  })
+  .strict()
+  .transform((value) => ({
+    curriculumId: value.curriculum_id,
+  }))
+
+export type CurriculumConfirmationBody = z.infer<typeof curriculumConfirmationBodySchema>
+
 // TODO(C2, FR-C-08, FR-C-12, NFR-C-13): 规范课程搜索入参，支持课程名/教师/学期/课程类型等筛选
 export const courseSearchQuerySchema = z
   .object({
     keyword: z.string().optional(),
     teacher: z.string().optional(),
     teacher_id: z.string().optional(),
-    semesterId: z.string().optional(),
-    semester_id: z.string().optional(),
+    semesterId: databaseIdSchema.optional(),
+    semester_id: databaseIdSchema.optional(),
     courseType: z.string().optional(),
     course_type: z.string().optional(),
     status: z.string().optional(),
@@ -128,8 +145,8 @@ export const availableOfferingsQuerySchema = z
     keyword: z.string().optional(),
     teacher: z.string().optional(),
     teacher_id: z.string().optional(),
-    semesterId: z.string().optional(),
-    semester_id: z.string().optional(),
+    semesterId: databaseIdSchema.optional(),
+    semester_id: databaseIdSchema.optional(),
     courseType: z.string().optional(),
     course_type: z.string().optional(),
     offeringStatus: z.string().optional(),
@@ -177,8 +194,8 @@ export type CourseOfferingDetailQuery = z.infer<typeof courseOfferingDetailQuery
 // C4 本人选课记录查询参数；C3 写事务不从查询参数读取学生身份。
 export const enrollmentQuerySchema = paginationSchema
   .extend({
-    semesterId: z.string().uuid('semester_id 格式不正确').optional(),
-    semester_id: z.string().uuid('semester_id 格式不正确').optional(),
+    semesterId: databaseIdSchema.optional(),
+    semester_id: databaseIdSchema.optional(),
     status: z.string().optional(),
     keyword: z.string().max(128).trim().optional(),
   })
@@ -192,7 +209,7 @@ export type EnrollmentQuery = z.infer<typeof enrollmentQuerySchema>
 // C3 选课请求体：外部字段保持 snake_case，服务层使用 camelCase 与幂等键。
 const createEnrollmentBodyInputSchema = z
   .object({
-    course_offering_id: z.string().uuid('课程开设ID应为 UUID'),
+    course_offering_id: databaseIdSchema,
     client_request_id: z.string().min(1).max(128).optional(),
   })
   .strict()
@@ -203,7 +220,7 @@ export const createEnrollmentBodySchema = createEnrollmentBodyInputSchema
     clientRequestId: value.client_request_id,
   }))
   .pipe(z.object({
-    courseOfferingId: z.string().uuid('课程开设ID应为 UUID'),
+    courseOfferingId: databaseIdSchema,
     clientRequestId: z.string().min(1).max(128).optional(),
   }))
 
@@ -224,12 +241,58 @@ export const dropEnrollmentBodySchema = z
 export type DropEnrollmentParams = z.infer<typeof dropEnrollmentParamsSchema>
 export type DropEnrollmentBody = z.infer<typeof dropEnrollmentBodySchema>
 
-// TODO(C5, FR-C-30, FR-C-35, NFR-C-14): 选课阶段接口需校验时间范围与阶段互斥规则
+export const admissionEnterBodySchema = z
+  .object({
+    semesterId: databaseIdSchema.optional(),
+    semester_id: databaseIdSchema.optional(),
+  })
+  .strict()
+  .transform(({ semesterId, semester_id }) => ({
+    semesterId: semesterId ?? semester_id,
+  }))
+
+export const admissionLeaseBodySchema = z
+  .object({
+    semesterId: databaseIdSchema.optional(),
+    semester_id: databaseIdSchema.optional(),
+    leaseId: z.string().uuid().optional(),
+    lease_id: z.string().uuid().optional(),
+  })
+  .strict()
+  .superRefine((value, ctx) => {
+    if (!value.semesterId && !value.semester_id) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'semesterId / semester_id 不能为空',
+        path: ['semester_id'],
+      })
+    }
+    if (!value.leaseId && !value.lease_id) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'leaseId / lease_id 不能为空',
+        path: ['lease_id'],
+      })
+    }
+  })
+  .transform((value) => ({
+    semesterId: value.semesterId ?? value.semester_id ?? '',
+    leaseId: value.leaseId ?? value.lease_id ?? '',
+  }))
+  .pipe(z.object({
+    semesterId: databaseIdSchema,
+    leaseId: z.string().uuid(),
+  }))
+
+export type AdmissionEnterBody = z.infer<typeof admissionEnterBodySchema>
+export type AdmissionLeaseBody = z.infer<typeof admissionLeaseBodySchema>
+
+// TODO(C5, FR-C-30, NFR-C-14): 选课阶段接口需校验时间范围与阶段互斥规则
 // TODO(C5, FR-C-30, FR-C-31, FR-C-32, NFR-C-14): 列表查询支持按学期/阶段/状态过滤
 export const selectionPeriodQuerySchema = paginationSchema
   .extend({
-    semesterId: z.string().uuid().optional(),
-    semester_id: z.string().uuid().optional(),
+    semesterId: databaseIdSchema.optional(),
+    semester_id: databaseIdSchema.optional(),
     phase: z.string().optional(),
     isActive: booleanSchema,
     is_active: booleanSchema,
@@ -241,8 +304,8 @@ export const selectionPeriodQuerySchema = paginationSchema
   }))
 
 const selectionPeriodBodyInputSchema = z.object({
-  semesterId: z.string().uuid().optional(),
-  semester_id: z.string().uuid().optional(),
+  semesterId: databaseIdSchema.optional(),
+  semester_id: databaseIdSchema.optional(),
   phase: z.string().optional(),
   startTime: z.string().datetime({ offset: true }).optional(),
   start_time: z.string().datetime({ offset: true }).optional(),
@@ -250,6 +313,8 @@ const selectionPeriodBodyInputSchema = z.object({
   end_time: z.string().datetime({ offset: true }).optional(),
   maxCredits: z.coerce.number().min(0).optional(),
   max_credits: z.coerce.number().min(0).optional(),
+  allowDrop: booleanSchema,
+  allow_drop: booleanSchema,
   isActive: booleanSchema,
   is_active: booleanSchema,
 })
@@ -309,14 +374,16 @@ export const createSelectionPeriodBodySchema = selectionPeriodBodyInputSchema
     startTime: value.startTime ?? value.start_time ?? '',
     endTime: value.endTime ?? value.end_time ?? '',
     maxCredits: value.maxCredits ?? value.max_credits,
+    allowDrop: value.allowDrop ?? value.allow_drop ?? false,
     isActive: value.isActive ?? value.is_active,
   }))
   .pipe(z.object({
-    semesterId: z.string().uuid(),
+    semesterId: databaseIdSchema,
     phase: z.string(),
     startTime: z.string().datetime({ offset: true }),
     endTime: z.string().datetime({ offset: true }),
     maxCredits: z.number().min(0).optional(),
+    allowDrop: z.boolean(),
     isActive: z.boolean(),
   }))
 
@@ -328,14 +395,16 @@ export const updateSelectionPeriodBodySchema = selectionPeriodBodyInputSchema
     startTime: value.startTime ?? value.start_time,
     endTime: value.endTime ?? value.end_time,
     maxCredits: value.maxCredits ?? value.max_credits,
+    allowDrop: value.allowDrop ?? value.allow_drop,
     isActive: value.isActive ?? value.is_active,
   }))
   .pipe(z.object({
-    semesterId: z.string().uuid().optional(),
+    semesterId: databaseIdSchema.optional(),
     phase: z.enum(['first_round', 'second_round', 'adjustment']).optional(),
     startTime: z.string().datetime({ offset: true }).optional(),
     endTime: z.string().datetime({ offset: true }).optional(),
     maxCredits: z.number().min(0).optional(),
+    allowDrop: z.boolean().optional(),
     isActive: z.boolean().optional(),
   }))
 export const selectionPeriodParamsSchema = idSchema
@@ -345,12 +414,30 @@ export type CreateSelectionPeriodBody = z.infer<typeof createSelectionPeriodBody
 export type UpdateSelectionPeriodBody = z.infer<typeof updateSelectionPeriodBodySchema>
 export type SelectionPeriodParams = z.infer<typeof selectionPeriodParamsSchema>
 
+export const manualEnrollmentLookupQuerySchema = z
+  .object({
+    keyword: z.string().trim().max(128).optional(),
+    semesterId: databaseIdSchema.optional(),
+    semester_id: databaseIdSchema.optional(),
+    page: pageSchema.optional(),
+    pageSize: manualEnrollmentLookupPageSizeSchema.optional(),
+    page_size: manualEnrollmentLookupPageSizeSchema.optional(),
+  })
+  .transform(({ semesterId, semester_id, page, pageSize, page_size, ...rest }) => ({
+    ...rest,
+    page: page ?? 1,
+    pageSize: pageSize ?? page_size ?? 10,
+    semesterId: semesterId ?? semester_id,
+  }))
+
+export type ManualEnrollmentLookupQuery = z.infer<typeof manualEnrollmentLookupQuerySchema>
+
 // TODO(C5, FR-C-33, FR-C-34, NFR-C-04): 手动加课输入需包括理由并默认执行完整校验
 const manualEnrollmentBodyInputSchema = z.object({
-  studentId: z.string().uuid('学生ID应为 UUID').optional(),
-  student_id: z.string().uuid('学生ID应为 UUID').optional(),
-  courseOfferingId: z.string().uuid('课程开设ID应为 UUID').optional(),
-  course_offering_id: z.string().uuid('课程开设ID应为 UUID').optional(),
+  studentId: databaseIdSchema.optional(),
+  student_id: databaseIdSchema.optional(),
+  courseOfferingId: databaseIdSchema.optional(),
+  course_offering_id: databaseIdSchema.optional(),
   reason: z.string().trim().min(1, '必须填写操作原因').max(500),
   notifyStudent: booleanSchema,
   notify_student: booleanSchema,
@@ -405,8 +492,8 @@ export const manualEnrollmentBodySchema = manualEnrollmentBodyInputSchema
     notifyStudent: value.notifyStudent ?? value.notify_student ?? false,
   }))
   .pipe(z.object({
-    studentId: z.string().uuid('学生ID应为 UUID'),
-    courseOfferingId: z.string().uuid('课程开设ID应为 UUID'),
+    studentId: databaseIdSchema,
+    courseOfferingId: databaseIdSchema,
     reason: z.string().trim().min(1, '必须填写操作原因').max(500),
     notifyStudent: z.boolean(),
   }))
@@ -419,9 +506,9 @@ export const rosterQuerySchema = z.object({
   page_size: rosterPageSizeSchema.optional(),
 })
   .extend({
-    offeringId: z.string().uuid().optional(),
-    semesterId: z.string().uuid().optional(),
-    semester_id: z.string().uuid().optional(),
+    offeringId: databaseIdSchema.optional(),
+    semesterId: databaseIdSchema.optional(),
+    semester_id: databaseIdSchema.optional(),
     status: z.string().optional(),
     keyword: z.string().max(128).trim().optional(),
   })
@@ -447,8 +534,8 @@ export type RosterOfferingParams = z.infer<typeof rosterOfferingParamsSchema>
 // TODO(C4, FR-C-25, FR-C-26, NFR-C-08): 课表查询支持学期与输出格式开关
 export const timetableQuerySchema = z
   .object({
-    semesterId: z.string().uuid().optional(),
-    semester_id: z.string().uuid().optional(),
+    semesterId: databaseIdSchema.optional(),
+    semester_id: databaseIdSchema.optional(),
     format: z.enum(['grid', 'list']).optional(),
   })
   .transform(({ semesterId, semester_id, format }) => ({
@@ -460,8 +547,8 @@ export type TimetableQuery = z.infer<typeof timetableQuerySchema>
 
 // TODO(C6, FR-C-38, FR-C-42, NFR-C-09): AI 输入需支持课程/课表上下文，支持降级返回
 const aiRecommendBodyInputSchema = z.object({
-  semesterId: z.string().uuid().optional(),
-  semester_id: z.string().uuid().optional(),
+  semesterId: databaseIdSchema.optional(),
+  semester_id: databaseIdSchema.optional(),
   studentId: z.unknown().optional(),
   student_id: z.unknown().optional(),
   user_id: z.unknown().optional(),
@@ -487,14 +574,14 @@ export const aiRecommendBodySchema = aiRecommendBodyInputSchema
     maxRecommendations: value.maxRecommendations ?? value.max_recommendations ?? 5,
   }))
   .pipe(z.object({
-    semesterId: z.string().uuid().optional(),
+    semesterId: databaseIdSchema.optional(),
     preferences: z.record(z.unknown()).optional(),
     maxRecommendations: z.number().int().min(1).max(10),
   }))
 
 const aiExplainBodyInputSchema = z.object({
-  offeringId: z.string().uuid('课程开设ID应为 UUID').optional(),
-  course_offering_id: z.string().uuid('课程开设ID应为 UUID').optional(),
+  offeringId: databaseIdSchema.optional(),
+  course_offering_id: databaseIdSchema.optional(),
   question: z.string().max(500).optional(),
   studentId: z.unknown().optional(),
   user_id: z.unknown().optional(),
@@ -537,9 +624,102 @@ export const aiExplainBodySchema = aiExplainBodyInputSchema
     question: value.question,
   }))
   .pipe(z.object({
-    offeringId: z.string().uuid('课程开设ID应为 UUID'),
+    offeringId: databaseIdSchema,
     question: z.string().max(500).optional(),
   }))
+
+const aiSavedRecordTypeSchema = z.enum(['recommendation', 'explanation'])
+const aiSavedRecordPayloadSchema = z.record(z.unknown())
+
+const aiSaveRecordBodyInputSchema = z.object({
+  recordType: aiSavedRecordTypeSchema.optional(),
+  record_type: aiSavedRecordTypeSchema.optional(),
+  title: z.string().trim().min(1).max(1000).optional(),
+  question: z.string().trim().max(1000).optional(),
+  semesterId: databaseIdSchema.optional(),
+  semester_id: databaseIdSchema.optional(),
+  courseOfferingId: databaseIdSchema.optional(),
+  course_offering_id: databaseIdSchema.optional(),
+  requestPayload: aiSavedRecordPayloadSchema.nullable().optional(),
+  request_payload: aiSavedRecordPayloadSchema.nullable().optional(),
+  resultPayload: aiSavedRecordPayloadSchema.optional(),
+  result_payload: aiSavedRecordPayloadSchema.optional(),
+  studentId: z.unknown().optional(),
+  student_id: z.unknown().optional(),
+  user_id: z.unknown().optional(),
+})
+  .strict()
+  .superRefine((value, ctx) => {
+    if (value.studentId !== undefined || value.student_id !== undefined || value.user_id !== undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'AI 保存请求不得携带 studentId / student_id / user_id',
+        path: ['studentId'],
+      })
+    }
+
+    const recordType = value.recordType ?? value.record_type
+    if (!recordType) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'record_type 不能为空',
+        path: ['record_type'],
+      })
+    }
+
+    const resultPayload = value.resultPayload ?? value.result_payload
+    if (!resultPayload) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'result_payload 不能为空',
+        path: ['result_payload'],
+      })
+    }
+
+    const courseOfferingId = value.courseOfferingId ?? value.course_offering_id
+    if (recordType === 'explanation' && !courseOfferingId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: '解释保存记录必须携带 course_offering_id',
+        path: ['course_offering_id'],
+      })
+    }
+  })
+
+export const aiSaveRecordBodySchema = aiSaveRecordBodyInputSchema
+  .transform((value) => ({
+    recordType: value.recordType ?? value.record_type,
+    title: value.title?.trim().slice(0, 120),
+    question: value.question,
+    semesterId: value.semesterId ?? value.semester_id,
+    courseOfferingId: value.courseOfferingId ?? value.course_offering_id,
+    requestPayload: value.requestPayload ?? value.request_payload,
+    resultPayload: value.resultPayload ?? value.result_payload,
+  }))
+  .pipe(z.object({
+    recordType: aiSavedRecordTypeSchema,
+    title: z.string().trim().min(1).max(120).optional(),
+    question: z.string().trim().max(1000).optional(),
+    semesterId: databaseIdSchema.optional(),
+    courseOfferingId: databaseIdSchema.optional(),
+    requestPayload: aiSavedRecordPayloadSchema.nullable().optional(),
+    resultPayload: aiSavedRecordPayloadSchema,
+  }))
+
+export const aiSavedRecordQuerySchema = paginationSchema
+  .extend({
+    recordType: aiSavedRecordTypeSchema.optional(),
+    record_type: aiSavedRecordTypeSchema.optional(),
+    semesterId: databaseIdSchema.optional(),
+    semester_id: databaseIdSchema.optional(),
+  })
+  .transform(({ recordType, record_type, semesterId, semester_id, ...rest }) => ({
+    ...normalizePaginationFields(rest),
+    recordType: recordType ?? record_type,
+    semesterId: semesterId ?? semester_id,
+  }))
+
+export const aiSavedRecordParamsSchema = idSchema
 
 export type AiRecommendBody = z.infer<typeof aiRecommendBodySchema>
 export type AiExplainBody = z.infer<typeof aiExplainBodySchema>

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   Button,
@@ -6,7 +6,7 @@ import {
   Descriptions,
   Empty,
   Form,
-  Input,
+  Select,
   Space,
   Spin,
   Tag,
@@ -35,13 +35,35 @@ const StudentTimetablePage: React.FC = () => {
   const [semesterId, setSemesterId] = useState<string>('');
 
   const enrollmentsQuery = useMyEnrollments({ page: 1, pageSize: 100 });
+  const semestersQuery = useQuery({
+    queryKey: ['course-selection', 'timetable', 'me', 'semesters'],
+    queryFn: () => enrollmentsApi.listMyTimetableSemesters(),
+  });
+  const defaultSemesterId = semestersQuery.data?.defaultSemesterId ?? '';
+  const effectiveSemesterId = semesterId || defaultSemesterId;
+  const semesterOptions = useMemo(
+    () =>
+      (semestersQuery.data?.items ?? []).map((semester) => ({
+        value: semester.id,
+        label: `${semester.name}${semester.isDefault ? '（默认）' : ''}`,
+        semester,
+      })),
+    [semestersQuery.data?.items]
+  );
+
+  useEffect(() => {
+    if (!semesterId && defaultSemesterId) {
+      setSemesterId(defaultSemesterId);
+    }
+  }, [defaultSemesterId, semesterId]);
+
   const timetableQuery = useQuery({
-    queryKey: ['course-selection', 'timetable', 'me', semesterId || 'all'],
+    queryKey: ['course-selection', 'timetable', 'me', effectiveSemesterId || 'default'],
     queryFn: () =>
       enrollmentsApi.getMyTimetable({
-        semesterId: semesterId || undefined,
+        semesterId: effectiveSemesterId || undefined,
       }),
-    enabled: true,
+    enabled: Boolean(effectiveSemesterId) || !semestersQuery.isLoading,
   });
 
   const timetable = timetableQuery.data ?? null;
@@ -58,9 +80,7 @@ const StudentTimetablePage: React.FC = () => {
   };
 
   const handleReset = () => {
-    setSemesterId('');
-    // Use invalidate + refetch so queryKey changes trigger re-fetch
-    setTimeout(() => timetableQuery.refetch(), 0);
+    setSemesterId(defaultSemesterId);
   };
 
   const handlePrint = () => {
@@ -81,14 +101,19 @@ const StudentTimetablePage: React.FC = () => {
       {/* ---- Filter bar ---- */}
       <Card className="course-selection-print-hidden" style={{ marginBottom: 16 }}>
         <Form layout="inline">
-          <Form.Item label="学期 ID">
-            <Input
-              placeholder="输入学期 ID 过滤（可选）"
+          <Form.Item label="学期">
+            <Select
+              showSearch
+              placeholder="选择或搜索学期"
               value={semesterId}
-              onChange={(event) => setSemesterId(event.target.value)}
+              options={semesterOptions}
+              optionFilterProp="label"
+              loading={semestersQuery.isLoading}
+              onChange={(value) => setSemesterId(value)}
               style={{ width: 280 }}
-              allowClear
-              onPressEnter={handleSearch}
+              popupMatchSelectWidth={360}
+              notFoundContent={semestersQuery.isLoading ? '加载中...' : '暂无可选学期'}
+              allowClear={false}
             />
           </Form.Item>
           <Form.Item>

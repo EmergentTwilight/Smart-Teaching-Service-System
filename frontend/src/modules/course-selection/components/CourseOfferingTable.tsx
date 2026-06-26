@@ -66,8 +66,9 @@ const getEffectiveEligibility = (
     ? record.eligibility.reasons.filter((reason) => !isEnrolledReason(reason))
     : record.eligibility.reasons;
   const hasBlockingEligibilityFlag = Boolean(
-    record.eligibility.isFull ||
+      record.eligibility.isFull ||
       record.eligibility.hasTimeConflict ||
+      record.eligibility.curriculumConfirmed === false ||
       record.eligibility.prerequisiteSatisfied === false ||
       record.eligibility.withinCurriculum === false
   );
@@ -77,6 +78,7 @@ const getEffectiveEligibility = (
     isEnrolled: false,
     isAvailable:
       record.status === 'open' &&
+      record.eligibility.curriculumConfirmed !== false &&
       (record.eligibility.isAvailable || (hasKnownInactiveEnrollment && !hasBlockingEligibilityFlag)),
     reasons: uniqueReasons(statusReason ? [...reasons, statusReason] : reasons),
   };
@@ -91,6 +93,7 @@ interface CourseOfferingTableProps {
   onDrop?: (enrollmentInfo: { offeringId: string; enrollmentId: string }) => void;
   onViewDetail?: (offeringId: string) => void;
   enrollLoading?: string | null;
+  selectionDisabled?: boolean;
   enrollmentStateByOfferingId?: ReadonlyMap<string, OfferingEnrollmentState>;
 }
 
@@ -112,6 +115,7 @@ export const CourseOfferingTable: FC<CourseOfferingTableProps> = ({
   onDrop,
   onViewDetail,
   enrollLoading,
+  selectionDisabled = false,
   enrollmentStateByOfferingId,
 }) => {
   const columns: TableProps<AvailableOfferingItem>['columns'] = [
@@ -289,7 +293,7 @@ export const CourseOfferingTable: FC<CourseOfferingTableProps> = ({
               <Button
                 size="small"
                 type="primary"
-                disabled={!canEnroll}
+                disabled={!canEnroll || selectionDisabled}
                 loading={isBusy}
                 onClick={(e) => {
                   e.stopPropagation();

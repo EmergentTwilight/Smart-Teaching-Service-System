@@ -2,15 +2,145 @@
  * C4：按学期展开已选课程的排课时段；无排课记录写入 missingScheduleItems。
  */
 import { EnrollmentStatus } from '@prisma/client'
-import type { TimetablePayload, TimetableQuery } from './course-selection.types.js'
+import type {
+  TimetablePayload,
+  TimetableQuery,
+  TimetableSemesterItem,
+  TimetableSemesterListPayload,
+} from './course-selection.types.js'
 import {
   decimalToNumber,
   formatClassroomLabel,
   resolveSemesterId,
 } from './course-selection.support.js'
 import prisma from '../../shared/prisma/client.js'
+import { SUBMITTED_SCORE_STATUSES } from '../score-management/score-statistics.js'
 
 export const timetableService = {
+  async listMyTimetableSemesters(studentId: string): Promise<TimetableSemesterListPayload> {
+    const defaultSemester = await resolveSemesterId()
+    const semesters = await prisma.semester.findMany({
+      where: {
+        OR: [
+          { id: defaultSemester.id },
+          {
+            courseOfferings: {
+              some: {
+                OR: [
+                  {
+                    enrollments: {
+                      some: { studentId },
+                    },
+                  },
+                  {
+                    scores: {
+                      some: {
+                        studentId,
+                        status: {
+                          in: [...SUBMITTED_SCORE_STATUSES],
+                        },
+                      },
+                    },
+                  },
+                ],
+              },
+            },
+          },
+        ],
+      },
+      select: {
+        id: true,
+        name: true,
+        status: true,
+        startDate: true,
+        endDate: true,
+      },
+      orderBy: [
+        { startDate: 'desc' },
+        { name: 'desc' },
+      ],
+    })
+
+    const enrollments = await prisma.enrollment.findMany({
+      where: {
+        studentId,
+        status: EnrollmentStatus.ENROLLED,
+        courseOffering: {
+          semesterId: {
+            in: semesters.map((semester) => semester.id),
+          },
+        },
+      },
+      select: {
+        courseOffering: {
+          select: {
+            semesterId: true,
+            schedules: {
+              select: {
+                id: true,
+              },
+            },
+          },
+        },
+      },
+    })
+
+    const stats = new Map<string, {
+      enrolledCount: number
+      scheduledItemCount: number
+      missingScheduleCount: number
+    }>()
+
+    for(const semester of semesters) {
+      stats.set(semester.id, {
+        enrolledCount: 0,
+        scheduledItemCount: 0,
+        missingScheduleCount: 0,
+      })
+    }
+
+    for(const enrollment of enrollments) {
+      const semesterId = enrollment.courseOffering.semesterId
+      const semesterStats = stats.get(semesterId)
+      if(!semesterStats) {
+        continue
+      }
+
+      semesterStats.enrolledCount += 1
+      const scheduleCount = enrollment.courseOffering.schedules.length
+      if(scheduleCount > 0) {
+        semesterStats.scheduledItemCount += scheduleCount
+      }
+      else {
+        semesterStats.missingScheduleCount += 1
+      }
+    }
+
+    const items: TimetableSemesterItem[] = semesters.map((semester) => {
+      const semesterStats = stats.get(semester.id) ?? {
+        enrolledCount: 0,
+        scheduledItemCount: 0,
+        missingScheduleCount: 0,
+      }
+
+      return {
+        id: semester.id,
+        name: semester.name,
+        status: semester.status.toLowerCase() as TimetableSemesterItem['status'],
+        startDate: semester.startDate.toISOString(),
+        endDate: semester.endDate.toISOString(),
+        isCurrent: semester.status === 'CURRENT',
+        isDefault: semester.id === defaultSemester.id,
+        ...semesterStats,
+      }
+    })
+
+    return {
+      items,
+      defaultSemesterId: defaultSemester.id,
+    }
+  },
+
   async getMyTimetable(studentId: string, query: TimetableQuery): Promise<TimetablePayload> {
     const semester = await resolveSemesterId(query.semesterId)
     void query.format

@@ -4,9 +4,9 @@ import { llmClient } from '../../../modules/course-selection/ai-advisor.llm-clie
 const describeLive = process.env.RUN_LIVE_LLM_TEST === '1' ? describe : describe.skip
 
 describeLive('llmClient OpenRouter live smoke test', () => {
-  it('uses openrouter/free and receives a non-empty response', async () => {
+  it('uses the configured DeepSeek model and receives a non-empty response', async () => {
     expect(process.env.OPENROUTER_API_KEY ? 'present' : 'missing').toBe('present')
-    expect(process.env.OPENROUTER_MODEL).toBe('openrouter/free')
+    expect(process.env.OPENROUTER_MODEL).toBe('deepseek/deepseek-v4-flash')
     expect(process.env.OPENROUTER_API_URL).toBe('https://openrouter.ai/api/v1/chat/completions')
 
     const attempts = []
@@ -16,7 +16,7 @@ describeLive('llmClient OpenRouter live smoke test', () => {
         {
           maxTokens: 80,
           temperature: 0,
-          timeoutMs: Math.max(Number(process.env.LLM_TIMEOUT_MS ?? 20000), 20000),
+          timeoutMs: Math.max(Number(process.env.LLM_TIMEOUT_MS ?? 600000), 600000),
         }
       )
 
@@ -31,5 +31,5 @@ describeLive('llmClient OpenRouter live smoke test', () => {
       attempts.some((result) => result.ok && result.content?.trim()),
       attempts.map((result) => result.reason ?? 'empty_content').join(', ')
     ).toBe(true)
-  }, 70000)
+  }, 1850000)
 })

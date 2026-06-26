@@ -16,6 +16,8 @@ export function useForumCourse(demoMode: boolean) {
     setCourseOfferingIdState(id)
     if (id) {
       localStorage.setItem(FORUM_COURSE_STORAGE_KEY, id)
+    } else {
+      localStorage.removeItem(FORUM_COURSE_STORAGE_KEY)
     }
   }, [])
 
@@ -39,6 +41,10 @@ export function useForumCourse(demoMode: boolean) {
         let list = await forumApi.getCourseActivity().catch(() => [] as CourseOption[])
 
         if (list.length === 0) {
+          list = await forumApi.getMyEnrollmentCourses().catch(() => [] as CourseOption[])
+        }
+
+        if (list.length === 0) {
           const posts = await forumApi.getPosts({ pageSize: 50 }).catch(() => ({
             data: [],
             pagination: { page: 1, pageSize: 50, total: 0, totalPages: 0 },
@@ -59,7 +65,15 @@ export function useForumCourse(demoMode: boolean) {
 
         if (!cancelled) {
           setCourses(list)
-          if (list.length > 0 && !courseOfferingId) {
+          if (list.length === 0) {
+            if (courseOfferingId) setCourseOfferingId('')
+            return
+          }
+
+          const hasSelectedCourse = list.some(
+            (course) => course.courseOfferingId === courseOfferingId
+          )
+          if (!courseOfferingId || !hasSelectedCourse) {
             setCourseOfferingId(list[0].courseOfferingId)
           }
         }
@@ -72,7 +86,7 @@ export function useForumCourse(demoMode: boolean) {
     return () => {
       cancelled = true
     }
-  }, [demoMode, setCourseOfferingId])
+  }, [courseOfferingId, demoMode, setCourseOfferingId])
 
   return { courses, courseOfferingId, setCourseOfferingId, loading }
 }

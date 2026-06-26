@@ -160,7 +160,7 @@ curl -i "http://localhost:3000/api/v1/course-selection/offerings/available?inclu
 3. 学分进展基于有效 `Enrollment` 做只读统计，不创建或修改选课记录。
 4. 课程搜索和开课列表支持分页或筛选，避免一次性返回大表。
 5. `/offerings/available` 返回只读 `eligibility.reasons`，但最终选课成功仍由 C3 事务决定。
-6. 不新增 `StudentPlan`、培养方案确认表或任何未批准业务表；培养方案确认持久化继续标注 `TODO-C-01`。
+6. 不新增 `StudentPlan` 或任何未批准业务表；培养方案确认使用已批准的 `student_curriculum_confirmations`。
 
 禁止合并的问题：
 

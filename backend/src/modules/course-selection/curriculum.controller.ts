@@ -4,6 +4,7 @@ import { curriculumService } from './curriculum.service.js'
 import {
   curriculumQuerySchema,
   curriculumProgressQuerySchema,
+  type CurriculumConfirmationBody,
 } from './course-selection.schemas.js'
 
 /**
@@ -25,6 +26,22 @@ export const curriculumController = {
     }
 
     return success(res, result)
+  },
+
+  async confirmMyCurriculum(req: Request, res: Response) {
+    const body = req.body as CurriculumConfirmationBody
+    const studentId = req.user?.userId
+
+    if (!studentId) {
+      return res.status(401).json({ code: 401, message: '未认证' })
+    }
+
+    const result = await curriculumService.confirmMyCurriculum(studentId, body)
+    if (typeof result === 'string') {
+      return error(res, result, 422)
+    }
+
+    return success(res, result, '培养方案确认成功')
   },
 
   async getMyCurriculumProgress(req: Request, res: Response) {

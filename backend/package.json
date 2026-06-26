@@ -14,6 +14,7 @@
     "db:studio": "prisma studio",
     "db:seed": "tsx prisma/seed.ts",
     "db:seed:c1c2": "tsx prisma/seed-c1c2.ts",
+    "db:seed:c-manual": "tsx prisma/seed-c-manual.ts",
     "db:seed:c4c5": "tsx prisma/seed-c4c5-verify.ts",
     "lint": "eslint src",
     "test": "vitest",

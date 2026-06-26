@@ -4,6 +4,10 @@ import type { CourseOption } from '../types'
 
 const { Text } = Typography
 
+function formatCourseLabel(course: CourseOption) {
+  return [course.courseCode, course.courseName].filter(Boolean).join(' · ') || course.courseOfferingId
+}
+
 interface CourseForumSelectorProps {
   courses: CourseOption[]
   value?: string
@@ -32,7 +36,7 @@ export function CourseForumSelector({
         onChange={(v) => onChange(v ?? '')}
         options={courses.map((c) => ({
           value: c.courseOfferingId,
-          label: `${c.courseCode} · ${c.courseName}`,
+          label: formatCourseLabel(c),
         }))}
       />
     </Space>

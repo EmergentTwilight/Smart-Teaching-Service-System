@@ -15,18 +15,20 @@ import {
   toCourseStatusValue,
   toOfferingStatusValue
 } from './course-selection.types.js'
+import {
+  CURRICULUM_CONFIRMATION_REQUIRED_MESSAGE,
+  isCurriculumConfirmationCurrent,
+  resolveSemesterId,
+} from './course-selection.support.js'
 
-import { 
-  PrismaClient,
+import {
   CourseType,
   CourseStatus,
   OfferingStatus,
   EnrollmentStatus,
-  SemesterStatus
 } from '@prisma/client'
 import type { Prisma, Semester } from '@prisma/client'
-
-const prisma = new PrismaClient()
+import prisma from '../../shared/prisma/client.js'
 
 const getOfferingStatusUnavailableReason = (status: OfferingStatus) => {
   if (status === OfferingStatus.OPEN) {
@@ -364,8 +366,23 @@ export const courseSearchService = {
       return '对应培养方案不唯一'
     }
     const curriculum = curriculums[0]
+    const confirmationRecord = await prisma.studentCurriculumConfirmation.findUnique({
+      where: {
+        studentId_curriculumId: {
+          studentId,
+          curriculumId: curriculum.id
+        }
+      },
+      select: {
+        confirmedAt: true
+      }
+    })
+    const curriculumConfirmed = isCurriculumConfirmationCurrent(
+      confirmationRecord,
+      curriculum
+    )
 
-    let semesterId = query.semester_id ?? query.semesterId ?? undefined;
+    const requestedSemesterId = query.semester_id ?? query.semesterId ?? undefined
     const courseType = query.course_type ?? query.courseType ?? undefined;
     const offeringStatus = query.offering_status ?? query.offeringStatus ?? undefined
     const keyword = query.keyword ?? undefined;
@@ -377,18 +394,8 @@ export const courseSearchService = {
 
     const where: Prisma.CourseOfferingWhereInput = {}
     const courseWhere: Prisma.CourseWhereInput = {}
-    if(!semesterId) {
-      const currentSemester = await prisma.semester.findFirst({
-        where: { status: SemesterStatus.CURRENT },
-        orderBy: { startDate: 'desc' },
-        select: { id: true }
-      })
-      if(!currentSemester) {
-        return '无法找到当前学期'
-      }
-      semesterId = currentSemester.id
-    }
-    where.semesterId = semesterId
+    const semester = await resolveSemesterId(requestedSemesterId)
+    where.semesterId = semester.id
     if(keyword) {
       courseWhere.OR = [
         { code: { contains: keyword, mode: 'insensitive' } },
@@ -498,7 +505,7 @@ export const courseSearchService = {
           break
         }
       }
-      const isAvailable = !offeringStatusReason && !courseStatusReason && !isEnrolled && !isFull && !hasTimeConflict && prerequisiteSatisfied && withinCurriculum
+      const isAvailable = curriculumConfirmed && !offeringStatusReason && !courseStatusReason && !isEnrolled && !isFull && !hasTimeConflict && prerequisiteSatisfied && withinCurriculum
       if(!isAvailable && !includeUnavailable) {
         continue
       }
@@ -519,6 +526,7 @@ export const courseSearchService = {
           isEnrolled: isEnrolled,
           isFull: isFull,
           hasTimeConflict: hasTimeConflict,
+          curriculumConfirmed: curriculumConfirmed,
           prerequisiteSatisfied: prerequisiteSatisfied,
           withinCurriculum: withinCurriculum,
           reasons: []
@@ -538,6 +546,9 @@ export const courseSearchService = {
       }
       if(hasTimeConflict) {
         courses[courses.length - 1].eligibility.reasons.push('课程有时间冲突')
+      }
+      if(!curriculumConfirmed) {
+        courses[courses.length - 1].eligibility.reasons.push(CURRICULUM_CONFIRMATION_REQUIRED_MESSAGE)
       }
       if(!prerequisiteSatisfied) {
         courses[courses.length - 1].eligibility.reasons.push('课程先修条件不满足')
@@ -724,6 +735,21 @@ export const courseSearchService = {
       return '对应培养方案不唯一'
     }
     const curriculum = curriculums[0]
+    const confirmationRecord = await prisma.studentCurriculumConfirmation.findUnique({
+      where: {
+        studentId_curriculumId: {
+          studentId: requesterUserId,
+          curriculumId: curriculum.id
+        }
+      },
+      select: {
+        confirmedAt: true
+      }
+    })
+    const curriculumConfirmed = isCurriculumConfirmationCurrent(
+      confirmationRecord,
+      curriculum
+    )
     
     let isEnrolled: boolean = false, hasTimeConflict: boolean = false, prerequisiteSatisfied: boolean = true, withinCurriculum: boolean = false
     const isFull = offering.capacity <= offering.enrolledCount
@@ -781,12 +807,13 @@ export const courseSearchService = {
         break
       }
     }
-    const isAvailable = !offeringStatusReason && !courseStatusReason && !isEnrolled && !isFull && !hasTimeConflict && prerequisiteSatisfied && withinCurriculum
+    const isAvailable = curriculumConfirmed && !offeringStatusReason && !courseStatusReason && !isEnrolled && !isFull && !hasTimeConflict && prerequisiteSatisfied && withinCurriculum
     const eligibility: CourseEligibilitySnapshot = {
       isAvailable: isAvailable,
       isEnrolled: isEnrolled,
       isFull: isFull,
       hasTimeConflict: hasTimeConflict,
+      curriculumConfirmed: curriculumConfirmed,
       prerequisiteSatisfied: prerequisiteSatisfied,
       withinCurriculum: withinCurriculum,
       reasons: []
@@ -805,6 +832,9 @@ export const courseSearchService = {
     }
     if(hasTimeConflict) {
       eligibility.reasons.push('课程有时间冲突')
+    }
+    if(!curriculumConfirmed) {
+      eligibility.reasons.push(CURRICULUM_CONFIRMATION_REQUIRED_MESSAGE)
     }
     if(!prerequisiteSatisfied) {
       eligibility.reasons.push('课程先修条件不满足')

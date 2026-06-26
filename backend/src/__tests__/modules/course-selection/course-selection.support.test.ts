@@ -1,8 +1,18 @@
 /** C4/C5 共享工具函数单元测试（课表冲突、分页、阶段状态等）。 */
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
+const prismaMock = vi.hoisted(() => ({
+  semester: {
+    findUnique: vi.fn(),
+    findFirst: vi.fn(),
+  },
+  selectionPeriod: {
+    findFirst: vi.fn(),
+  },
+}))
 
 vi.mock('../../../shared/prisma/client.js', () => ({
-  default: {},
+  default: prismaMock,
 }))
 
 import { EnrollmentStatus } from '@prisma/client'
@@ -10,8 +20,17 @@ import {
   buildPaginationMeta,
   computeSelectionPeriodServerStatus,
   parseEnrollmentStatusFilter,
+  resolveSemesterId,
   schedulesConflict,
 } from '../../../modules/course-selection/course-selection.support.js'
+
+beforeEach(() => {
+  vi.resetAllMocks()
+})
+
+afterEach(() => {
+  vi.useRealTimers()
+})
 
 describe('course-selection.support', () => {
   it('schedulesConflict detects overlapping slots on same day', () => {
@@ -72,6 +91,57 @@ describe('course-selection.support', () => {
       pageSize: 20,
       total: 45,
       totalPages: 3,
+    })
+  })
+
+  it('resolveSemesterId prefers the currently open selection period semester', async () => {
+    const now = new Date('2026-06-22T04:00:00.000Z')
+    vi.useFakeTimers()
+    vi.setSystemTime(now)
+    prismaMock.selectionPeriod.findFirst.mockResolvedValue({
+      semester: {
+        id: 'period-semester',
+        name: '开放选课阶段学期',
+      },
+    })
+
+    await expect(resolveSemesterId()).resolves.toEqual({
+      id: 'period-semester',
+      name: '开放选课阶段学期',
+    })
+    expect(prismaMock.selectionPeriod.findFirst).toHaveBeenCalledWith({
+      where: {
+        isActive: true,
+        startTime: { lte: now },
+        endTime: { gte: now },
+      },
+      orderBy: [
+        { endTime: 'asc' },
+        { startTime: 'desc' },
+      ],
+      select: {
+        semester: {
+          select: { id: true, name: true },
+        },
+      },
+    })
+    expect(prismaMock.semester.findFirst).not.toHaveBeenCalled()
+  })
+
+  it('resolveSemesterId keeps explicit semester lookup unchanged', async () => {
+    prismaMock.semester.findUnique.mockResolvedValue({
+      id: 'explicit-semester',
+      name: '指定学期',
+    })
+
+    await expect(resolveSemesterId('explicit-semester')).resolves.toEqual({
+      id: 'explicit-semester',
+      name: '指定学期',
+    })
+    expect(prismaMock.selectionPeriod.findFirst).not.toHaveBeenCalled()
+    expect(prismaMock.semester.findUnique).toHaveBeenCalledWith({
+      where: { id: 'explicit-semester' },
+      select: { id: true, name: true },
     })
   })
 })

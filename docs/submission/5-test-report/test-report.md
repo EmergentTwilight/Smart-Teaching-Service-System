@@ -302,6 +302,29 @@ pre code {
   background: #fbfdff;
   box-shadow: 0 8px 22px rgba(23, 32, 51, 0.05);
 }
+
+/* Keep the test report cover visually aligned with the requirements and design reports. */
+h1 {
+  margin-bottom: 24px;
+  padding: 30px 30px;
+  font-size: 1.55rem;
+}
+
+h1 + blockquote {
+  margin-bottom: 30px;
+  padding: 14px 20px;
+  font-size: 0.84rem;
+}
+
+h1 + blockquote + h2 {
+  margin: 30px 0 14px;
+  font-size: 1.34rem;
+}
+
+h1 + blockquote + h2 + ul {
+  font-size: 0.84rem;
+  line-height: 1.36;
+}
 </style>
 
 # Smart Teaching Service System 测试报告

@@ -2,7 +2,7 @@
 
 > 适用成员：成员 3
 > 对应 skill：`$stss-c-member3-backend-results-period-roster`
-> 负责范围：C4 选课结果/课表/教师名单/导出，C5 选课阶段/手动加课/并发预留后端
+> 负责范围：C4 选课结果/课表/教师名单/导出，C5 选课阶段/手动加课，以及 v2.0 `FR-C-15` 阶段和配置口径协作
 > 工作原则：只做 C4/C5 后端，不实现 C1/C2 查询、C3 普通学生选课事务、C6 AI 或完整前端页面。
 
 ## 1. 工作前必须阅读
@@ -79,7 +79,7 @@ PR 描述必须包含：
 
 ```text
 1. 对应子模块：C4、C5 或 C4/C5。
-2. 覆盖需求：FR-C-24~FR-C-29 或 FR-C-30~FR-C-37。
+2. 覆盖需求：FR-C-24~FR-C-29 或 FR-C-30~FR-C-37；其中 FR-C-35/FR-C-36 的学生选课核心链路由 C3 主责，C5 只协作阶段和配置口径。
 3. 权限说明：学生本人、教师本人任课课程、academic_admin 映射。
 4. 审计说明：SelectionPeriod/手动加课是否写 SystemLog。
 5. 修改文件清单。
@@ -97,7 +97,7 @@ PR 合并前先同步 `dev/C`，特别检查 `course-selection.schemas.ts` 和 `
 | 子模块 | 需求编号 | 主要能力 |
 |---|---|---|
 | C4 | `FR-C-24` 至 `FR-C-29` | 本人选课结果、个人课表、教师名单、Excel 导出。 |
-| C5 | `FR-C-30` 至 `FR-C-37` | 阶段管理、手动加课、连接数控制与无操作释放预留。 |
+| C5 | `FR-C-30` 至 `FR-C-37` | 阶段管理、手动加课；协作连接数控制与无操作释放的阶段、配置和教务侧口径。 |
 
 主要接口：
 
@@ -157,7 +157,7 @@ frontend/src/modules/course-selection/**
 | `backend/src/modules/course-selection/selection-period.service.ts`：手动加课 | `TODO(C5, FR-C-33, FR-C-34, NFR-C-04, NFR-C-12)` | 实现手动加课事务：`reason` 必填；校验学生、课程开设存在且未取消、容量、重复、冲突、默认 `max_credits`；创建或恢复 `Enrollment`、更新 `enrolled_count`、写 `SystemLog` 同事务完成；培养方案和先修例外按 `TODO-C-21`。 |
 | `backend/src/modules/course-selection/course-selection.schemas.ts`：C4/C5 schema | `TODO(C5, FR-C-30, FR-C-35, NFR-C-14)`、`TODO(C5, FR-C-30, FR-C-31, FR-C-32, NFR-C-14)`、`TODO(C5, FR-C-33, FR-C-34, NFR-C-04)`、`TODO(C4, FR-C-27, FR-C-28, NFR-C-06)`、`TODO(C4, FR-C-25, FR-C-26, NFR-C-08)` | 补齐阶段、手动加课、roster、课表查询参数校验；roster 默认 `page_size=50`，phase 只允许 `first_round/second_round/adjustment`，创建 period 要求 `is_active`，manual enrollment 要求 `reason`。 |
 
-连接数控制和长时间无操作释放的 TODO 应靠近 `selection-period.service.ts` 或未来准入控制 service，标注 `TODO(C5, FR-C-35, FR-C-36, NFR-C-01~NFR-C-03)`；不要新增 `CourseSelectionQueue` 等数据库业务表。
+连接数控制和长时间无操作释放的学生选课核心链路由 C3 主责，C5 只保留阶段、配置和教务侧协作 TODO；不要新增 `CourseSelectionQueue` 等数据库业务表。
 
 ## 6. C4 后端工作要求
 
@@ -213,12 +213,12 @@ frontend/src/modules/course-selection/**
 - 创建或恢复 `Enrollment`、更新 `CourseOffering.enrolled_count`、写入 `SystemLog` 必须在同一事务内完成。
 - 是否允许培养方案适配或先修课例外，按 `TODO-C-21` 由负责人确认，不得用前端参数绕过。
 
-### 7.3 并发与无操作释放
+### 7.3 并发与无操作释放协作
 
-连接数控制、心跳、无操作释放如未实现，必须保留清晰 TODO：
+连接数控制、心跳、无操作释放如未实现，C5 只保留协作 TODO，主链路由 C3 在选课核心流程接入：
 
 ```text
-TODO(C5, FR-C-35, FR-C-36, NFR-C-01~NFR-C-03)
+TODO(C5, FR-C-35, FR-C-36, NFR-C-01~NFR-C-03): 协作 C3 确定阶段和配置口径；不得单独实现学生选课准入链路。
 ```
 
 不得新增 `CourseSelectionQueue` 等数据库业务表。

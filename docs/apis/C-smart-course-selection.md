@@ -28,7 +28,7 @@ link: https://tcncx9czflpz.feishu.cn/wiki/BgpmwKkYqifNkjk1Psdc0gitn2b
 | 认证方式 | JWT Bearer Token |
 | 字段命名 | 请求与响应统一使用 `snake_case` |
 | 时间格式 | ISO 8601（带时区），选课阶段判断以服务端时间为准 |
-| UUID | string |
+| ID | string；按不透明数据库标识处理，入口层不强制 UUID 格式，生产默认 UUID 与手测 seed 前缀 ID 均可透传，存在性由服务层查询校验 |
 | 分页参数 | `page` 从 1 开始，`page_size` 默认 20，最大 100 |
 | 数据来源 | 仅引用现有 `Student`、`Course`、`CourseOffering`、`Schedule`、`Curriculum`、`CurriculumCourse`、`CoursePrerequisite`、`Enrollment`、`SelectionPeriod`、`Semester`、`Teacher`、`SystemLog` 等表，不新增数据库业务表 |
 
@@ -108,12 +108,12 @@ link: https://tcncx9czflpz.feishu.cn/wiki/BgpmwKkYqifNkjk1Psdc0gitn2b
 | ---- | ---- | -------- |
 | `RULE-C-01` | 所有学生端接口通过 JWT 解析当前学生，禁止信任前端传入的学生身份。 | `FR-C-26`、`NFR-C-06` |
 | `RULE-C-02` | 选课、退选、教务手动加课必须在数据库事务中完成，并保持 `Enrollment` 与 `CourseOffering.enrolled_count` 一致。 | `FR-C-17`、`FR-C-21`、`FR-C-22`、`NFR-C-04` |
-| `RULE-C-03` | 选课写入前必须校验课程开设状态、容量、重复有效选课、选课时间段、最大学分、培养方案适配性、课表冲突和先修课程。 | `FR-C-14`、`FR-C-16` 至 `FR-C-20`、`FR-C-23` |
+| `RULE-C-03` | 选课写入前必须校验培养方案确认状态、课程开设状态、容量、重复有效选课、选课时间段、最大学分、培养方案适配性、课表冲突和先修课通过状态；先修课通过状态依据有效成绩或等价课程完成记录判断。 | `FR-C-04`、`FR-C-14`、`FR-C-16` 至 `FR-C-20`、`FR-C-23` |
 | `RULE-C-04` | 并发选课必须避免容量超卖，建议对目标 `CourseOffering` 行加锁或使用条件更新。 | `FR-C-22`、`NFR-C-05` |
 | `RULE-C-05` | 退选不得删除 `Enrollment`，只能将状态更新为 `dropped` 并记录 `dropped_at`。 | `FR-C-21` |
 | `RULE-C-06` | AI 只能推荐和解释，不得直接写入 `Enrollment`，不得绕过硬性业务规则。 | `FR-C-38` 至 `FR-C-43`、`NFR-C-10` |
 | `RULE-C-07` | 课程搜索、可选课程、选课结果和教师名单应支持筛选或分页，避免一次性返回过大结果集。 | `FR-C-12`、`FR-C-29`、`NFR-C-13` |
-| `RULE-C-08` | 选课核心流程应接入准入控制和无操作释放机制，释放会话不得影响已保存的选课记录。 | `FR-C-35`、`FR-C-36`、`NFR-C-01` 至 `NFR-C-03` |
+| `RULE-C-08` | 选课核心流程应接入准入控制和无操作释放机制，释放会话不得影响已保存的选课记录；该规则对应 v2.0 总报告 `FR-C-15`，由 C3 主责、C5 协作。 | `FR-C-35`、`FR-C-36`、`NFR-C-01` 至 `NFR-C-03` |
 
 ---
 
@@ -123,7 +123,11 @@ link: https://tcncx9czflpz.feishu.cn/wiki/BgpmwKkYqifNkjk1Psdc0gitn2b
 
 | 接口 | 方法 | 路由 | 对应需求 |
 | ---- | ---- | ---- | -------- |
+| 进入选课核心流程 | POST | `/admission/enter` | `FR-C-35`、`FR-C-36` |
+| 刷新选课准入心跳 | POST | `/admission/heartbeat` | `FR-C-35`、`FR-C-36` |
+| 离开选课核心流程 | POST | `/admission/leave` | `FR-C-35`、`FR-C-36` |
 | 查看本人培养方案 | GET | `/curriculum/me` | `FR-C-01` 至 `FR-C-07` |
+| 确认本人培养方案 | POST | `/curriculum/me/confirmation` | `FR-C-04` |
 | 查看本人培养方案进度 | GET | `/curriculum/me/progress` | `FR-C-05` |
 | 搜索课程目录 | GET | `/courses` | `FR-C-08` 至 `FR-C-12` |
 | 查询课程开设列表 | GET | `/offerings` | `FR-C-08` 至 `FR-C-12`、`FR-C-15` |
@@ -133,8 +137,12 @@ link: https://tcncx9czflpz.feishu.cn/wiki/BgpmwKkYqifNkjk1Psdc0gitn2b
 | 提交选课 | POST | `/enrollments` | `FR-C-14` 至 `FR-C-23` |
 | 退选课程 | PATCH | `/enrollments/:id/drop` | `FR-C-14`、`FR-C-21`、`FR-C-22` |
 | 查看本人课表 | GET | `/timetable/me` | `FR-C-25`、`FR-C-26` |
+| 查询本人课表可选学期 | GET | `/timetable/me/semesters` | `FR-C-25`、`FR-C-26` |
 | AI 推荐课程 | POST | `/ai-advisor/recommend` | `FR-C-38` 至 `FR-C-43` |
 | AI 解释课程 | POST | `/ai-advisor/explain` | `FR-C-38` 至 `FR-C-43` |
+| 保存 AI 建议快照 | POST | `/ai-advisor/saved` | `FR-C-38` 至 `FR-C-43` |
+| 查询 AI 建议快照 | GET | `/ai-advisor/saved`、`/ai-advisor/saved/:id` | `FR-C-38` 至 `FR-C-43` |
+| 删除 AI 建议快照 | DELETE | `/ai-advisor/saved/:id` | `FR-C-38` 至 `FR-C-43` |
 
 ### 2.2 教师端
 
@@ -150,6 +158,8 @@ link: https://tcncx9czflpz.feishu.cn/wiki/BgpmwKkYqifNkjk1Psdc0gitn2b
 | 查询选课时间段 | GET | `/admin/periods` | `FR-C-30` 至 `FR-C-32` |
 | 创建选课时间段 | POST | `/admin/periods` | `FR-C-30`、`FR-C-31`、`FR-C-37` |
 | 修改选课时间段 | PATCH | `/admin/periods/:id` | `FR-C-30` 至 `FR-C-32`、`FR-C-37` |
+| 搜索手动加课学生候选 | GET | `/admin/manual-enrollment/students` | `FR-C-33`、`NFR-C-13` |
+| 搜索手动加课课程候选 | GET | `/admin/manual-enrollment/course-offerings` | `FR-C-33`、`NFR-C-13` |
 | 教务手动加课 | POST | `/admin/enrollments` | `FR-C-33`、`FR-C-34`、`FR-C-37` |
 
 > 路由注册时应将 `/offerings/available` 放在 `/offerings/:id` 之前，避免静态路由被动态参数吞掉。
@@ -157,6 +167,54 @@ link: https://tcncx9czflpz.feishu.cn/wiki/BgpmwKkYqifNkjk1Psdc0gitn2b
 ---
 
 ## 三、学生端接口
+
+### 3.0 选课准入控制
+
+```plaintext
+POST /api/v1/course-selection/admission/enter
+POST /api/v1/course-selection/admission/heartbeat
+POST /api/v1/course-selection/admission/leave
+Authorization: Bearer <access_token>
+Content-Type: application/json
+```
+
+**权限说明**
+
+仅 `student` 可访问。学生身份必须来自登录态，不接收 `student_id`。
+
+**请求 Body**
+
+| 接口 | 参数 | 类型 | 必填 | 说明 |
+| ---- | ---- | ---- | ---- | ---- |
+| `enter` | `semester_id` | string | 否 | 指定学期；不传时服务端选择当前有效选课阶段对应学期 |
+| `heartbeat` / `leave` | `semester_id` | string | 是 | `enter` 返回的学期 ID |
+| `heartbeat` / `leave` | `lease_id` | string | 是 | `enter` 返回的租约 ID |
+
+**响应示例**
+
+```json
+{
+  "code": 200,
+  "message": "选课准入成功",
+  "data": {
+    "admitted": true,
+    "semester_id": "2b5741c4-40c4-4c7f-990e-cc880a9f0001",
+    "lease_id": "10000000-0000-4000-8000-000000000001",
+    "active_sessions": 120,
+    "max_active_sessions": 200,
+    "idle_timeout_seconds": 300,
+    "heartbeat_interval_seconds": 30,
+    "expires_at": "2026-05-13T08:05:00+08:00"
+  }
+}
+```
+
+**校验与说明**
+
+- `enter` 达到最大活跃人数时返回 `CS_ADMISSION_LIMITED`。
+- `heartbeat` 用于刷新租约；租约缺失、过期或不匹配时返回 `CS_ADMISSION_LIMITED`。
+- `leave` 幂等释放租约；长时间无操作由租约过期释放席位。
+- `POST /enrollments` 必须校验当前学生在目标课程学期内有有效准入租约。
 
 ### 3.1 查看本人培养方案
 
@@ -214,15 +272,17 @@ curl -X GET "https://stss.example.com/api/v1/course-selection/curriculum/me?incl
             "course_name": "程序设计基础",
             "credits": 4.0,
             "semester_suggestion": 1,
-            "status": "active"
+            "status": "active",
+            "study_status": "completed"
           }
         ]
       }
     ],
     "confirmation": {
-      "required_before_selection": false,
-      "confirmed": true,
-      "message": "当前培养方案仅供查看，暂无需额外确认。"
+      "required_before_selection": true,
+      "confirmed": false,
+      "confirmed_at": null,
+      "message": "请确认当前培养方案后再进入正式选课流程。"
     }
   }
 }
@@ -232,7 +292,49 @@ curl -X GET "https://stss.example.com/api/v1/course-selection/curriculum/me?incl
 
 - 若当前学生无法匹配培养方案，返回 `422`，并阻止自动生成可选课程列表。
 - 培养方案、课程分类和课程代码只读取主数据，不由 C 模块复制或新建。
-- TODO-C-01（`FR-C-04`）：当前数据库设计未提供培养方案确认记录字段或表。未落库前 `required_before_selection` 必须为 `false`，不得用无法完成的确认流程阻断选课；后续需确认“确认”是否仅作为前端流程状态，或通过已有用户配置能力承载，不得在 C 模块擅自新增业务表。
+- `study_status` 用于区分 `completed`（已修读）、`in_progress`（正在修读）、`not_started`（未修读）。已修读基于 F 组 `Score.status in (SUBMITTED, CONFIRMED)` 且达到及格线判断；正在修读仅统计当前/默认学期的 `Enrollment.status = ENROLLED`。
+- `confirmation.required_before_selection` 表示 v2.0 验收基线要求培养方案确认作为选课前置条件；`confirmed` 与 `confirmed_at` 应来自后端持久化确认记录，不得由前端本地状态伪造。
+- 确认记录来自 `student_curriculum_confirmations`；若 `confirmed_at` 早于对应 `Curriculum.updated_at`，视为未确认并要求学生重新确认。
+
+### 3.1.1 确认本人培养方案
+
+```plaintext
+POST /api/v1/course-selection/curriculum/me/confirmation
+Authorization: Bearer <access_token>
+Content-Type: application/json
+```
+
+**权限说明**
+
+仅 `student` 可访问。后端通过当前登录用户解析学生身份，并确认当前匹配培养方案；请求体不得传 `student_id` 或 `studentId`。
+
+**请求 Body**
+
+| 参数 | 类型 | 必填 | 说明 |
+| ---- | ---- | ---- | ---- |
+| `curriculum_id` | string | 是 | 当前学生匹配的 `Curriculum.id` |
+
+**响应示例**
+
+```json
+{
+  "code": 200,
+  "message": "培养方案确认成功",
+  "data": {
+    "confirmation": {
+      "required_before_selection": true,
+      "confirmed": true,
+      "confirmed_at": "2026-05-13T09:00:00+08:00"
+    }
+  }
+}
+```
+
+**校验与说明**
+
+- 必须校验 `curriculum_id` 与当前学生专业和年级匹配的培养方案一致。
+- 确认结果用于 `GET /offerings/available` 和 `POST /enrollments` 的前置校验。
+- 重复确认同一培养方案时刷新 `confirmed_at`；确认状态必须以后端持久化记录为准。
 
 ### 3.2 查看本人培养方案进度
 
@@ -243,7 +345,7 @@ Authorization: Bearer <access_token>
 
 **权限说明**
 
-仅 `student` 可访问。后端只统计当前登录学生的 `Enrollment`，不得接收或透传其他学生 ID。
+仅 `student` 可访问。后端基于当前学生已确认培养方案和本人 `Enrollment` 统计学分进度，不得接收或透传其他学生 ID。
 
 **请求参数**
 
@@ -279,6 +381,18 @@ curl -X GET "https://stss.example.com/api/v1/course-selection/curriculum/me/prog
       "elective_credits": 4.0,
       "general_credits": 4.0
     },
+    "completed": {
+      "total_credits": 14.0,
+      "required_credits": 10.0,
+      "elective_credits": 0.0,
+      "general_credits": 4.0
+    },
+    "in_progress": {
+      "total_credits": 4.0,
+      "required_credits": 0.0,
+      "elective_credits": 4.0,
+      "general_credits": 0.0
+    },
     "remaining": {
       "total_credits": 142.0,
       "required_credits": 82.0,
@@ -288,6 +402,8 @@ curl -X GET "https://stss.example.com/api/v1/course-selection/curriculum/me/prog
       {
         "course_type": "required",
         "selected_credits": 10.0,
+        "completed_credits": 10.0,
+        "in_progress_credits": 0.0,
         "requirement_credits": 92.0,
         "course_count": 3
       }
@@ -304,8 +420,11 @@ curl -X GET "https://stss.example.com/api/v1/course-selection/curriculum/me/prog
 
 **校验与说明**
 
-- 仅统计 `status = enrolled` 的有效选课；`include_dropped=true` 仅用于展示历史，不计入进度。
+- `selected` 为 `completed + in_progress` 的兼容汇总；前端如需区分已修读/正在修读，应优先读取 `completed`、`in_progress` 和分类型拆分字段。
+- 已修读基于 F 组有效成绩（`SUBMITTED/CONFIRMED`、及格线、有效成绩去重）统计；正在修读仅统计目标/当前学期 `status = enrolled` 且尚未完成的课程。
+- `include_dropped=true` 仅用于展示历史，不计入进度。
 - 进度按 `Course.course_type` 或 `CurriculumCourse.course_type` 聚合，字段冲突时以培养方案课程关系为准。
+- 学分进展应基于已确认培养方案；确认记录早于培养方案更新时间时应提示重新确认。
 - TODO-C-02（`FR-C-05`）：公共课最低学分要求在数据库设计中暂无独立字段，后续需与数据库负责人确认是否由 `Curriculum.elective_credits` 拆分、由课程分类派生，或修改数据库设计。
 
 ### 3.3 搜索课程目录
@@ -479,7 +598,7 @@ Authorization: Bearer <access_token>
 
 **权限说明**
 
-仅 `student` 可访问。后端根据当前登录学生的培养方案、已选课程、当前选课阶段和排课结果计算可选性，不接受前端传入 `student_id`。
+仅 `student` 可访问。后端根据当前登录学生已确认培养方案、已选课程、当前选课阶段和排课结果计算可选性，不接受前端传入 `student_id`。
 
 **请求参数**
 
@@ -532,6 +651,7 @@ curl -X GET "https://stss.example.com/api/v1/course-selection/offerings/availabl
           "is_enrolled": false,
           "is_full": false,
           "has_time_conflict": false,
+          "curriculum_confirmed": true,
           "prerequisite_satisfied": true,
           "within_curriculum": true,
           "reasons": []
@@ -553,6 +673,7 @@ curl -X GET "https://stss.example.com/api/v1/course-selection/offerings/availabl
           "is_enrolled": false,
           "is_full": true,
           "has_time_conflict": false,
+          "curriculum_confirmed": true,
           "prerequisite_satisfied": false,
           "within_curriculum": true,
           "reasons": ["课程容量已满", "未满足先修课程：数据结构"]
@@ -571,10 +692,10 @@ curl -X GET "https://stss.example.com/api/v1/course-selection/offerings/availabl
 
 **校验与说明**
 
-- 无匹配培养方案时返回 `422`，不生成可选课程列表。
-- 可选性解释必须覆盖容量、已选、冲突、先修、培养方案适配、当前阶段等原因。
-- TODO-C-05（`FR-C-19`）：先修课程是否满足需要依赖 F 子系统成绩或通过情况；F 接口未完成前可返回风险提示，正式阻止策略需与 `FR-C-19` 对齐。
-- TODO-C-06（`FR-C-35`、`FR-C-36`）：该接口属于选课核心流程，后续应接入 Redis 准入控制、心跳或无操作释放机制；不得新增数据库业务表。
+- 无匹配培养方案时返回 `422`，不生成可选课程列表；未确认培养方案时返回课程列表但将 `eligibility.curriculum_confirmed=false`、`is_available=false`，正式提交选课时返回 `CS_CURRICULUM_NOT_CONFIRMED`。
+- 可选性解释必须覆盖未确认培养方案、容量、已选、冲突、先修、培养方案适配、当前阶段等原因。
+- TODO-C-05（`FR-C-19`）：先修课程是否满足需要依赖 F 子系统有效成绩或等价课程完成记录；缺少可判定数据时正式策略应阻止选课并返回明确提示。
+- `FR-C-15` 准入控制已由 `/admission/enter`、`/admission/heartbeat`、`/admission/leave` 和选课提交前租约校验承接；不得新增数据库业务表。
 
 ### 3.6 查看课程开设详情
 
@@ -721,6 +842,7 @@ curl -X GET "https://stss.example.com/api/v1/course-selection/enrollments/me?sta
       {
         "enrollment_id": "c9e15b80-9277-4f63-8f3b-8017be620001",
         "status": "enrolled",
+        "study_status": "in_progress",
         "enrolled_at": "2026-05-13T09:10:30+08:00",
         "dropped_at": null,
         "course_offering": {
@@ -751,6 +873,7 @@ curl -X GET "https://stss.example.com/api/v1/course-selection/enrollments/me?sta
 **校验与说明**
 
 - 默认只查询当前学期或全部学期由实现配置决定，但必须在响应中清楚返回 `semester_name`。
+- `study_status` 用于展示该课程修读状态：有 `SUBMITTED/CONFIRMED` 且及格的有效成绩时为 `completed`；仍在有效选课中且尚无及格有效成绩时为 `in_progress`；退选/撤销等历史记录不应误标为正在修读。
 - 退选记录保留可查，便于追踪选课历史。
 - TODO-C-08（`FR-C-29`）：前端筛选条件需与本接口的 `semester_id`、`keyword`、`status` 对齐。
 
@@ -833,12 +956,13 @@ curl -X POST "https://stss.example.com/api/v1/course-selection/enrollments" \
 **事务、校验与说明**
 
 - 必须在一个事务中完成：锁定或条件更新 `CourseOffering`、检查有效 `Enrollment`、创建或恢复选课记录、更新 `enrolled_count`。
+- 必须校验当前学生已确认当前培养方案；未确认时返回 `CS_CURRICULUM_NOT_CONFIRMED`。
 - 必须校验当前存在启用且服务端时间位于起止范围内的 `SelectionPeriod`。
-- 必须校验 `CourseOffering.status = open`、`Course.status = active`、容量未满、未重复选课、未超过 `max_credits`、课表不冲突、符合培养方案和先修要求。
+- 必须校验 `CourseOffering.status = open`、`Course.status = active`、容量未满、未重复选课、未超过 `max_credits`、课表不冲突、符合培养方案和先修课通过状态。
 - 若已有同一学生同一课程开设的 `dropped` 记录，可更新为 `enrolled` 并刷新 `enrolled_at`；不得创建多个有效 `enrolled` 记录。
 - TODO-C-09（`FR-C-16`、`FR-C-18`、`FR-C-22`、`NFR-C-05`）：后续实现需明确 PostgreSQL 行锁或条件更新方案，并补充并发测试。
-- TODO-C-10（`FR-C-19`）：先修课校验需与 F 子系统确定“已通过课程”的读取方式。
-- TODO-C-11（`FR-C-35`、`FR-C-36`）：选课提交必须纳入选课准入控制和无操作释放机制。
+- TODO-C-10（`FR-C-19`）：先修课校验需与 F 子系统确定“有效成绩/等价课程完成记录”的读取方式。
+- 选课提交必须存在当前学生、当前学期的有效 Redis 准入租约；缺失或过期时返回 `CS_ADMISSION_LIMITED`。
 
 ### 3.9 退选课程
 
@@ -904,11 +1028,11 @@ curl -X PATCH "https://stss.example.com/api/v1/course-selection/enrollments/c9e1
 
 **事务、校验与说明**
 
-- 必须校验当前选课阶段允许退选，且以服务端时间判断。
+- 必须校验当前有效 `SelectionPeriod.allow_drop = true`，且以服务端时间判断。
 - 必须校验 `Enrollment.student_id` 属于当前登录学生，且当前状态为 `enrolled`。
 - 退选只更新状态为 `dropped` 并写入 `dropped_at`，不得删除记录。
 - 退选事务内同步减少 `CourseOffering.enrolled_count`，并保证计数不小于 0。
-- TODO-C-12（`FR-C-14`、`FR-C-32`）：不同阶段是否允许退选的具体阶段规则需由教务确认，默认 `second_round` 和 `adjustment` 可退选，`first_round` 是否允许由配置决定。
+- 退课是否允许由教务管理的 `allow_drop` 配置决定，不再由 `phase` 硬编码决定。
 
 ### 3.10 查看本人课表
 
@@ -980,6 +1104,49 @@ curl -X GET "https://stss.example.com/api/v1/course-selection/timetable/me?semes
 - 课程暂无排课时仍应展示选课结果，并在 `missing_schedule_items` 中提示。
 - TODO-C-13（`FR-C-25`）：打印样式由前端实现，本接口只提供稳定的可打印课表数据。
 
+### 3.10.1 查询本人课表可选学期
+
+```plaintext
+GET /api/v1/course-selection/timetable/me/semesters
+Authorization: Bearer <access_token>
+```
+
+**权限说明**
+
+仅 `student` 可访问。后端只根据当前登录学生的选课记录和有效成绩关联学期，前端不得传 `student_id`。
+
+**响应示例**
+
+```json
+{
+  "code": 200,
+  "message": "success",
+  "data": {
+    "default_semester_id": "2b5741c4-40c4-4c7f-990e-cc880a9f0001",
+    "items": [
+      {
+        "id": "2b5741c4-40c4-4c7f-990e-cc880a9f0001",
+        "name": "2025-2026-1",
+        "status": "current",
+        "start_date": "2025-09-01T00:00:00.000Z",
+        "end_date": "2026-01-16T00:00:00.000Z",
+        "is_current": true,
+        "is_default": true,
+        "enrolled_count": 4,
+        "scheduled_item_count": 4,
+        "missing_schedule_count": 0
+      }
+    ]
+  }
+}
+```
+
+**校验与说明**
+
+- `items` 包含当前默认学期，以及学生有选课或 `SUBMITTED/CONFIRMED` 成绩记录的历史学期。
+- `scheduled_item_count` 和 `missing_schedule_count` 仅统计当前学生本人 `Enrollment.status = enrolled` 的课程。
+- 前端课表页应基于本接口展示学期下拉选择，不要求学生手工输入学期 ID。
+
 ### 3.11 AI 推荐课程
 
 ```plaintext
@@ -1026,9 +1193,13 @@ curl -X POST "https://stss.example.com/api/v1/course-selection/ai-advisor/recomm
   "data": {
     "disclaimer": "AI 建议仅供参考，最终选课必须通过系统选课入口并接受容量、冲突、阶段和培养方案校验。",
     "credit_progress_summary": {
-      "current_selected_credits": 18.0,
+      "current_selected_credits": 7.0,
+      "completed_credits": 24.0,
+      "in_progress_credits": 7.0,
+      "projected_credits": 31.0,
       "target_credits": 22.0,
-      "max_credits": 28.0
+      "max_credits": 28.0,
+      "remaining_to_target": 0.0
     },
     "recommendations": [
       {
@@ -1068,6 +1239,7 @@ curl -X POST "https://stss.example.com/api/v1/course-selection/ai-advisor/recomm
 - AI 结果不得写入 `Enrollment`，学生必须再调用 `POST /enrollments` 主动提交。
 - AI 推荐必须使用后端计算的可选性快照，不能让模型自行决定硬性规则是否通过。
 - AI 服务超时或不可用时返回可解释错误，普通课程搜索、查看和选课功能不受影响。
+- 调试模式下响应可包含可选 `debugInfo.stages[].providerRawErrorSummary`，仅用于展示脱敏后的上游模型错误摘要、HTTP 状态、token 和 finish reason；不得包含 API key、完整 prompt、学生上下文或选课候选明细。
 - TODO-C-14（`FR-C-38` 至 `FR-C-43`）：后续需确定 AI 服务提供方、超时时间、脱敏策略和提示词版本管理。
 
 ### 3.12 AI 解释课程
@@ -1124,7 +1296,51 @@ curl -X POST "https://stss.example.com/api/v1/course-selection/ai-advisor/explai
 
 - `hard_rule_result` 由后端规则引擎生成，AI 只负责自然语言解释。
 - 若课程不可选，必须明确说明容量、冲突、先修或阶段等具体原因。
+- 调试模式下响应可包含可选 `debugInfo.stages[].providerRawErrorSummary`，字段语义同 AI 推荐接口。
 - TODO-C-15（`FR-C-41`、`NFR-C-09`）：后续需为 AI 输出增加安全审查和兜底模板，避免输出与硬性规则结果矛盾。
+
+### 3.13 AI 建议保存快照
+
+```plaintext
+POST /api/v1/course-selection/ai-advisor/saved
+GET /api/v1/course-selection/ai-advisor/saved
+GET /api/v1/course-selection/ai-advisor/saved/:id
+DELETE /api/v1/course-selection/ai-advisor/saved/:id
+Authorization: Bearer <access_token>
+Content-Type: application/json
+```
+
+**权限说明**
+
+仅 `student` 可访问。保存记录只属于当前登录学生，后端不得接收或信任 `student_id`、`studentId` 或 `user_id`。
+
+**保存请求 Body**
+
+| 参数 | 类型 | 必填 | 说明 |
+| ---- | ---- | ---- | ---- |
+| `record_type` | string | 是 | `recommendation` 或 `explanation` |
+| `title` | string | 否 | 学生可见标题，不传时由后端根据结果生成 |
+| `question` | string | 否 | 学生提问或偏好摘要 |
+| `semester_id` | string | 否 | 关联学期 |
+| `course_offering_id` | string | 条件必填 | `explanation` 类型必须提供 |
+| `request_payload` | object | 否 | 请求快照 |
+| `result_payload` | object | 是 | AI 推荐或解释结果快照 |
+
+**查询参数**
+
+| 参数 | 类型 | 必填 | 说明 |
+| ---- | ---- | ---- | ---- |
+| `page` | number | 否 | 页码，默认 1 |
+| `page_size` | number | 否 | 每页数量，默认 20，最大 100 |
+| `record_type` | string | 否 | 按保存类型筛选 |
+| `semester_id` | string | 否 | 按学期筛选 |
+
+**校验与说明**
+
+- 保存的是生成当时的 AI 建议快照，仅用于学生本人回看。
+- 保存、查询或删除快照不得写入 `Enrollment`，不得修改 `CourseOffering.enrolled_count`。
+- 学生从保存记录继续选课时，仍必须通过正式选课接口重新校验容量、冲突、阶段、培养方案确认、先修课程和最大学分。
+- 删除接口只删除当前登录学生自己的保存记录；他人记录按不存在处理。
 
 ---
 
@@ -1313,6 +1529,7 @@ curl -X GET "https://stss.example.com/api/v1/course-selection/admin/periods?seme
         "start_time": "2026-05-13T08:00:00+08:00",
         "end_time": "2026-05-20T18:00:00+08:00",
         "max_credits": 28.0,
+        "allow_drop": false,
         "is_active": true,
         "server_status": "open"
       }
@@ -1354,6 +1571,7 @@ Content-Type: application/json
 | `start_time` | string | 是 | ISO 8601 |
 | `end_time` | string | 是 | ISO 8601，必须晚于开始时间 |
 | `max_credits` | number | 否 | 当前阶段最大选课学分 |
+| `allow_drop` | boolean | 否 | 是否允许学生在该阶段退课，默认 `false` |
 | `is_active` | boolean | 是 | 是否启用 |
 
 **请求示例**
@@ -1368,6 +1586,7 @@ curl -X POST "https://stss.example.com/api/v1/course-selection/admin/periods" \
     "start_time": "2026-05-13T08:00:00+08:00",
     "end_time": "2026-05-20T18:00:00+08:00",
     "max_credits": 28.0,
+    "allow_drop": false,
     "is_active": true
   }'
 ```
@@ -1388,6 +1607,7 @@ curl -X POST "https://stss.example.com/api/v1/course-selection/admin/periods" \
     "start_time": "2026-05-13T08:00:00+08:00",
     "end_time": "2026-05-20T18:00:00+08:00",
     "max_credits": 28.0,
+    "allow_drop": false,
     "is_active": true,
     "server_status": "open"
   }
@@ -1429,6 +1649,7 @@ Content-Type: application/json
 | `start_time` | string | 否 | ISO 8601 |
 | `end_time` | string | 否 | ISO 8601 |
 | `max_credits` | number | 否 | 最大选课学分 |
+| `allow_drop` | boolean | 否 | 是否允许学生在该阶段退课 |
 | `is_active` | boolean | 否 | 是否启用 |
 
 **请求示例**
@@ -1440,6 +1661,7 @@ curl -X PATCH "https://stss.example.com/api/v1/course-selection/admin/periods/5f
   -d '{
     "end_time": "2026-05-21T18:00:00+08:00",
     "max_credits": 30.0,
+    "allow_drop": true,
     "is_active": true
   }'
 ```
@@ -1460,6 +1682,7 @@ curl -X PATCH "https://stss.example.com/api/v1/course-selection/admin/periods/5f
     "start_time": "2026-05-13T08:00:00+08:00",
     "end_time": "2026-05-21T18:00:00+08:00",
     "max_credits": 30.0,
+    "allow_drop": true,
     "is_active": true,
     "server_status": "open"
   }
@@ -1470,10 +1693,69 @@ curl -X PATCH "https://stss.example.com/api/v1/course-selection/admin/periods/5f
 
 - 不存在的时间段返回 `404`。
 - 修改后仍需满足时间合法、阶段合法、启用时间段不重叠等规则。
+- 学生退课是否允许以当前有效 `SelectionPeriod.allow_drop` 为准，不再由 `phase` 硬编码决定。
 - 修改正在开放的时间段会影响学生后续选课和退选请求，应写入审计日志。
 - TODO-C-20（`FR-C-32`、`FR-C-37`）：后续需定义“正在开放阶段被停用”时前端提示和在途请求处理策略。
 
 ### 5.4 教务手动加课
+
+#### 5.4.1 搜索学生候选
+
+```plaintext
+GET /api/v1/course-selection/admin/manual-enrollment/students
+Authorization: Bearer <access_token>
+```
+
+仅 `academic_admin` 可访问。用于教务手动加课前按学生姓名、学号、用户名、专业或班级搜索候选，便于页面选择真实 `Student.user_id`。该接口只做只读候选查询，不创建选课记录。
+
+| query | 类型 | 必填 | 说明 |
+| ---- | ---- | ---- | ---- |
+| `keyword` | string | 否 | 学号、姓名、用户名、专业或班级关键词 |
+| `page` | number | 否 | 默认 `1` |
+| `page_size` | number | 否 | 默认 `10`，最大 `20` |
+
+响应 `items[]` 字段：
+
+| 字段 | 类型 | 说明 |
+| ---- | ---- | ---- |
+| `student_id` | string | `Student.user_id`，正式手动加课提交使用该值 |
+| `student_number` | string | 学号 |
+| `username` | string | 登录用户名 |
+| `real_name` | string | 学生姓名 |
+| `major_name` | string/null | 专业名称 |
+| `grade` | number | 年级 |
+| `class_name` | string/null | 班级 |
+
+#### 5.4.2 搜索课程开设候选
+
+```plaintext
+GET /api/v1/course-selection/admin/manual-enrollment/course-offerings
+Authorization: Bearer <access_token>
+```
+
+仅 `academic_admin` 可访问。用于教务手动加课前按课程代码、课程名称或教师信息搜索候选，便于页面选择真实 `CourseOffering.id`。候选接口默认只返回课程主数据启用、开课状态为 `open/planned` 且容量未满的开课；正式加课仍必须调用 `POST /admin/enrollments` 并重新执行后端事务校验。
+
+| query | 类型 | 必填 | 说明 |
+| ---- | ---- | ---- | ---- |
+| `keyword` | string | 否 | 课程代码、课程名称、教师姓名或教师工号 |
+| `semester_id` | string | 否 | 学期 ID |
+| `page` | number | 否 | 默认 `1` |
+| `page_size` | number | 否 | 默认 `10`，最大 `20` |
+
+响应 `items[]` 字段：
+
+| 字段 | 类型 | 说明 |
+| ---- | ---- | ---- |
+| `course_offering_id` | string | `CourseOffering.id`，正式手动加课提交使用该值 |
+| `course_code` / `course_name` | string | 课程代码与名称 |
+| `credits` | number | 学分 |
+| `semester` | object | 学期 ID 与名称 |
+| `teacher` | object | 教师 ID、姓名与工号 |
+| `capacity` / `enrolled_count` / `remaining_capacity` | number | 容量信息 |
+| `status` | string | 开课状态 |
+| `schedule_summary` | string[] | 排课摘要 |
+
+#### 5.4.3 提交手动加课
 
 ```plaintext
 POST /api/v1/course-selection/admin/enrollments
@@ -1575,6 +1857,7 @@ C 模块错误响应的顶层 `code` 使用 HTTP 状态码；业务错误码放�
 | `CS_DUPLICATE_ENROLLMENT` | 409 | 重复有效选课 |
 | `CS_OFFERING_FULL` | 422 | 课程容量已满 |
 | `CS_PERIOD_CLOSED` | 422 | 当前不在有效选课时间段 |
+| `CS_CURRICULUM_NOT_CONFIRMED` | 422 | 当前学生尚未确认培养方案 |
 | `CS_SCHEDULE_CONFLICT` | 422 | 课表冲突 |
 | `CS_MAX_CREDITS_EXCEEDED` | 422 | 超过当前阶段最大学分 |
 | `CS_PREREQUISITE_NOT_MET` | 422 | 不满足培养方案或先修课程要求 |
@@ -1587,18 +1870,17 @@ C 模块错误响应的顶层 `code` 使用 HTTP 状态码；业务错误码放�
 
 | TODO | 对应需求 | 后续任务 |
 | ---- | -------- | -------- |
-| TODO-C-01 | `FR-C-04` | 确认培养方案“确认入口”是否需要持久化；如需持久化，先更新数据库设计，不在 C 模块擅自新增表。 |
 | TODO-C-02 | `FR-C-05` | 明确公共课最低学分要求来源，当前数据库只有 `required_credits` 和 `elective_credits`。 |
 | TODO-C-03 | `FR-C-08` 至 `FR-C-12` | 设计课程名称、课程代码、教师姓名检索索引和分页策略。 |
 | TODO-C-04 | `FR-C-12`、`NFR-C-13` | 统一课程搜索、开设列表和可选课程列表筛选字段。 |
-| TODO-C-05 | `FR-C-19` | 与 F 子系统确认先修课程通过情况的数据读取接口，并确定阻止或风险提示策略。 |
-| TODO-C-06 | `FR-C-35`、`FR-C-36` | 为选课核心流程接入 Redis 准入控制、心跳和无操作释放机制。 |
+| TODO-C-05 | `FR-C-19` | 与 F 子系统确认先修课程通过情况的数据读取接口；通过状态应来自有效成绩或等价课程完成记录，未通过或缺少可判定数据时阻止选课。 |
+| TODO-C-06 | `FR-C-35`、`FR-C-36` | 已接入 Redis 准入租约、心跳和离开释放；后续仅需按部署环境调整最大活跃人数和空闲超时配置。 |
 | TODO-C-07 | `FR-C-11` | 与 B 子系统确认 `Schedule` 缺失或调整中状态的返回约定。 |
 | TODO-C-08 | `FR-C-29` | 对齐前端选课结果筛选项。 |
 | TODO-C-09 | `FR-C-16`、`FR-C-18`、`FR-C-22`、`NFR-C-05` | 明确并发选课行锁、条件更新或唯一约束策略，并补充并发测试。 |
-| TODO-C-10 | `FR-C-19` | 完成先修课硬性校验实现。 |
-| TODO-C-11 | `FR-C-35`、`FR-C-36` | 选课提交接入准入控制和长时间无操作释放机制。 |
-| TODO-C-12 | `FR-C-14`、`FR-C-32` | 明确各选课阶段是否允许退选。 |
+| TODO-C-10 | `FR-C-19` | 完成先修课硬性校验实现，依据有效成绩或等价课程完成记录判断通过状态。 |
+| TODO-C-11 | `FR-C-35`、`FR-C-36` | 已在选课提交前校验 Redis 准入租约；后续仅需按部署容量调优默认阈值。 |
+| TODO-C-12 | `FR-C-14`、`FR-C-32` | 已改为 `SelectionPeriod.allow_drop` 配置驱动；后续仅需补充不同学院默认模板。 |
 | TODO-C-13 | `FR-C-25` | 前端实现课表打印，后端保持稳定数据结构。 |
 | TODO-C-14 | `FR-C-38` 至 `FR-C-43` | 确认 AI 服务提供方、超时、脱敏、提示词版本和降级策略。 |
 | TODO-C-15 | `FR-C-41`、`NFR-C-09` | 增加 AI 输出安全审查和规则结果一致性校验。 |

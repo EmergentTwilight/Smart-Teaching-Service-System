@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client';
+import { AdminType, PrismaClient } from '@prisma/client';
 import fs from 'fs';
 import path from 'path';
 import { 
@@ -123,9 +123,9 @@ export class ForumService {
   }
 
   /**
-   * 检查用户是否为管理员或教师
+   * 获取用户角色码，避免依赖不存在的 D 组专用角色码。
    */
-  private static async isAdminOrTeacher(userId: string): Promise<boolean> {
+  private static async getUserRoleCodes(userId: string): Promise<string[]> {
     const user = await prisma.user.findUnique({
       where: { id: userId },
       include: {
@@ -137,11 +137,41 @@ export class ForumService {
       }
     });
     
-    if (!user) return false;
+    if (!user) return [];
     
-    return user.userRoles.some(userRole => 
-      ['admin', 'teacher', 'forum_admin', 'academic_admin'].includes(userRole.role.code)
-    );
+    return user.userRoles.map(userRole => userRole.role.code);
+  }
+
+  private static async isAdminOrTeacher(userId: string): Promise<boolean> {
+    const roles = await this.getUserRoleCodes(userId);
+    return roles.some(role => ['admin', 'super_admin', 'teacher'].includes(role));
+  }
+
+  private static async isAcademicAdmin(userId: string): Promise<boolean> {
+    const admin = await prisma.admin.findUnique({
+      where: { userId },
+      select: { adminType: true }
+    });
+
+    return admin?.adminType === AdminType.ACADEMIC;
+  }
+
+  static async canViewStats(userId: string): Promise<boolean> {
+    const roles = await this.getUserRoleCodes(userId);
+    if (roles.includes('super_admin') || roles.includes('teacher')) {
+      return true;
+    }
+
+    return roles.includes('admin') && (await this.isAcademicAdmin(userId));
+  }
+
+  static async canExportStats(userId: string): Promise<boolean> {
+    const roles = await this.getUserRoleCodes(userId);
+    if (roles.includes('super_admin')) {
+      return true;
+    }
+
+    return roles.includes('admin') && (await this.isAcademicAdmin(userId));
   }
 
   /**

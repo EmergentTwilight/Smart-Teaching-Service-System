@@ -1,5 +1,7 @@
 import axios from 'axios'
 import request from '@/shared/utils/request'
+import { enrollmentsApi } from '@/modules/course-selection/api/enrollments'
+import type { EnrollmentListPayload } from '@/modules/course-selection/types/enrollment'
 import type {
   CourseOption,
   CreateAnnouncementPayload,
@@ -175,6 +177,24 @@ export const forumApi = {
       participantCount: item.participantCount,
       activityScore: item.activityScore,
     }))
+  },
+
+  getMyEnrollmentCourses: async (): Promise<CourseOption[]> => {
+    const payload = (await enrollmentsApi.listMyEnrollments({
+      page: 1,
+      pageSize: 100,
+      status: 'enrolled',
+    })) as EnrollmentListPayload
+
+    return (payload.items ?? [])
+      .map((item) => item.courseOffering)
+      .filter((courseOffering) => courseOffering?.id)
+      .map((courseOffering) => ({
+        courseOfferingId: courseOffering.id,
+        courseName: courseOffering.courseName,
+        courseCode: courseOffering.courseCode,
+        teacherName: courseOffering.teacherName,
+      }))
   },
 
   exportStatsCsv: async (params: StatsQueryParams): Promise<Blob> => {

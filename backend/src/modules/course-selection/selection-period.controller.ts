@@ -11,6 +11,7 @@ import {
   createSelectionPeriodBodySchema,
   updateSelectionPeriodBodySchema,
   selectionPeriodParamsSchema,
+  manualEnrollmentLookupQuerySchema,
   manualEnrollmentBodySchema,
 } from './course-selection.schemas.js'
 
@@ -44,6 +45,30 @@ export const selectionPeriodController = {
 
     const result = await selectionPeriodService.updatePeriod(currentUser.userId, id, body)
     return success(res, result, '选课阶段更新成功')
+  },
+
+  async listManualEnrollmentStudents(req: Request, res: Response) {
+    const currentUser = req.user
+    const query = manualEnrollmentLookupQuerySchema.parse(req.query)
+
+    if (!currentUser?.userId) {
+      return error(res, '未认证', 401)
+    }
+
+    const result = await selectionPeriodService.listManualEnrollmentStudents(currentUser.userId, query)
+    return paginated(res, result.items, toPaginationResponseMeta(result.pagination))
+  },
+
+  async listManualEnrollmentCourseOfferings(req: Request, res: Response) {
+    const currentUser = req.user
+    const query = manualEnrollmentLookupQuerySchema.parse(req.query)
+
+    if (!currentUser?.userId) {
+      return error(res, '未认证', 401)
+    }
+
+    const result = await selectionPeriodService.listManualEnrollmentCourseOfferings(currentUser.userId, query)
+    return paginated(res, result.items, toPaginationResponseMeta(result.pagination))
   },
 
   async manualEnroll(req: Request, res: Response) {

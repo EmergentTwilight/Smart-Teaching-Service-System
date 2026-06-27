@@ -152,9 +152,11 @@ model Student {
   /// 班级名称
   className     String? @map("class_name") @db.VarChar(20)
 
-  enrollments Enrollment[]
-  testResults TestResult[]
-  scores      Score[]
+  enrollments                   Enrollment[]
+  testResults                   TestResult[]
+  scores                        Score[]
+  curriculumConfirmations       StudentCurriculumConfirmation[]
+  savedAiAdvisorRecommendations AiAdvisorSavedRecommendation[]
 
   // 索引优化：常用查询字段
   @@index([majorId]) // 按专业查询学生
@@ -467,8 +469,9 @@ model Semester {
   /// 状态
   status    SemesterStatus @default(UPCOMING)
 
-  courseOfferings  CourseOffering[]
-  selectionPeriods SelectionPeriod[]
+  courseOfferings               CourseOffering[]
+  selectionPeriods              SelectionPeriod[]
+  savedAiAdvisorRecommendations AiAdvisorSavedRecommendation[]
 
   @@map("semesters")
 }
@@ -532,14 +535,15 @@ model CourseOffering {
   /// 状态
   status        OfferingStatus @default(PLANNED)
 
-  course      Course       @relation(fields: [courseId], references: [id])
-  semester    Semester     @relation(fields: [semesterId], references: [id])
-  teacher     Teacher      @relation(fields: [teacherId], references: [userId])
-  schedules   Schedule[]
-  enrollments Enrollment[]
-  posts       ForumPost[]
-  testPapers  TestPaper[]
-  scores      Score[]
+  course                        Course                         @relation(fields: [courseId], references: [id])
+  semester                      Semester                       @relation(fields: [semesterId], references: [id])
+  teacher                       Teacher                        @relation(fields: [teacherId], references: [userId])
+  schedules                     Schedule[]
+  enrollments                   Enrollment[]
+  posts                         ForumPost[]
+  testPapers                    TestPaper[]
+  scores                        Score[]
+  savedAiAdvisorRecommendations AiAdvisorSavedRecommendation[]
 
   @@map("course_offerings")
 }
@@ -579,10 +583,35 @@ model Curriculum {
   /// 更新时间
   updatedAt       DateTime @default(now()) @updatedAt @map("updated_at")
 
-  major   Major              @relation(fields: [majorId], references: [id])
-  courses CurriculumCourse[]
+  major         Major                           @relation(fields: [majorId], references: [id])
+  courses       CurriculumCourse[]
+  confirmations StudentCurriculumConfirmation[]
 
   @@map("curriculums")
+}
+
+/// 学生培养方案确认记录表
+model StudentCurriculumConfirmation {
+  /// 确认记录ID
+  id           String   @id @default(uuid())
+  /// 学生ID
+  studentId    String   @map("student_id")
+  /// 培养方案ID
+  curriculumId String   @map("curriculum_id")
+  /// 确认时间
+  confirmedAt  DateTime @default(now()) @map("confirmed_at")
+  /// 创建时间
+  createdAt    DateTime @default(now()) @map("created_at")
+  /// 更新时间
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  student    Student    @relation(fields: [studentId], references: [userId], onDelete: Cascade)
+  curriculum Curriculum @relation(fields: [curriculumId], references: [id], onDelete: Cascade)
+
+  @@unique([studentId, curriculumId])
+  @@index([studentId])
+  @@index([curriculumId])
+  @@map("student_curriculum_confirmations")
 }
 
 /// 培养方案课程关联表
@@ -640,12 +669,49 @@ model SelectionPeriod {
   endTime    DateTime       @map("end_time")
   /// 最大学分
   maxCredits Decimal?       @map("max_credits") @db.Decimal(3, 1)
+  /// 是否允许退课
+  allowDrop  Boolean        @default(false) @map("allow_drop")
   /// 是否激活
   isActive   Boolean        @default(false) @map("is_active")
 
   semester Semester @relation(fields: [semesterId], references: [id])
 
   @@map("selection_periods")
+}
+
+/// AI 辅助选课保存快照表
+model AiAdvisorSavedRecommendation {
+  /// 保存记录ID
+  id               String                   @id @default(uuid())
+  /// 学生ID
+  studentId        String                   @map("student_id")
+  /// 学期ID
+  semesterId       String?                  @map("semester_id")
+  /// 关联开课ID，仅解释单门课程时保存
+  courseOfferingId String?                  @map("course_offering_id")
+  /// 保存类型
+  recordType       AiAdvisorSavedRecordType @map("record_type")
+  /// 学生可见标题
+  title            String                   @db.VarChar(120)
+  /// 保存时的问题或偏好摘要
+  question         String?                  @db.Text
+  /// 请求快照
+  requestPayload   Json?                    @map("request_payload")
+  /// AI 推荐或解释结果快照
+  resultPayload    Json                     @map("result_payload")
+  /// 创建时间
+  createdAt        DateTime                 @default(now()) @map("created_at")
+  /// 更新时间
+  updatedAt        DateTime                 @default(now()) @updatedAt @map("updated_at")
+
+  student        Student         @relation(fields: [studentId], references: [userId], onDelete: Cascade)
+  semester       Semester?       @relation(fields: [semesterId], references: [id], onDelete: SetNull)
+  courseOffering CourseOffering? @relation(fields: [courseOfferingId], references: [id], onDelete: SetNull)
+
+  @@index([studentId, createdAt])
+  @@index([semesterId])
+  @@index([courseOfferingId])
+  @@map("ai_advisor_saved_recommendations")
 }
 
 // ==================== 论坛模块 (Subsystem D) ====================
@@ -1122,4 +1188,10 @@ enum ScoreStatus {
   DRAFT
   SUBMITTED
   CONFIRMED
+}
+
+/// AI 辅助保存记录类型
+enum AiAdvisorSavedRecordType {
+  RECOMMENDATION
+  EXPLANATION
 }

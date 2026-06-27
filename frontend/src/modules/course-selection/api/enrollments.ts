@@ -6,6 +6,7 @@ import type {
   CreateEnrollmentPayload,
   DropEnrollmentPayload,
   TimetablePayload,
+  TimetableSemesterListPayload,
 } from '../types/enrollment';
 
 export const enrollmentsApi = {
@@ -22,4 +23,8 @@ export const enrollmentsApi = {
     ),
   getMyTimetable: (params?: { semesterId?: string }) =>
     courseSelectionRequest.get<TimetablePayload>('/course-selection/timetable/me', { params }),
+  listMyTimetableSemesters: () =>
+    courseSelectionRequest.get<TimetableSemesterListPayload>(
+      '/course-selection/timetable/me/semesters'
+    ),
 };

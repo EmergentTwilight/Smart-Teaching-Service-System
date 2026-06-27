@@ -15,6 +15,7 @@ import { AppError, ForbiddenError, NotFoundError } from '@stss/shared'
 import prisma from '../../shared/prisma/client.js'
 import {
   COURSE_SELECTION_ERROR_CODES,
+  type CurriculumConfirmation,
   type EnrollmentStatusValue,
   type PaginationMeta,
   type SelectionPeriodItem,
@@ -28,6 +29,52 @@ export const SELECTION_PERIOD_LOG_ACTION = {
   update: 'selection_period:update',
   manualEnroll: 'enrollment:manual_create',
 } as const
+
+export const CURRICULUM_CONFIRMATION_REQUIRED_MESSAGE =
+  '请先确认当前培养方案后再进入正式选课流程。'
+
+export function isCurriculumConfirmationCurrent(
+  confirmation: { confirmedAt: Date } | null | undefined,
+  curriculum: { updatedAt: Date }
+): confirmation is { confirmedAt: Date } {
+  return Boolean(confirmation && confirmation.confirmedAt >= curriculum.updatedAt)
+}
+
+export function buildCurriculumConfirmationPayload(
+  confirmation: { confirmedAt: Date } | null | undefined,
+  curriculum: { updatedAt: Date }
+): CurriculumConfirmation {
+  const confirmed = isCurriculumConfirmationCurrent(confirmation, curriculum)
+
+  return {
+    requiredBeforeSelection: true,
+    confirmed,
+    confirmedAt: confirmed ? confirmation.confirmedAt.toISOString() : null,
+    message: confirmed
+      ? '当前培养方案已确认。'
+      : CURRICULUM_CONFIRMATION_REQUIRED_MESSAGE,
+  }
+}
+
+export function assertCurriculumConfirmedForSelection(
+  confirmation: { confirmedAt: Date } | null | undefined,
+  curriculum: { updatedAt: Date }
+): void {
+  if (isCurriculumConfirmationCurrent(confirmation, curriculum)) {
+    return
+  }
+
+  throw new AppError(
+    COURSE_SELECTION_ERROR_CODES.CURRICULUM_NOT_CONFIRMED,
+    422,
+    CURRICULUM_CONFIRMATION_REQUIRED_MESSAGE,
+    {
+      code: COURSE_SELECTION_ERROR_CODES.CURRICULUM_NOT_CONFIRMED,
+      field: 'curriculum_id',
+      message: CURRICULUM_CONFIRMATION_REQUIRED_MESSAGE,
+    }
+  )
+}
 
 export const decimalToNumber = (value: Prisma.Decimal | number | null | undefined): number => {
   if (value === null || value === undefined) {
@@ -123,6 +170,7 @@ export const mapSelectionPeriodItem = (period: {
   startTime: Date
   endTime: Date
   maxCredits: Prisma.Decimal | null
+  allowDrop: boolean
   isActive: boolean
   semester: { id: string; name: string }
 }): SelectionPeriodItem => ({
@@ -132,6 +180,7 @@ export const mapSelectionPeriodItem = (period: {
   startTime: period.startTime.toISOString(),
   endTime: period.endTime.toISOString(),
   maxCredits: period.maxCredits === null ? undefined : decimalToNumber(period.maxCredits),
+  allowDrop: period.allowDrop,
   isActive: period.isActive,
   serverStatus: computeSelectionPeriodServerStatus(period.startTime, period.endTime),
 })
@@ -170,7 +219,7 @@ export async function writeCourseSelectionSystemLog(params: {
   })
 }
 
-/** 未传 semesterId 时优先 CURRENT 学期，否则取最近学期。 */
+/** 未传 semesterId 时优先当前开放选课阶段对应学期，否则取 CURRENT / 最近学期。 */
 export async function resolveSemesterId(semesterId?: string): Promise<{ id: string; name: string }> {
   if (semesterId) {
     const semester = await prisma.semester.findUnique({
@@ -181,6 +230,27 @@ export async function resolveSemesterId(semesterId?: string): Promise<{ id: stri
       throw new NotFoundError('学期', semesterId)
     }
     return semester
+  }
+
+  const now = new Date()
+  const openSelectionPeriod = await prisma.selectionPeriod.findFirst({
+    where: {
+      isActive: true,
+      startTime: { lte: now },
+      endTime: { gte: now },
+    },
+    orderBy: [
+      { endTime: 'asc' },
+      { startTime: 'desc' },
+    ],
+    select: {
+      semester: {
+        select: { id: true, name: true },
+      },
+    },
+  })
+  if (openSelectionPeriod) {
+    return openSelectionPeriod.semester
   }
 
   const current = await prisma.semester.findFirst({

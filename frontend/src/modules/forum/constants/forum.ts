@@ -17,16 +17,10 @@ export const POST_TYPE_COLORS: Record<PostType, string> = {
   ANNOUNCEMENT: 'gold',
 }
 
-export const FORUM_TEACHER_ROLES = ['teacher', 'admin', 'forum_admin', 'super_admin'] as const
-export const FORUM_STATS_ROLES = [
-  'teacher',
-  'admin',
-  'forum_admin',
-  'academic_admin',
-  'super_admin',
-] as const
-export const FORUM_EXPORT_ROLES = ['admin', 'academic_admin', 'super_admin'] as const
-export const FORUM_MOD_ROLES = ['admin', 'forum_admin', 'super_admin'] as const
+export const FORUM_TEACHER_ROLES = ['teacher', 'admin', 'super_admin'] as const
+export const FORUM_STATS_ROLES = ['teacher', 'admin', 'super_admin'] as const
+export const FORUM_EXPORT_ROLES = ['admin', 'super_admin'] as const
+export const FORUM_MOD_ROLES = ['admin', 'super_admin'] as const
 
 export const MAX_ATTACHMENT_SIZE = 10 * 1024 * 1024
 export const MAX_BATCH_ATTACHMENTS = 10

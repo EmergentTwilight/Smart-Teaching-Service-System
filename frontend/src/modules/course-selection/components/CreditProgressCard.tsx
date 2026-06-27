@@ -26,6 +26,10 @@ const COURSE_TYPE_COLORS: Record<string, string> = {
   general: '#faad14',
 };
 
+const COMPLETED_COLOR = '#52c41a';
+const IN_PROGRESS_COLOR = '#1677ff';
+const REMAINING_COLOR = '#f0f0f0';
+
 const WARNING_ICON_MAP: Record<string, React.ReactNode> = {
   info: <InfoCircleOutlined style={{ color: '#1890ff' }} />,
   warning: <ExclamationCircleOutlined style={{ color: '#faad14' }} />,
@@ -36,6 +40,50 @@ function warningSeverity(code: string): 'info' | 'warning' {
     return 'info';
   }
   return 'warning';
+}
+
+function clampPercent(value: number): number {
+  if (!Number.isFinite(value)) return 0;
+  return Math.max(0, Math.min(100, value));
+}
+
+function StackedCreditBar({
+  completedCredits,
+  inProgressCredits,
+  requirementCredits,
+}: {
+  completedCredits: number;
+  inProgressCredits: number;
+  requirementCredits: number;
+}) {
+  const denominator = requirementCredits > 0 ? requirementCredits : completedCredits + inProgressCredits;
+  const completedPct = denominator > 0 ? clampPercent((completedCredits / denominator) * 100) : 0;
+  const inProgressPct = denominator > 0 ? clampPercent((inProgressCredits / denominator) * 100) : 0;
+  const remainingPct = clampPercent(100 - completedPct - inProgressPct);
+
+  return (
+    <div
+      aria-label={`已修读 ${completedCredits} 学分，正在修读 ${inProgressCredits} 学分`}
+      style={{
+        display: 'flex',
+        width: '100%',
+        height: 8,
+        borderRadius: 999,
+        overflow: 'hidden',
+        background: REMAINING_COLOR,
+      }}
+    >
+      {completedPct > 0 ? (
+        <div style={{ width: `${completedPct}%`, background: COMPLETED_COLOR }} />
+      ) : null}
+      {inProgressPct > 0 ? (
+        <div style={{ width: `${inProgressPct}%`, background: IN_PROGRESS_COLOR }} />
+      ) : null}
+      {remainingPct > 0 ? (
+        <div style={{ width: `${remainingPct}%`, background: REMAINING_COLOR }} />
+      ) : null}
+    </div>
+  );
 }
 
 /**
@@ -88,9 +136,18 @@ export const CreditProgressCard: FC<CreditProgressCardProps> = ({ progress, load
   }
 
   const { requirements, selected, remaining, byCourseType, warnings } = progress;
+  const completed = progress.completed ?? selected;
+  const inProgress = progress.inProgress ?? {
+    totalCredits: 0,
+    requiredCredits: 0,
+    electiveCredits: 0,
+    generalCredits: 0,
+  };
 
   const totalRequired = requirements.totalCredits || 0;
   const totalSelected = selected.totalCredits || 0;
+  const totalCompleted = completed.totalCredits || 0;
+  const totalInProgress = inProgress.totalCredits || 0;
   const totalRatio = totalRequired > 0 ? Math.round((totalSelected / totalRequired) * 100) : 0;
 
   return (
@@ -110,8 +167,20 @@ export const CreditProgressCard: FC<CreditProgressCardProps> = ({ progress, load
         />
         <div style={{ marginTop: 4 }}>
           <Text type="secondary">
-            已选 {totalSelected} / 要求 {totalRequired} 学分
+            已修读 {totalCompleted} + 正在修读 {totalInProgress} / 要求 {totalRequired} 学分
           </Text>
+        </div>
+        <div style={{ marginTop: 12 }}>
+          <StackedCreditBar
+            completedCredits={totalCompleted}
+            inProgressCredits={totalInProgress}
+            requirementCredits={totalRequired}
+          />
+          <Space size={8} wrap style={{ marginTop: 8 }}>
+            <Tag color={COMPLETED_COLOR}>已修读 {totalCompleted}</Tag>
+            <Tag color={IN_PROGRESS_COLOR}>正在修读 {totalInProgress}</Tag>
+            <Tag color="default">剩余 {Math.max(0, totalRequired - totalSelected)}</Tag>
+          </Space>
         </div>
       </div>
 
@@ -123,7 +192,8 @@ export const CreditProgressCard: FC<CreditProgressCardProps> = ({ progress, load
         renderItem={(item) => {
           const req = item.requirementCredits ?? 0;
           const sel = item.selectedCredits || 0;
-          const pct = req > 0 ? Math.round((sel / req) * 100) : sel > 0 ? 100 : 0;
+          const completedCredits = item.completedCredits ?? sel;
+          const inProgressCredits = item.inProgressCredits ?? 0;
           const color = COURSE_TYPE_COLORS[item.courseType] ?? '#8c8c8c';
           const label = COURSE_TYPE_LABELS[item.courseType] ?? item.courseType;
 
@@ -136,16 +206,22 @@ export const CreditProgressCard: FC<CreditProgressCardProps> = ({ progress, load
                     <Text>{item.courseCount} 门课</Text>
                   </Space>
                   <Text>
-                    <Text strong>{sel}</Text>
+                    <Text strong>{completedCredits}</Text>
+                    {inProgressCredits > 0 ? (
+                      <Text style={{ color: IN_PROGRESS_COLOR }}> + {inProgressCredits}</Text>
+                    ) : null}
                     {req > 0 ? <Text type="secondary"> / {req} 学分</Text> : null}
                   </Text>
                 </div>
-                <Progress
-                  percent={pct}
-                  strokeColor={color}
-                  size="small"
-                  format={() => (req > 0 ? `${pct}%` : `${sel} 学分`)}
+                <StackedCreditBar
+                  completedCredits={completedCredits}
+                  inProgressCredits={inProgressCredits}
+                  requirementCredits={req}
                 />
+                <Text type="secondary" style={{ display: 'block', marginTop: 4, fontSize: 12 }}>
+                  已修读 {completedCredits} 学分
+                  {inProgressCredits > 0 ? `，正在修读 ${inProgressCredits} 学分` : ''}
+                </Text>
               </div>
             </List.Item>
           );

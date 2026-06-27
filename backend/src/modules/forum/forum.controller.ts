@@ -21,7 +21,7 @@ export class ForumController {
 
   // 检查当前用户是否具备管理员或教师权限
   private static isAdminOrTeacher(req: Request): boolean {
-    return req.user?.roles?.some(role => ['admin', 'teacher', 'forum_admin', 'academic_admin'].includes(role)) ?? false;
+    return req.user?.roles?.some(role => ['admin', 'super_admin', 'teacher'].includes(role)) ?? false;
   }
 
   private static isError(err: unknown): err is Error {
@@ -387,7 +387,7 @@ export class ForumController {
    */
   static async getStats(req: Request, res: Response) {
     try {
-      if (!ForumController.isAdminOrTeacher(req)) {
+      if (!(await ForumService.canViewStats(req.user!.userId))) {
         throw new ForbiddenError('No permission to view stats');
       }
       
@@ -444,7 +444,7 @@ export class ForumController {
       } else {
         targetUserId = req.user!.userId;
       }
-      const isAdmin = ForumController.isAdminOrTeacher(req);
+      const isAdmin = await ForumService.canViewStats(req.user!.userId);
       
       if (targetUserId !== req.user!.userId && !isAdmin) {
         throw new ForbiddenError('No permission to view other user stats');
@@ -470,7 +470,7 @@ export class ForumController {
    */
   static async getCourseActivityStats(req: Request, res: Response) {
     try {
-      if (!ForumController.isAdminOrTeacher(req)) {
+      if (!(await ForumService.canViewStats(req.user!.userId))) {
         throw new ForbiddenError('No permission to view stats');
       }
       
@@ -491,7 +491,7 @@ export class ForumController {
    */
   static async exportStats(req: Request, res: Response) {
     try {
-      if (!ForumController.isAdminOrTeacher(req)) {
+      if (!(await ForumService.canExportStats(req.user!.userId))) {
         throw new ForbiddenError('No permission to export stats');
       }
       

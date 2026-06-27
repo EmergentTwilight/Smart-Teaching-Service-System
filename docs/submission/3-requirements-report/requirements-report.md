@@ -51,15 +51,31 @@ title: STSS Requirements Report
     break-after: avoid;
   }
 
-  table,
   pre,
   blockquote,
   .mermaid {
     break-inside: avoid;
   }
 
+  table {
+    break-inside: auto;
+  }
+
+  tr {
+    break-inside: avoid;
+  }
+
   body > :last-child {
     margin-bottom: 0 !important;
+  }
+
+  h1 + blockquote + h2 + ul {
+    page-break-after: always;
+    break-after: page;
+  }
+
+  h1 + blockquote + h2 + ul + hr {
+    display: none;
   }
 
   table.wide-table {
@@ -102,8 +118,8 @@ body {
 }
 
 h1 {
-  margin: 0 0 28px;
-  padding: 42px 36px;
+  margin: 0 0 26px;
+  padding: 40px 32px;
   border: 1px solid var(--stss-line);
   border-radius: 18px;
   background:
@@ -111,15 +127,16 @@ h1 {
     var(--stss-paper);
   box-shadow: 0 18px 45px rgba(23, 32, 51, 0.08);
   color: #10233d;
-  font-size: 2.35rem;
+  font-size: 2rem;
   font-weight: 800;
   letter-spacing: 0;
   line-height: 1.22;
   text-align: center;
+  white-space: nowrap;
 }
 
 h1 + blockquote {
-  margin: 0 0 36px;
+  margin: 0 0 34px;
   padding: 18px 24px;
   border: 1px solid #c9ddf1;
   border-left: 5px solid var(--stss-primary);
@@ -128,6 +145,26 @@ h1 + blockquote {
   box-shadow: 0 10px 28px rgba(23, 32, 51, 0.06);
   color: #29445f;
   font-size: 1.03rem;
+}
+
+h1 + blockquote + h2 {
+  margin: 36px 0 18px;
+}
+
+h1 + blockquote + h2 + ul {
+  min-height: 111mm;
+  margin: 20px 0 0;
+  padding: 0 20px 0 36px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  color: var(--stss-ink);
+  font-size: 1.02rem;
+  line-height: 1.42;
+}
+
+h1 + blockquote + h2 + ul li {
+  margin: 0;
 }
 
 h2 {

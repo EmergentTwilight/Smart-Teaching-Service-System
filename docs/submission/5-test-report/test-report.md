@@ -118,6 +118,11 @@ h1 {
   text-align: center;
 }
 
+h1 {
+  font-size: 2rem;
+  white-space: nowrap;
+}
+
 h1 + blockquote {
   margin: 0 0 36px;
   padding: 18px 24px;

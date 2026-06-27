@@ -58,6 +58,34 @@ title: STSS Requirements Report
     break-inside: avoid;
   }
 
+  body > :last-child {
+    margin-bottom: 0 !important;
+  }
+
+  table.wide-table {
+    width: 100% !important;
+    max-width: 100% !important;
+    font-size: 8.8pt;
+  }
+
+  table.extra-wide-table {
+    table-layout: fixed;
+    font-size: 7.6pt;
+  }
+
+  table.wide-table th,
+  table.wide-table td {
+    overflow-wrap: break-word;
+    word-break: normal;
+  }
+
+  table.wide-table td code,
+  table.wide-table th code {
+    white-space: normal;
+    overflow-wrap: anywhere;
+    word-break: break-all;
+  }
+
   .mermaid {
     padding: 10px;
     page-break-inside: avoid;
@@ -242,6 +270,22 @@ pre code {
 # Smart Teaching Service System 需求报告
 
 > 本报告定义智慧教学服务系统的业务范围、用户场景、数据流、核心对象、状态约束与验收标准，为系统实现、联调和验收提供统一依据。
+
+
+## 目录
+
+- [0. 文档信息](#0.-文档信息)
+- [1. Introduction / 引言](#1.-introduction-引言)
+- [2. 系统总体描述](#2.-系统总体描述)
+- [3. 用户场景 / User Scenarios](#3.-用户场景-user-scenarios)
+- [4. 功能需求](#4.-功能需求)
+- [5. 非功能需求](#5.-非功能需求)
+- [6. 数据流图 / DFD](#6.-数据流图-dfd)
+- [7. 状态图 / State Diagrams](#7.-状态图-state-diagrams)
+- [8. 类图与 CRC 卡](#8.-类图与-crc-卡)
+- [9. 验证标准 / Validation Criteria](#9.-验证标准-validation-criteria)
+- [10. 需求追踪矩阵](#10.-需求追踪矩阵)
+- [11. 附录](#11.-附录)
 
 ---
 

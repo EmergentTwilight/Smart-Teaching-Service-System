@@ -58,23 +58,32 @@ title: STSS Design Report
     break-inside: avoid;
   }
 
-  table {
+  body > :last-child {
+    margin-bottom: 0 !important;
+  }
+
+  table.wide-table {
     width: 100% !important;
     max-width: 100% !important;
     font-size: 8.8pt;
   }
 
-  th,
-  td {
+  table.extra-wide-table {
+    table-layout: fixed;
+    font-size: 7.6pt;
+  }
+
+  table.wide-table th,
+  table.wide-table td {
     overflow-wrap: break-word;
     word-break: normal;
   }
 
-  td code,
-  th code {
+  table.wide-table td code,
+  table.wide-table th code {
     white-space: normal;
     overflow-wrap: anywhere;
-    word-break: break-word;
+    word-break: break-all;
   }
 
   .mermaid {
@@ -185,7 +194,6 @@ blockquote {
 
 table {
   width: 100%;
-  max-width: 100%;
   margin: 16px 0 24px;
   border-collapse: separate;
   border-spacing: 0;
@@ -209,8 +217,6 @@ td {
   padding: 10px 12px;
   border-right: 1px solid var(--stss-line);
   border-bottom: 1px solid var(--stss-line);
-  overflow-wrap: break-word;
-  word-break: normal;
   vertical-align: top;
 }
 
@@ -233,9 +239,6 @@ code {
   background: #edf2f7;
   color: #9b2c2c;
   font-size: 0.92em;
-  white-space: normal;
-  overflow-wrap: anywhere;
-  word-break: break-all;
 }
 
 pre {
@@ -267,6 +270,25 @@ pre code {
 # Smart Teaching Service System 设计报告
 
 > 本报告说明智慧教学服务系统的总体架构、数据模型、接口边界、组件划分和关键流程设计，用于指导实现、联调、测试和后续维护。
+
+
+## 目录
+
+- [0. 文档信息](#0.-文档信息)
+- [1. 引言](#1.-引言)
+- [2. 总体设计目标与约束](#2.-总体设计目标与约束)
+- [3. 系统总体架构设计](#3.-系统总体架构设计)
+- [4. 数据与类设计](#4.-数据与类设计)
+- [5. 数据库设计](#5.-数据库设计)
+- [6. 接口设计](#6.-接口设计)
+- [7. 用户界面设计](#7.-用户界面设计)
+- [8. 组件级设计](#8.-组件级设计)
+- [9. 关键算法与流程设计](#9.-关键算法与流程设计)
+- [10. 安全、权限与异常处理设计](#10.-安全权限与异常处理设计)
+- [11. 部署设计](#11.-部署设计)
+- [12. 需求到设计追踪矩阵](#12.-需求到设计追踪矩阵)
+- [13. 设计风险与改进点](#13.-设计风险与改进点)
+- [14. 附录](#14.-附录)
 
 ---
 

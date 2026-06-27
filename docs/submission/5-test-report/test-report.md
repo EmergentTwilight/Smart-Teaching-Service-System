@@ -1,6 +1,293 @@
+---
+title: STSS Test Report
+---
+
+<style>
+:root {
+  --stss-bg: #f6f8fb;
+  --stss-paper: #ffffff;
+  --stss-ink: #172033;
+  --stss-muted: #5f6b7a;
+  --stss-line: #d9e2ef;
+  --stss-primary: #1f5f99;
+  --stss-primary-soft: #e8f2fb;
+  --stss-accent: #2f7d59;
+  --stss-accent-soft: #e8f5ee;
+  --stss-code-bg: #111827;
+  --stss-code-ink: #e5e7eb;
+}
+
+@media screen {
+  body {
+    max-width: 1120px;
+    margin: 0 auto;
+    padding: 48px 56px 80px;
+    background:
+      linear-gradient(180deg, rgba(232, 242, 251, 0.72), rgba(246, 248, 251, 0) 320px),
+      var(--stss-bg);
+    color: var(--stss-ink);
+    font-family: "Inter", "Noto Sans SC", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+    line-height: 1.72;
+  }
+}
+
+@media print {
+  @page {
+    size: A4;
+    margin: 18mm 15mm 20mm;
+  }
+
+  body {
+    color: #111827;
+    font-family: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+    font-size: 10.5pt;
+    line-height: 1.58;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    break-after: avoid;
+  }
+
+  table,
+  pre,
+  blockquote,
+  .mermaid {
+    break-inside: avoid;
+  }
+
+  body > :last-child {
+    margin-bottom: 0 !important;
+  }
+
+  table.wide-table {
+    width: 100% !important;
+    max-width: 100% !important;
+    font-size: 8.8pt;
+  }
+
+  table.extra-wide-table {
+    table-layout: fixed;
+    font-size: 7.6pt;
+  }
+
+  table.wide-table th,
+  table.wide-table td {
+    overflow-wrap: break-word;
+    word-break: normal;
+  }
+
+  table.wide-table td code,
+  table.wide-table th code {
+    white-space: normal;
+    overflow-wrap: anywhere;
+    word-break: break-all;
+  }
+
+  .mermaid {
+    padding: 10px;
+    page-break-inside: avoid;
+  }
+
+  .mermaid svg {
+    width: auto !important;
+    max-height: 210mm;
+  }
+}
+
+body {
+  counter-reset: stss-h2;
+}
+
+h1 {
+  margin: 0 0 28px;
+  padding: 42px 36px;
+  border: 1px solid var(--stss-line);
+  border-radius: 18px;
+  background:
+    linear-gradient(135deg, rgba(31, 95, 153, 0.13), rgba(47, 125, 89, 0.12)),
+    var(--stss-paper);
+  box-shadow: 0 18px 45px rgba(23, 32, 51, 0.08);
+  color: #10233d;
+  font-size: 2.35rem;
+  font-weight: 800;
+  letter-spacing: 0;
+  line-height: 1.22;
+  text-align: center;
+}
+
+h1 + blockquote {
+  margin: 0 0 36px;
+  padding: 18px 24px;
+  border: 1px solid #c9ddf1;
+  border-left: 5px solid var(--stss-primary);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.88);
+  box-shadow: 0 10px 28px rgba(23, 32, 51, 0.06);
+  color: #29445f;
+  font-size: 1.03rem;
+}
+
+h2 {
+  margin: 46px 0 18px;
+  padding: 0 0 10px;
+  border-bottom: 2px solid #cfe0f4;
+  color: var(--stss-primary);
+  font-size: 1.62rem;
+  font-weight: 760;
+  letter-spacing: 0;
+}
+
+h2::before {
+  content: "";
+  display: inline-block;
+  width: 8px;
+  height: 1.12em;
+  margin-right: 10px;
+  border-radius: 6px;
+  background: linear-gradient(180deg, var(--stss-primary), var(--stss-accent));
+  vertical-align: -0.14em;
+}
+
+h3 {
+  margin: 30px 0 12px;
+  color: #1f3d5c;
+  font-size: 1.26rem;
+  font-weight: 720;
+}
+
+h4 {
+  margin: 24px 0 10px;
+  color: #24445f;
+  font-size: 1.08rem;
+  font-weight: 700;
+}
+
+p,
+li {
+  color: var(--stss-ink);
+}
+
+a {
+  color: #1e68a8;
+  text-decoration-color: rgba(30, 104, 168, 0.32);
+  text-underline-offset: 3px;
+}
+
+hr {
+  height: 1px;
+  margin: 34px 0;
+  border: 0;
+  background: linear-gradient(90deg, transparent, #b8cbe1, transparent);
+}
+
+blockquote {
+  margin: 18px 0;
+  padding: 14px 18px;
+  border-left: 4px solid var(--stss-accent);
+  border-radius: 10px;
+  background: var(--stss-accent-soft);
+  color: #264d3a;
+}
+
+table {
+  width: 100%;
+  margin: 16px 0 24px;
+  border-collapse: separate;
+  border-spacing: 0;
+  overflow: hidden;
+  border: 1px solid var(--stss-line);
+  border-radius: 12px;
+  background: var(--stss-paper);
+  box-shadow: 0 8px 22px rgba(23, 32, 51, 0.045);
+  font-size: 0.95rem;
+}
+
+thead th,
+tr:first-child th {
+  background: linear-gradient(180deg, #edf5fc, #e5eef8);
+  color: #18324d;
+  font-weight: 720;
+}
+
+th,
+td {
+  padding: 10px 12px;
+  border-right: 1px solid var(--stss-line);
+  border-bottom: 1px solid var(--stss-line);
+  vertical-align: top;
+}
+
+th:last-child,
+td:last-child {
+  border-right: 0;
+}
+
+tr:last-child td {
+  border-bottom: 0;
+}
+
+tbody tr:nth-child(even) {
+  background: #f9fbfe;
+}
+
+code {
+  padding: 0.16em 0.38em;
+  border-radius: 5px;
+  background: #edf2f7;
+  color: #9b2c2c;
+  font-size: 0.92em;
+}
+
+pre {
+  margin: 18px 0 26px;
+  padding: 18px 20px;
+  overflow: auto;
+  border-radius: 14px;
+  background: var(--stss-code-bg);
+  box-shadow: 0 12px 30px rgba(17, 24, 39, 0.14);
+}
+
+pre code {
+  padding: 0;
+  background: transparent;
+  color: var(--stss-code-ink);
+  font-size: 0.9rem;
+}
+
+.mermaid {
+  margin: 18px 0 28px;
+  padding: 18px;
+  border: 1px solid #cfe0f4;
+  border-radius: 14px;
+  background: #fbfdff;
+  box-shadow: 0 8px 22px rgba(23, 32, 51, 0.05);
+}
+</style>
+
 # Smart Teaching Service System 测试报告
 
 > 说明：本报告基于 A-F 各组专项测试材料汇总形成，当前已补充基础信息管理、自动排课、智能选课、论坛交流、在线测试和成绩管理六个子系统的测试用例、执行结果、缺陷回归与测试结论。
+
+
+## 目录
+
+- [0. 文档信息](#0.-文档信息)
+- [1. 测试概述](#1.-测试概述)
+- [2. 测试范围](#2.-测试范围)
+- [3. 测试环境](#3.-测试环境)
+- [4. 测试策略](#4.-测试策略)
+- [5. 测试用例设计](#5.-测试用例设计)
+- [6. 测试执行结果](#6.-测试执行结果)
+- [7. 集成测试结果](#7.-集成测试结果)
+- [8. 专项测试](#8.-专项测试)
+- [9. 缺陷统计与分析](#9.-缺陷统计与分析)
+- [10. 回归测试结果](#10.-回归测试结果)
+- [11. 需求覆盖率与追踪矩阵](#11.-需求覆盖率与追踪矩阵)
+- [12. 遗留问题与风险](#12.-遗留问题与风险)
+- [13. 测试结论](#13.-测试结论)
 
 ---
 

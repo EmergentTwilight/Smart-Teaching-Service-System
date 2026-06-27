@@ -104,6 +104,11 @@ export const majorService = {
               totalCredits: true,
             },
           },
+          _count: {
+            select: {
+              students: true,
+            },
+          },
         },
       })
       if (!major) throw new NotFoundError('专业')
@@ -115,6 +120,7 @@ export const majorService = {
         department_name: major.department.name,
         degree_type: major.degreeType,
         total_credits: major.totalCredits?.toNumber() || 0,
+        student_count: major._count.students,
         description: major.description,
         curriculums: major.curriculums.map((c) => ({
           id: c.id,
@@ -212,6 +218,7 @@ export const majorService = {
         where: { id },
         data: {
           name: data.name,
+          degreeType: data.degree_type,
           totalCredits: data.total_credits,
         },
       })
@@ -223,7 +230,7 @@ export const majorService = {
           resourceId: id,
           ipAddress: req.ip,
           userAgent: req.get('User-Agent'),
-          details: `修改了专业 \n专业ID:${id} \n修改前： name:${major.name} totalCredits:${major.totalCredits}\n 修改后： name:${data.name} totalCredits:${data.total_credits}`,
+          details: `修改了专业 \n专业ID:${id} \n修改前： name:${major.name} degreeType:${major.degreeType} totalCredits:${major.totalCredits}\n 修改后： name:${data.name} degreeType:${data.degree_type} totalCredits:${data.total_credits}`,
         },
       })
 

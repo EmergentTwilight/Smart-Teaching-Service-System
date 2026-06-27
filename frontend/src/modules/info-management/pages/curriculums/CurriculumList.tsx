@@ -123,19 +123,23 @@ const CurriculumList: React.FC = () => {
 
   const handleCourseSubmit = async (values: AddCurriculumCourseDTO) => {
     if (!detailData) return;
-    if (currentCourse) {
-      await curriculumsApi.updateCourse(detailData.id, currentCourse.courseId, {
-        courseType: values.courseType,
-        semesterSuggestion: values.semesterSuggestion,
-      });
-      message.success('课程信息已更新');
-    } else {
-      await curriculumsApi.addCourse(detailData.id, values);
-      message.success('课程已添加');
+    try {
+      if (currentCourse) {
+        await curriculumsApi.updateCourse(detailData.id, currentCourse.courseId, {
+          courseType: values.courseType,
+          semesterSuggestion: values.semesterSuggestion,
+        });
+        message.success('课程信息已更新');
+      } else {
+        await curriculumsApi.addCourse(detailData.id, values);
+        message.success('课程已添加');
+      }
+      await loadDetail(detailData.id);
+      queryClient.invalidateQueries({ queryKey: ['curriculums'] });
+      setCurrentCourse(undefined);
+    } catch (error) {
+      throw new Error(error instanceof Error ? error.message : '培养方案课程信息保存失败');
     }
-    await loadDetail(detailData.id);
-    queryClient.invalidateQueries({ queryKey: ['curriculums'] });
-    setCurrentCourse(undefined);
   };
 
   const handleBatchCourseSubmit = async (values: AddCurriculumCourseDTO[]) => {
@@ -232,7 +236,10 @@ const CurriculumList: React.FC = () => {
         canEdit={canEdit}
         onAddCourse={() => { setCurrentCourse(undefined); setCourseModalOpen(true); }}
         onBatchAddCourse={() => setBatchCourseModalOpen(true)}
-        onEditCourse={(course) => { setCurrentCourse(course); setCourseModalOpen(true); }}
+        onEditCourse={(course) => {
+          setCurrentCourse(course);
+          setCourseModalOpen(true);
+        }}
         onRemoveCourse={handleRemoveCourse}
       />
 

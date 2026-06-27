@@ -302,11 +302,37 @@ export const courseService = {
       if (!course) {
         throw new NotFoundError('课程不存在')
       }
-      const curriculumCourseCount = await tx.curriculumCourse.count({
-        where: { courseId: course_id },
-      })
-      if (curriculumCourseCount > 0) {
-        throw new ConflictError('课程已被培养方案引用，无法删除')
+      const [
+        curriculumCourseCount,
+        courseOfferingCount,
+        scheduleCount,
+        enrollmentCount,
+        questionBankCount,
+        prerequisiteCount,
+        requiredForCount,
+      ] = await Promise.all([
+        tx.curriculumCourse.count({ where: { courseId: course_id } }),
+        tx.courseOffering.count({ where: { courseId: course_id } }),
+        tx.schedule.count({ where: { courseOffering: { courseId: course_id } } }),
+        tx.enrollment.count({ where: { courseOffering: { courseId: course_id } } }),
+        tx.questionBank.count({ where: { courseId: course_id } }),
+        tx.coursePrerequisite.count({ where: { courseId: course_id } }),
+        tx.coursePrerequisite.count({ where: { prerequisiteId: course_id } }),
+      ])
+      const references = [
+        curriculumCourseCount > 0 ? `培养方案引用 ${curriculumCourseCount} 条` : null,
+        courseOfferingCount > 0 ? `开课记录 ${courseOfferingCount} 条` : null,
+        scheduleCount > 0 ? `排课记录 ${scheduleCount} 条` : null,
+        enrollmentCount > 0 ? `选课记录 ${enrollmentCount} 条` : null,
+        questionBankCount > 0 ? `题库记录 ${questionBankCount} 条` : null,
+        prerequisiteCount > 0 ? `该课程设置的先修关系 ${prerequisiteCount} 条` : null,
+        requiredForCount > 0 ? `其他课程依赖它作为先修课 ${requiredForCount} 条` : null,
+      ].filter(Boolean)
+
+      if (references.length > 0) {
+        throw new ConflictError(
+          `课程「${course.name}」已被引用，无法删除。请先解除：${references.join('、')}`
+        )
       }
       await tx.course.delete({ where: { id: course_id } })
       await tx.systemLog.create({

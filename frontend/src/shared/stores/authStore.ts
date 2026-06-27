@@ -18,8 +18,12 @@ interface AuthState {
   user: AuthUserDto | null
   /** 是否已认证 */
   isAuthenticated: boolean
+  /** 是否已从服务端同步当前认证用户 */
+  authHydrated: boolean
   /** 设置认证信息 */
   setAuth: (token: string, refreshToken: string, user: AuthUserDto) => void
+  /** 设置认证同步状态 */
+  setAuthHydrated: (hydrated: boolean) => void
   /** 登出 */
   logout: () => void
   /** 更新用户信息 */
@@ -33,13 +37,24 @@ export const useAuthStore = create<AuthState>()(
       refreshToken: null,
       user: null,
       isAuthenticated: false,
+      authHydrated: true,
 
       setAuth: (token, refreshToken, user) => {
-        set({ token, refreshToken, user, isAuthenticated: true })
+        set({ token, refreshToken, user, isAuthenticated: true, authHydrated: true })
+      },
+
+      setAuthHydrated: (hydrated) => {
+        set({ authHydrated: hydrated })
       },
 
       logout: () => {
-        set({ token: null, refreshToken: null, user: null, isAuthenticated: false })
+        set({
+          token: null,
+          refreshToken: null,
+          user: null,
+          isAuthenticated: false,
+          authHydrated: true,
+        })
       },
 
       updateUser: (userData) => {

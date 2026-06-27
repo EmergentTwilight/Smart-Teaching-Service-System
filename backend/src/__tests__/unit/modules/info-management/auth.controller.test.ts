@@ -320,7 +320,10 @@ describe('AuthController', () => {
 
       await authController.forgotPassword(req as Request, res as Response)
 
-      expect(authService.forgotPassword).toHaveBeenCalledWith('existing@example.com')
+      expect(authService.forgotPassword).toHaveBeenCalledWith({
+        email: 'existing@example.com',
+        frontendUrl: undefined,
+      })
       expect(mockSuccess).toHaveBeenCalledWith(res, null, '如该邮箱已注册，重置链接已发送')
     })
 
@@ -330,7 +333,10 @@ describe('AuthController', () => {
 
       await authController.forgotPassword(req as Request, res as Response)
 
-      expect(authService.forgotPassword).toHaveBeenCalledWith('nonexistent@example.com')
+      expect(authService.forgotPassword).toHaveBeenCalledWith({
+        email: 'nonexistent@example.com',
+        frontendUrl: undefined,
+      })
       expect(mockSuccess).toHaveBeenCalledWith(res, null, '如该邮箱已注册，重置链接已发送')
     })
   })

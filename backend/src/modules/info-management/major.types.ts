@@ -44,11 +44,16 @@ export const createMajorSchema = z.object({
 export const updateMajorSchema = z
   .object({
     name: z.string().min(1).max(100).optional(),
+    degree_type: z.nativeEnum(DegreeType).optional(),
     total_credits: z.number().multipleOf(0.1).positive().max(9999).optional(),
   })
-  .refine((data) => data.name !== undefined || data.total_credits !== undefined, {
-    message: '至少需要提供 name 或 total_credits 之一',
-  })
+  .refine(
+    (data) =>
+      data.name !== undefined || data.degree_type !== undefined || data.total_credits !== undefined,
+    {
+      message: '至少需要提供 name、degree_type 或 total_credits 之一',
+    }
+  )
 
 export type GetMajorIdSchema = z.infer<typeof getMajorIdSchema>
 export type GetMajorListSchema = z.infer<typeof getMajorListSchema>

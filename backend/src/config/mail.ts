@@ -10,6 +10,7 @@ type PasswordResetEmailInput = {
   username: string
   token: string
   expires_at: string
+  frontend_url?: string
 }
 
 // 创建 nodemailer transporter
@@ -62,7 +63,7 @@ function getTransporter(): nodemailer.Transporter {
  * @param input 邮件内容
  */
 export async function sendPasswordResetEmail(input: PasswordResetEmailInput): Promise<void> {
-  const frontendUrl = config.frontend.url
+  const frontendUrl = input.frontend_url || config.frontend.url
   const resetUrl = `${frontendUrl}/reset-password?token=${input.token}`
 
   const mailOptions = {

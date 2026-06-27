@@ -41,6 +41,35 @@ import courseSelectionRoutes from './modules/course-selection/course-selection.r
 const app: Application = express()
 const PORT = config.port
 
+function isAllowedCorsOrigin(origin: string): boolean {
+  const allowedOrigins = config.cors.origin
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean)
+
+  if (allowedOrigins.includes(origin)) {
+    return true
+  }
+
+  if (config.nodeEnv !== 'development') {
+    return false
+  }
+
+  try {
+    const url = new URL(origin)
+    const isViteDevPort = ['5173', '5174', '5175'].includes(url.port)
+    const isLocalhost = ['localhost', '127.0.0.1', '0.0.0.0', '::1'].includes(url.hostname)
+    const isPrivateIp =
+      /^10\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(url.hostname) ||
+      /^172\.(1[6-9]|2\d|3[0-1])\.\d{1,3}\.\d{1,3}$/.test(url.hostname) ||
+      /^192\.168\.\d{1,3}\.\d{1,3}$/.test(url.hostname)
+
+    return isViteDevPort && (isLocalhost || isPrivateIp)
+  } catch {
+    return false
+  }
+}
+
 // ==================== 中间件配置 ====================
 
 // CORS 跨域配置
@@ -69,13 +98,12 @@ const PORT = config.port
 app.use(
   cors({
     origin: (origin, callback) => {
-      const allowedOrigins = config.cors.origin.split(',')
       // 允许没有 origin 的请求（如 Postman、服务器到服务器）
       if (!origin) return callback(null, true)
-      if (allowedOrigins.includes(origin)) {
+      if (isAllowedCorsOrigin(origin)) {
         callback(null, true)
       } else {
-        console.warn(`CORS: Origin ${origin} not in allowed list:`, allowedOrigins)
+        console.warn(`CORS: Origin ${origin} not allowed. Configured origins:`, config.cors.origin)
         callback(null, false) // 拒绝不在白名单的 origin
       }
     },
@@ -83,8 +111,10 @@ app.use(
   })
 )
 
-// 安全头部
-app.use(helmet() as unknown as RequestHandler)
+// 安全头部。上传头像等静态资源会被 Vite 前端跨 origin 加载，需要允许 cross-origin resource。
+app.use(
+  helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }) as unknown as RequestHandler
+)
 
 // 响应压缩
 app.use(compression())

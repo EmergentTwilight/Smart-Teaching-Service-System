@@ -15,6 +15,7 @@ import { getMenuItemsForRoles } from '@/shared/config/menu';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '@/shared/stores/authStore';
 import { USER_ROLE_LABELS, type UserRoleType } from '@/shared/types';
+import { resolveAssetUrl } from '@/shared/utils/url';
 
 const { Header, Sider, Content } = Layout;
 
@@ -202,6 +203,7 @@ const MainLayout: React.FC = () => {
             >
               <Avatar
                 size={36}
+                src={resolveAssetUrl(user?.avatarUrl)}
                 icon={<UserOutlined />}
                 style={{
                   background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',

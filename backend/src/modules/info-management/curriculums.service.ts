@@ -121,7 +121,7 @@ export const curriculumService = {
           course_code: cc.course.code,
           course_name: cc.course.name,
           credits: cc.course.credits.toNumber(),
-          course_type: cc.course.courseType,
+          course_type: cc.courseType,
           semester_suggestion: cc.semesterSuggestion,
         })),
         created_at: curriculum.createdAt,
@@ -331,19 +331,28 @@ export const curriculumService = {
           continue
         }
 
-        try {
-          await tx.curriculumCourse.create({
-            data: {
+        const existing = await tx.curriculumCourse.findUnique({
+          where: {
+            curriculumId_courseId: {
               curriculumId,
               courseId: item.course_id,
-              courseType: item.course_type,
-              semesterSuggestion: item.semester_suggestion,
             },
-          })
-          successCount++
-        } catch {
+          },
+        })
+        if (existing) {
           failCount++
+          continue
         }
+
+        await tx.curriculumCourse.create({
+          data: {
+            curriculumId,
+            courseId: item.course_id,
+            courseType: item.course_type,
+            semesterSuggestion: item.semester_suggestion,
+          },
+        })
+        successCount++
       }
 
       await tx.systemLog.create({

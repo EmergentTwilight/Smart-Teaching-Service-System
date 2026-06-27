@@ -8,6 +8,40 @@
 import { Request, Response } from 'express'
 import { authService } from './auth.service.js'
 import { success, error } from '../../shared/utils/response.js'
+import config from '../../config/index.js'
+
+function isAllowedFrontendOrigin(origin?: string): boolean {
+  if (!origin) {
+    return false
+  }
+
+  const configuredOrigins = config.cors.origin
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean)
+
+  if (configuredOrigins.includes(origin)) {
+    return true
+  }
+
+  if (config.nodeEnv !== 'development') {
+    return false
+  }
+
+  try {
+    const url = new URL(origin)
+    const isViteDevPort = ['5173', '5174', '5175'].includes(url.port)
+    const isLocalhost = ['localhost', '127.0.0.1', '0.0.0.0', '::1'].includes(url.hostname)
+    const isPrivateIp =
+      /^10\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(url.hostname) ||
+      /^172\.(1[6-9]|2\d|3[0-1])\.\d{1,3}\.\d{1,3}$/.test(url.hostname) ||
+      /^192\.168\.\d{1,3}\.\d{1,3}$/.test(url.hostname)
+
+    return isViteDevPort && (isLocalhost || isPrivateIp)
+  } catch {
+    return false
+  }
+}
 
 export const authController = {
   /**
@@ -94,7 +128,11 @@ export const authController = {
    */
   async forgotPassword(req: Request, res: Response) {
     const { email } = req.body
-    await authService.forgotPassword(email)
+    const origin = req.get('origin')
+    await authService.forgotPassword({
+      email,
+      frontendUrl: isAllowedFrontendOrigin(origin) ? origin : undefined,
+    })
     // 即使用户不存在也返回成功，防止用户枚举攻击
     success(res, null, '如该邮箱已注册，重置链接已发送')
   },

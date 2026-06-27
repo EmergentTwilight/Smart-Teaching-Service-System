@@ -58,6 +58,7 @@ function buildMajor(overrides: Record<string, unknown> = {}) {
     departmentId: 'dept-1',
     createdAt: new Date('2026-01-01'),
     updatedAt: new Date('2026-01-01'),
+    _count: { students: 0 },
     ...overrides,
   }
 }
@@ -572,7 +573,7 @@ describe('MajorService', () => {
       )
 
       const logDetails =
-        '修改了专业 \n专业ID:major-1 \n修改前： name:计算机科学与技术 totalCredits:150\n 修改后： name:计算机科学 totalCredits:160'
+        '修改了专业 \n专业ID:major-1 \n修改前： name:计算机科学与技术 degreeType:BACHELOR totalCredits:150\n 修改后： name:计算机科学 degreeType:undefined totalCredits:160'
       expect(prismaMock.systemLog.create).toHaveBeenCalledWith({
         data: expect.objectContaining({
           action: 'update',

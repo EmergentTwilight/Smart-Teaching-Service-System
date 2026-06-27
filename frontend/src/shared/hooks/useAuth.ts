@@ -30,7 +30,7 @@ export const useAuth = () => {
       navigate('/')
     },
     onError: (error: Error) => {
-      message.error(error.message || '登录失败，请检查用户名和密码')
+      window.alert(error instanceof Error ? String(error) : '登录失败，请检查用户名和密码')
     },
   })
 

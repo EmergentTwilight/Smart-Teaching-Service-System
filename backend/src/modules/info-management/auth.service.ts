@@ -38,6 +38,11 @@ type LoginInput = AuditMeta & {
   password: string
 }
 
+type ForgotPasswordInput = {
+  email: string
+  frontendUrl?: string
+}
+
 const userAuthInclude = {
   userRoles: {
     include: {
@@ -276,7 +281,7 @@ export const authService = {
       include: userAuthInclude,
     })
 
-    if (!user) {
+    if (!user || user.deletedAt) {
       await recordLoginFailure(input.username, ipAddress)
       throw new UnauthorizedError('用户名或密码错误')
     }
@@ -377,6 +382,10 @@ export const authService = {
 
     if (storedToken.expiresAt < new Date()) {
       throw new UnauthorizedError('刷新令牌已过期，请重新登录')
+    }
+
+    if (storedToken.user.deletedAt) {
+      throw new ForbiddenError('账户已被删除')
     }
 
     if (storedToken.user.status !== 'ACTIVE') {
@@ -545,7 +554,10 @@ export const authService = {
    * 发起忘记密码流程
    * @param email 邮箱
    */
-  async forgotPassword(email: string) {
+  async forgotPassword(input: string | ForgotPasswordInput) {
+    const email = typeof input === 'string' ? input : input.email
+    const frontendUrl = typeof input === 'string' ? undefined : input.frontendUrl
+
     const user = await prisma.user.findUnique({
       where: { email },
     })
@@ -576,6 +588,7 @@ export const authService = {
         username: user.username,
         token,
         expires_at: expiresAt.toISOString(),
+        frontend_url: frontendUrl,
       })
     } catch (error) {
       console.error('Failed to send password reset email:', error)
@@ -685,7 +698,7 @@ export const authService = {
       where: { id: userId },
     })
 
-    if (!user) {
+    if (!user || user.deletedAt) {
       throw new NotFoundError('用户不存在')
     }
 

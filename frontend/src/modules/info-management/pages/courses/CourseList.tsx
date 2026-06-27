@@ -96,7 +96,7 @@ const CourseList: React.FC = () => {
       setCourseToDelete(null);
     },
     onError: (error: Error) => {
-      message.error(error.message || '删除失败');
+      window.alert(error.message || '删除失败，请检查课程是否已被其他模块引用。');
     },
   });
 

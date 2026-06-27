@@ -6,6 +6,7 @@ import { Modal, Transfer, Tag, Space, message } from 'antd'
 import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query'
 import { usersApi } from '@/modules/info-management/api/users'
 import { useAuthStore } from '@/shared/stores/authStore'
+import { extractErrorMessage } from '@/shared/utils/error'
 
 interface RoleAssignModalProps {
   open: boolean
@@ -48,7 +49,7 @@ const RoleAssignModal: React.FC<RoleAssignModalProps> = ({
     
     // 非 super_admin 不能分配 super_admin 角色
     if (!isSuperAdmin) {
-      roles = roles.filter((role) => role.key !== 'super_admin')
+      roles = roles.filter((role) => role.code !== 'super_admin')
     }
     
     return roles
@@ -73,33 +74,15 @@ const RoleAssignModal: React.FC<RoleAssignModalProps> = ({
 
   const { mutate, isPending } = useMutation({
     mutationFn: async (newRoles: string[]) => {
-      // 计算需要添加和删除的角色
-      const currentRoleIds = currentRoles
-        .map((roleCode) => availableRoles.find((role) => role.code === roleCode)?.key)
-        .filter((roleId): roleId is string => Boolean(roleId))
-
-      const toAdd = newRoles.filter((roleId) => !currentRoleIds.includes(roleId))
-      const toRemove = currentRoleIds.filter((roleId) => !newRoles.includes(roleId))
-
-      console.log('Role assignment:', { userId, toAdd, toRemove, currentRoleIds, newRoles })
-
-      // 先添加新角色
-      if (toAdd.length > 0) {
-        await usersApi.assignRoles(userId, toAdd)
-      }
-      // 并行删除旧角色
-      if (toRemove.length > 0) {
-        await Promise.all(toRemove.map(roleId => usersApi.revokeRole(userId, roleId)))
-      }
+      await usersApi.assignRoles(userId, newRoles)
     },
     onSuccess: () => {
       message.success('角色分配成功')
       queryClient.invalidateQueries({ queryKey: ['users'] })
       onSuccess()
     },
-    onError: (error) => {
-      console.error('Role assignment error:', error)
-      message.error('角色分配失败')
+    onError: (error: unknown) => {
+      message.error(extractErrorMessage(error, '角色分配失败'))
     },
   })
 

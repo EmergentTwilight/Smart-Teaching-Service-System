@@ -14,6 +14,19 @@ const prismaMock = vi.hoisted(() => ({
   coursePrerequisite: {
     createMany: vi.fn(),
     deleteMany: vi.fn(),
+    count: vi.fn(),
+  },
+  courseOffering: {
+    count: vi.fn(),
+  },
+  schedule: {
+    count: vi.fn(),
+  },
+  enrollment: {
+    count: vi.fn(),
+  },
+  questionBank: {
+    count: vi.fn(),
   },
   department: {
     findUnique: vi.fn(),
@@ -86,6 +99,19 @@ beforeEach(() => {
         coursePrerequisite: {
           createMany: prismaMock.coursePrerequisite.createMany,
           deleteMany: prismaMock.coursePrerequisite.deleteMany,
+          count: prismaMock.coursePrerequisite.count,
+        },
+        courseOffering: {
+          count: prismaMock.courseOffering.count,
+        },
+        schedule: {
+          count: prismaMock.schedule.count,
+        },
+        enrollment: {
+          count: prismaMock.enrollment.count,
+        },
+        questionBank: {
+          count: prismaMock.questionBank.count,
         },
         department: {
           findUnique: prismaMock.department.findUnique,

@@ -120,7 +120,10 @@ export const authApi = {
    * @param data 邮箱参数
    */
   forgotPassword: async (data: { email: string }): Promise<void> => {
-    return request.post('/auth/password/forgot', data)
+    return request.post('/auth/password/forgot', {
+      email: data.email,
+      frontend_url: window.location.origin,
+    })
   },
 
   /**

@@ -31,6 +31,7 @@ import { usersApi } from '@/modules/info-management/api/users'
 import type { AuthUserDto, UpdateUserDTO } from '@/shared/types'
 import toast from '@/shared/components/Toast/Toast'
 import { extractErrorMessage } from '@/shared/utils/error'
+import { resolveAssetUrl } from '@/shared/utils/url'
 
 const Profile: React.FC = () => {
   const { user, updateUser } = useAuthStore()
@@ -133,7 +134,7 @@ const Profile: React.FC = () => {
             styles={{ body: { padding: 24 } }}
           >
             <Space size="large" align="center">
-              <Avatar size={88} src={user.avatarUrl || undefined} icon={<UserOutlined />} />
+              <Avatar size={88} src={resolveAssetUrl(user.avatarUrl)} icon={<UserOutlined />} />
               <div>
                 <Typography.Text style={{ display: 'block', marginBottom: 12 }}>
                   支持 JPG、PNG、WEBP，大小不超过 5MB

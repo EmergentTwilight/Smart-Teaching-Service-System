@@ -259,13 +259,14 @@ describe('GET /api/v1/curriculums/:id', () => {
       name: 'itest_curriculum_数据结构',
       code: 'ICU_C201',
       credits: 4.0,
+      courseType: 'REQUIRED',
     })
 
     await prisma.curriculumCourse.create({
       data: {
         curriculumId: curriculum.id,
         courseId: course.id,
-        courseType: 'REQUIRED',
+        courseType: 'ELECTIVE',
         semesterSuggestion: 2,
       },
     })
@@ -283,7 +284,7 @@ describe('GET /api/v1/curriculums/:id', () => {
       course_code: 'ICU_C201',
       course_name: 'itest_curriculum_数据结构',
       credits: 4,
-      course_type: 'REQUIRED',
+      course_type: 'ELECTIVE',
       semester_suggestion: 2,
     })
   })
@@ -498,6 +499,17 @@ describe('培养方案课程管理', () => {
     expect(link?.courseType).toBe('ELECTIVE')
     expect(link?.semesterSuggestion).toBe(6)
 
+    const detailResponse = await request(app)
+      .get(`/api/v1/curriculums/${curriculum.id}`)
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200)
+
+    expect(detailResponse.body.data.courses[0]).toMatchObject({
+      course_id: course.id,
+      course_type: 'ELECTIVE',
+      semester_suggestion: 6,
+    })
+
     await request(app)
       .delete(`/api/v1/curriculums/${curriculum.id}/courses/${course.id}`)
       .set('Authorization', `Bearer ${token}`)
@@ -552,6 +564,53 @@ describe('培养方案课程管理', () => {
       where: { curriculumId: curriculum.id },
     })
     expect(links).toHaveLength(2)
+  })
+
+  it('批量添加重复课程时应该统计失败项且不回滚成功项', async () => {
+    const admin = await createTestUser('admin')
+    const token = generateTestToken(admin.id, admin.username, ['admin'])
+    const curriculum = await createTestCurriculum({ name: 'itest_curriculum_批量重复课程方案' })
+    const existingCourse = await createTestCourse({ code: 'ICU_C611' })
+    const newCourse = await createTestCourse({ code: 'ICU_C612' })
+
+    await prisma.curriculumCourse.create({
+      data: {
+        curriculumId: curriculum.id,
+        courseId: existingCourse.id,
+        courseType: 'REQUIRED',
+        semesterSuggestion: 1,
+      },
+    })
+
+    const response = await request(app)
+      .post(`/api/v1/curriculums/${curriculum.id}/courses/batch`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        courses: [
+          {
+            course_id: existingCourse.id,
+            course_type: 'required',
+            semester_suggestion: 2,
+          },
+          {
+            course_id: newCourse.id,
+            course_type: 'elective',
+            semester_suggestion: 3,
+          },
+        ],
+      })
+      .expect(200)
+
+    expect(response.body.data.success_count).toBe(1)
+    expect(response.body.data.fail_count).toBe(1)
+
+    const links = await prisma.curriculumCourse.findMany({
+      where: { curriculumId: curriculum.id },
+      orderBy: { courseId: 'asc' },
+    })
+    expect(links).toHaveLength(2)
+    expect(links.find((link) => link.courseId === existingCourse.id)?.semesterSuggestion).toBe(1)
+    expect(links.find((link) => link.courseId === newCourse.id)?.courseType).toBe('ELECTIVE')
   })
 
   it('应该拒绝 student 管理培养方案课程', async () => {

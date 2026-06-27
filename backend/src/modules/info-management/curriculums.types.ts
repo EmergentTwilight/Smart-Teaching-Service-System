@@ -30,14 +30,22 @@ export const curriculumCourseParamsSchema = z.object({
 /**
  * 创建培养方案请求验证 schema
  */
-export const createCurriculumSchema = z.object({
-  name: z.string().min(1).max(100),
-  major_id: z.string().uuid(),
-  year: z.number().int().positive(),
-  total_credits: z.number().multipleOf(0.1).positive().max(9999),
-  required_credits: z.number().multipleOf(0.1).positive().max(9999).optional(),
-  elective_credits: z.number().multipleOf(0.1).positive().max(9999).optional(),
-})
+export const createCurriculumSchema = z
+  .object({
+    name: z.string().min(1).max(100),
+    major_id: z.string().uuid(),
+    year: z.number().int().positive(),
+    total_credits: z.number().multipleOf(0.1).positive().max(9999),
+    required_credits: z.number().multipleOf(0.1).positive().max(9999),
+    elective_credits: z.number().multipleOf(0.1).positive().max(9999),
+  })
+  .refine(
+    (data) =>
+      Math.abs(
+        data.total_credits - Number((data.required_credits + data.elective_credits).toFixed(1))
+      ) < 0.000001,
+    { message: '总学分必须等于必修学分与选修学分之和', path: ['total_credits'] }
+  )
 
 /**
  * 更新培养方案请求验证 schema
@@ -56,6 +64,23 @@ export const updateCurriculumSchema = z
       data.required_credits !== undefined ||
       data.elective_credits !== undefined,
     { message: '至少需要提供一个更新字段' }
+  )
+  .refine(
+    (data) => {
+      if (
+        data.total_credits === undefined ||
+        data.required_credits === undefined ||
+        data.elective_credits === undefined
+      ) {
+        return true
+      }
+      return (
+        Math.abs(
+          data.total_credits - Number((data.required_credits + data.elective_credits).toFixed(1))
+        ) < 0.000001
+      )
+    },
+    { message: '总学分必须等于必修学分与选修学分之和', path: ['total_credits'] }
   )
 
 /**

@@ -45,7 +45,17 @@ const CurriculumDetail: React.FC<CurriculumDetailProps> = ({
       width: 140,
       render: (_, record) => canEdit ? (
         <Space>
-          <Button type="link" size="small" icon={<EditOutlined />} onClick={() => onEditCourse(record)}>编辑</Button>
+          <Button
+            type="link"
+            size="small"
+            icon={<EditOutlined />}
+            onClick={() => {
+              console.log('[CurriculumDetail] edit course clicked', record);
+              onEditCourse(record);
+            }}
+          >
+            编辑
+          </Button>
           <Button type="link" size="small" danger icon={<DeleteOutlined />} onClick={() => onRemoveCourse(record)}>移除</Button>
         </Space>
       ) : null,

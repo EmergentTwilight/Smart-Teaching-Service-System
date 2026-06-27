@@ -44,6 +44,7 @@ const MajorModal: React.FC<MajorModalProps> = ({
   const handleSubmit = async () => {
     try {
       const values = await form.validateFields();
+      console.log('[MajorModal] submit values', values);
       await onSubmit(values);
       form.resetFields();
       onClose();
@@ -120,6 +121,7 @@ const MajorModal: React.FC<MajorModalProps> = ({
           name="totalCredits"
           label="总学分"
           rules={[
+            { required: true, message: '请输入总学分' },
             { type: 'number', min: 0.1, message: '总学分必须大于0' },
             { type: 'number', max: 9999, message: '总学分不能超过9999' },
           ]}

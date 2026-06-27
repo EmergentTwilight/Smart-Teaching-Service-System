@@ -2,6 +2,243 @@
 title: STSS Requirements Report
 ---
 
+<style>
+:root {
+  --stss-bg: #f6f8fb;
+  --stss-paper: #ffffff;
+  --stss-ink: #172033;
+  --stss-muted: #5f6b7a;
+  --stss-line: #d9e2ef;
+  --stss-primary: #1f5f99;
+  --stss-primary-soft: #e8f2fb;
+  --stss-accent: #2f7d59;
+  --stss-accent-soft: #e8f5ee;
+  --stss-code-bg: #111827;
+  --stss-code-ink: #e5e7eb;
+}
+
+@media screen {
+  body {
+    max-width: 1120px;
+    margin: 0 auto;
+    padding: 48px 56px 80px;
+    background:
+      linear-gradient(180deg, rgba(232, 242, 251, 0.72), rgba(246, 248, 251, 0) 320px),
+      var(--stss-bg);
+    color: var(--stss-ink);
+    font-family: "Inter", "Noto Sans SC", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+    line-height: 1.72;
+  }
+}
+
+@media print {
+  @page {
+    size: A4;
+    margin: 18mm 15mm 20mm;
+  }
+
+  body {
+    color: #111827;
+    font-family: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+    font-size: 10.5pt;
+    line-height: 1.58;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    break-after: avoid;
+  }
+
+  table,
+  pre,
+  blockquote,
+  .mermaid {
+    break-inside: avoid;
+  }
+
+  .mermaid {
+    padding: 10px;
+    page-break-inside: avoid;
+  }
+
+  .mermaid svg {
+    width: auto !important;
+    max-height: 210mm;
+  }
+}
+
+body {
+  counter-reset: stss-h2;
+}
+
+h1 {
+  margin: 0 0 28px;
+  padding: 42px 36px;
+  border: 1px solid var(--stss-line);
+  border-radius: 18px;
+  background:
+    linear-gradient(135deg, rgba(31, 95, 153, 0.13), rgba(47, 125, 89, 0.12)),
+    var(--stss-paper);
+  box-shadow: 0 18px 45px rgba(23, 32, 51, 0.08);
+  color: #10233d;
+  font-size: 2.35rem;
+  font-weight: 800;
+  letter-spacing: 0;
+  line-height: 1.22;
+  text-align: center;
+}
+
+h1 + blockquote {
+  margin: 0 0 36px;
+  padding: 18px 24px;
+  border: 1px solid #c9ddf1;
+  border-left: 5px solid var(--stss-primary);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.88);
+  box-shadow: 0 10px 28px rgba(23, 32, 51, 0.06);
+  color: #29445f;
+  font-size: 1.03rem;
+}
+
+h2 {
+  margin: 46px 0 18px;
+  padding: 0 0 10px;
+  border-bottom: 2px solid #cfe0f4;
+  color: var(--stss-primary);
+  font-size: 1.62rem;
+  font-weight: 760;
+  letter-spacing: 0;
+}
+
+h2::before {
+  content: "";
+  display: inline-block;
+  width: 8px;
+  height: 1.12em;
+  margin-right: 10px;
+  border-radius: 6px;
+  background: linear-gradient(180deg, var(--stss-primary), var(--stss-accent));
+  vertical-align: -0.14em;
+}
+
+h3 {
+  margin: 30px 0 12px;
+  color: #1f3d5c;
+  font-size: 1.26rem;
+  font-weight: 720;
+}
+
+h4 {
+  margin: 24px 0 10px;
+  color: #24445f;
+  font-size: 1.08rem;
+  font-weight: 700;
+}
+
+p,
+li {
+  color: var(--stss-ink);
+}
+
+a {
+  color: #1e68a8;
+  text-decoration-color: rgba(30, 104, 168, 0.32);
+  text-underline-offset: 3px;
+}
+
+hr {
+  height: 1px;
+  margin: 34px 0;
+  border: 0;
+  background: linear-gradient(90deg, transparent, #b8cbe1, transparent);
+}
+
+blockquote {
+  margin: 18px 0;
+  padding: 14px 18px;
+  border-left: 4px solid var(--stss-accent);
+  border-radius: 10px;
+  background: var(--stss-accent-soft);
+  color: #264d3a;
+}
+
+table {
+  width: 100%;
+  margin: 16px 0 24px;
+  border-collapse: separate;
+  border-spacing: 0;
+  overflow: hidden;
+  border: 1px solid var(--stss-line);
+  border-radius: 12px;
+  background: var(--stss-paper);
+  box-shadow: 0 8px 22px rgba(23, 32, 51, 0.045);
+  font-size: 0.95rem;
+}
+
+thead th,
+tr:first-child th {
+  background: linear-gradient(180deg, #edf5fc, #e5eef8);
+  color: #18324d;
+  font-weight: 720;
+}
+
+th,
+td {
+  padding: 10px 12px;
+  border-right: 1px solid var(--stss-line);
+  border-bottom: 1px solid var(--stss-line);
+  vertical-align: top;
+}
+
+th:last-child,
+td:last-child {
+  border-right: 0;
+}
+
+tr:last-child td {
+  border-bottom: 0;
+}
+
+tbody tr:nth-child(even) {
+  background: #f9fbfe;
+}
+
+code {
+  padding: 0.16em 0.38em;
+  border-radius: 5px;
+  background: #edf2f7;
+  color: #9b2c2c;
+  font-size: 0.92em;
+}
+
+pre {
+  margin: 18px 0 26px;
+  padding: 18px 20px;
+  overflow: auto;
+  border-radius: 14px;
+  background: var(--stss-code-bg);
+  box-shadow: 0 12px 30px rgba(17, 24, 39, 0.14);
+}
+
+pre code {
+  padding: 0;
+  background: transparent;
+  color: var(--stss-code-ink);
+  font-size: 0.9rem;
+}
+
+.mermaid {
+  margin: 18px 0 28px;
+  padding: 18px;
+  border: 1px solid #cfe0f4;
+  border-radius: 14px;
+  background: #fbfdff;
+  box-shadow: 0 8px 22px rgba(23, 32, 51, 0.05);
+}
+</style>
+
 # Smart Teaching Service System 需求报告
 
 > 本报告定义智慧教学服务系统的业务范围、用户场景、数据流、核心对象、状态约束与验收标准，为系统实现、联调和验收提供统一依据。
@@ -945,6 +1182,8 @@ A 基础信息管理为全系统提供“可信身份、可信基础数据、可
 
 #### 5.2.E E 组安全需求
 
+| 编号       | 安全需求                                                                                                                                                                                                              | 验证方式                 |
+| ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------ |
 | NFR-E-S-01 | 在线测试子系统应通过 A 子系统提供的统一身份认证机制校验用户身份；未认证用户不得访问受保护功能 | 未登录访问测试 |
 | NFR-E-S-02 | 题库、题目的创建/修改/删除，试卷创建/编辑/组卷/发布/关闭等管理操作应要求教师或授权管理人员权限；教师仅可操作本人任课课程资源，教务管理人员和系统管理员按授权范围操作；学生不得执行上述写操作 | 越权访问测试 |
 | NFR-E-S-03 | 开始答题和提交答案应要求 `student` 角色且存在有效学生档案；非学生不得创建或提交答题记录 | 角色边界测试 |
@@ -2835,6 +3074,7 @@ classDiagram
 
 ```mermaid
 classDiagram
+  direction LR
   class Student {
     studentId
     studentNumber
@@ -3165,7 +3405,7 @@ F1 成绩录入补充验证标准：
 | VC-F1-10 | FR-F-03             | 正式提交后的成绩不能再通过录入流程直接修改 | 教师对已提交成绩尝试再次保存草稿                                | 系统拒绝或跳过该记录，提示已提交成绩需走受控修改流程                  | UC-F-01  |
 
 | 需求编号 | 验证标准                                             | 输入/操作                                                | 预期结果                                                        | 覆盖用例                                                                              |
-| -------- | ---------------------------------------------------- | -------------------------------------------------------- | --------------------------------------------------------------- | ------------------------------------------------------------------------------------- | ------------------------- |
+| -------- | ---------------------------------------------------- | -------------------------------------------------------- | --------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
 | FR-F-01  | 教师只能录入自己课程成绩                             | 教师访问非本人课程成绩录入                               | 系统拒绝访问                                                    | UC-F-01                                                                               |
 | FR-F-02  | 成绩再次修改需要提交申请                             | 已录入成绩后再次修改                                     | 系统生成修改申请                                                | UC-F-02                                                                               |
 | FR-F-04  | 教师只能对自己录入或自己任课的已提交成绩发起修改申请 | 教师对本人课程成绩提交改分申请                           | 系统接受申请并写入 `modificationRequest`                        | UC-F-02                                                                               |
@@ -3181,6 +3421,9 @@ F1 成绩录入补充验证标准：
 | FR-F-10  | 成绩修改相关敏感操作必须写入系统日志                 | 提交申请、审批通过、审批驳回                             | 生成对应 `SystemLog` 记录                                       | UC-F-02                                                                               |
 | FR-F-10  | 非管理员审批应被拒绝                                 | 普通教师调用审批接口                                     | 系统拒绝访问                                                    | UC-F-02                                                                               |
 | FR-F-10  | 管理员可追溯成绩修改前后差异                         | 查询某条成绩的修改日志                                   | 返回完整前后差异和修改原因                                      | UC-F-02                                                                               |
+
+| 验证编号 | 需求编号                                             | 验证标准                                                 | 输入/操作                                                       | 预期结果                                                                              | 覆盖用例                  |
+| -------- | ---------------------------------------------------- | -------------------------------------------------------- | --------------------------------------------------------------- | ------------------------------------------------------------------------------------- | ------------------------- |
 | VC-F-15  | FR-F-04                                              | 授权教师可以对本人录入或本人任课的已提交成绩发起修改申请 | 教师对本人课程的 `SUBMITTED` 成绩提交合法申请                   | 系统接受申请并写入 `modificationRequest`                                              | UC-F-02                   |
 | VC-F-16  | FR-F-04                                              | 无关教师、非法状态或空申请理由应被拒绝                   | 非任课教师发起申请，或对 `DRAFT` 成绩申请，或不填写理由         | 系统拒绝申请并返回明确原因                                                            | UC-F-02                   |
 | VC-F-17  | FR-F-05                                              | 发起申请时不得直接修改原成绩                             | 教师提交合法改分申请                                            | 原分项成绩、总评、绩点和等级保持不变，仅保存拟修改内容                                | UC-F-02                   |

@@ -39,6 +39,22 @@ interface ParsedUser {
   email: string
   phone?: string
   roles?: string[]
+  student?: {
+    studentNumber: string
+    majorId?: string
+    grade: number
+    className?: string
+  }
+  teacher?: {
+    teacherNumber: string
+    departmentId?: string
+    title?: string
+    officeLocation?: string
+  }
+  admin?: {
+    adminType: 'ACADEMIC' | 'SUPER' | 'SECURITY'
+    departmentId?: string
+  }
   valid: boolean
   error?: string
 }
@@ -92,11 +108,17 @@ const BatchImportModal: React.FC<BatchImportModalProps> = ({
             email: u.email!,
             phone: u.phone,
             roleIds: roleIds.length > 0 ? roleIds : defaultStudentRoleId ? [defaultStudentRoleId] : [], // 默认学生角色
+            student: u.student,
+            teacher: u.teacher,
+            admin: u.admin,
           }
         })
       ),
     onSuccess: (result) => {
-      setImportResult(result)
+      setImportResult({
+        success: result.successCount ?? result.success_count ?? 0,
+        failed: result.failCount ?? result.fail_count ?? 0,
+      })
       setCurrentStep(2)
     },
     onError: () => {
@@ -122,6 +144,10 @@ const BatchImportModal: React.FC<BatchImportModalProps> = ({
           const text = data as string
           const lines = text.split('\n').filter((line) => line.trim())
           const headers = lines[0].split(',').map((h) => h.trim().toLowerCase())
+          const getValue = (values: string[], name: string) => {
+            const index = headers.indexOf(name)
+            return index >= 0 ? values[index] : ''
+          }
 
           const users: ParsedUser[] = []
           for (let i = 1; i < lines.length; i++) {
@@ -133,12 +159,39 @@ const BatchImportModal: React.FC<BatchImportModalProps> = ({
               .map(code => roleCodeToId[code])
               .filter(Boolean) // 过滤掉未知的角色代码
 
+            const studentNumber = getValue(values, 'studentnumber') || getValue(values, 'student_number')
+            const teacherNumber = getValue(values, 'teachernumber') || getValue(values, 'teacher_number')
+            const adminType = getValue(values, 'admintype') || getValue(values, 'admin_type')
+
             const user: ParsedUser = {
-              username: values[headers.indexOf('username')] || '',
-              realName: values[headers.indexOf('realname')] || values[headers.indexOf('real_name')] || '',
-              email: values[headers.indexOf('email')] || '',
-              phone: values[headers.indexOf('phone')],
+              username: getValue(values, 'username'),
+              realName: getValue(values, 'realname') || getValue(values, 'real_name'),
+              email: getValue(values, 'email'),
+              phone: getValue(values, 'phone'),
               roles: roleIds.length > 0 ? roleIds : undefined,
+              student: studentNumber
+                ? {
+                    studentNumber,
+                    majorId: getValue(values, 'majorid') || getValue(values, 'major_id') || undefined,
+                    grade: Number(getValue(values, 'grade') || 0),
+                    className: getValue(values, 'classname') || getValue(values, 'class_name') || undefined,
+                  }
+                : undefined,
+              teacher: teacherNumber
+                ? {
+                    teacherNumber,
+                    departmentId: getValue(values, 'departmentid') || getValue(values, 'department_id') || undefined,
+                    title: getValue(values, 'title') || undefined,
+                    officeLocation:
+                      getValue(values, 'officelocation') || getValue(values, 'office_location') || undefined,
+                  }
+                : undefined,
+              admin: adminType
+                ? {
+                    adminType: adminType as 'ACADEMIC' | 'SUPER' | 'SECURITY',
+                    departmentId: getValue(values, 'departmentid') || getValue(values, 'department_id') || undefined,
+                  }
+                : undefined,
               valid: true,
             }
 
@@ -152,6 +205,12 @@ const BatchImportModal: React.FC<BatchImportModalProps> = ({
             } else if (!user.realName) {
               user.valid = false
               user.error = '姓名不能为空'
+            } else if (user.student && !user.student.grade) {
+              user.valid = false
+              user.error = '学生年级不能为空'
+            } else if (user.admin && !user.admin.adminType) {
+              user.valid = false
+              user.error = '管理员类型不能为空'
             }
 
             users.push(user)
@@ -187,7 +246,11 @@ const BatchImportModal: React.FC<BatchImportModalProps> = ({
 
   // 下载模板
   const handleDownloadTemplate = useCallback(() => {
-    const template = 'username,realName,email,phone,roles\nzhangsan,张三,zhangsan@example.com,13800138000,student\nlisi,李四,lisi@example.com,,teacher'
+    const template = [
+      'username,realName,email,phone,roles,student_number,major_id,grade,class_name,teacher_number,department_id,title,office_location,admin_type',
+      'zhangsan,张三,zhangsan@example.com,13800138000,student,2023001,major-1,2023,1班,,,,,',
+      'lisi,李四,lisi@example.com,,teacher,,,,,T2023,dept-1,讲师,1号楼,',
+    ].join('\n')
     const blob = new Blob([template], { type: 'text/csv' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
@@ -286,7 +349,7 @@ const BatchImportModal: React.FC<BatchImportModalProps> = ({
               <div>
                 <p>文件格式要求：</p>
                 <ul style={{ paddingLeft: 20, margin: '8px 0' }}>
-                  <li>第一行为表头：username, realName, email, phone, roles</li>
+                  <li>第一行为表头：username, realName, email, phone, roles, student_number, major_id, grade, class_name, teacher_number, department_id, title, office_location, admin_type</li>
                   <li>roles 多个角色用分号分隔，如：student;teacher</li>
                 </ul>
               </div>

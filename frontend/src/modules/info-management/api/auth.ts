@@ -3,7 +3,7 @@
  * 处理登录、登出、用户信息等接口
  */
 import request from '@/shared/utils/request'
-import type { LoginResponse, AuthUserDto } from '@/shared/types'
+import type { LoginResponse, RefreshTokenResponse, AuthUserDto } from '@/shared/types'
 
 /** 登录请求参数 */
 export interface LoginRequest {
@@ -11,6 +11,36 @@ export interface LoginRequest {
   username: string
   /** 密码 */
   password: string
+}
+
+type AuthRole = { id?: string; code: string; name: string }
+type AuthUserResponse = Omit<AuthUserDto, 'roles' | 'roleDetails'> & {
+  roles?: string[] | AuthRole[]
+  roleDetails?: AuthRole[]
+}
+
+export interface VerifyResetTokenResponse {
+  valid: true
+  email: string
+}
+
+function normalizeAuthUser(user: AuthUserResponse): AuthUserDto {
+  const roles = user.roles ?? []
+  const hasObjectRoles = roles.length > 0 && typeof roles[0] === 'object'
+  const roleDetails = hasObjectRoles ? (roles as AuthRole[]) : user.roleDetails
+
+  return {
+    ...user,
+    roles: hasObjectRoles ? (roles as AuthRole[]).map((role) => role.code) : (roles as string[]),
+    roleDetails,
+  }
+}
+
+function normalizeLoginResponse(data: LoginResponse): LoginResponse {
+  return {
+    ...data,
+    user: normalizeAuthUser(data.user as AuthUserResponse),
+  }
 }
 
 /** 认证 API 模块 */
@@ -22,7 +52,8 @@ export const authApi = {
    */
   login: async (data: LoginRequest): Promise<LoginResponse> => {
     // 响应拦截器已经提取了 data 并转换为 camelCase
-    return request.post('/auth/login', data) as unknown as LoginResponse
+    const response = (await request.post('/auth/login', data)) as unknown as LoginResponse
+    return normalizeLoginResponse(response)
   },
 
   /**
@@ -34,7 +65,7 @@ export const authApi = {
     const refreshToken = authStorage ? JSON.parse(authStorage)?.state?.refreshToken : null
     // 没有 refreshToken 时不需要调用后端（logout 主要是废 refresh token）
     if (refreshToken) {
-      return request.post('/auth/logout', { refreshToken })
+      return request.post('/auth/logout', { refresh_token: refreshToken })
     }
   },
 
@@ -43,7 +74,8 @@ export const authApi = {
    * @returns 用户信息
    */
   me: async (): Promise<AuthUserDto> => {
-    return request.get('/auth/me')
+    const user = (await request.get('/auth/me')) as AuthUserResponse
+    return normalizeAuthUser(user)
   },
 
   /**
@@ -52,8 +84,8 @@ export const authApi = {
    */
   changePassword: async (data: { oldPassword: string; newPassword: string }): Promise<void> => {
     return request.post('/auth/change-password', {
-      oldPassword: data.oldPassword,
-      newPassword: data.newPassword,
+      old_password: data.oldPassword,
+      new_password: data.newPassword,
     })
   },
 
@@ -71,7 +103,7 @@ export const authApi = {
       username: data.username,
       password: data.password,
       email: data.email,
-      realName: data.realName,
+      real_name: data.realName,
     })
   },
 
@@ -95,7 +127,7 @@ export const authApi = {
    * 验证重置密码 Token
    * @param token 重置令牌
    */
-  verifyResetToken: async (token: string): Promise<void> => {
+  verifyResetToken: async (token: string): Promise<VerifyResetTokenResponse> => {
     return request.get('/auth/password/reset/verify', { params: { token } })
   },
 
@@ -106,20 +138,19 @@ export const authApi = {
   resetPassword: async (data: { token: string; newPassword: string }): Promise<void> => {
     return request.post('/auth/password/reset/confirm', {
       token: data.token,
-      newPassword: data.newPassword,
-      confirmPassword: data.newPassword,
+      new_password: data.newPassword,
     })
   },
 
   /**
    * 刷新 Token
    * @param refreshToken 刷新令牌
-   * @returns 新的登录响应
+   * @returns 新的访问令牌和刷新令牌
    */
-  refreshToken: async (refreshToken: string): Promise<LoginResponse> => {
+  refreshToken: async (refreshToken: string): Promise<RefreshTokenResponse> => {
     // 响应拦截器已经提取了 data 并转换为 camelCase
     return request.post('/auth/refresh', {
-      refreshToken,
-    }) as unknown as LoginResponse
+      refresh_token: refreshToken,
+    }) as unknown as RefreshTokenResponse
   },
 }

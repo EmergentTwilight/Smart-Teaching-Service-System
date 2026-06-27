@@ -29,7 +29,10 @@ export const authController = {
    */
   async refreshToken(req: Request, res: Response) {
     const { refreshToken } = req.body
-    const result = await authService.refreshToken(refreshToken)
+    const result = await authService.refreshToken(refreshToken, {
+      ipAddress: req.ip,
+      userAgent: req.get('user-agent') || undefined,
+    })
     success(res, result, '令牌刷新成功')
   },
 
@@ -105,12 +108,12 @@ export const authController = {
       error(res, '缺少重置令牌', 400)
       return
     }
-    const isValid = await authService.verifyResetToken(token)
-    if (!isValid) {
+    const result = await authService.verifyResetToken(token)
+    if (!result.valid) {
       error(res, '重置令牌无效或已过期', 400)
       return
     }
-    success(res, { valid: true }, '令牌有效')
+    success(res, { valid: true, email: result.email }, 'success')
   },
 
   /**
@@ -122,6 +125,6 @@ export const authController = {
       ipAddress: req.ip,
       userAgent: req.get('user-agent') || undefined,
     })
-    success(res, null, '密码重置成功，请使用新密码登录')
+    success(res, null, '密码重置成功')
   },
 }

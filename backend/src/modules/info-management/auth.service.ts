@@ -27,7 +27,6 @@ const LOGIN_FAILURE_WINDOW_SECONDS = 5 * 60
 const LOGIN_LOCK_SECONDS = 15 * 60
 const LOGIN_FAILURE_LIMIT = 5
 const PASSWORD_RESET_TOKEN_TTL_SECONDS = 60 * 60
-const ACTIVATION_TOKEN_TTL_SECONDS = 24 * 60 * 60
 
 type AuditMeta = {
   ipAddress?: string
@@ -142,11 +141,11 @@ function serializeUser(
     include: typeof userAuthInclude
   }>
 ) {
-  const roleDetails = user.userRoles.map((userRole) => ({
+  const roles = user.userRoles.map((userRole) => ({
+    id: userRole.role.id,
     code: userRole.role.code,
     name: userRole.role.name,
   }))
-  const roles = roleDetails.map((r) => r.code)
   const permissions = Array.from(
     new Set(
       user.userRoles.flatMap((userRole) =>
@@ -160,13 +159,12 @@ function serializeUser(
     username: user.username,
     email: user.email,
     phone: user.phone,
-    realName: user.realName,
-    avatarUrl: user.avatarUrl,
+    real_name: user.realName,
+    avatar_url: user.avatarUrl,
     gender: user.gender,
-    status: user.status.toLowerCase(),
-    lastLoginAt: user.lastLoginAt,
+    status: user.status,
+    last_login_at: user.lastLoginAt,
     roles,
-    roleDetails,
     permissions,
   }
 }
@@ -263,25 +261,6 @@ function issueAccessToken(
   )
 }
 
-/**
- * 创建账号激活令牌
- * @param userId 用户 ID
- * @returns 激活令牌
- */
-async function createActivationToken(userId: string): Promise<string> {
-  const token = generateOpaqueToken()
-
-  await prisma.activationToken.create({
-    data: {
-      userId,
-      tokenHash: hashToken(token),
-      expiresAt: new Date(Date.now() + ACTIVATION_TOKEN_TTL_SECONDS * 1000),
-    },
-  })
-
-  return token
-}
-
 export const authService = {
   /**
    * 用户登录
@@ -334,6 +313,8 @@ export const authService = {
           userId: user.id,
           tokenHash: hashToken(tokenValue),
           expiresAt: new Date(Date.now() + refreshTokenExpiresIn * 1000),
+          ipAddress: input.ipAddress,
+          userAgent: input.userAgent,
         },
       })
 
@@ -363,10 +344,10 @@ export const authService = {
     })
 
     return {
-      accessToken: issueAccessToken(updatedUser),
-      refreshToken: refreshTokenValue,
-      expiresIn: parseExpiresIn(config.jwt.accessTokenExpiresIn),
-      tokenType: 'Bearer',
+      access_token: issueAccessToken(updatedUser),
+      refresh_token: refreshTokenValue,
+      expires_in: parseExpiresIn(config.jwt.accessTokenExpiresIn),
+      token_type: 'Bearer',
       user: serializeUser(updatedUser),
     }
   },
@@ -376,7 +357,7 @@ export const authService = {
    * @param refreshTokenValue 刷新令牌
    * @returns 新的访问令牌和刷新令牌
    */
-  async refreshToken(refreshTokenValue: string) {
+  async refreshToken(refreshTokenValue: string, meta: AuditMeta = {}) {
     const storedToken = await prisma.refreshToken.findUnique({
       where: { tokenHash: hashToken(refreshTokenValue) },
       include: {
@@ -408,22 +389,24 @@ export const authService = {
     await prisma.$transaction([
       prisma.refreshToken.update({
         where: { id: storedToken.id },
-        data: { isUsed: true },
+        data: { isUsed: true, lastUsedAt: new Date() },
       }),
       prisma.refreshToken.create({
         data: {
           userId: storedToken.user.id,
           tokenHash: hashToken(newRefreshTokenValue),
           expiresAt: new Date(Date.now() + refreshTokenExpiresIn * 1000),
+          ipAddress: meta.ipAddress,
+          userAgent: meta.userAgent,
         },
       }),
     ])
 
     return {
-      accessToken: issueAccessToken(storedToken.user),
-      refreshToken: newRefreshTokenValue,
-      expiresIn: parseExpiresIn(config.jwt.accessTokenExpiresIn),
-      tokenType: 'Bearer',
+      access_token: issueAccessToken(storedToken.user),
+      refresh_token: newRefreshTokenValue,
+      expires_in: parseExpiresIn(config.jwt.accessTokenExpiresIn),
+      token_type: 'Bearer',
     }
   },
 
@@ -443,7 +426,7 @@ export const authService = {
         tokenHash: hashToken(input.refreshToken),
         isUsed: false,
       },
-      data: { isUsed: true },
+      data: { isUsed: true, revokedAt: new Date() },
     })
 
     if (result.count === 0) {
@@ -521,15 +504,12 @@ export const authService = {
       })
     }
 
-    // 创建激活令牌（仅通过邮件发送，不返回给客户端）
-    await createActivationToken(createdUser.id)
-
-    // 注意：activationToken 不返回给客户端，只通过邮件发送
     return {
       id: createdUser.id,
       username: createdUser.username,
       email: createdUser.email,
-      realName: createdUser.realName,
+      real_name: createdUser.realName,
+      status: createdUser.status,
     }
   },
 
@@ -590,12 +570,16 @@ export const authService = {
       }),
     ])
 
-    await sendPasswordResetEmail({
-      to: email,
-      username: user.username,
-      token,
-      expires_at: expiresAt.toISOString(),
-    })
+    try {
+      await sendPasswordResetEmail({
+        to: email,
+        username: user.username,
+        token,
+        expires_at: expiresAt.toISOString(),
+      })
+    } catch (error) {
+      console.error('Failed to send password reset email:', error)
+    }
   },
 
   /**
@@ -604,9 +588,12 @@ export const authService = {
    * @param newPassword 新密码
    * @param meta 审计信息
    */
-  async verifyResetToken(token: string): Promise<boolean> {
+  async verifyResetToken(
+    token: string
+  ): Promise<{ valid: true; email: string } | { valid: false; email?: undefined }> {
     const passwordResetToken = await prisma.passwordResetToken.findUnique({
       where: { tokenHash: hashToken(token) },
+      include: { user: { select: { email: true } } },
     })
 
     if (
@@ -614,10 +601,10 @@ export const authService = {
       passwordResetToken.isUsed ||
       passwordResetToken.expiresAt < new Date()
     ) {
-      return false
+      return { valid: false }
     }
 
-    return true
+    return { valid: true, email: passwordResetToken.user.email! }
   },
 
   async resetPassword(token: string, newPassword: string, meta: AuditMeta = {}) {

@@ -1,15 +1,15 @@
 ---
 filename: database-design.md
-title: Smart-Teaching-Service-System 数据库设计
+title: 数据库设计
 status: active
-version: 1.3.0
-last_updated_at: 2026-04-01
+version: 1.5.0
+last_updated_at: 2026-06-18
 last_updated_by: 程韬
 description: 智慧教学服务系统数据库设计，包含E-R图、所有数据表定义、字段类型和约束、索引设计
 link: https://tcncx9czflpz.feishu.cn/wiki/EDEKwJ9akirkkkkv52bcyUW0nmc
 ---
 
-# Smart-Teaching-Service-System 数据库设计
+# 数据库设计
 
 ---
 
@@ -79,6 +79,11 @@ erDiagram
     COURSE_OFFERING ||--o{ SCORE : "for"
     SCORE ||--o{ SCORE_MODIFICATION_LOG : "has"
 
+    %% 令牌
+    USER ||--o{ REFRESH_TOKEN : "has"
+    USER ||--o{ ACTIVATION_TOKEN : "has"
+    USER ||--o{ PASSWORD_RESET_TOKEN : "has"
+
     %% 日志
     USER ||--o{ SYSTEM_LOG : "generates"
 ```
@@ -100,11 +105,14 @@ erDiagram
 | phone         | VARCHAR(20)  |                  | 手机号                       |
 | real_name     | VARCHAR(50)  | NOT NULL         | 真实姓名                     |
 | avatar_url    | VARCHAR(500) |                  | 头像URL                      |
-| gender        | ENUM         |                  | 性别: male/female/other      |
-| status        | ENUM         | NOT NULL         | 状态: active/inactive/banned |
+| gender        | ENUM         |                  | 性别: MALE/FEMALE/OTHER      |
+| status        | ENUM         | NOT NULL         | 状态: ACTIVE/INACTIVE/BANNED |
 | last_login_at | TIMESTAMP    |                  | 最后登录时间                 |
+| deleted_at    | TIMESTAMP    |                  | 软删除时间                   |
 | created_at    | TIMESTAMP    | NOT NULL         | 创建时间                     |
 | updated_at    | TIMESTAMP    | NOT NULL         | 更新时间                     |
+
+**索引**：status, deleted_at, real_name, created_at
 
 #### Student - 学生表
 
@@ -133,7 +141,7 @@ erDiagram
 | 字段          | 类型 | 约束             | 说明                          |
 | ------------- | ---- | ---------------- | ----------------------------- |
 | user_id       | UUID | PK, FK -> User   | 用户ID                        |
-| admin_type    | ENUM | NOT NULL         | 类型: academic/super/security |
+| admin_type    | ENUM | NOT NULL         | 类型: ACADEMIC/SUPER/SECURITY |
 | department_id | UUID | FK -> Department | 所属部门                      |
 
 #### Department - 院系表
@@ -144,6 +152,8 @@ erDiagram
 | name        | VARCHAR(100) | NOT NULL | 院系名称 |
 | code        | VARCHAR(20)  | UNIQUE   | 院系代码 |
 | description | TEXT         |          | 描述     |
+| created_at  | TIMESTAMP    | NOT NULL | 创建时间 |
+| updated_at  | TIMESTAMP    | NOT NULL | 更新时间 |
 
 #### Major - 专业表
 
@@ -153,8 +163,11 @@ erDiagram
 | department_id | UUID         | FK -> Department | 所属院系                     |
 | name          | VARCHAR(100) | NOT NULL         | 专业名称                     |
 | code          | VARCHAR(20)  | UNIQUE           | 专业代码                     |
-| degree_type   | ENUM         |                  | 学位: bachelor/master/doctor |
+| description   | TEXT         |                  | 描述                         |
+| degree_type   | ENUM         |                  | 学位: BACHELOR/MASTER/DOCTOR |
 | total_credits | DECIMAL(5,1) |                  | 总学分要求                   |
+| created_at    | TIMESTAMP    | NOT NULL         | 创建时间                     |
+| updated_at    | TIMESTAMP    | NOT NULL         | 更新时间                     |
 
 #### Role - 角色表
 
@@ -167,13 +180,14 @@ erDiagram
 
 #### Permission - 权限表
 
-| 字段     | 类型         | 约束             | 说明                            |
-| -------- | ------------ | ---------------- | ------------------------------- |
-| id       | UUID         | PK               | 权限ID                          |
-| name     | VARCHAR(100) | NOT NULL         | 权限名称                        |
-| code     | VARCHAR(100) | UNIQUE, NOT NULL | 权限代码 (如 user:create)       |
-| resource | VARCHAR(50)  | NOT NULL         | 资源类型                        |
-| action   | VARCHAR(20)  | NOT NULL         | 操作: create/read/update/delete |
+| 字段        | 类型         | 约束             | 说明                            |
+| ----------- | ------------ | ---------------- | ------------------------------- |
+| id          | UUID         | PK               | 权限ID                          |
+| name        | VARCHAR(100) | NOT NULL         | 权限名称                        |
+| code        | VARCHAR(100) | UNIQUE, NOT NULL | 权限代码 (如 user:create)       |
+| resource    | VARCHAR(50)  | NOT NULL         | 资源类型                        |
+| action      | VARCHAR(20)  | NOT NULL         | 操作: create/read/update/delete |
+| description | TEXT         |                  | 描述                            |
 
 #### UserRole - 用户角色关联表
 
@@ -189,6 +203,135 @@ erDiagram
 | ------------- | ---- | ------ | ------ |
 | role_id       | UUID | PK, FK | 角色ID |
 | permission_id | UUID | PK, FK | 权限ID |
+
+#### RefreshToken - 刷新令牌表
+
+用于实现 JWT 刷新机制，存储长期有效的刷新令牌。支持令牌吊销和审计追踪。
+
+| 字段         | 类型         | 约束          | 说明                   |
+| ------------ | ------------ | ------------- | ---------------------- |
+| id           | UUID         | PK            | 令牌唯一标识           |
+| user_id      | UUID         | FK -> User    | 用户ID                 |
+| token_hash   | VARCHAR(255) | UNIQUE        | 令牌哈希（非明文存储） |
+| expires_at   | TIMESTAMP    | NOT NULL      | 过期时间               |
+| is_used      | BOOLEAN      | DEFAULT FALSE | 是否已使用             |
+| last_used_at | TIMESTAMP    |               | 最后使用时间           |
+| ip_address   | VARCHAR(45)  |               | 创建时的IP地址         |
+| user_agent   | TEXT         |               | 创建时的用户代理       |
+| revoked_at   | TIMESTAMP    |               | 吊销时间               |
+| created_at   | TIMESTAMP    | NOT NULL      | 创建时间               |
+
+**索引**：user_id, expires_at
+
+> **说明**：
+>
+> - 令牌存储哈希值而非明文，提高安全性
+> - is_used 字段用于标记令牌是否已使用，revoked_at 字段用于记录显式吊销时间
+> - 删除用户时级联删除相关令牌
+> - 角色变更/密码修改时会吊销所有该用户的刷新令牌
+
+#### ActivationToken - 账号激活令牌表
+
+兼容历史账号激活流程。当前注册主流程不依赖账号激活，但仍保留令牌表和接口以支持兼容场景。
+
+| 字段       | 类型         | 约束          | 说明                   |
+| ---------- | ------------ | ------------- | ---------------------- |
+| id         | UUID         | PK            | 令牌唯一标识           |
+| user_id    | UUID         | FK -> User    | 用户ID                 |
+| token_hash | VARCHAR(255) | UNIQUE        | 令牌哈希（非明文存储） |
+| expires_at | TIMESTAMP    | NOT NULL      | 过期时间               |
+| is_used    | BOOLEAN      | DEFAULT FALSE | 是否已使用             |
+| created_at | TIMESTAMP    | NOT NULL      | 创建时间               |
+
+**索引**：user_id, expires_at
+
+> **说明**：
+>
+> - 令牌存储哈希值而非明文，提高安全性
+> - is_used 字段用于标记令牌是否已使用
+> - 删除用户时级联删除相关令牌
+
+#### PasswordResetToken - 密码重置令牌表
+
+用于密码重置流程，通过邮件发送重置链接验证用户身份。
+
+| 字段       | 类型         | 约束          | 说明                   |
+| ---------- | ------------ | ------------- | ---------------------- |
+| id         | UUID         | PK            | 令牌唯一标识           |
+| user_id    | UUID         | FK -> User    | 用户ID                 |
+| token_hash | VARCHAR(255) | UNIQUE        | 令牌哈希（非明文存储） |
+| expires_at | TIMESTAMP    | NOT NULL      | 过期时间               |
+| is_used    | BOOLEAN      | DEFAULT FALSE | 是否已使用             |
+| created_at | TIMESTAMP    | NOT NULL      | 创建时间               |
+
+**索引**：user_id, expires_at
+
+> **说明**：
+>
+> - 令牌存储哈希值而非明文，提高安全性
+> - is_used 字段用于标记令牌是否已使用
+> - 删除用户时级联删除相关令牌
+
+#### 令牌表通用关系
+
+- User 1:N RefreshToken
+- User 1:N ActivationToken
+- User 1:N PasswordResetToken
+- 删除用户时级联删除所有相关令牌
+- 角色变更/密码修改时吊销所有 RefreshToken
+
+#### Prisma Schema（令牌表）
+
+```plaintext
+model RefreshToken {
+  id         String    @id @default(uuid())
+  userId     String    @map("user_id")
+  tokenHash  String    @unique @map("token_hash") @db.VarChar(255)
+  expiresAt  DateTime  @map("expires_at")
+  isUsed     Boolean   @default(false) @map("is_used")
+  lastUsedAt DateTime? @map("last_used_at")
+  ipAddress  String?   @map("ip_address") @db.VarChar(45)
+  userAgent  String?   @map("user_agent") @db.Text
+  revokedAt  DateTime? @map("revoked_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("refresh_tokens")
+}
+
+model ActivationToken {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  tokenHash String   @unique @map("token_hash") @db.VarChar(255)
+  expiresAt DateTime @map("expires_at")
+  isUsed    Boolean  @default(false) @map("is_used")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("activation_tokens")
+}
+
+model PasswordResetToken {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  tokenHash String   @unique @map("token_hash") @db.VarChar(255)
+  expiresAt DateTime @map("expires_at")
+  isUsed    Boolean  @default(false) @map("is_used")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("password_reset_tokens")
+}
+```
 
 #### SystemLog - 系统日志表
 
@@ -235,6 +378,40 @@ erDiagram
 | end_period         | INT  | NOT NULL             | 结束节次     |
 | notes              | TEXT |                      | 备注         |
 
+#### Rule - 排课约束规则表
+
+用于存储教师和课程的排课约束，支持硬约束和软约束。B 组自动排课算法的核心输入。
+
+| 字段        | 类型        | 约束     | 说明                       |
+| ----------- | ----------- | -------- | -------------------------- |
+| id          | UUID        | PK       | 规则唯一标识               |
+| target_type | VARCHAR(20) | NOT NULL | 目标类型：teacher / course |
+| target_id   | UUID        | NOT NULL | 目标 ID（教师或课程）      |
+| rules       | JSONB       | NOT NULL | 约束规则（JSON 格式）      |
+| created_at  | TIMESTAMP   | NOT NULL | 创建时间                   |
+| updated_at  | TIMESTAMP   | NOT NULL | 更新时间                   |
+
+**复合唯一约束**：(target_type, target_id)
+
+> **说明**：
+>
+> - target_type + target_id 组合唯一，每个教师/课程只有一套约束规则
+> - rules 字段为 JSON 格式，结构如下：
+>   ```json
+>   {
+>     "hardConstraints": {
+>       "unavailableTimeSlots": [{ "dayOfWeek": 1, "startPeriod": 1, "endPeriod": 2 }],
+>       "requiredRoomType": "多媒体"
+>     },
+>     "softConstraints": {
+>       "preferredTimeSlots": [{ "dayOfWeek": 1, "startPeriod": 3, "endPeriod": 4 }],
+>       "continuousPeriods": true,
+>       "preferredBuilding": "教学楼A"
+>     }
+>   }
+>   ```
+> - 硬约束（hardConstraints）必须遵守，软约束（softConstraints）尽量满足
+
 ---
 
 ### 2.3 智能选课 (Subsystem C)
@@ -247,11 +424,16 @@ erDiagram
 | code              | VARCHAR(20)  | UNIQUE, NOT NULL | 课程代码                        |
 | name              | VARCHAR(100) | NOT NULL         | 课程名称                        |
 | credits           | DECIMAL(3,1) | NOT NULL         | 学分                            |
+| hours             | INT          |                  | 学时                            |
 | course_type       | ENUM         | NOT NULL         | 类型: required/elective/general |
 | category          | VARCHAR(50)  |                  | 课程分类                        |
+| department_id     | UUID         | FK -> Department | 开课院系                        |
+| teacher_id        | UUID         | FK -> Teacher    | 课程负责人                      |
 | description       | TEXT         |                  | 课程描述                        |
 | assessment_method | TEXT         |                  | 考核方式                        |
-| status            | ENUM         | NOT NULL         | 状态: active/archived           |
+| status            | ENUM         | NOT NULL         | 状态: ACTIVE/ARCHIVED           |
+| created_at        | TIMESTAMP    | NOT NULL         | 创建时间                        |
+| updated_at        | TIMESTAMP    | NOT NULL         | 更新时间                        |
 
 #### CourseOffering - 课程开设表 (学期课程)
 
@@ -276,6 +458,8 @@ erDiagram
 | total_credits    | DECIMAL(5,1) | NOT NULL    | 总学分要求 |
 | required_credits | DECIMAL(5,1) |             | 必修学分   |
 | elective_credits | DECIMAL(5,1) |             | 选修学分   |
+| created_at       | TIMESTAMP    | NOT NULL    | 创建时间   |
+| updated_at       | TIMESTAMP    | NOT NULL    | 更新时间   |
 
 #### CurriculumCourse - 培养方案课程表
 
@@ -285,6 +469,23 @@ erDiagram
 | course_id           | UUID | PK, FK   | 课程ID                          |
 | course_type         | ENUM | NOT NULL | 类型: required/elective/general |
 | semester_suggestion | INT  |          | 建议修读学期                    |
+
+#### StudentCurriculumConfirmation - 学生培养方案确认记录表
+
+v2.0 需求报告要求学生确认培养方案，并将确认结果作为进入选课流程的前置条件。确认记录只保存当前登录学生对匹配培养方案的确认事实，不由前端传入学生身份决定。
+
+| 字段          | 类型      | 约束                          | 说明         |
+| ------------- | --------- | ----------------------------- | ------------ |
+| id            | UUID      | PK                            | 确认记录ID   |
+| student_id    | UUID      | FK -> Student, UNIQUE 组合项  | 学生ID       |
+| curriculum_id | UUID      | FK -> Curriculum, UNIQUE 组合项 | 培养方案ID   |
+| confirmed_at  | TIMESTAMP | NOT NULL                      | 确认时间     |
+| created_at    | TIMESTAMP | NOT NULL                      | 创建时间     |
+| updated_at    | TIMESTAMP | NOT NULL                      | 更新时间     |
+
+**唯一约束**：`(student_id, curriculum_id)`，同一学生对同一培养方案只保留一条确认记录，重复确认刷新 `confirmed_at`。
+
+**有效性规则**：确认记录的 `confirmed_at` 必须不早于对应 `Curriculum.updated_at`，才视为当前有效确认。培养方案被更新后无需 A 组额外写失效字段，C 组选课流程在读取时按该规则要求学生重新确认。
 
 #### Semester - 学期表
 
@@ -326,7 +527,30 @@ erDiagram
 | start_time  | TIMESTAMP    | NOT NULL       | 开始时间                                  |
 | end_time    | TIMESTAMP    | NOT NULL       | 结束时间                                  |
 | max_credits | DECIMAL(3,1) |                | 最大选课学分                              |
+| allow_drop  | BOOLEAN      | NOT NULL       | 是否允许该阶段退课                        |
 | is_active   | BOOLEAN      | NOT NULL       | 是否启用                                  |
+
+#### AiAdvisorSavedRecommendation - AI 建议保存快照表
+
+学生可以将 AI 推荐方案或单门课程解释保存为个人回看记录。保存内容只是生成当时的快照，不作为正式选课依据；学生后续提交选课时仍必须重新经过容量、冲突、阶段、先修、培养方案确认和最大学分校验。
+
+| 字段               | 类型         | 约束                           | 说明                       |
+| ------------------ | ------------ | ------------------------------ | -------------------------- |
+| id                 | UUID         | PK                             | 保存记录ID                 |
+| student_id         | UUID         | FK -> Student                  | 学生ID，只能保存本人记录   |
+| semester_id        | UUID         | FK -> Semester, nullable       | 生成建议时的学期           |
+| course_offering_id | UUID         | FK -> CourseOffering, nullable | 单门课程解释对应的开课     |
+| record_type        | ENUM         | NOT NULL                       | recommendation/explanation |
+| title              | VARCHAR(120) | NOT NULL                       | 学生可见标题               |
+| question           | TEXT         |                                | 学生提问或偏好摘要         |
+| request_payload    | JSONB        |                                | 请求快照                   |
+| result_payload     | JSONB        | NOT NULL                       | 推荐或解释结果快照         |
+| created_at         | TIMESTAMP    | NOT NULL                       | 创建时间                   |
+| updated_at         | TIMESTAMP    | NOT NULL                       | 更新时间                   |
+
+**权限规则**：仅学生本人可查询、保存和删除自己的 AI 建议快照，接口不得接收前端传入的 `student_id`。
+
+**边界规则**：保存快照不得写入 `Enrollment`，不得影响 `CourseOffering.enrolled_count`，不得绕过正式选课服务校验。
 
 ---
 
@@ -549,12 +773,33 @@ erDiagram
 
 ---
 
-**文档版本: 1.3**
-**最后更新: 2026-04-01**
+**文档版本: 1.5**
+**最后更新: 2026-06-18**
 
 ---
 
 ## 变更记录
+
+### v1.5 (2026-06-18)
+
+- 更新 User 表：新增 deleted_at 软删除字段和 deleted_at 索引说明，统一 gender/status 枚举写法。
+- 更新 Department 表：新增 created_at、updated_at 字段。
+- 更新 Major 表：新增 description、created_at、updated_at 字段。
+- 更新 Permission 表：新增 description 字段。
+- 更新 RefreshToken 表：补充 last_used_at、ip_address、user_agent、revoked_at 字段。
+- 更新令牌表 Prisma 示例，改为当前实现使用的 camelCase 字段和 @map 映射写法。
+- 更新 Course 表：补充 created_at、updated_at 字段，统一 status 枚举写法。
+- 更新 Curriculum 表：新增 created_at、updated_at 字段。
+- 更新 ActivationToken 说明，标明账号激活为兼容保留流程。
+
+### v1.4 (2026-05-22)
+
+- 新增 RefreshToken 表（JWT 刷新令牌，支持吊销和审计）
+- 统一三张令牌表（RefreshToken / ActivationToken / PasswordResetToken）为相同 schema 格式
+- 字段名统一为 snake_case（userId → user_id, tokenHash → token_hash, expiresAt → expires_at, isUsed → is_used, createdAt → created_at）
+- 令牌表字段约束规范化（expires_at 添加 NOT NULL）
+- 更新 E-R 图：添加令牌表关系
+- 更新 Prisma Schema：三张令牌表统一风格
 
 ### v1.3 (2026-04-01)
 
@@ -584,70 +829,3 @@ erDiagram
 ### v1.0 (2026-03-22)
 
 - 初始版本
-
-#### ActivationToken - 账号激活令牌表
-
-| 字段      | 类型         | 约束               | 说明         |
-| --------- | ------------ | ------------------ | ------------ |
-| id        | UUID         | PK                 | 令牌唯一标识 |
-| userId    | UUID         | FK -> User, 用户ID |              |
-| tokenHash | VARCHAR(255) | UNIQUE             | 令牌哈希     |
-| expiresAt | TIMESTAMP    |                    | 过期时间     |
-| isUsed    | BOOLEAN      | DEFAULT false      | 是否已使用   |
-| createdAt | TIMESTAMP    |                    | 创建时间     |
-
-#### PasswordResetToken - 密码重置令牌表
-
-| 字段      | 类型         | 约束          | 说明         |
-| --------- | ------------ | ------------- | ------------ |
-| id        | UUID         | PK            | 令牌唯一标识 |
-| userId    | UUID         | FK -> User    | 用户ID       |
-| tokenHash | VARCHAR(255) | UNIQUE        | 令牌哈希     |
-| expiresAt | TIMESTAMP    |               | 过期时间     |
-| isUsed    | BOOLEAN      | DEFAULT false | 是否已使用   |
-| createdAt | TIMESTAMP    |               | 创建时间     |
-
-#### 模型关系
-
-- User 1:N ActivationToken
-- User 1:N PasswordResetToken
-- 删除用户时级联删除相关令牌
-
-#### 索引优化
-
-- userId 索引
-- expiresAt 索引（过期时间)
-
-#### Prisma Schema
-
-```plaintext
-model ActivationToken {
-  id        String   @id @default(uuid())
-  userId    String
-  tokenHash String   @unique @db.VarChar(255)
-  expiresAt DateTime
-  isUsed    Boolean  @default(false)
-  createdAt DateTime @default(now())
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([userId])
-  @@index([expiresAt])
-  @@map("activation_tokens")
-}
-
-model PasswordResetToken {
-  id        String   @id @default(uuid())
-  userId    String
-  tokenHash String   @unique @db.VarChar(255)
-  expiresAt DateTime
-  isUsed    Boolean  @default(false)
-  createdAt DateTime @default(now())
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([userId])
-  @@index([expiresAt])
-  @@map("password_reset_tokens")
-}
-```

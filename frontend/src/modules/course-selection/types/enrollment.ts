@@ -1,0 +1,165 @@
+import type { PaginationMeta } from './common';
+
+export type EnrollmentStatus = 'enrolled' | 'dropped' | 'withdrawn';
+
+export interface EnrollmentItem {
+  enrollmentId: string;
+  status: EnrollmentStatus;
+  studyStatus?: 'completed' | 'in_progress' | 'not_started';
+  enrolledAt: string;
+  droppedAt?: string | null;
+  courseOffering: {
+    id: string;
+    courseName: string;
+    courseCode: string;
+    credits: number;
+    courseType: 'required' | 'elective' | 'general';
+    teacherName: string;
+    semesterName: string;
+  };
+}
+
+export interface EnrollmentSummary {
+  enrolledCount: number;
+  enrolledCredits: number;
+}
+
+export interface EnrollmentListPayload {
+  items: EnrollmentItem[];
+  summary: EnrollmentSummary;
+  pagination: PaginationMeta;
+}
+
+export interface EnrollmentMutationCourseOffering {
+  id: string;
+  courseCode: string;
+  courseName: string;
+  capacity: number;
+  enrolledCount: number;
+  remainingCapacity: number;
+}
+
+export interface EnrollmentCreditSummary {
+  currentSelectedCredits: number;
+  maxCredits: number;
+}
+
+export interface EnrollmentMutationPayload {
+  enrollment: {
+    id: string;
+    status: EnrollmentStatus;
+    enrolledAt: string;
+    droppedAt?: string | null;
+  };
+  courseOffering: EnrollmentMutationCourseOffering;
+  creditSummary?: EnrollmentCreditSummary;
+}
+
+export interface EnrollmentQuery {
+  page?: number;
+  pageSize?: number;
+  semesterId?: string;
+  status?: EnrollmentStatus;
+  keyword?: string;
+}
+
+export interface CreateEnrollmentPayload {
+  courseOfferingId: string;
+  clientRequestId?: string;
+  reason?: string;
+}
+
+export interface DropEnrollmentPayload {
+  reason?: string;
+  clientRequestId?: string;
+}
+
+export interface TimetableSlot {
+  enrollmentId: string;
+  courseOfferingId: string;
+  courseName: string;
+  courseCode: string;
+  teacherName: string;
+  credits: number;
+  dayOfWeek: number;
+  startWeek: number;
+  endWeek: number;
+  startPeriod: number;
+  endPeriod: number;
+  classroom?: string | null;
+}
+
+export interface MissingScheduleItem {
+  courseOfferingId: string;
+  courseName: string;
+  message: string;
+}
+
+export interface TimetablePayload {
+  semester: {
+    id: string;
+    name: string;
+  };
+  printable: boolean;
+  items: TimetableSlot[];
+  missingScheduleItems: MissingScheduleItem[];
+}
+
+export interface TimetableSemesterItem {
+  id: string;
+  name: string;
+  status: 'upcoming' | 'current' | 'ended';
+  startDate: string;
+  endDate: string;
+  isCurrent: boolean;
+  isDefault: boolean;
+  enrolledCount: number;
+  scheduledItemCount: number;
+  missingScheduleCount: number;
+}
+
+export interface TimetableSemesterListPayload {
+  items: TimetableSemesterItem[];
+  defaultSemesterId?: string;
+}
+
+export interface RosterStudentItem {
+  studentNumber: string;
+  studentName: string;
+  majorName?: string;
+  className?: string;
+  enrollmentStatus: EnrollmentStatus;
+  enrolledAt: string;
+}
+
+export interface RosterPayload {
+  offering: RosterOfferingInfo;
+  students: RosterStudentItem[];
+}
+
+export interface RosterOfferingInfo {
+  offeringId: string;
+  courseName: string;
+  teacherName: string;
+}
+
+export interface PaginatedRosterPayload extends RosterPayload {
+  pagination: PaginationMeta;
+}
+
+export interface RosterQuery {
+  status?: EnrollmentStatus;
+  keyword?: string;
+  page?: number;
+  pageSize?: number;
+}
+
+export interface RosterExportQuery {
+  status?: EnrollmentStatus;
+  format?: 'xlsx';
+}
+
+export interface RosterExportResult {
+  blob: Blob;
+  fileName: string;
+}

@@ -29,7 +29,7 @@ const Dashboard: React.FC = () => {
     const fetchStats = async () => {
       try {
         const stats = await usersApi.getStats();
-        setUserCount(stats.totalCount);
+        setUserCount(stats.total);
       } catch (error) {
         console.error('Failed to fetch user stats:', error);
       }

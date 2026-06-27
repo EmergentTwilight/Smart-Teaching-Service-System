@@ -99,7 +99,9 @@ function buildUser(overrides: Record<string, unknown> = {}) {
     userRoles: [
       {
         role: {
+          id: 'role-1',
           code: 'student',
+          name: '学生',
           permissions: [
             { permission: { code: 'course:read' } },
             { permission: { code: 'profile:update' } },
@@ -108,7 +110,9 @@ function buildUser(overrides: Record<string, unknown> = {}) {
       },
       {
         role: {
+          id: 'role-2',
           code: 'assistant',
+          name: '助教',
           permissions: [{ permission: { code: 'course:read' } }],
         },
       },
@@ -188,11 +192,14 @@ describe('AuthService', () => {
         userAgent: 'vitest',
       })
 
-      expect(result.accessToken).toEqual(expect.any(String))
-      expect(result.refreshToken).toEqual(expect.any(String))
-      expect(result.expiresIn).toBe(7200)
-      expect(result.tokenType).toBe('Bearer')
-      expect(result.user.roles).toEqual(['student', 'assistant'])
+      expect(result.access_token).toEqual(expect.any(String))
+      expect(result.refresh_token).toEqual(expect.any(String))
+      expect(result.expires_in).toBe(7200)
+      expect(result.token_type).toBe('Bearer')
+      expect(result.user.roles).toEqual([
+        { id: 'role-1', code: 'student', name: '学生' },
+        { id: 'role-2', code: 'assistant', name: '助教' },
+      ])
       expect(result.user.permissions).toEqual(['course:read', 'profile:update'])
       expect(prismaMock.user.update).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -296,18 +303,18 @@ describe('AuthService', () => {
 
       const result = await authService.refreshToken('refresh-token-value')
 
-      expect(result.accessToken).toEqual(expect.any(String))
-      expect(result.refreshToken).toEqual(expect.any(String))
-      expect(result.refreshToken).not.toBe('refresh-token-value')
+      expect(result.access_token).toEqual(expect.any(String))
+      expect(result.refresh_token).toEqual(expect.any(String))
+      expect(result.refresh_token).not.toBe('refresh-token-value')
       expect(prismaMock.refreshToken.update).toHaveBeenCalledWith({
         where: { id: 'refresh-1' },
-        data: { isUsed: true },
+        data: { isUsed: true, lastUsedAt: expect.any(Date) },
       })
       expect(prismaMock.refreshToken.create).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({
             userId: 'user-1',
-            tokenHash: sha256(result.refreshToken),
+            tokenHash: sha256(result.refresh_token),
           }),
         })
       )
@@ -358,7 +365,7 @@ describe('AuthService', () => {
           tokenHash: sha256('refresh-token'),
           isUsed: false,
         },
-        data: { isUsed: true },
+        data: { isUsed: true, revokedAt: expect.any(Date) },
       })
       expect(prismaMock.systemLog.create).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -382,19 +389,19 @@ describe('AuthService', () => {
     })
   })
 
-  // 测试注册流程中的冲突校验、默认角色和激活令牌创建。
+  // 测试注册流程中的冲突校验和默认角色分配。
   describe('register', () => {
-    it('应该成功注册新用户，并分配默认学生角色与激活令牌', async () => {
+    it('应该成功注册新用户，并分配默认学生角色', async () => {
       prismaMock.user.findUnique.mockResolvedValue(null)
       prismaMock.user.create.mockResolvedValue({
         id: 'user-1',
         username: 'alice',
         email: 'alice@example.com',
         realName: 'Alice',
+        status: 'ACTIVE',
       })
       prismaMock.role.findUnique.mockResolvedValue({ id: 'role-student', code: 'student' })
       prismaMock.userRole.create.mockResolvedValue({ id: 'user-role-1' })
-      prismaMock.activationToken.create.mockResolvedValue({ id: 'activation-1' })
 
       const result = await authService.register({
         username: 'alice',
@@ -409,8 +416,8 @@ describe('AuthService', () => {
           id: 'user-1',
           username: 'alice',
           email: 'alice@example.com',
-          realName: 'Alice',
-          // 注意：activationToken 不再返回给客户端，只通过邮件发送
+          real_name: 'Alice',
+          status: 'ACTIVE',
         })
       )
       expect(prismaMock.user.create).toHaveBeenCalledWith(
@@ -428,14 +435,7 @@ describe('AuthService', () => {
           roleId: 'role-student',
         },
       })
-      expect(prismaMock.activationToken.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({
-            userId: 'user-1',
-            // 注意：activationToken 不再返回，所以不验证 tokenHash
-          }),
-        })
-      )
+      expect(prismaMock.activationToken.create).not.toHaveBeenCalled()
     })
 
     it('应该拒绝弱密码、重复用户名和重复邮箱', async () => {
@@ -673,7 +673,10 @@ describe('AuthService', () => {
         expect.objectContaining({
           id: 'user-1',
           username: 'alice',
-          roles: ['student', 'assistant'],
+          roles: [
+            { id: 'role-1', code: 'student', name: '学生' },
+            { id: 'role-2', code: 'assistant', name: '助教' },
+          ],
           permissions: ['course:read', 'profile:update'],
         })
       )

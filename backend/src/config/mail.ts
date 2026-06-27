@@ -21,7 +21,7 @@ let transporter: nodemailer.Transporter | null = null
 function getTransporter(): nodemailer.Transporter {
   if (!transporter) {
     // 检查 SMTP 配置是否存在
-    if (!config.smtp.host || config.smtp.host === 'smtp.example.com') {
+    if (config.nodeEnv === 'test' || !config.smtp.host || config.smtp.host === 'smtp.example.com') {
       console.warn(
         '⚠️ SMTP_HOST not configured, password reset emails will be logged to console only'
       )

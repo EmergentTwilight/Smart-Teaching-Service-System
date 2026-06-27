@@ -33,6 +33,8 @@ model User {
   status       UserStatus @default(ACTIVE)
   /// 最后登录时间
   lastLoginAt  DateTime?  @map("last_login_at")
+  /// 软删除时间
+  deletedAt    DateTime?  @map("deleted_at")
   /// 创建时间
   createdAt    DateTime   @default(now()) @map("created_at")
   /// 更新时间
@@ -52,6 +54,7 @@ model User {
 
   // 索引优化：常用查询字段
   @@index([status]) // 按状态筛选用户
+  @@index([deletedAt]) // 软删除筛选
   @@index([realName]) // 按姓名搜索
   @@index([createdAt]) // 按创建时间排序
   @@map("users")
@@ -61,17 +64,25 @@ model User {
 /// 用于实现 JWT 刷新机制，存储长期有效的刷新令牌
 model RefreshToken {
   /// 令牌唯一标识
-  id        String   @id @default(uuid())
+  id         String    @id @default(uuid())
   /// 用户ID
-  userId    String   @map("user_id")
+  userId     String    @map("user_id")
   /// 令牌哈希（存储哈希值而非明文，提高安全性）
-  tokenHash String   @unique @map("token_hash") @db.VarChar(255)
+  tokenHash  String    @unique @map("token_hash") @db.VarChar(255)
   /// 过期时间
-  expiresAt DateTime @map("expires_at")
+  expiresAt  DateTime  @map("expires_at")
   /// 是否已使用（刷新令牌只能使用一次）
-  isUsed    Boolean  @default(false) @map("is_used")
+  isUsed     Boolean   @default(false) @map("is_used")
+  /// 最后使用时间
+  lastUsedAt DateTime? @map("last_used_at")
+  /// 创建时的IP地址
+  ipAddress  String?   @map("ip_address") @db.VarChar(45)
+  /// 创建时的用户代理
+  userAgent  String?   @map("user_agent") @db.Text
+  /// 吊销时间
+  revokedAt  DateTime? @map("revoked_at")
   /// 创建时间
-  createdAt DateTime @default(now()) @map("created_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -141,10 +152,11 @@ model Student {
   /// 班级名称
   className     String? @map("class_name") @db.VarChar(20)
 
-  enrollments Enrollment[]
-  testResults TestResult[]
-  scores      Score[]
-  gpaRecords  GPARecord[]
+  enrollments                   Enrollment[]
+  testResults                   TestResult[]
+  scores                        Score[]
+  curriculumConfirmations       StudentCurriculumConfirmation[]
+  savedAiAdvisorRecommendations AiAdvisorSavedRecommendation[]
 
   // 索引优化：常用查询字段
   @@index([majorId]) // 按专业查询学生
@@ -197,13 +209,17 @@ model Admin {
 /// 院系表
 model Department {
   /// 院系ID
-  id          String  @id @default(uuid())
+  id          String   @id @default(uuid())
   /// 院系名称
-  name        String  @db.VarChar(100)
+  name        String   @db.VarChar(100)
   /// 院系代码
-  code        String? @unique @db.VarChar(20)
+  code        String?  @unique @db.VarChar(20)
   /// 描述
-  description String? @db.Text
+  description String?  @db.Text
+  /// 创建时间
+  createdAt   DateTime @default(now()) @map("created_at")
+  /// 更新时间
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at")
 
   majors   Major[]
   teachers Teacher[]
@@ -224,10 +240,16 @@ model Major {
   name         String      @db.VarChar(100)
   /// 专业代码
   code         String?     @unique @db.VarChar(20)
+  /// 描述
+  description  String?     @db.Text
   /// 学位类型
   degreeType   DegreeType? @map("degree_type")
   /// 总学分要求
   totalCredits Decimal?    @map("total_credits") @db.Decimal(5, 1)
+  /// 创建时间
+  createdAt    DateTime    @default(now()) @map("created_at")
+  /// 更新时间
+  updatedAt    DateTime    @default(now()) @updatedAt @map("updated_at")
 
   students    Student[]
   curriculums Curriculum[]
@@ -255,15 +277,17 @@ model Role {
 /// 权限表
 model Permission {
   /// 权限ID
-  id       String @id @default(uuid())
+  id          String  @id @default(uuid())
   /// 权限名称
-  name     String @db.VarChar(100)
+  name        String  @db.VarChar(100)
   /// 权限代码
-  code     String @unique @db.VarChar(100)
+  code        String  @unique @db.VarChar(100)
   /// 资源
-  resource String @db.VarChar(50)
+  resource    String  @db.VarChar(50)
   /// 操作
-  action   String @db.VarChar(20)
+  action      String  @db.VarChar(20)
+  /// 描述
+  description String? @db.Text
 
   roles RolePermission[]
 
@@ -386,6 +410,50 @@ model Schedule {
   @@map("schedules")
 }
 
+/// 约束规则表
+model Rule {
+  /// 规则唯一标识（UUID）
+  id         String   @id @default(uuid())
+  /// 规则应用的目标类型：teacher（教师） 或 course（课程）
+  targetType String
+  /// 规则应用的目标 ID（对应 teacher.id 或 course.id）
+  targetId   String
+  /// 排课约束规则（JSON格式）
+  rules      Json
+  /// 创建时间
+  createdAt  DateTime @default(now())
+  /// 最后更新时间
+  updatedAt  DateTime @updatedAt
+
+  @@unique([targetType, targetId])
+  @@map("rules")
+}
+
+/// Json 结构说明：
+/// {
+///   "hardConstraints": {          // 硬约束（必须遵守）
+///     "unavailableTimeSlots": [    // 不可用时段列表
+///       {
+///         "dayOfWeek": 1,         // 星期几（1=周一，2=周二，...，7=周日）
+///         "startPeriod": 1,       // 开始节次（第几节课）
+///         "endPeriod": 2          // 结束节次（第几节课）
+///       }
+///     ],
+///     "requiredRoomType": "string" // 要求的教室类型（可选，如"多媒体"、"实验室"）
+///   },
+///   "softConstraints": {          // 软约束（优先满足，可优化）
+///     "preferredTimeSlots": [      // 偏好时段列表
+///       {
+///         "dayOfWeek": 1,
+///         "startPeriod": 3,
+///         "endPeriod": 4
+///       }
+///     ],
+///     "continuousPeriods": true,   // 是否偏好连续排课（true=是，false=否）
+///     "preferredBuilding": "string" // 偏好教学楼（可选）
+///   }
+/// }
+
 // ==================== 选课模块 (Subsystem C) ====================
 
 /// 学期表
@@ -401,9 +469,9 @@ model Semester {
   /// 状态
   status    SemesterStatus @default(UPCOMING)
 
-  courseOfferings  CourseOffering[]
-  selectionPeriods SelectionPeriod[]
-  gpaRecords       GPARecord[]
+  courseOfferings               CourseOffering[]
+  selectionPeriods              SelectionPeriod[]
+  savedAiAdvisorRecommendations AiAdvisorSavedRecommendation[]
 
   @@map("semesters")
 }
@@ -437,7 +505,7 @@ model Course {
   /// 创建时间
   createdAt        DateTime     @default(now()) @map("created_at")
   /// 更新时间
-  updatedAt        DateTime     @updatedAt @map("updated_at")
+  updatedAt        DateTime     @default(now()) @updatedAt @map("updated_at")
 
   department        Department?          @relation(fields: [departmentId], references: [id])
   teacher           Teacher?             @relation(fields: [teacherId], references: [userId])
@@ -467,14 +535,15 @@ model CourseOffering {
   /// 状态
   status        OfferingStatus @default(PLANNED)
 
-  course      Course       @relation(fields: [courseId], references: [id])
-  semester    Semester     @relation(fields: [semesterId], references: [id])
-  teacher     Teacher      @relation(fields: [teacherId], references: [userId])
-  schedules   Schedule[]
-  enrollments Enrollment[]
-  posts       ForumPost[]
-  testPapers  TestPaper[]
-  scores      Score[]
+  course                        Course                         @relation(fields: [courseId], references: [id])
+  semester                      Semester                       @relation(fields: [semesterId], references: [id])
+  teacher                       Teacher                        @relation(fields: [teacherId], references: [userId])
+  schedules                     Schedule[]
+  enrollments                   Enrollment[]
+  posts                         ForumPost[]
+  testPapers                    TestPaper[]
+  scores                        Score[]
+  savedAiAdvisorRecommendations AiAdvisorSavedRecommendation[]
 
   @@map("course_offerings")
 }
@@ -509,11 +578,40 @@ model Curriculum {
   requiredCredits Decimal? @map("required_credits") @db.Decimal(5, 1)
   /// 选修学分
   electiveCredits Decimal? @map("elective_credits") @db.Decimal(5, 1)
+  /// 创建时间
+  createdAt       DateTime @default(now()) @map("created_at")
+  /// 更新时间
+  updatedAt       DateTime @default(now()) @updatedAt @map("updated_at")
 
-  major   Major              @relation(fields: [majorId], references: [id])
-  courses CurriculumCourse[]
+  major         Major                           @relation(fields: [majorId], references: [id])
+  courses       CurriculumCourse[]
+  confirmations StudentCurriculumConfirmation[]
 
   @@map("curriculums")
+}
+
+/// 学生培养方案确认记录表
+model StudentCurriculumConfirmation {
+  /// 确认记录ID
+  id           String   @id @default(uuid())
+  /// 学生ID
+  studentId    String   @map("student_id")
+  /// 培养方案ID
+  curriculumId String   @map("curriculum_id")
+  /// 确认时间
+  confirmedAt  DateTime @default(now()) @map("confirmed_at")
+  /// 创建时间
+  createdAt    DateTime @default(now()) @map("created_at")
+  /// 更新时间
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  student    Student    @relation(fields: [studentId], references: [userId], onDelete: Cascade)
+  curriculum Curriculum @relation(fields: [curriculumId], references: [id], onDelete: Cascade)
+
+  @@unique([studentId, curriculumId])
+  @@index([studentId])
+  @@index([curriculumId])
+  @@map("student_curriculum_confirmations")
 }
 
 /// 培养方案课程关联表
@@ -571,12 +669,49 @@ model SelectionPeriod {
   endTime    DateTime       @map("end_time")
   /// 最大学分
   maxCredits Decimal?       @map("max_credits") @db.Decimal(3, 1)
+  /// 是否允许退课
+  allowDrop  Boolean        @default(false) @map("allow_drop")
   /// 是否激活
   isActive   Boolean        @default(false) @map("is_active")
 
   semester Semester @relation(fields: [semesterId], references: [id])
 
   @@map("selection_periods")
+}
+
+/// AI 辅助选课保存快照表
+model AiAdvisorSavedRecommendation {
+  /// 保存记录ID
+  id               String                   @id @default(uuid())
+  /// 学生ID
+  studentId        String                   @map("student_id")
+  /// 学期ID
+  semesterId       String?                  @map("semester_id")
+  /// 关联开课ID，仅解释单门课程时保存
+  courseOfferingId String?                  @map("course_offering_id")
+  /// 保存类型
+  recordType       AiAdvisorSavedRecordType @map("record_type")
+  /// 学生可见标题
+  title            String                   @db.VarChar(120)
+  /// 保存时的问题或偏好摘要
+  question         String?                  @db.Text
+  /// 请求快照
+  requestPayload   Json?                    @map("request_payload")
+  /// AI 推荐或解释结果快照
+  resultPayload    Json                     @map("result_payload")
+  /// 创建时间
+  createdAt        DateTime                 @default(now()) @map("created_at")
+  /// 更新时间
+  updatedAt        DateTime                 @default(now()) @updatedAt @map("updated_at")
+
+  student        Student         @relation(fields: [studentId], references: [userId], onDelete: Cascade)
+  semester       Semester?       @relation(fields: [semesterId], references: [id], onDelete: SetNull)
+  courseOffering CourseOffering? @relation(fields: [courseOfferingId], references: [id], onDelete: SetNull)
+
+  @@index([studentId, createdAt])
+  @@index([semesterId])
+  @@index([courseOfferingId])
+  @@map("ai_advisor_saved_recommendations")
 }
 
 // ==================== 论坛模块 (Subsystem D) ====================
@@ -648,7 +783,7 @@ model ForumAttachment {
   /// 附件ID
   id         String   @id @default(uuid())
   /// 帖子ID
-  postId     String   @map("post_id")
+  postId     String?  @map("post_id")
   /// 文件名
   fileName   String   @map("file_name") @db.VarChar(255)
   /// 文件路径
@@ -656,11 +791,11 @@ model ForumAttachment {
   /// 文件大小
   fileSize   BigInt   @map("file_size")
   /// 文件类型
-  fileType   String?  @map("file_type") @db.VarChar(50)
+  fileType   String?  @map("file_type") @db.VarChar(150)
   /// 上传时间
   uploadedAt DateTime @default(now()) @map("uploaded_at")
 
-  post ForumPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  post ForumPost? @relation(fields: [postId], references: [id], onDelete: Cascade)
 
   @@map("forum_attachments")
 }
@@ -830,7 +965,7 @@ model Answer {
   /// 学生答案
   studentAnswer  String?  @map("student_answer") @db.Text
   /// 是否正确
-  isCorrect      Boolean?
+  isCorrect      Boolean? @map("is_correct")
   /// 得分
   score          Decimal?
 
@@ -908,32 +1043,6 @@ model ScoreModificationLog {
   modifier User  @relation(fields: [modifierId], references: [id])
 
   @@map("score_modification_logs")
-}
-
-/// GPA记录表
-model GPARecord {
-  /// GPA记录ID
-  id            String   @id @default(uuid())
-  /// 学生ID
-  studentId     String   @map("student_id")
-  /// 学期ID
-  semesterId    String   @map("semester_id")
-  /// 总学分
-  totalCredits  Decimal? @map("total_credits") @db.Decimal(5, 1)
-  /// 已获学分
-  earnedCredits Decimal? @map("earned_credits") @db.Decimal(5, 1)
-  /// 学期GPA
-  semesterGpa   Decimal? @map("semester_gpa") @db.Decimal(3, 2)
-  /// 累计GPA
-  cumulativeGpa Decimal? @map("cumulative_gpa") @db.Decimal(3, 2)
-  /// 计算时间
-  calculatedAt  DateTime @default(now()) @map("calculated_at")
-
-  student  Student  @relation(fields: [studentId], references: [userId])
-  semester Semester @relation(fields: [semesterId], references: [id])
-
-  @@unique([studentId, semesterId])
-  @@map("gpa_records")
 }
 
 // ==================== 枚举类型 ====================
@@ -1079,4 +1188,10 @@ enum ScoreStatus {
   DRAFT
   SUBMITTED
   CONFIRMED
+}
+
+/// AI 辅助保存记录类型
+enum AiAdvisorSavedRecordType {
+  RECOMMENDATION
+  EXPLANATION
 }

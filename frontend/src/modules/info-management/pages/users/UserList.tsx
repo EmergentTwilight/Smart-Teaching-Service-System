@@ -16,6 +16,7 @@ import {
   Col,
   Alert,
   Modal,
+  Switch,
 } from 'antd'
 import {
   PlusOutlined,
@@ -23,6 +24,10 @@ import {
   DeleteOutlined,
   ReloadOutlined,
   UploadOutlined,
+  KeyOutlined,
+  SafetyOutlined,
+  TeamOutlined,
+  ApiOutlined,
 } from '@ant-design/icons'
 import type { ColumnsType, TableProps } from 'antd/es/table'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -37,7 +42,10 @@ import BatchStatusModal from './BatchStatusModal'
 import BatchDeleteModal from './BatchDeleteModal'
 import RoleAssignModal from './RoleAssignModal'
 import UserPermissionsDrawer from './UserPermissionsDrawer'
-import ChangePasswordModal from './ChangePasswordModal'
+import ResetPasswordModal from './ResetPasswordModal'
+import UserStatusModal from './UserStatusModal'
+import UserTokensModal from '../../components/UserTokensModal'
+import type { RefreshTokenItem } from '../../types/roles'
 
 const { Search } = Input
 
@@ -60,6 +68,7 @@ const UserList: React.FC = () => {
   // 表单状态
   const [formOpen, setFormOpen] = useState(false)
   const [currentUser, setCurrentUser] = useState<UserDetail | null>(null)
+  const [formLoading, setFormLoading] = useState(false)
 
   // 多选状态
   const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([])
@@ -70,7 +79,9 @@ const UserList: React.FC = () => {
   const [batchDeleteOpen, setBatchDeleteOpen] = useState(false)
   const [roleAssignOpen, setRoleAssignOpen] = useState(false)
   const [permissionsOpen, setPermissionsOpen] = useState(false)
-  const [changePasswordOpen, setChangePasswordOpen] = useState(false)
+  const [resetPasswordOpen, setResetPasswordOpen] = useState(false)
+  const [statusModalOpen, setStatusModalOpen] = useState(false)
+  const [tokensOpen, setTokensOpen] = useState(false)
   const [operatingUser, setOperatingUser] = useState<UserDetail | null>(null)
   
   // 删除确认弹窗状态
@@ -84,11 +95,22 @@ const UserList: React.FC = () => {
     keyword: '',
     status: undefined,
     role: undefined,
+    includeDeleted: false,
   })
 
   const { data, isLoading } = useQuery({
     queryKey: ['users', params],
     queryFn: () => usersApi.getList(params),
+  })
+
+  const {
+    data: tokensData = [],
+    isLoading: tokensLoading,
+    refetch: refetchTokens,
+  } = useQuery({
+    queryKey: ['user-tokens', operatingUser?.id],
+    queryFn: () => usersApi.getTokens(operatingUser!.id),
+    enabled: tokensOpen && !!operatingUser?.id,
   })
 
   // 获取角色列表
@@ -99,6 +121,24 @@ const UserList: React.FC = () => {
 
   // 角色列表（从 API 获取）
   const availableRoles = rolesData || []
+
+  const revokeTokenMutation = useMutation({
+    mutationFn: ({ userId, tokenId }: { userId: string; tokenId: string }) => usersApi.revokeToken(userId, tokenId),
+    onSuccess: () => {
+      message.success('令牌已吊销')
+      refetchTokens()
+    },
+    onError: (error: Error) => message.error(error.message || '令牌吊销失败'),
+  })
+
+  const revokeAllTokensMutation = useMutation({
+    mutationFn: (userId: string) => usersApi.revokeAllTokens(userId),
+    onSuccess: (result) => {
+      message.success(`已吊销 ${result.revokedCount} 个令牌`)
+      refetchTokens()
+    },
+    onError: (error: Error) => message.error(error.message || '吊销全部令牌失败'),
+  })
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => usersApi.delete(id),
@@ -132,17 +172,74 @@ const UserList: React.FC = () => {
   }, [])
 
   // 处理编辑
-  const handleEdit = useCallback((user: UserDetail) => {
-    setCurrentUser(user)
-    setFormOpen(true)
-  }, [])
+  const handleEdit = useCallback(
+    async (user: UserDetail) => {
+      setFormLoading(true)
+      try {
+        const detail = await usersApi.getById(user.id)
+        setCurrentUser(detail)
+        setFormOpen(true)
+      } catch (error) {
+        message.error(error instanceof Error ? error.message : '获取用户详情失败')
+      } finally {
+        setFormLoading(false)
+      }
+    },
+    []
+  )
 
   // 处理表单提交
   const handleSubmit = async (values: UserFormData) => {
     if (currentUser) {
-      await usersApi.update(currentUser.id, values)
+      const {
+        status,
+        avatarFile,
+        student,
+        teacher,
+        admin,
+        ...userData
+      } = values
+      console.debug('[UserList] submit user update', {
+        userId: currentUser.id,
+        currentStatus: currentUser.status,
+        requestedStatus: status,
+        userData,
+      })
+      if (avatarFile) {
+        const avatarResult = await usersApi.uploadAvatar(currentUser.id, avatarFile)
+        userData.avatarUrl = avatarResult.avatarUrl
+      }
+
+      await usersApi.update(currentUser.id, userData)
+
+      if (student?.majorId && student.majorId !== currentUser.student?.majorId) {
+        await usersApi.updateStudentMajor(currentUser.id, student.majorId)
+      }
+
+      if (teacher?.departmentId && teacher.departmentId !== currentUser.teacher?.departmentId) {
+        await usersApi.updateTeacherDepartment(currentUser.id, teacher.departmentId)
+      }
+
+      if (admin?.departmentId && admin.departmentId !== currentUser.admin?.departmentId) {
+        await usersApi.updateAdminDepartment(currentUser.id, admin.departmentId)
+      }
+
+      if (status && status !== currentUser.status) {
+        console.debug('[UserList] submit user status update', {
+          userId: currentUser.id,
+          status,
+        })
+        await usersApi.updateStatus(currentUser.id, status)
+      }
     } else {
-      await usersApi.create(values)
+      if (!values.password) {
+        throw new Error('创建用户时密码不能为空')
+      }
+      console.debug('[UserList] submit user create', values)
+      await usersApi.create({
+        ...values,
+        password: values.password,
+      })
     }
     queryClient.invalidateQueries({ queryKey: ['users'] })
   }
@@ -151,6 +248,31 @@ const UserList: React.FC = () => {
   const handleOpenDeleteModal = useCallback((user: UserDetail) => {
     setUserToDelete(user)
     setDeleteModalOpen(true)
+  }, [])
+
+  const openRoleAssign = useCallback((user: UserDetail) => {
+    setOperatingUser(user)
+    setRoleAssignOpen(true)
+  }, [])
+
+  const openPermissions = useCallback((user: UserDetail) => {
+    setOperatingUser(user)
+    setPermissionsOpen(true)
+  }, [])
+
+  const openTokens = useCallback((user: UserDetail) => {
+    setOperatingUser(user)
+    setTokensOpen(true)
+  }, [])
+
+  const openResetPassword = useCallback((user: UserDetail) => {
+    setOperatingUser(user)
+    setResetPasswordOpen(true)
+  }, [])
+
+  const openStatusModal = useCallback((user: UserDetail) => {
+    setOperatingUser(user)
+    setStatusModalOpen(true)
   }, [])
 
   // 搜索处理（防抖）
@@ -174,6 +296,11 @@ const UserList: React.FC = () => {
     setParams((prev) => ({ ...prev, role: value, page: 1 }))
   }, [])
 
+  // 已删除用户筛选
+  const handleIncludeDeletedChange = useCallback((checked: boolean) => {
+    setParams((prev) => ({ ...prev, includeDeleted: checked, page: 1 }))
+  }, [])
+
   // 分页变化
   const handleTableChange = useCallback(
     (pagination: { current?: number; pageSize?: number }) => {
@@ -194,6 +321,7 @@ const UserList: React.FC = () => {
       keyword: '',
       status: undefined,
       role: undefined,
+      includeDeleted: false,
     })
   }, [])
 
@@ -317,16 +445,55 @@ const UserList: React.FC = () => {
               >
                 编辑
               </Button>
-              {isSuperAdmin && (
+              <Button type="link" size="small" onClick={() => openStatusModal(record)}>
+                状态
+              </Button>
+              <Button
+                type="link"
+                size="small"
+                icon={<SafetyOutlined />}
+                onClick={() => openPermissions(record)}
+              >
+                权限
+              </Button>
+              <Button
+                type="link"
+                size="small"
+                icon={<ApiOutlined />}
+                onClick={() => openTokens(record)}
+              >
+                令牌
+              </Button>
+              {isAdmin && (
                 <Button
                   type="link"
                   size="small"
-                  danger
-                  icon={<DeleteOutlined />}
-                  onClick={() => handleOpenDeleteModal(record)}
+                  icon={<TeamOutlined />}
+                  onClick={() => openRoleAssign(record)}
                 >
-                  删除
+                  角色
                 </Button>
+              )}
+              {isSuperAdmin && (
+                <>
+                  <Button
+                    type="link"
+                    size="small"
+                    icon={<KeyOutlined />}
+                    onClick={() => openResetPassword(record)}
+                  >
+                    重置密码
+                  </Button>
+                  <Button
+                    type="link"
+                    size="small"
+                    danger
+                    icon={<DeleteOutlined />}
+                    onClick={() => handleOpenDeleteModal(record)}
+                  >
+                    删除
+                  </Button>
+                </>
               )}
             </Space>
           ),
@@ -335,7 +502,17 @@ const UserList: React.FC = () => {
 
       return baseColumns
     },
-    [isAdmin, isSuperAdmin, handleEdit, handleOpenDeleteModal]
+    [
+      isAdmin,
+      isSuperAdmin,
+      handleEdit,
+      handleOpenDeleteModal,
+      openPermissions,
+      openTokens,
+      openResetPassword,
+      openRoleAssign,
+      openStatusModal,
+    ]
   )
 
   const users = data?.items || []
@@ -416,9 +593,13 @@ const UserList: React.FC = () => {
                         { label: '学生', value: 'student' },
                         { label: '教师', value: 'teacher' },
                         { label: '管理员', value: 'admin' },
-                      ]
+                  ]
                 }
               />
+              <Space size={8}>
+                <span>包含已删除</span>
+                <Switch checked={params.includeDeleted} onChange={handleIncludeDeletedChange} />
+              </Space>
               <Button icon={<ReloadOutlined />} onClick={handleReset}>
                 重置
               </Button>
@@ -464,6 +645,7 @@ const UserList: React.FC = () => {
       <UserForm
         open={formOpen}
         user={currentUser}
+        loading={formLoading}
         roles={availableRoles}
         onSubmit={handleSubmit}
         onCancel={() => {
@@ -530,18 +712,59 @@ const UserList: React.FC = () => {
         }}
       />
 
-      {/* 修改密码 */}
-      <ChangePasswordModal
-        open={changePasswordOpen}
+      {/* 重置密码 */}
+      <ResetPasswordModal
+        open={resetPasswordOpen}
         userId={operatingUser?.id || ''}
         userName={operatingUser?.realName || operatingUser?.username || ''}
         onCancel={() => {
-          setChangePasswordOpen(false)
+          setResetPasswordOpen(false)
           setOperatingUser(null)
         }}
         onSuccess={() => {
-          setChangePasswordOpen(false)
+          setResetPasswordOpen(false)
           setOperatingUser(null)
+        }}
+      />
+
+      <UserStatusModal
+        open={statusModalOpen}
+        userId={operatingUser?.id || ''}
+        userName={operatingUser?.realName || operatingUser?.username || ''}
+        currentStatus={operatingUser?.status}
+        onCancel={() => {
+          setStatusModalOpen(false)
+          setOperatingUser(null)
+        }}
+        onSuccess={() => {
+          setStatusModalOpen(false)
+          setOperatingUser(null)
+        }}
+      />
+
+      <UserTokensModal
+        visible={tokensOpen}
+        userName={operatingUser?.realName || operatingUser?.username || ''}
+        data={tokensData}
+        loading={tokensLoading}
+        onClose={() => {
+          setTokensOpen(false)
+          setOperatingUser(null)
+        }}
+        onRevoke={(token: RefreshTokenItem) => {
+          if (!operatingUser) return
+          revokeTokenMutation.mutate({ userId: operatingUser.id, tokenId: token.id })
+        }}
+        onRevokeAll={() => {
+          if (!operatingUser) return
+          Modal.confirm({
+            title: '确认吊销全部令牌',
+            content: `确定要吊销 ${operatingUser.realName || operatingUser.username} 的全部活跃令牌吗？`,
+            okText: '确定',
+            cancelText: '取消',
+            okButtonProps: { danger: true },
+            onOk: () => revokeAllTokensMutation.mutateAsync(operatingUser.id),
+          })
         }}
       />
 

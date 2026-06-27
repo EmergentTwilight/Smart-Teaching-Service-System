@@ -4,7 +4,9 @@
  */
 import 'dotenv/config'
 // Express 5 已内置 async 错误处理支持，无需 express-async-errors
-import express, { type Application } from 'express'
+import express, { type Application, type RequestHandler } from 'express'
+import path from 'path'
+import { fileURLToPath } from 'url'
 import cors from 'cors'
 import helmet from 'helmet'
 import compression from 'compression'
@@ -15,10 +17,26 @@ import { requestLogger } from './shared/middleware/requestLogger.js'
 import authRoutes from './modules/info-management/auth.routes.js'
 import usersRoutes from './modules/info-management/users.routes.js'
 import departmentsRoutes from './modules/info-management/departments.routes.js'
+import majorRoutes from './modules/info-management/major.routes.js'
+import courseRoutes from './modules/info-management/course.routes.js'
+import curriculumRoutes from './modules/info-management/curriculums.routes.js'
+import rolesRoutes, { permissionsRouter } from './modules/info-management/roles.routes.js'
+import scoreEntryRoutes from './modules/score-management/score-entry.routes.js'
+import scoreModificationRoutes from './modules/score-management/score-modification.routes.js'
+import scoreQueryRoutes from './modules/score-management/score-query.routes.js'
+import scoreAnalyticsRoutes from './modules/score-management/score-analytics.routes.js'
+import forumRoutes from './modules/forum/forum.routes.js'
 import config from './config/index.js'
 import { swaggerSpec } from './config/swagger.js'
 import swaggerUi from 'swagger-ui-express'
 import prisma from './shared/prisma/client.js'
+// group B part
+import classroomRoutes from './modules/course-arrangement/classroom/classroom.routes.js'
+import scheduleRoutes from './modules/course-arrangement/schedule/schedule.routes.js'
+import timetableRoutes from './modules/course-arrangement/timetable/timetable.routes.js'
+import ruleRoutes from './modules/course-arrangement/rules/rule.routes.js'
+import autoScheduleRoutes from './modules/course-arrangement/auto-schedule/auto-schedule.routes.js'
+import courseSelectionRoutes from './modules/course-selection/course-selection.routes.js'
 
 const app: Application = express()
 const PORT = config.port
@@ -66,7 +84,7 @@ app.use(
 )
 
 // 安全头部
-app.use(helmet())
+app.use(helmet() as unknown as RequestHandler)
 
 // 响应压缩
 app.use(compression())
@@ -77,9 +95,13 @@ app.use(requestLogger)
 // HTTP 请求日志
 app.use(morgan('dev'))
 
-// JSON 解析
-app.use(express.json())
-app.use(express.urlencoded({ extended: true }))
+// 静态文件服务（头像等上传资源）
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
+app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')))
+
+// JSON 解析。论坛附件以 Base64 放在 JSON body 中，10MB 文件会膨胀到约 13.4MB。
+app.use(express.json({ limit: '16mb' }))
+app.use(express.urlencoded({ extended: true, limit: '16mb' }))
 
 // ==================== API 文档 (Swagger) ====================
 app.use(
@@ -162,6 +184,24 @@ app.get('/api/health', async (req, res) => {
 app.use('/api/v1/auth', authRoutes)
 app.use('/api/v1/users', usersRoutes)
 app.use('/api/v1/departments', departmentsRoutes)
+// score-management (F module)
+app.use('/api/v1/majors', majorRoutes)
+app.use('/api/v1/courses', courseRoutes)
+app.use('/api/v1/curriculums', curriculumRoutes)
+app.use('/api/v1/roles', rolesRoutes)
+app.use('/api/v1/permissions', permissionsRouter)
+app.use('/api/v1/course-offerings/:courseOfferingId/scores', scoreEntryRoutes)
+app.use('/api/v1/scores', scoreModificationRoutes)
+app.use('/api/v1', scoreQueryRoutes)
+app.use('/api/v1', scoreAnalyticsRoutes)
+// course-arrangement (B module)
+app.use('/api/v1/course-arrangement/classrooms', classroomRoutes)
+app.use('/api/v1/course-arrangement/schedules', scheduleRoutes)
+app.use('/api/v1/course-arrangement/timetables', timetableRoutes)
+app.use('/api/v1/course-arrangement/rules', ruleRoutes)
+app.use('/api/v1/course-arrangement/auto-schedule', autoScheduleRoutes)
+app.use('/api/v1/forum', forumRoutes)
+app.use('/api/v1/course-selection', courseSelectionRoutes)
 
 // 404 处理
 app.use((req, res) => {

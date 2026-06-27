@@ -38,7 +38,7 @@ const Register: React.FC = () => {
         email: values.email,
         realName: values.realName,
       });
-      message.success('注册成功！请查看邮箱激活账号');
+      message.success('注册成功，请登录');
       navigate('/login');
     } catch (error: unknown) {
       message.error(extractErrorMessage(error, '注册失败，请重试'));

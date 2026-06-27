@@ -307,10 +307,10 @@ pre code {
 
 ### 1.3 参考文档
 
-- 项目要求文档：`docs/project-requirements.md`。
-- A 组接口设计文档：`origin/dev/A:docs/apis/A-information-management.md`，版本 3.0.0，更新时间 2026-06-05。
-- 数据库设计文档：`origin/dev/A:docs/database-design.md`，版本 1.5.0，更新时间 2026-06-18。
-- A 组实现基线：`origin/dev/A` 最新提交 `4096bf7 fix(A): keep admin role in seed`。
+- 项目需求规格说明。
+- 基础信息管理接口设计文档 v3.0.0，更新时间 2026-06-05。
+- 数据库设计文档 v1.5.0，更新时间 2026-06-18。
+- A 组基础信息管理子系统当前集成版本。
 - UML 图建模语义参考 [OMG UML 2.5.1 Specification](https://www.omg.org/spec/UML/2.5.1/About-UML)。
 - Markdown 图表语法参考 Mermaid 官方文档：[classDiagram](https://mermaid.js.org/syntax/classDiagram.html)、[erDiagram](https://mermaid.js.org/syntax/entityRelationshipDiagram.html)、[sequenceDiagram](https://mermaid.js.org/syntax/sequenceDiagram.html)、[flowchart](https://mermaid.js.org/syntax/flowchart.html)。
 
@@ -452,7 +452,7 @@ flowchart TB
 
 ### 4.2 A 基础信息管理数据/类设计
 
-A 子系统是 STSS 的身份、权限和基础主数据中心。以下设计以 `origin/dev/A` 的 `docs/apis/A-information-management.md` v3.0.0 和 `docs/database-design.md` v1.5.0 为准；若实现代码与文档存在细微差异，本节采用文档口径。
+A 子系统是 STSS 的身份、权限和基础主数据中心。以下设计以基础信息管理接口设计文档 v3.0.0 和数据库设计文档 v1.5.0 为准；若实现代码与文档存在细微差异，本节采用文档口径。
 
 图示约定：类图采用 UML 类、关联、组合和多重性表达；实体关系图采用 Crow's Foot 多重性表达；Markdown 落地语法使用 Mermaid。
 
